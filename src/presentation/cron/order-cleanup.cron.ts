@@ -1,9 +1,9 @@
-import { CronJob } from "cron";
+import cron from "node-cron";
 import { PedidoAdminService } from "../services/pedidosServices/pedidoAdmin.service";
 
 // Ejecutar todos los días a las 04:00 AM
 export const startOrderCleanupCron = () => {
-    const job = new CronJob("0 4 * * *", async () => {
+    cron.schedule("0 4 * * *", async () => {
         console.log("[CRON] Iniciando purga de pedidos antiguos...");
         try {
             const pedidoAdminService = new PedidoAdminService();
@@ -14,5 +14,5 @@ export const startOrderCleanupCron = () => {
         }
     });
 
-    job.start();
+
 };
