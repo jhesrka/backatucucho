@@ -1,0 +1,82 @@
+import { Router } from "express";
+import {
+  UseradminRoutes,
+  UserMotorizadoRoutes,
+  UserRoutes,
+} from "./controller";
+import { PostRoutes } from "./post/router";
+import { StorieRoutes } from "./stories/storie.routes";
+import { LikeRoutes } from "./likes/like.routes";
+import { WalletRoutes } from "./wallet/wallet.routes";
+import { RechargeRoutes } from "./recharge/recharge-request.routes";
+import { CategoriaRoutes } from "./categorias/categoria.routes";
+import { ProductoRoutes } from "./producto/producto.routes";
+import { NegocioRoutes } from "./negocios/negocio.routes";
+import { TipoProductoRoutes } from "./tipoProducto/tipoProducto.routes";
+import { NegocioAdminRoutes } from "./negocios/negocio-admin.routes";
+import { PedidoUsuarioRoutes } from "./pedidos/pedidoUsuario.routes";
+import { PedidoAdminRoutes } from "./pedidos/pedidoAdmin.routes";
+import { SubscriptionRoutes } from "./controller/suscriptionController/suscription.routes";
+import { PriceRoutes } from "./controller/priceController/price.routes";
+import { DeliverySettingsAdminRoutes } from "./pedidos/deliverySettingsAdmin.routes";
+import { ProductoAdminRoutes } from "./producto/productoAdmin.routes";
+import { PedidoMotoRoutes } from "./pedidos/pedidoMoto.routes";
+import { BusinessRoutes } from "./business/routes";
+import { DashboardRoutes } from "./dashboard/dashboard.routes";
+
+export class AppRoutes {
+  //cuando hay metodoos estaticos no necesitams instanciar
+  static get routes(): Router {
+    const router = Router();
+    //USUARIO
+    router.use("/api/user", UserRoutes.routes);
+    router.use("/api/wallet", WalletRoutes.routes);
+
+    //ADMINISTRADOR
+    router.use("/api/useradmin", UseradminRoutes.routes);
+
+    //MOTORIZADOS
+    router.use("/api/motorizados", UserMotorizadoRoutes.routes);
+
+    //RECARGA
+    router.use("/api/recharge", RechargeRoutes.routes);
+
+    //POST
+    router.use("/api/likes", LikeRoutes.routes);
+
+    router.use("/api/post", PostRoutes.routes);
+    router.use("/api/storie", StorieRoutes.routes);
+
+    router.use("/api/categorias", CategoriaRoutes.routes);
+    router.use("/api/negocios", NegocioRoutes.routes);
+    router.use("/api/negocios/admin", NegocioAdminRoutes.routes);
+    router.use("/api/productos", ProductoRoutes.routes);
+    router.use("/api/productos/admin", ProductoAdminRoutes.routes);
+    router.use("/api/tipoproducto", TipoProductoRoutes.routes);
+
+    router.use("/api/pedidos-usuario", PedidoUsuarioRoutes.routes);
+    router.use("/api/pedidos-admin", PedidoAdminRoutes.routes);
+
+    // PRECIOS
+    router.use("/api/price", PriceRoutes.routes);
+
+    // SUSCRIPCIONES
+    router.use("/api/subscriptions", SubscriptionRoutes.routes);
+
+
+    // 👇 NUEVA RUTA: Delivery Settings (GLOBAL)
+    router.use("/api/admin/delivery-settings", DeliverySettingsAdminRoutes.routes);
+
+    // ⭐ NUEVA RUTA DE PEDIDOS PARA MOTORIZADOS
+    router.use("/api/pedido-moto", PedidoMotoRoutes.routes);
+
+    // 🏢 NUEVA RUTA: Business Dashboard
+    router.use("/api/business", BusinessRoutes.routes);
+
+    // 📊 NUEVA RUTA: Admin Dashboard Stats
+    router.use("/api/admin/dashboard", DashboardRoutes.routes);
+
+    return router;
+
+  }
+}

@@ -1,0 +1,1068 @@
+2026-01-14T01:21:56.056Z - DEBUG: Loading models via require...
+2026-01-14T01:21:56.060Z - DEBUG: Models loaded successfully
+2026-01-14T01:21:56.061Z - DEBUG: Dates calculated
+2026-01-14T01:21:56.061Z - DEBUG: Querying Pedidos...
+2026-01-14T01:21:56.583Z - DEBUG: Pedidos found: 2
+2026-01-14T01:22:01.357Z - DEBUG: Finished getAdminStats
+2026-01-14T01:22:56.366Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:22:56.366Z - DEBUG: Dates calculated
+2026-01-14T01:22:56.367Z - DEBUG: Querying Pedidos...
+2026-01-14T01:22:57.050Z - DEBUG: Pedidos found: 2
+2026-01-14T01:23:01.578Z - DEBUG: Finished getAdminStats
+2026-01-14T01:23:56.054Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:23:56.055Z - DEBUG: Dates calculated
+2026-01-14T01:23:56.055Z - DEBUG: Querying Pedidos...
+2026-01-14T01:23:56.193Z - DEBUG: Pedidos found: 2
+2026-01-14T01:24:01.583Z - DEBUG: Finished getAdminStats
+2026-01-14T01:24:09.732Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:24:09.732Z - DEBUG: Dates calculated
+2026-01-14T01:24:09.733Z - DEBUG: Querying Pedidos...
+2026-01-14T01:24:10.087Z - DEBUG: Pedidos found: 2
+2026-01-14T01:24:16.978Z - DEBUG: Finished getAdminStats
+2026-01-14T01:24:16.984Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:24:16.985Z - DEBUG: Dates calculated
+2026-01-14T01:24:16.985Z - DEBUG: Querying Pedidos...
+2026-01-14T01:24:17.308Z - DEBUG: Pedidos found: 2
+2026-01-14T01:24:23.089Z - DEBUG: Finished getAdminStats
+2026-01-14T01:24:36.036Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:24:36.037Z - DEBUG: Dates calculated
+2026-01-14T01:24:36.038Z - DEBUG: Querying Pedidos...
+2026-01-14T01:24:39.566Z - DEBUG: Pedidos found: 2
+2026-01-14T01:24:45.044Z - DEBUG: Finished getAdminStats
+2026-01-14T01:25:35.706Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:25:35.706Z - DEBUG: Dates calculated
+2026-01-14T01:25:35.707Z - DEBUG: Querying Pedidos...
+2026-01-14T01:25:36.025Z - DEBUG: Pedidos found: 2
+2026-01-14T01:25:43.408Z - DEBUG: Finished getAdminStats
+2026-01-14T01:26:36.026Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:26:36.026Z - DEBUG: Dates calculated
+2026-01-14T01:26:36.026Z - DEBUG: Querying Pedidos...
+2026-01-14T01:26:38.096Z - DEBUG: Pedidos found: 2
+2026-01-14T01:26:45.034Z - DEBUG: Finished getAdminStats
+2026-01-14T01:27:35.702Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:27:35.703Z - DEBUG: Dates calculated
+2026-01-14T01:27:35.704Z - DEBUG: Querying Pedidos...
+2026-01-14T01:27:36.048Z - DEBUG: Pedidos found: 2
+2026-01-14T01:27:39.829Z - DEBUG: Finished getAdminStats
+2026-01-14T01:28:36.028Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:28:36.029Z - DEBUG: Dates calculated
+2026-01-14T01:28:36.029Z - DEBUG: Querying Pedidos...
+2026-01-14T01:28:38.936Z - DEBUG: Pedidos found: 2
+2026-01-14T01:28:44.117Z - DEBUG: Finished getAdminStats
+2026-01-14T01:29:36.913Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:29:36.914Z - DEBUG: Dates calculated
+2026-01-14T01:29:36.914Z - DEBUG: Querying Pedidos...
+2026-01-14T01:29:40.971Z - DEBUG: Pedidos found: 2
+2026-01-14T01:29:47.742Z - DEBUG: Finished getAdminStats
+2026-01-14T01:30:35.718Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:30:35.719Z - DEBUG: Dates calculated
+2026-01-14T01:30:35.719Z - DEBUG: Querying Pedidos...
+2026-01-14T01:30:36.201Z - DEBUG: Pedidos found: 2
+2026-01-14T01:30:48.059Z - DEBUG: Finished getAdminStats
+2026-01-14T01:31:36.042Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:31:36.043Z - DEBUG: Dates calculated
+2026-01-14T01:31:36.045Z - DEBUG: Querying Pedidos...
+2026-01-14T01:31:38.451Z - DEBUG: Pedidos found: 2
+2026-01-14T01:31:42.534Z - DEBUG: Finished getAdminStats
+2026-01-14T01:32:35.698Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:32:35.699Z - DEBUG: Dates calculated
+2026-01-14T01:32:35.699Z - DEBUG: Querying Pedidos...
+2026-01-14T01:32:36.289Z - DEBUG: Pedidos found: 2
+2026-01-14T01:32:40.974Z - DEBUG: Finished getAdminStats
+2026-01-14T01:33:35.998Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:33:35.999Z - DEBUG: Dates calculated
+2026-01-14T01:33:35.999Z - DEBUG: Querying Pedidos...
+2026-01-14T01:33:36.584Z - DEBUG: Pedidos found: 2
+2026-01-14T01:33:42.033Z - DEBUG: Finished getAdminStats
+2026-01-14T01:34:35.700Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:34:35.700Z - DEBUG: Dates calculated
+2026-01-14T01:34:35.701Z - DEBUG: Querying Pedidos...
+2026-01-14T01:34:36.443Z - DEBUG: Pedidos found: 2
+2026-01-14T01:34:39.491Z - DEBUG: Finished getAdminStats
+2026-01-14T01:35:36.007Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:35:36.008Z - DEBUG: Dates calculated
+2026-01-14T01:35:36.008Z - DEBUG: Querying Pedidos...
+2026-01-14T01:35:36.570Z - DEBUG: Pedidos found: 2
+2026-01-14T01:35:41.248Z - DEBUG: Finished getAdminStats
+2026-01-14T01:36:35.706Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:36:35.707Z - DEBUG: Dates calculated
+2026-01-14T01:36:35.707Z - DEBUG: Querying Pedidos...
+2026-01-14T01:36:36.028Z - DEBUG: Pedidos found: 2
+2026-01-14T01:36:40.058Z - DEBUG: Finished getAdminStats
+2026-01-14T01:37:36.904Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:37:36.905Z - DEBUG: Dates calculated
+2026-01-14T01:37:36.905Z - DEBUG: Querying Pedidos...
+2026-01-14T01:37:37.560Z - DEBUG: Pedidos found: 2
+2026-01-14T01:37:42.669Z - DEBUG: Finished getAdminStats
+2026-01-14T01:39:17.888Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:39:17.889Z - DEBUG: Dates calculated
+2026-01-14T01:39:17.889Z - DEBUG: Querying Pedidos...
+2026-01-14T01:39:18.519Z - DEBUG: Pedidos found: 2
+2026-01-14T01:39:28.483Z - DEBUG: Finished getAdminStats
+2026-01-14T01:40:17.610Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:40:17.611Z - DEBUG: Dates calculated
+2026-01-14T01:40:17.612Z - DEBUG: Querying Pedidos...
+2026-01-14T01:40:18.032Z - DEBUG: Pedidos found: 2
+2026-01-14T01:40:23.986Z - DEBUG: Finished getAdminStats
+2026-01-14T01:40:46.596Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:40:46.596Z - DEBUG: Dates calculated
+2026-01-14T01:40:46.597Z - DEBUG: Querying Pedidos...
+2026-01-14T01:40:49.892Z - DEBUG: Pedidos found: 2
+2026-01-14T01:40:54.363Z - DEBUG: Finished getAdminStats
+2026-01-14T01:41:35.719Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:41:35.719Z - DEBUG: Dates calculated
+2026-01-14T01:41:35.720Z - DEBUG: Querying Pedidos...
+2026-01-14T01:41:36.056Z - DEBUG: Pedidos found: 2
+2026-01-14T01:41:40.320Z - DEBUG: Finished getAdminStats
+2026-01-14T01:42:36.010Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:42:36.011Z - DEBUG: Dates calculated
+2026-01-14T01:42:36.011Z - DEBUG: Querying Pedidos...
+2026-01-14T01:42:39.826Z - DEBUG: Pedidos found: 2
+2026-01-14T01:42:46.589Z - DEBUG: Finished getAdminStats
+2026-01-14T01:43:35.699Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:43:35.700Z - DEBUG: Dates calculated
+2026-01-14T01:43:35.700Z - DEBUG: Querying Pedidos...
+2026-01-14T01:43:36.037Z - DEBUG: Pedidos found: 2
+2026-01-14T01:43:42.054Z - DEBUG: Finished getAdminStats
+2026-01-14T01:44:36.029Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:44:36.030Z - DEBUG: Dates calculated
+2026-01-14T01:44:36.032Z - DEBUG: Querying Pedidos...
+2026-01-14T01:44:36.669Z - DEBUG: Pedidos found: 2
+2026-01-14T01:44:45.849Z - DEBUG: Finished getAdminStats
+2026-01-14T01:45:35.697Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:45:35.698Z - DEBUG: Dates calculated
+2026-01-14T01:45:35.698Z - DEBUG: Querying Pedidos...
+2026-01-14T01:45:36.027Z - DEBUG: Pedidos found: 2
+2026-01-14T01:45:40.977Z - DEBUG: Finished getAdminStats
+2026-01-14T01:46:36.033Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:46:36.035Z - DEBUG: Dates calculated
+2026-01-14T01:46:36.036Z - DEBUG: Querying Pedidos...
+2026-01-14T01:46:41.196Z - DEBUG: Pedidos found: 2
+2026-01-14T01:46:47.874Z - DEBUG: Finished getAdminStats
+2026-01-14T01:47:35.713Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:47:35.714Z - DEBUG: Dates calculated
+2026-01-14T01:47:35.715Z - DEBUG: Querying Pedidos...
+2026-01-14T01:47:36.584Z - DEBUG: Pedidos found: 2
+2026-01-14T01:47:41.425Z - DEBUG: Finished getAdminStats
+2026-01-14T01:48:36.034Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:48:36.035Z - DEBUG: Dates calculated
+2026-01-14T01:48:36.035Z - DEBUG: Querying Pedidos...
+2026-01-14T01:48:40.108Z - DEBUG: Pedidos found: 2
+2026-01-14T01:48:45.831Z - DEBUG: Finished getAdminStats
+2026-01-14T01:49:35.691Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:49:35.691Z - DEBUG: Dates calculated
+2026-01-14T01:49:35.692Z - DEBUG: Querying Pedidos...
+2026-01-14T01:49:36.111Z - DEBUG: Pedidos found: 2
+2026-01-14T01:49:40.075Z - DEBUG: Finished getAdminStats
+2026-01-14T01:50:36.012Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:50:36.013Z - DEBUG: Dates calculated
+2026-01-14T01:50:36.013Z - DEBUG: Querying Pedidos...
+2026-01-14T01:50:37.919Z - DEBUG: Pedidos found: 2
+2026-01-14T01:50:39.391Z - DEBUG: Finished getAdminStats
+2026-01-14T01:51:35.709Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:51:35.710Z - DEBUG: Dates calculated
+2026-01-14T01:51:35.711Z - DEBUG: Querying Pedidos...
+2026-01-14T01:51:35.997Z - DEBUG: Pedidos found: 2
+2026-01-14T01:51:40.203Z - DEBUG: Finished getAdminStats
+2026-01-14T01:52:25.443Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:52:25.444Z - DEBUG: Dates calculated
+2026-01-14T01:52:29.901Z - DEBUG: Finished getAdminStats
+2026-01-14T01:52:59.309Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:52:59.310Z - DEBUG: Dates calculated
+2026-01-14T01:53:05.454Z - DEBUG: Finished getAdminStats
+2026-01-14T01:53:59.617Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:53:59.619Z - DEBUG: Dates calculated
+2026-01-14T01:54:04.368Z - DEBUG: Finished getAdminStats
+2026-01-14T01:54:59.311Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:54:59.311Z - DEBUG: Dates calculated
+2026-01-14T01:55:05.586Z - DEBUG: Finished getAdminStats
+2026-01-14T01:55:59.618Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:55:59.619Z - DEBUG: Dates calculated
+2026-01-14T01:56:03.328Z - DEBUG: Finished getAdminStats
+2026-01-14T01:56:59.303Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:56:59.304Z - DEBUG: Dates calculated
+2026-01-14T01:57:05.016Z - DEBUG: Finished getAdminStats
+2026-01-14T01:57:59.901Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:57:59.902Z - DEBUG: Dates calculated
+2026-01-14T01:58:04.043Z - DEBUG: Finished getAdminStats
+2026-01-14T01:58:59.603Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T01:58:59.604Z - DEBUG: Dates calculated
+2026-01-14T01:59:04.046Z - DEBUG: Finished getAdminStats
+2026-01-14T02:00:17.941Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:00:17.942Z - DEBUG: Dates calculated
+2026-01-14T02:00:26.594Z - DEBUG: Finished getAdminStats
+2026-01-14T02:01:03.233Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:01:03.234Z - DEBUG: Dates calculated
+2026-01-14T02:01:07.979Z - DEBUG: Finished getAdminStats
+2026-01-14T02:01:59.609Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:01:59.611Z - DEBUG: Dates calculated
+2026-01-14T02:02:03.702Z - DEBUG: Finished getAdminStats
+2026-01-14T02:03:14.879Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:03:14.879Z - DEBUG: Dates calculated
+2026-01-14T02:03:19.065Z - DEBUG: Finished getAdminStats
+2026-01-14T02:04:08.649Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:04:08.650Z - DEBUG: Dates calculated
+2026-01-14T02:04:12.804Z - DEBUG: Finished getAdminStats
+2026-01-14T02:04:15.076Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:04:15.076Z - DEBUG: Dates calculated
+2026-01-14T02:04:20.005Z - DEBUG: Finished getAdminStats
+2026-01-14T02:04:20.009Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:04:20.010Z - DEBUG: Dates calculated
+2026-01-14T02:04:25.285Z - DEBUG: Finished getAdminStats
+2026-01-14T02:05:09.239Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:05:09.240Z - DEBUG: Dates calculated
+2026-01-14T02:05:16.822Z - DEBUG: Finished getAdminStats
+2026-01-14T02:05:17.371Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:05:17.372Z - DEBUG: Dates calculated
+2026-01-14T02:05:24.866Z - DEBUG: Finished getAdminStats
+2026-01-14T02:06:17.678Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:06:17.679Z - DEBUG: Dates calculated
+2026-01-14T02:06:22.929Z - DEBUG: Finished getAdminStats
+2026-01-14T02:07:17.345Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:07:17.346Z - DEBUG: Dates calculated
+2026-01-14T02:07:22.654Z - DEBUG: Finished getAdminStats
+2026-01-14T02:08:17.672Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:08:17.672Z - DEBUG: Dates calculated
+2026-01-14T02:08:23.519Z - DEBUG: Finished getAdminStats
+2026-01-14T02:09:17.348Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:09:17.349Z - DEBUG: Dates calculated
+2026-01-14T02:09:23.651Z - DEBUG: Finished getAdminStats
+2026-01-14T02:10:17.641Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:10:17.642Z - DEBUG: Dates calculated
+2026-01-14T02:10:22.622Z - DEBUG: Finished getAdminStats
+2026-01-14T02:11:17.607Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:11:17.608Z - DEBUG: Dates calculated
+2026-01-14T02:11:24.037Z - DEBUG: Finished getAdminStats
+2026-01-14T02:12:17.919Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:12:17.919Z - DEBUG: Dates calculated
+2026-01-14T02:12:20.957Z - DEBUG: Finished getAdminStats
+2026-01-14T02:13:17.615Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:13:17.616Z - DEBUG: Dates calculated
+2026-01-14T02:13:19.607Z - DEBUG: Finished getAdminStats
+2026-01-14T02:14:17.954Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:14:17.955Z - DEBUG: Dates calculated
+2026-01-14T02:14:20.350Z - DEBUG: Finished getAdminStats
+2026-01-14T02:15:17.625Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:15:17.625Z - DEBUG: Dates calculated
+2026-01-14T02:15:22.813Z - DEBUG: Finished getAdminStats
+2026-01-14T02:16:17.654Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:16:17.655Z - DEBUG: Dates calculated
+2026-01-14T02:16:22.336Z - DEBUG: Finished getAdminStats
+2026-01-14T02:17:17.353Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:17:17.354Z - DEBUG: Dates calculated
+2026-01-14T02:17:21.309Z - DEBUG: Finished getAdminStats
+2026-01-14T02:18:17.663Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:18:17.664Z - DEBUG: Dates calculated
+2026-01-14T02:18:24.058Z - DEBUG: Finished getAdminStats
+2026-01-14T02:19:17.355Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:19:17.355Z - DEBUG: Dates calculated
+2026-01-14T02:19:22.462Z - DEBUG: Finished getAdminStats
+2026-01-14T02:20:17.659Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:20:17.659Z - DEBUG: Dates calculated
+2026-01-14T02:20:23.948Z - DEBUG: Finished getAdminStats
+2026-01-14T02:21:17.354Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:21:17.355Z - DEBUG: Dates calculated
+2026-01-14T02:21:22.697Z - DEBUG: Finished getAdminStats
+2026-01-14T02:22:17.899Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:22:17.900Z - DEBUG: Dates calculated
+2026-01-14T02:22:24.589Z - DEBUG: Finished getAdminStats
+2026-01-14T02:22:29.405Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:22:29.405Z - DEBUG: Dates calculated
+2026-01-14T02:22:36.052Z - DEBUG: Finished getAdminStats
+2026-01-14T02:23:17.352Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:23:17.352Z - DEBUG: Dates calculated
+2026-01-14T02:23:23.013Z - DEBUG: Finished getAdminStats
+2026-01-14T02:24:17.654Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:24:17.654Z - DEBUG: Dates calculated
+2026-01-14T02:24:22.228Z - DEBUG: Finished getAdminStats
+2026-01-14T02:25:17.339Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:25:17.339Z - DEBUG: Dates calculated
+2026-01-14T02:25:22.147Z - DEBUG: Finished getAdminStats
+2026-01-14T02:26:15.760Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:26:15.761Z - DEBUG: Dates calculated
+2026-01-14T02:26:17.286Z - DEBUG: Finished getAdminStats
+2026-01-14T02:27:15.447Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:27:15.447Z - DEBUG: Dates calculated
+2026-01-14T02:27:21.023Z - DEBUG: Finished getAdminStats
+2026-01-14T02:28:15.763Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:28:15.764Z - DEBUG: Dates calculated
+2026-01-14T02:28:22.848Z - DEBUG: Finished getAdminStats
+2026-01-14T02:29:15.449Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:29:15.450Z - DEBUG: Dates calculated
+2026-01-14T02:29:24.638Z - DEBUG: Finished getAdminStats
+2026-01-14T02:30:15.783Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:30:15.783Z - DEBUG: Dates calculated
+2026-01-14T02:30:22.570Z - DEBUG: Finished getAdminStats
+2026-01-14T02:31:12.890Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:31:12.890Z - DEBUG: Dates calculated
+2026-01-14T02:31:15.500Z - DEBUG: Finished getAdminStats
+2026-01-14T02:31:15.502Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:31:15.502Z - DEBUG: Dates calculated
+2026-01-14T02:31:20.784Z - DEBUG: Finished getAdminStats
+2026-01-14T02:31:20.792Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:31:20.794Z - DEBUG: Dates calculated
+2026-01-14T02:31:24.308Z - DEBUG: Finished getAdminStats
+2026-01-14T02:32:18.495Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:32:18.495Z - DEBUG: Dates calculated
+2026-01-14T02:32:27.259Z - DEBUG: Finished getAdminStats
+2026-01-14T02:33:18.488Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:33:18.489Z - DEBUG: Dates calculated
+2026-01-14T02:33:20.715Z - DEBUG: Finished getAdminStats
+2026-01-14T02:33:20.885Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:33:20.886Z - DEBUG: Dates calculated
+2026-01-14T02:33:23.835Z - DEBUG: Finished getAdminStats
+2026-01-14T02:34:21.908Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:34:21.909Z - DEBUG: Dates calculated
+2026-01-14T02:34:26.575Z - DEBUG: Finished getAdminStats
+2026-01-14T02:35:21.592Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:35:21.593Z - DEBUG: Dates calculated
+2026-01-14T02:35:28.378Z - DEBUG: Finished getAdminStats
+2026-01-14T02:36:07.190Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:36:07.191Z - DEBUG: Dates calculated
+2026-01-14T02:36:09.576Z - DEBUG: Finished getAdminStats
+2026-01-14T02:37:06.893Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:37:06.894Z - DEBUG: Dates calculated
+2026-01-14T02:37:14.812Z - DEBUG: Finished getAdminStats
+2026-01-14T02:38:07.191Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:38:07.191Z - DEBUG: Dates calculated
+2026-01-14T02:38:15.023Z - DEBUG: Finished getAdminStats
+2026-01-14T02:38:34.922Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:38:34.923Z - DEBUG: Dates calculated
+2026-01-14T02:38:40.080Z - DEBUG: Finished getAdminStats
+2026-01-14T02:39:06.895Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:39:06.896Z - DEBUG: Dates calculated
+2026-01-14T02:39:18.035Z - DEBUG: Finished getAdminStats
+2026-01-14T02:40:07.590Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:40:07.591Z - DEBUG: Dates calculated
+2026-01-14T02:40:11.525Z - DEBUG: Finished getAdminStats
+2026-01-14T02:40:54.912Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:40:54.914Z - DEBUG: Dates calculated
+2026-01-14T02:41:09.571Z - DEBUG: Finished getAdminStats
+2026-01-14T02:41:09.578Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:41:09.579Z - DEBUG: Dates calculated
+2026-01-14T02:41:23.582Z - DEBUG: Finished getAdminStats
+2026-01-14T02:41:23.592Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:41:23.594Z - DEBUG: Dates calculated
+2026-01-14T02:41:29.061Z - DEBUG: Finished getAdminStats
+2026-01-14T02:42:21.204Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:42:21.204Z - DEBUG: Dates calculated
+2026-01-14T02:42:33.528Z - DEBUG: Finished getAdminStats
+2026-01-14T02:43:20.903Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:43:20.904Z - DEBUG: Dates calculated
+2026-01-14T02:43:27.814Z - DEBUG: Finished getAdminStats
+2026-01-14T02:44:21.201Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:44:21.201Z - DEBUG: Dates calculated
+2026-01-14T02:44:33.319Z - DEBUG: Finished getAdminStats
+2026-01-14T02:45:20.889Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:45:20.890Z - DEBUG: Dates calculated
+2026-01-14T02:45:25.758Z - DEBUG: Finished getAdminStats
+2026-01-14T02:46:20.890Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:46:20.891Z - DEBUG: Dates calculated
+2026-01-14T02:46:20.891Z - DEBUG: Date Range: 2026-01-13T05:00:00.000Z - 2026-01-14T04:59:59.999Z
+2026-01-14T02:46:20.995Z - DEBUG: Suscripciones hoy found: 0
+2026-01-14T02:46:21.619Z - DEBUG: Stories hoy found: 0 (Price: 1)
+2026-01-14T02:46:30.536Z - DEBUG: Finished getAdminStats
+2026-01-14T02:47:20.904Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:47:20.905Z - DEBUG: Dates calculated
+2026-01-14T02:47:20.906Z - DEBUG: Date Range: 2026-01-13T05:00:00.000Z - 2026-01-14T04:59:59.999Z
+2026-01-14T02:47:21.034Z - DEBUG: Suscripciones hoy (by updatedAt) found: 1
+2026-01-14T02:47:21.547Z - DEBUG: Stories hoy found: 0 (Price: 1)
+2026-01-14T02:47:25.752Z - DEBUG: Finished getAdminStats
+2026-01-14T02:47:25.759Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:47:25.760Z - DEBUG: Dates calculated
+2026-01-14T02:47:25.760Z - DEBUG: Date Range: 2026-01-13T05:00:00.000Z - 2026-01-14T04:59:59.999Z
+2026-01-14T02:47:26.040Z - DEBUG: Suscripciones hoy (by updatedAt) found: 1
+2026-01-14T02:47:26.585Z - DEBUG: Stories hoy found: 0 (Price: 1)
+2026-01-14T02:47:32.608Z - DEBUG: Finished getAdminStats
+2026-01-14T02:48:20.912Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:48:20.913Z - DEBUG: Dates calculated
+2026-01-14T02:48:20.914Z - DEBUG: Date Range: 2026-01-13T05:00:00.000Z - 2026-01-14T04:59:59.999Z
+2026-01-14T02:48:21.128Z - DEBUG: Suscripciones hoy (by updatedAt) found: 1
+2026-01-14T02:48:21.570Z - DEBUG: Stories hoy found: 0 (Price: 1)
+2026-01-14T02:48:24.070Z - DEBUG: Finished getAdminStats
+2026-01-14T02:49:21.195Z - DEBUG: Starting getAdminStats - Restored Top Level Imports
+2026-01-14T02:49:21.195Z - DEBUG: Dates calculated
+2026-01-14T02:49:21.196Z - DEBUG: Date Range: 2026-01-13T05:00:00.000Z - 2026-01-14T04:59:59.999Z
+2026-01-14T02:49:24.824Z - DEBUG: Suscripciones hoy (by updatedAt) found: 1
+2026-01-14T02:49:25.085Z - DEBUG: Stories hoy found: 0 (Price: 1)
+2026-01-14T02:49:27.068Z - DEBUG: Finished getAdminStats
+2026-01-14T02:50:10.457Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T02:50:10.457Z - DEBUG: Server Time: 2026-01-14T02:50:10.457Z
+2026-01-14T02:50:10.458Z - DEBUG: User Local Time (~): 2026-01-13T21:50:10.457Z
+2026-01-14T02:50:10.458Z - DEBUG: Query Range (UTC): 2026-01-13T10:00:00.000Z - 2026-01-14T09:59:59.999Z
+2026-01-14T02:50:10.458Z - DEBUG: Date Range: 2026-01-13T10:00:00.000Z - 2026-01-14T09:59:59.999Z
+2026-01-14T02:50:10.572Z - DEBUG: Suscripciones hoy (by updatedAt) found: 1
+2026-01-14T02:50:10.860Z - DEBUG: Stories hoy found: 0 (Price: 1)
+2026-01-14T02:50:13.740Z - DEBUG: Finished getAdminStats
+2026-01-14T02:50:20.889Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T02:50:20.890Z - DEBUG: Server Time: 2026-01-14T02:50:20.890Z
+2026-01-14T02:50:20.890Z - DEBUG: User Local Time (~): 2026-01-13T21:50:20.890Z
+2026-01-14T02:50:20.891Z - DEBUG: Query Range (UTC): 2026-01-13T10:00:00.000Z - 2026-01-14T09:59:59.999Z
+2026-01-14T02:50:20.892Z - DEBUG: Date Range: 2026-01-13T10:00:00.000Z - 2026-01-14T09:59:59.999Z
+2026-01-14T02:50:21.027Z - DEBUG: Suscripciones hoy (by updatedAt) found: 1
+2026-01-14T02:50:21.633Z - DEBUG: Stories hoy found: 0 (Price: 1)
+2026-01-14T02:50:27.041Z - DEBUG: Finished getAdminStats
+2026-01-14T02:51:21.210Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T02:51:21.211Z - DEBUG: Server Time: 2026-01-14T02:51:21.211Z
+2026-01-14T02:51:21.211Z - DEBUG: User Local Time (~): 2026-01-13T21:51:21.211Z
+2026-01-14T02:51:21.212Z - DEBUG: Query Range (UTC): 2026-01-13T10:00:00.000Z - 2026-01-14T09:59:59.999Z
+2026-01-14T02:51:21.212Z - DEBUG: Date Range: 2026-01-13T10:00:00.000Z - 2026-01-14T09:59:59.999Z
+2026-01-14T02:51:21.480Z - DEBUG: Suscripciones hoy (by updatedAt) found: 1
+2026-01-14T02:51:21.764Z - DEBUG: Stories hoy found: 1 (Price: 1)
+2026-01-14T02:51:27.409Z - DEBUG: Finished getAdminStats
+2026-01-14T02:51:27.417Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T02:51:27.418Z - DEBUG: Server Time: 2026-01-14T02:51:27.418Z
+2026-01-14T02:51:27.419Z - DEBUG: User Local Time (~): 2026-01-13T21:51:27.418Z
+2026-01-14T02:51:27.420Z - DEBUG: Query Range (UTC): 2026-01-13T10:00:00.000Z - 2026-01-14T09:59:59.999Z
+2026-01-14T02:51:27.421Z - DEBUG: Date Range: 2026-01-13T10:00:00.000Z - 2026-01-14T09:59:59.999Z
+2026-01-14T02:51:27.587Z - DEBUG: Suscripciones hoy (by updatedAt) found: 1
+2026-01-14T02:51:28.036Z - DEBUG: Stories hoy found: 1 (Price: 1)
+2026-01-14T02:51:33.894Z - DEBUG: Finished getAdminStats
+2026-01-14T02:52:21.219Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T02:52:21.221Z - DEBUG: Server Time: 2026-01-14T02:52:21.221Z
+2026-01-14T02:52:21.223Z - DEBUG: User Local Time (~): 2026-01-13T21:52:21.221Z
+2026-01-14T02:52:21.225Z - DEBUG: Query Range (UTC): 2026-01-13T10:00:00.000Z - 2026-01-14T09:59:59.999Z
+2026-01-14T02:52:21.227Z - DEBUG: Date Range: 2026-01-13T10:00:00.000Z - 2026-01-14T09:59:59.999Z
+2026-01-14T02:52:23.947Z - DEBUG: Suscripciones hoy (by updatedAt) found: 1
+2026-01-14T02:52:24.219Z - DEBUG: Stories hoy found: 1 (Price: 1)
+2026-01-14T02:52:31.225Z - DEBUG: Finished getAdminStats
+2026-01-14T02:53:20.891Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T02:53:20.892Z - DEBUG: Server Time: 2026-01-14T02:53:20.892Z
+2026-01-14T02:53:20.892Z - DEBUG: User Local Time (~): 2026-01-13T21:53:20.892Z
+2026-01-14T02:53:20.893Z - DEBUG: Query Range (UTC): 2026-01-13T10:00:00.000Z - 2026-01-14T09:59:59.999Z
+2026-01-14T02:53:20.894Z - DEBUG: Date Range: 2026-01-13T10:00:00.000Z - 2026-01-14T09:59:59.999Z
+2026-01-14T02:53:21.053Z - DEBUG: Suscripciones hoy (by updatedAt) found: 1
+2026-01-14T02:53:21.951Z - DEBUG: Stories hoy found: 1 (Price: 1)
+2026-01-14T02:53:27.695Z - DEBUG: Finished getAdminStats
+2026-01-14T02:54:21.189Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T02:54:21.189Z - DEBUG: Server Time: 2026-01-14T02:54:21.189Z
+2026-01-14T02:54:21.189Z - DEBUG: User Local Time (~): 2026-01-13T21:54:21.189Z
+2026-01-14T02:54:21.190Z - DEBUG: Query Range (UTC): 2026-01-13T10:00:00.000Z - 2026-01-14T09:59:59.999Z
+2026-01-14T02:54:21.190Z - DEBUG: Date Range: 2026-01-13T10:00:00.000Z - 2026-01-14T09:59:59.999Z
+2026-01-14T02:54:25.294Z - DEBUG: Suscripciones hoy (by updatedAt) found: 1
+2026-01-14T02:54:26.578Z - DEBUG: Stories hoy found: 1 (Price: 1)
+2026-01-14T02:54:33.038Z - DEBUG: Finished getAdminStats
+2026-01-14T02:55:20.890Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T02:55:20.891Z - DEBUG: Server Time: 2026-01-14T02:55:20.891Z
+2026-01-14T02:55:20.892Z - DEBUG: User Local Time (~): 2026-01-13T21:55:20.891Z
+2026-01-14T02:55:20.893Z - DEBUG: Query Range (UTC): 2026-01-13T10:00:00.000Z - 2026-01-14T09:59:59.999Z
+2026-01-14T02:55:20.893Z - DEBUG: Date Range: 2026-01-13T10:00:00.000Z - 2026-01-14T09:59:59.999Z
+2026-01-14T02:55:21.031Z - DEBUG: Suscripciones hoy (by updatedAt) found: 1
+2026-01-14T02:55:22.838Z - DEBUG: Stories hoy found: 1 (Price: 1)
+2026-01-14T02:55:28.937Z - DEBUG: Finished getAdminStats
+2026-01-14T02:56:21.201Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T02:56:21.203Z - DEBUG: Server Time: 2026-01-14T02:56:21.203Z
+2026-01-14T02:56:21.205Z - DEBUG: User Local Time (~): 2026-01-13T21:56:21.203Z
+2026-01-14T02:56:21.208Z - DEBUG: Query Range (UTC): 2026-01-13T10:00:00.000Z - 2026-01-14T09:59:59.999Z
+2026-01-14T02:56:21.208Z - DEBUG: Date Range: 2026-01-13T10:00:00.000Z - 2026-01-14T09:59:59.999Z
+2026-01-14T02:56:23.341Z - DEBUG: Suscripciones hoy (by updatedAt) found: 1
+2026-01-14T02:56:23.948Z - DEBUG: Stories hoy found: 1 (Price: 1)
+2026-01-14T02:56:28.042Z - DEBUG: Finished getAdminStats
+2026-01-14T02:57:20.901Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T02:57:20.901Z - DEBUG: Server Time: 2026-01-14T02:57:20.901Z
+2026-01-14T02:57:20.902Z - DEBUG: User Local Time (~): 2026-01-13T21:57:20.901Z
+2026-01-14T02:57:20.902Z - DEBUG: Query Range (UTC): 2026-01-13T10:00:00.000Z - 2026-01-14T09:59:59.999Z
+2026-01-14T02:57:20.903Z - DEBUG: Date Range: 2026-01-13T10:00:00.000Z - 2026-01-14T09:59:59.999Z
+2026-01-14T02:57:21.048Z - DEBUG: Suscripciones hoy (by updatedAt) found: 1
+2026-01-14T02:57:21.567Z - DEBUG: Stories hoy found: 1 (Price: 1)
+2026-01-14T02:57:26.355Z - DEBUG: Finished getAdminStats
+2026-01-14T03:04:02.894Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T03:04:02.895Z - DEBUG: Server Time: 2026-01-14T03:04:02.895Z
+2026-01-14T03:04:02.896Z - DEBUG: User Local Time (~): 2026-01-13T22:04:02.895Z
+2026-01-14T03:04:02.896Z - DEBUG: Query Range (UTC): 2026-01-13T10:00:00.000Z - 2026-01-14T09:59:59.999Z
+2026-01-14T03:04:02.897Z - DEBUG: Date Range: 2026-01-13T10:00:00.000Z - 2026-01-14T09:59:59.999Z
+2026-01-14T03:04:03.051Z - DEBUG: Suscripciones hoy (by updatedAt) found: 1
+2026-01-14T03:04:03.162Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T03:04:06.035Z - DEBUG: Finished getAdminStats
+2026-01-14T03:04:06.041Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T03:04:06.041Z - DEBUG: Server Time: 2026-01-14T03:04:06.041Z
+2026-01-14T03:04:06.042Z - DEBUG: User Local Time (~): 2026-01-13T22:04:06.041Z
+2026-01-14T03:04:06.045Z - DEBUG: Query Range (UTC): 2026-01-13T10:00:00.000Z - 2026-01-14T09:59:59.999Z
+2026-01-14T03:04:06.045Z - DEBUG: Date Range: 2026-01-13T10:00:00.000Z - 2026-01-14T09:59:59.999Z
+2026-01-14T03:04:06.306Z - DEBUG: Suscripciones hoy (by updatedAt) found: 1
+2026-01-14T03:04:06.566Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T03:04:10.084Z - DEBUG: Finished getAdminStats
+2026-01-14T03:05:03.211Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T03:05:03.212Z - DEBUG: Server Time: 2026-01-14T03:05:03.212Z
+2026-01-14T03:05:03.213Z - DEBUG: User Local Time (~): 2026-01-13T22:05:03.212Z
+2026-01-14T03:05:03.213Z - DEBUG: Query Range (UTC): 2026-01-13T10:00:00.000Z - 2026-01-14T09:59:59.999Z
+2026-01-14T03:05:03.214Z - DEBUG: Date Range: 2026-01-13T10:00:00.000Z - 2026-01-14T09:59:59.999Z
+2026-01-14T03:05:04.395Z - DEBUG: Suscripciones hoy (by updatedAt) found: 1
+2026-01-14T03:05:04.510Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T03:05:05.795Z - DEBUG: Finished getAdminStats
+2026-01-14T03:06:02.899Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T03:06:02.899Z - DEBUG: Server Time: 2026-01-14T03:06:02.899Z
+2026-01-14T03:06:02.900Z - DEBUG: User Local Time (~): 2026-01-13T22:06:02.899Z
+2026-01-14T03:06:02.900Z - DEBUG: Query Range (UTC): 2026-01-13T10:00:00.000Z - 2026-01-14T09:59:59.999Z
+2026-01-14T03:06:02.901Z - DEBUG: Date Range: 2026-01-13T10:00:00.000Z - 2026-01-14T09:59:59.999Z
+2026-01-14T03:06:03.017Z - DEBUG: Suscripciones hoy (by updatedAt) found: 1
+2026-01-14T03:06:03.271Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T03:06:04.849Z - DEBUG: Finished getAdminStats
+2026-01-14T03:07:03.215Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T03:07:03.215Z - DEBUG: Server Time: 2026-01-14T03:07:03.215Z
+2026-01-14T03:07:03.215Z - DEBUG: User Local Time (~): 2026-01-13T22:07:03.215Z
+2026-01-14T03:07:03.216Z - DEBUG: Query Range (UTC): 2026-01-13T10:00:00.000Z - 2026-01-14T09:59:59.999Z
+2026-01-14T03:07:03.216Z - DEBUG: Date Range: 2026-01-13T10:00:00.000Z - 2026-01-14T09:59:59.999Z
+2026-01-14T03:07:04.397Z - DEBUG: Suscripciones hoy (by updatedAt) found: 1
+2026-01-14T03:07:04.501Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T03:07:05.641Z - DEBUG: Finished getAdminStats
+2026-01-14T03:08:02.891Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T03:08:02.891Z - DEBUG: Server Time: 2026-01-14T03:08:02.891Z
+2026-01-14T03:08:02.892Z - DEBUG: User Local Time (~): 2026-01-13T22:08:02.891Z
+2026-01-14T03:08:02.892Z - DEBUG: Query Range (UTC): 2026-01-13T10:00:00.000Z - 2026-01-14T09:59:59.999Z
+2026-01-14T03:08:02.893Z - DEBUG: Date Range: 2026-01-13T10:00:00.000Z - 2026-01-14T09:59:59.999Z
+2026-01-14T03:08:02.999Z - DEBUG: Suscripciones hoy (by updatedAt) found: 1
+2026-01-14T03:08:03.139Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T03:08:05.896Z - DEBUG: Finished getAdminStats
+2026-01-14T03:09:03.192Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T03:09:03.192Z - DEBUG: Server Time: 2026-01-14T03:09:03.192Z
+2026-01-14T03:09:03.193Z - DEBUG: User Local Time (~): 2026-01-13T22:09:03.192Z
+2026-01-14T03:09:03.193Z - DEBUG: Query Range (UTC): 2026-01-13T10:00:00.000Z - 2026-01-14T09:59:59.999Z
+2026-01-14T03:09:03.193Z - DEBUG: Date Range: 2026-01-13T10:00:00.000Z - 2026-01-14T09:59:59.999Z
+2026-01-14T03:09:04.478Z - DEBUG: Suscripciones hoy (by updatedAt) found: 1
+2026-01-14T03:09:04.679Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T03:09:06.188Z - DEBUG: Finished getAdminStats
+2026-01-14T03:09:09.344Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T03:09:09.344Z - DEBUG: Server Time: 2026-01-14T03:09:09.344Z
+2026-01-14T03:09:09.345Z - DEBUG: User Local Time (~): 2026-01-13T22:09:09.344Z
+2026-01-14T03:09:09.345Z - DEBUG: Query Range (UTC): 2026-01-13T10:00:00.000Z - 2026-01-14T09:59:59.999Z
+2026-01-14T03:09:09.345Z - DEBUG: Date Range: 2026-01-13T10:00:00.000Z - 2026-01-14T09:59:59.999Z
+2026-01-14T03:09:09.590Z - DEBUG: Suscripciones hoy (by updatedAt) found: 1
+2026-01-14T03:09:09.975Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T03:09:11.313Z - DEBUG: Finished getAdminStats
+2026-01-14T22:48:52.562Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T22:48:52.565Z - DEBUG: Server Time: 2026-01-14T22:48:52.565Z
+2026-01-14T22:48:52.566Z - DEBUG: User Local Time (~): 2026-01-14T17:48:52.565Z
+2026-01-14T22:48:52.566Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T22:48:52.567Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T22:48:52.994Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T22:48:53.413Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T22:48:58.620Z - DEBUG: Finished getAdminStats
+2026-01-14T22:49:53.072Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T22:49:53.073Z - DEBUG: Server Time: 2026-01-14T22:49:53.073Z
+2026-01-14T22:49:53.073Z - DEBUG: User Local Time (~): 2026-01-14T17:49:53.073Z
+2026-01-14T22:49:53.074Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T22:49:53.074Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T22:49:53.395Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T22:49:53.961Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T22:49:57.034Z - DEBUG: Finished getAdminStats
+2026-01-14T22:50:53.079Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T22:50:53.080Z - DEBUG: Server Time: 2026-01-14T22:50:53.080Z
+2026-01-14T22:50:53.081Z - DEBUG: User Local Time (~): 2026-01-14T17:50:53.080Z
+2026-01-14T22:50:53.082Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T22:50:53.083Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T22:50:53.683Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T22:50:53.846Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T22:51:04.040Z - DEBUG: Finished getAdminStats
+2026-01-14T22:51:53.090Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T22:51:53.090Z - DEBUG: Server Time: 2026-01-14T22:51:53.090Z
+2026-01-14T22:51:53.091Z - DEBUG: User Local Time (~): 2026-01-14T17:51:53.090Z
+2026-01-14T22:51:53.092Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T22:51:53.092Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T22:51:53.793Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T22:51:54.050Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T22:51:58.116Z - DEBUG: Finished getAdminStats
+2026-01-14T22:52:53.118Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T22:52:53.118Z - DEBUG: Server Time: 2026-01-14T22:52:53.118Z
+2026-01-14T22:52:53.119Z - DEBUG: User Local Time (~): 2026-01-14T17:52:53.118Z
+2026-01-14T22:52:53.119Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T22:52:53.119Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T22:52:53.597Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T22:52:54.039Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T22:53:02.750Z - DEBUG: Finished getAdminStats
+2026-01-14T22:53:53.062Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T22:53:53.062Z - DEBUG: Server Time: 2026-01-14T22:53:53.062Z
+2026-01-14T22:53:53.063Z - DEBUG: User Local Time (~): 2026-01-14T17:53:53.062Z
+2026-01-14T22:53:53.063Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T22:53:53.063Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T22:53:53.556Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T22:53:53.754Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T22:53:58.818Z - DEBUG: Finished getAdminStats
+2026-01-14T22:54:38.114Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T22:54:38.114Z - DEBUG: Server Time: 2026-01-14T22:54:38.114Z
+2026-01-14T22:54:38.115Z - DEBUG: User Local Time (~): 2026-01-14T17:54:38.114Z
+2026-01-14T22:54:38.115Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T22:54:38.116Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T22:54:38.792Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T22:54:39.052Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T22:54:44.285Z - DEBUG: Finished getAdminStats
+2026-01-14T22:54:52.553Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T22:54:52.553Z - DEBUG: Server Time: 2026-01-14T22:54:52.553Z
+2026-01-14T22:54:52.554Z - DEBUG: User Local Time (~): 2026-01-14T17:54:52.553Z
+2026-01-14T22:54:52.554Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T22:54:52.555Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T22:54:53.046Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T22:54:53.419Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T22:54:57.031Z - DEBUG: Finished getAdminStats
+2026-01-14T22:55:53.053Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T22:55:53.054Z - DEBUG: Server Time: 2026-01-14T22:55:53.054Z
+2026-01-14T22:55:53.056Z - DEBUG: User Local Time (~): 2026-01-14T17:55:53.054Z
+2026-01-14T22:55:53.056Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T22:55:53.056Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T22:55:53.675Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T22:55:53.976Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T22:56:00.143Z - DEBUG: Finished getAdminStats
+2026-01-14T22:57:11.069Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T22:57:11.070Z - DEBUG: Server Time: 2026-01-14T22:57:11.069Z
+2026-01-14T22:57:11.070Z - DEBUG: User Local Time (~): 2026-01-14T17:57:11.069Z
+2026-01-14T22:57:11.070Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T22:57:11.071Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T22:57:12.048Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T22:57:12.266Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T22:57:15.020Z - DEBUG: Finished getAdminStats
+2026-01-14T22:58:11.061Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T22:58:11.062Z - DEBUG: Server Time: 2026-01-14T22:58:11.062Z
+2026-01-14T22:58:11.062Z - DEBUG: User Local Time (~): 2026-01-14T17:58:11.062Z
+2026-01-14T22:58:11.062Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T22:58:11.063Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T22:58:11.694Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T22:58:11.898Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T22:58:16.465Z - DEBUG: Finished getAdminStats
+2026-01-14T22:59:11.047Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T22:59:11.047Z - DEBUG: Server Time: 2026-01-14T22:59:11.047Z
+2026-01-14T22:59:11.048Z - DEBUG: User Local Time (~): 2026-01-14T17:59:11.047Z
+2026-01-14T22:59:11.048Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T22:59:11.048Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T22:59:11.731Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T22:59:11.959Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T22:59:16.496Z - DEBUG: Finished getAdminStats
+2026-01-14T23:00:11.046Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:00:11.046Z - DEBUG: Server Time: 2026-01-14T23:00:11.046Z
+2026-01-14T23:00:11.047Z - DEBUG: User Local Time (~): 2026-01-14T18:00:11.046Z
+2026-01-14T23:00:11.047Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:00:11.048Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:00:11.183Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:00:11.307Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:00:12.606Z - DEBUG: Finished getAdminStats
+2026-01-14T23:01:11.103Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:01:11.103Z - DEBUG: Server Time: 2026-01-14T23:01:11.103Z
+2026-01-14T23:01:11.104Z - DEBUG: User Local Time (~): 2026-01-14T18:01:11.103Z
+2026-01-14T23:01:11.104Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:01:11.104Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:01:11.726Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:01:11.945Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:01:14.048Z - DEBUG: Finished getAdminStats
+2026-01-14T23:02:11.056Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:02:11.057Z - DEBUG: Server Time: 2026-01-14T23:02:11.057Z
+2026-01-14T23:02:11.057Z - DEBUG: User Local Time (~): 2026-01-14T18:02:11.057Z
+2026-01-14T23:02:11.058Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:02:11.058Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:02:13.290Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:02:13.404Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:02:15.177Z - DEBUG: Finished getAdminStats
+2026-01-14T23:03:11.066Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:03:11.067Z - DEBUG: Server Time: 2026-01-14T23:03:11.067Z
+2026-01-14T23:03:11.067Z - DEBUG: User Local Time (~): 2026-01-14T18:03:11.067Z
+2026-01-14T23:03:11.068Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:03:11.068Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:03:11.427Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:03:11.635Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:03:15.404Z - DEBUG: Finished getAdminStats
+2026-01-14T23:10:11.076Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:10:11.077Z - DEBUG: Server Time: 2026-01-14T23:10:11.076Z
+2026-01-14T23:10:11.077Z - DEBUG: User Local Time (~): 2026-01-14T18:10:11.076Z
+2026-01-14T23:10:11.078Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:10:11.078Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:10:11.877Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:10:12.058Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:10:15.823Z - DEBUG: Finished getAdminStats
+2026-01-14T23:11:11.088Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:11:11.088Z - DEBUG: Server Time: 2026-01-14T23:11:11.088Z
+2026-01-14T23:11:11.089Z - DEBUG: User Local Time (~): 2026-01-14T18:11:11.088Z
+2026-01-14T23:11:11.089Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:11:11.090Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:11:12.040Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:11:12.299Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:11:15.829Z - DEBUG: Finished getAdminStats
+2026-01-14T23:12:11.052Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:12:11.053Z - DEBUG: Server Time: 2026-01-14T23:12:11.053Z
+2026-01-14T23:12:11.054Z - DEBUG: User Local Time (~): 2026-01-14T18:12:11.053Z
+2026-01-14T23:12:11.055Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:12:11.055Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:12:11.482Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:12:11.916Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:12:15.520Z - DEBUG: Finished getAdminStats
+2026-01-14T23:14:11.085Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:14:11.086Z - DEBUG: Server Time: 2026-01-14T23:14:11.085Z
+2026-01-14T23:14:11.086Z - DEBUG: User Local Time (~): 2026-01-14T18:14:11.085Z
+2026-01-14T23:14:11.086Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:14:11.087Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:14:11.618Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:14:12.031Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:14:15.561Z - DEBUG: Finished getAdminStats
+2026-01-14T23:15:11.070Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:15:11.071Z - DEBUG: Server Time: 2026-01-14T23:15:11.071Z
+2026-01-14T23:15:11.071Z - DEBUG: User Local Time (~): 2026-01-14T18:15:11.071Z
+2026-01-14T23:15:11.072Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:15:11.073Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:15:11.184Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:15:11.731Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:15:15.786Z - DEBUG: Finished getAdminStats
+2026-01-14T23:16:11.073Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:16:11.074Z - DEBUG: Server Time: 2026-01-14T23:16:11.074Z
+2026-01-14T23:16:11.074Z - DEBUG: User Local Time (~): 2026-01-14T18:16:11.074Z
+2026-01-14T23:16:11.075Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:16:11.076Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:16:11.870Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:16:12.042Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:16:15.049Z - DEBUG: Finished getAdminStats
+2026-01-14T23:17:11.048Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:17:11.049Z - DEBUG: Server Time: 2026-01-14T23:17:11.049Z
+2026-01-14T23:17:11.049Z - DEBUG: User Local Time (~): 2026-01-14T18:17:11.049Z
+2026-01-14T23:17:11.050Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:17:11.051Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:17:11.706Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:17:12.057Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:17:14.985Z - DEBUG: Finished getAdminStats
+2026-01-14T23:17:53.042Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:17:53.042Z - DEBUG: Server Time: 2026-01-14T23:17:53.042Z
+2026-01-14T23:17:53.043Z - DEBUG: User Local Time (~): 2026-01-14T18:17:53.042Z
+2026-01-14T23:17:53.043Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:17:53.044Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:17:53.643Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:17:54.043Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:17:57.318Z - DEBUG: Finished getAdminStats
+2026-01-14T23:19:11.072Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:19:11.072Z - DEBUG: Server Time: 2026-01-14T23:19:11.072Z
+2026-01-14T23:19:11.072Z - DEBUG: User Local Time (~): 2026-01-14T18:19:11.072Z
+2026-01-14T23:19:11.073Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:19:11.073Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:19:14.032Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:19:14.578Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:19:18.482Z - DEBUG: Finished getAdminStats
+2026-01-14T23:20:11.052Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:20:11.053Z - DEBUG: Server Time: 2026-01-14T23:20:11.053Z
+2026-01-14T23:20:11.053Z - DEBUG: User Local Time (~): 2026-01-14T18:20:11.053Z
+2026-01-14T23:20:11.053Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:20:11.054Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:20:11.746Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:20:12.026Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:20:15.320Z - DEBUG: Finished getAdminStats
+2026-01-14T23:21:11.085Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:21:11.085Z - DEBUG: Server Time: 2026-01-14T23:21:11.085Z
+2026-01-14T23:21:11.086Z - DEBUG: User Local Time (~): 2026-01-14T18:21:11.085Z
+2026-01-14T23:21:11.086Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:21:11.087Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:21:18.040Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:21:18.850Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:21:28.684Z - DEBUG: Finished getAdminStats
+2026-01-14T23:21:53.070Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:21:53.071Z - DEBUG: Server Time: 2026-01-14T23:21:53.071Z
+2026-01-14T23:21:53.072Z - DEBUG: User Local Time (~): 2026-01-14T18:21:53.071Z
+2026-01-14T23:21:53.072Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:21:53.073Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:21:53.727Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:21:54.310Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:22:02.135Z - DEBUG: Finished getAdminStats
+2026-01-14T23:23:11.059Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:23:11.060Z - DEBUG: Server Time: 2026-01-14T23:23:11.059Z
+2026-01-14T23:23:11.060Z - DEBUG: User Local Time (~): 2026-01-14T18:23:11.059Z
+2026-01-14T23:23:11.060Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:23:11.061Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:23:11.629Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:23:12.054Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:23:15.833Z - DEBUG: Finished getAdminStats
+2026-01-14T23:24:11.086Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:24:11.087Z - DEBUG: Server Time: 2026-01-14T23:24:11.087Z
+2026-01-14T23:24:11.088Z - DEBUG: User Local Time (~): 2026-01-14T18:24:11.087Z
+2026-01-14T23:24:11.088Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:24:11.089Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:24:11.626Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:24:12.027Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:24:15.711Z - DEBUG: Finished getAdminStats
+2026-01-14T23:25:11.100Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:25:11.101Z - DEBUG: Server Time: 2026-01-14T23:25:11.101Z
+2026-01-14T23:25:11.102Z - DEBUG: User Local Time (~): 2026-01-14T18:25:11.101Z
+2026-01-14T23:25:11.102Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:25:11.103Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:25:11.472Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:25:11.844Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:25:16.081Z - DEBUG: Finished getAdminStats
+2026-01-14T23:25:53.069Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:25:53.069Z - DEBUG: Server Time: 2026-01-14T23:25:53.069Z
+2026-01-14T23:25:53.070Z - DEBUG: User Local Time (~): 2026-01-14T18:25:53.069Z
+2026-01-14T23:25:53.070Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:25:53.070Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:25:53.871Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:25:54.032Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:25:57.577Z - DEBUG: Finished getAdminStats
+2026-01-14T23:27:11.105Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:27:11.106Z - DEBUG: Server Time: 2026-01-14T23:27:11.106Z
+2026-01-14T23:27:11.106Z - DEBUG: User Local Time (~): 2026-01-14T18:27:11.106Z
+2026-01-14T23:27:11.106Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:27:11.107Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:27:12.035Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:27:12.293Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:27:15.876Z - DEBUG: Finished getAdminStats
+2026-01-14T23:31:11.062Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:31:11.062Z - DEBUG: Server Time: 2026-01-14T23:31:11.062Z
+2026-01-14T23:31:11.063Z - DEBUG: User Local Time (~): 2026-01-14T18:31:11.062Z
+2026-01-14T23:31:11.063Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:31:11.063Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:31:11.839Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:31:12.032Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:31:14.989Z - DEBUG: Finished getAdminStats
+2026-01-14T23:32:11.048Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:32:11.049Z - DEBUG: Server Time: 2026-01-14T23:32:11.049Z
+2026-01-14T23:32:11.049Z - DEBUG: User Local Time (~): 2026-01-14T18:32:11.049Z
+2026-01-14T23:32:11.050Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:32:11.050Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:32:11.190Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:32:11.981Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:32:15.832Z - DEBUG: Finished getAdminStats
+2026-01-14T23:33:11.070Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:33:11.071Z - DEBUG: Server Time: 2026-01-14T23:33:11.070Z
+2026-01-14T23:33:11.071Z - DEBUG: User Local Time (~): 2026-01-14T18:33:11.070Z
+2026-01-14T23:33:11.071Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:33:11.072Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:33:11.986Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:33:12.291Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:33:15.553Z - DEBUG: Finished getAdminStats
+2026-01-14T23:34:11.062Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:34:11.063Z - DEBUG: Server Time: 2026-01-14T23:34:11.063Z
+2026-01-14T23:34:11.063Z - DEBUG: User Local Time (~): 2026-01-14T18:34:11.063Z
+2026-01-14T23:34:11.064Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:34:11.064Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:34:11.863Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:34:12.038Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:34:15.821Z - DEBUG: Finished getAdminStats
+2026-01-14T23:35:11.111Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:35:11.112Z - DEBUG: Server Time: 2026-01-14T23:35:11.112Z
+2026-01-14T23:35:11.112Z - DEBUG: User Local Time (~): 2026-01-14T18:35:11.112Z
+2026-01-14T23:35:11.113Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:35:11.113Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:35:11.783Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:35:11.919Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:35:15.156Z - DEBUG: Finished getAdminStats
+2026-01-14T23:36:11.078Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:36:11.079Z - DEBUG: Server Time: 2026-01-14T23:36:11.079Z
+2026-01-14T23:36:11.080Z - DEBUG: User Local Time (~): 2026-01-14T18:36:11.079Z
+2026-01-14T23:36:11.080Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:36:11.081Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:36:11.503Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:36:12.049Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:36:15.302Z - DEBUG: Finished getAdminStats
+2026-01-14T23:37:11.048Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:37:11.049Z - DEBUG: Server Time: 2026-01-14T23:37:11.049Z
+2026-01-14T23:37:11.049Z - DEBUG: User Local Time (~): 2026-01-14T18:37:11.049Z
+2026-01-14T23:37:11.050Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:37:11.050Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:37:12.002Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:37:12.186Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:37:16.111Z - DEBUG: Finished getAdminStats
+2026-01-14T23:39:11.061Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:39:11.062Z - DEBUG: Server Time: 2026-01-14T23:39:11.062Z
+2026-01-14T23:39:11.062Z - DEBUG: User Local Time (~): 2026-01-14T18:39:11.062Z
+2026-01-14T23:39:11.063Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:39:11.063Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:39:11.401Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:39:12.031Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:39:18.238Z - DEBUG: Finished getAdminStats
+2026-01-14T23:40:11.080Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:40:11.081Z - DEBUG: Server Time: 2026-01-14T23:40:11.080Z
+2026-01-14T23:40:11.081Z - DEBUG: User Local Time (~): 2026-01-14T18:40:11.080Z
+2026-01-14T23:40:11.082Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:40:11.082Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:40:11.233Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:40:11.473Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:40:15.533Z - DEBUG: Finished getAdminStats
+2026-01-14T23:41:11.056Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:41:11.057Z - DEBUG: Server Time: 2026-01-14T23:41:11.057Z
+2026-01-14T23:41:11.057Z - DEBUG: User Local Time (~): 2026-01-14T18:41:11.057Z
+2026-01-14T23:41:11.057Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:41:11.058Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:41:11.257Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:41:11.549Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:41:15.561Z - DEBUG: Finished getAdminStats
+2026-01-14T23:41:53.067Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:41:53.068Z - DEBUG: Server Time: 2026-01-14T23:41:53.067Z
+2026-01-14T23:41:53.068Z - DEBUG: User Local Time (~): 2026-01-14T18:41:53.067Z
+2026-01-14T23:41:53.069Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:41:53.070Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:41:54.050Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:41:54.333Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:41:57.689Z - DEBUG: Finished getAdminStats
+2026-01-14T23:43:11.074Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:43:11.075Z - DEBUG: Server Time: 2026-01-14T23:43:11.075Z
+2026-01-14T23:43:11.075Z - DEBUG: User Local Time (~): 2026-01-14T18:43:11.075Z
+2026-01-14T23:43:11.076Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:43:11.076Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:43:11.215Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:43:11.732Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:43:14.539Z - DEBUG: Finished getAdminStats
+2026-01-14T23:44:11.050Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:44:11.051Z - DEBUG: Server Time: 2026-01-14T23:44:11.051Z
+2026-01-14T23:44:11.051Z - DEBUG: User Local Time (~): 2026-01-14T18:44:11.051Z
+2026-01-14T23:44:11.052Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:44:11.052Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:44:11.330Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:44:12.036Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:44:15.045Z - DEBUG: Finished getAdminStats
+2026-01-14T23:49:11.062Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:49:11.062Z - DEBUG: Server Time: 2026-01-14T23:49:11.062Z
+2026-01-14T23:49:11.063Z - DEBUG: User Local Time (~): 2026-01-14T18:49:11.062Z
+2026-01-14T23:49:11.063Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:49:11.063Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:49:11.463Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:49:12.056Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:49:15.043Z - DEBUG: Finished getAdminStats
+2026-01-14T23:50:11.052Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:50:11.053Z - DEBUG: Server Time: 2026-01-14T23:50:11.053Z
+2026-01-14T23:50:11.053Z - DEBUG: User Local Time (~): 2026-01-14T18:50:11.053Z
+2026-01-14T23:50:11.054Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:50:11.054Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:50:11.851Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:50:12.051Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:50:15.583Z - DEBUG: Finished getAdminStats
+2026-01-14T23:51:11.070Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:51:11.071Z - DEBUG: Server Time: 2026-01-14T23:51:11.071Z
+2026-01-14T23:51:11.071Z - DEBUG: User Local Time (~): 2026-01-14T18:51:11.071Z
+2026-01-14T23:51:11.072Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:51:11.072Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:51:14.501Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:51:14.960Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:51:20.420Z - DEBUG: Finished getAdminStats
+2026-01-14T23:52:11.058Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:52:11.059Z - DEBUG: Server Time: 2026-01-14T23:52:11.059Z
+2026-01-14T23:52:11.059Z - DEBUG: User Local Time (~): 2026-01-14T18:52:11.059Z
+2026-01-14T23:52:11.060Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:52:11.060Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:52:11.179Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:52:11.344Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:52:18.038Z - DEBUG: Finished getAdminStats
+2026-01-14T23:53:11.065Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:53:11.066Z - DEBUG: Server Time: 2026-01-14T23:53:11.066Z
+2026-01-14T23:53:11.066Z - DEBUG: User Local Time (~): 2026-01-14T18:53:11.066Z
+2026-01-14T23:53:11.067Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:53:11.067Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:53:15.054Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:53:15.365Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:53:19.086Z - DEBUG: Finished getAdminStats
+2026-01-14T23:54:11.062Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:54:11.063Z - DEBUG: Server Time: 2026-01-14T23:54:11.063Z
+2026-01-14T23:54:11.064Z - DEBUG: User Local Time (~): 2026-01-14T18:54:11.063Z
+2026-01-14T23:54:11.065Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:54:11.066Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:54:12.047Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:54:12.323Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:54:18.023Z - DEBUG: Finished getAdminStats
+2026-01-14T23:55:11.037Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:55:11.038Z - DEBUG: Server Time: 2026-01-14T23:55:11.037Z
+2026-01-14T23:55:11.038Z - DEBUG: User Local Time (~): 2026-01-14T18:55:11.037Z
+2026-01-14T23:55:11.038Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:55:11.039Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:55:11.725Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:55:12.029Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:55:17.930Z - DEBUG: Finished getAdminStats
+2026-01-14T23:56:11.050Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:56:11.051Z - DEBUG: Server Time: 2026-01-14T23:56:11.051Z
+2026-01-14T23:56:11.051Z - DEBUG: User Local Time (~): 2026-01-14T18:56:11.051Z
+2026-01-14T23:56:11.051Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:56:11.052Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:56:11.171Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:56:11.292Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:56:12.820Z - DEBUG: Finished getAdminStats
+2026-01-14T23:59:11.060Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:59:11.061Z - DEBUG: Server Time: 2026-01-14T23:59:11.060Z
+2026-01-14T23:59:11.061Z - DEBUG: User Local Time (~): 2026-01-14T18:59:11.060Z
+2026-01-14T23:59:11.061Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:59:11.062Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:59:11.717Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:59:11.839Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:59:17.027Z - DEBUG: Finished getAdminStats
+2026-01-14T23:59:47.021Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-14T23:59:47.022Z - DEBUG: Server Time: 2026-01-14T23:59:47.022Z
+2026-01-14T23:59:47.023Z - DEBUG: User Local Time (~): 2026-01-14T18:59:47.022Z
+2026-01-14T23:59:47.023Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:59:47.023Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-14T23:59:48.200Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-14T23:59:48.386Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-14T23:59:50.189Z - DEBUG: Finished getAdminStats
+2026-01-15T00:00:47.063Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-15T00:00:47.064Z - DEBUG: Server Time: 2026-01-15T00:00:47.064Z
+2026-01-15T00:00:47.065Z - DEBUG: User Local Time (~): 2026-01-14T19:00:47.064Z
+2026-01-15T00:00:47.065Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-15T00:00:47.066Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-15T00:00:47.715Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-15T00:00:47.867Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-15T00:00:53.896Z - DEBUG: Finished getAdminStats
+2026-01-15T00:01:47.348Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-15T00:01:47.349Z - DEBUG: Server Time: 2026-01-15T00:01:47.349Z
+2026-01-15T00:01:47.350Z - DEBUG: User Local Time (~): 2026-01-14T19:01:47.349Z
+2026-01-15T00:01:47.351Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-15T00:01:47.352Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-15T00:01:47.472Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-15T00:01:47.731Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-15T00:01:51.596Z - DEBUG: Finished getAdminStats
+2026-01-15T00:02:47.059Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-15T00:02:47.059Z - DEBUG: Server Time: 2026-01-15T00:02:47.059Z
+2026-01-15T00:02:47.060Z - DEBUG: User Local Time (~): 2026-01-14T19:02:47.059Z
+2026-01-15T00:02:47.061Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-15T00:02:47.061Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-15T00:02:47.675Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-15T00:02:47.855Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-15T00:02:51.546Z - DEBUG: Finished getAdminStats
+2026-01-15T00:03:47.354Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-15T00:03:47.355Z - DEBUG: Server Time: 2026-01-15T00:03:47.355Z
+2026-01-15T00:03:47.357Z - DEBUG: User Local Time (~): 2026-01-14T19:03:47.355Z
+2026-01-15T00:03:47.358Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-15T00:03:47.359Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-15T00:03:47.909Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-15T00:03:48.044Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-15T00:03:52.077Z - DEBUG: Finished getAdminStats
+2026-01-15T00:04:47.046Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-15T00:04:47.047Z - DEBUG: Server Time: 2026-01-15T00:04:47.047Z
+2026-01-15T00:04:47.047Z - DEBUG: User Local Time (~): 2026-01-14T19:04:47.047Z
+2026-01-15T00:04:47.048Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-15T00:04:47.048Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-15T00:04:48.062Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-15T00:04:48.315Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-15T00:04:53.822Z - DEBUG: Finished getAdminStats
+2026-01-15T00:05:47.366Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-15T00:05:47.367Z - DEBUG: Server Time: 2026-01-15T00:05:47.367Z
+2026-01-15T00:05:47.368Z - DEBUG: User Local Time (~): 2026-01-14T19:05:47.367Z
+2026-01-15T00:05:47.369Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-15T00:05:47.370Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-15T00:05:48.040Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-15T00:05:48.654Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-15T00:05:57.014Z - DEBUG: Finished getAdminStats
+2026-01-15T00:07:11.367Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-15T00:07:11.369Z - DEBUG: Server Time: 2026-01-15T00:07:11.369Z
+2026-01-15T00:07:11.370Z - DEBUG: User Local Time (~): 2026-01-14T19:07:11.369Z
+2026-01-15T00:07:11.372Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-15T00:07:11.373Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-15T00:07:12.051Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-15T00:07:12.314Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-15T00:07:18.035Z - DEBUG: Finished getAdminStats
+2026-01-15T00:08:11.084Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-15T00:08:11.084Z - DEBUG: Server Time: 2026-01-15T00:08:11.084Z
+2026-01-15T00:08:11.085Z - DEBUG: User Local Time (~): 2026-01-14T19:08:11.084Z
+2026-01-15T00:08:11.085Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-15T00:08:11.086Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-15T00:08:11.370Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-15T00:08:12.028Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-15T00:08:15.681Z - DEBUG: Finished getAdminStats
+2026-01-15T00:08:47.360Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-15T00:08:47.360Z - DEBUG: Server Time: 2026-01-15T00:08:47.360Z
+2026-01-15T00:08:47.360Z - DEBUG: User Local Time (~): 2026-01-14T19:08:47.360Z
+2026-01-15T00:08:47.361Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-15T00:08:47.361Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-15T00:08:48.027Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-15T00:08:48.282Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-15T00:08:52.037Z - DEBUG: Finished getAdminStats
+2026-01-15T00:48:29.584Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-15T00:48:29.585Z - DEBUG: Server Time: 2026-01-15T00:48:29.585Z
+2026-01-15T00:48:29.585Z - DEBUG: User Local Time (~): 2026-01-14T19:48:29.585Z
+2026-01-15T00:48:29.586Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-15T00:48:29.586Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-15T00:48:29.700Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-15T00:48:29.864Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-15T00:48:32.854Z - DEBUG: Finished getAdminStats
+2026-01-15T00:49:30.383Z - DEBUG: Starting getAdminStats - Timezone Fix (UTC-5)
+2026-01-15T00:49:30.384Z - DEBUG: Server Time: 2026-01-15T00:49:30.384Z
+2026-01-15T00:49:30.385Z - DEBUG: User Local Time (~): 2026-01-14T19:49:30.384Z
+2026-01-15T00:49:30.386Z - DEBUG: Query Range (UTC): 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-15T00:49:30.386Z - DEBUG: Date Range: 2026-01-14T10:00:00.000Z - 2026-01-15T09:59:59.999Z
+2026-01-15T00:49:30.798Z - DEBUG: Suscripciones hoy (by updatedAt) found: 0
+2026-01-15T00:49:31.345Z - DEBUG: Stories revenue (SUM total_pagado): 0
+2026-01-15T00:49:33.911Z - DEBUG: Finished getAdminStats
