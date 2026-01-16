@@ -25,6 +25,8 @@ export class Server {
     "http://localhost:5174",
     "http://192.168.100.19:5173",
     "http://192.168.100.19:5174",
+    "https://atucuchoshop.vercel.app",
+    "https://atucucho-web-front.vercel.app"
   ];
 
   constructor(options: Options) {
@@ -33,7 +35,14 @@ export class Server {
     this.server = http.createServer(this.app); // Crear servidor HTTP
     this.io = new SocketIOServer(this.server, {
       cors: {
-        origin: ["http://localhost:5173", "http://localhost:5174", "http://192.168.100.19:5173", "http://192.168.100.19:5174"], // ✅ CORS para Socket.IO (ambos puertos)
+        origin: [
+          "http://localhost:5173",
+          "http://localhost:5174",
+          "http://192.168.100.19:5173",
+          "http://192.168.100.19:5174",
+          "https://atucuchoshop.vercel.app",
+          "https://atucucho-web-front.vercel.app"
+        ], // ✅ CORS para Socket.IO (desarrollo y producción)
         methods: ["GET", "POST"],
       },
     }); // Crear instancia de Socket.IO con configuración de CORS
