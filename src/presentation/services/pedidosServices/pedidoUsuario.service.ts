@@ -138,6 +138,9 @@ export class PedidoUsuarioService {
       costoEnvio: nuevo.costoEnvio,
       distanciaKm: nuevo.distanciaKm,
       createdAt: nuevo.createdAt,
+      metodoPago: nuevo.metodoPago,
+      montoVuelto: nuevo.montoVuelto,
+      comprobantePagoUrl: nuevo.comprobantePagoUrl
     };
   }
   async cambiarEstado(dto: UpdateEstadoPedidoDTO) {
