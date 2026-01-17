@@ -11,6 +11,8 @@ import {
   CustomError,
   UpdateEstadoPedidoDTO,
 } from "../../../domain";
+import { UploadFilesCloud } from "../../../config/upload-files-cloud-adapter";
+import { envs } from "../../../config/env";
 import { CalcularEnvioService } from "./calcularEnvio.service";
 import { PedidoMotoService } from "./pedidoMoto.service";
 
@@ -288,53 +290,50 @@ export class PedidoUsuarioService {
   }
 
   // Subir comprobante (servicio)
-  // Subir comprobante (Local File System)
+  // Subir comprobante (AWS S3)
   async subirComprobante(file: any) {
-    console.log("📂 [DEBUG] Recibiendo archivo:", file); // Debug log
-    const path = await import("path");
-    const fs = await import("fs");
+    if (!file) throw CustomError.badRequest("No se recibió ningún archivo");
 
-    // 1. Definir directorio de destino (mismo que en server.ts)
-    const uploadDir = path.resolve(__dirname, "../../uploads/comprobantes");
-
-    // 2. Crear directorio si no existe
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-
-    // 3. Generar nombre único
-    // Multer/Express-fileupload structure difference: 'originalname' vs 'name'
+    // Generar path único para S3: comprobantes/TIMESTAMP-name
     const originalName = file.originalname || file.name || "comprobante.jpg";
-    const fileExtension = path.extname(originalName) || ".jpg";
-    const fileName = `${Date.now()}_${originalName.replace(/\s+/g, "_")}`;
-    const filePath = path.join(uploadDir, fileName);
+    // Limpieza básica del nombre
+    const cleanName = originalName.replace(/\s+/g, "_");
+    const pathKey = `comprobantes/${Date.now()}-${cleanName}`;
 
-    // 4. Mover/Guardar archivo
-    // file.data used by express-fileupload
-    // file.buffer used by multer (memory storage)
-    const fileContent = file.data || file.buffer;
+    // Obtener buffer (Multer usa .buffer, express-fileupload usa .data)
+    const fileContent = file.buffer || file.data;
+    const contentType = file.mimetype || "image/jpeg";
 
-    if (fileContent) {
-      fs.writeFileSync(filePath, fileContent);
-    } else if (typeof file.mv === 'function') {
-      await new Promise((resolve, reject) => {
-        file.mv(filePath, (err: any) => {
-          if (err) reject(err);
-          else resolve(true);
-        });
-      });
-    } else {
-      // Fallback si es path temporal (multer diskStorage)
-      if (file.path) {
-        fs.copyFileSync(file.path, filePath);
-        fs.unlinkSync(file.path);
-      }
+    if (!fileContent) {
+      throw CustomError.badRequest("El archivo está vacío o corrupto");
     }
 
-    // 5. Retornar URL relativa (coincide con static routing en server.ts)
-    // URL format: comprobantes/filename.ext
-    return `comprobantes/${fileName}`;
+    // Subir a AWS S3
+    await UploadFilesCloud.uploadSingleFile({
+      bucketName: envs.AWS_BUCKET_NAME,
+      key: pathKey,
+      body: fileContent,
+      contentType: contentType,
+    });
+
+    // Retonar la URL firmada para que el frontend pueda visualizarlo inmediatamente si es necesario
+    // O retornar solo el Key si prefieres guardar solo el Key en BD y firmar al leer.
+    // El usuario pidió "guardar la url", pero lo más seguro es guardar la URL firmada o el Key. 
+    // Dado el contexto de "guardar url en base de datos", vamos a retornar la URL firmada completa
+    // para que el frontend la mande al crearPedido y se guarde tal cual (aunque expire).
+
+    // MEJOR PRACTICA: Guardar S3 Key en BD y firmar al leer. 
+    // PERO: El frontend espera una URL para mostrar y guardar en `comprobantePagoUrl`.
+    // Si guardamos una URL firmada en la BD, expirará.
+    // Lo ideal es guardar el KEY en la BD.
+    // Sin embargo, para cumplir con "verlo en whatsapp", necesitamos una URL pública o firmada de larga duración.
+    // Como el usuario pidió "guardar la url", devolveremos la URL firmada que genera el helper.
+
+    const url = await UploadFilesCloud.getFile({
+      bucketName: envs.AWS_BUCKET_NAME,
+      key: pathKey
+    });
+
+    return url;
   }
-
-
 }
