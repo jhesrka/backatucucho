@@ -100,7 +100,7 @@ export class UseradminService {
     }
     return useradmin;
   }
-  
+
   async forgotPassword(dto: ForgotPasswordDTO) {
     const user = await Useradmin.findOne({ where: { email: dto.email } });
 
@@ -111,13 +111,13 @@ export class UseradminService {
       };
     }
 
-  const token = await JwtAdapterAdmin.generateTokenAdmin(
-  {
-    id: user.id,
-    resetTokenVersion: user.resetTokenVersion, 
-  },
-  "5m"
-);
+    const token = await JwtAdapterAdmin.generateTokenAdmin(
+      {
+        id: user.id,
+        resetTokenVersion: user.resetTokenVersion,
+      },
+      "5m"
+    );
 
 
     if (!token) throw CustomError.internalServer("Error generando token");
@@ -158,30 +158,30 @@ export class UseradminService {
     };
   }
 
- async resetPassword(dto: ResetPasswordDTO) {
-  const payload: any = await JwtAdapterAdmin.validateTokenAdmin(dto.token);
+  async resetPassword(dto: ResetPasswordDTO) {
+    const payload: any = await JwtAdapterAdmin.validateTokenAdmin(dto.token);
 
-  if (!payload || !payload.id || payload.resetTokenVersion === undefined) {
-    throw CustomError.unAuthorized("Token inválido o expirado");
+    if (!payload || !payload.id || payload.resetTokenVersion === undefined) {
+      throw CustomError.unAuthorized("Token inválido o expirado");
+    }
+
+    const user = await Useradmin.findOne({ where: { id: payload.id } });
+
+    if (!user) throw CustomError.notFound("Usuario no encontrado");
+
+    // Comparar versión del token con la del usuario
+    if (user.resetTokenVersion !== payload.resetTokenVersion) {
+      throw CustomError.unAuthorized("Este enlace ya fue usado o es inválido");
+    }
+
+    // Actualizar contraseña y aumentar versión
+    user.password = encriptAdapter.hash(dto.newPassword);
+    user.resetTokenVersion += 1;
+
+    await user.save();
+
+    return { message: "Contraseña actualizada correctamente" };
   }
-
-  const user = await Useradmin.findOne({ where: { id: payload.id } });
-
-  if (!user) throw CustomError.notFound("Usuario no encontrado");
-
-  // Comparar versión del token con la del usuario
-  if (user.resetTokenVersion !== payload.resetTokenVersion) {
-    throw CustomError.unAuthorized("Este enlace ya fue usado o es inválido");
-  }
-
-  // Actualizar contraseña y aumentar versión
-  user.password = encriptAdapter.hash(dto.newPassword);
-  user.resetTokenVersion += 1;
-
-  await user.save();
-
-  return { message: "Contraseña actualizada correctamente" };
-}
 
 
   async findAllUsersadmin() {
@@ -204,5 +204,41 @@ export class UseradminService {
         "Error obteniendo usuarios administradores"
       );
     }
+  }
+  async updatePassword(userId: string, data: { currentPassword: string; newPassword: string }) {
+    const user = await Useradmin.findOne({ where: { id: userId } });
+    if (!user) throw CustomError.notFound("Usuario no encontrado");
+
+    const match = encriptAdapter.compare(data.currentPassword, user.password);
+    if (!match) throw CustomError.badRequest("La contraseña actual es incorrecta");
+
+    user.password = encriptAdapter.hash(data.newPassword);
+    await user.save();
+
+    const html = `
+      <h3>Hola ${user.name},</h3>
+      <p>Te informamos que tu contraseña ha sido modificada exitosamente.</p>
+      <p>Si no fuiste tú, contacta soporte inmediatamente.</p>
+    `;
+
+    await this.emailService.sendEmail({
+      to: user.email,
+      subject: "Seguridad - Cambio de Contraseña",
+      htmlBody: html
+    });
+
+    return { message: "Contraseña actualizada correctamente" };
+  }
+
+  async updateSecurityPin(userId: string, pin: string) {
+    if (!pin || pin.length < 4) throw CustomError.badRequest("El PIN debe tener al menos 4 caracteres");
+
+    const user = await Useradmin.findOne({ where: { id: userId } });
+    if (!user) throw CustomError.notFound("Usuario no encontrado");
+
+    user.securityPin = encriptAdapter.hash(pin);
+    await user.save();
+
+    return { message: "PIN de seguridad actualizado correctamente" };
   }
 }

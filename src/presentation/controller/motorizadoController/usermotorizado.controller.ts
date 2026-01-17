@@ -7,9 +7,10 @@ import {
   LoginMotorizadoUserDTO,
   ResetPasswordMotorizadoDTO,
 } from "../../../domain";
+import { encriptAdapter } from "../../../config";
 
 export class MotorizadoController {
-  constructor(private readonly motorizadoService: UserMotorizadoService) {}
+  constructor(private readonly motorizadoService: UserMotorizadoService) { }
 
   private handleError = (error: unknown, res: Response) => {
     if (error instanceof CustomError) {
@@ -21,6 +22,28 @@ export class MotorizadoController {
 
   // Crear motorizado (solo admin)
   createMotorizado = (req: Request, res: Response) => {
+    // 🔐 VALIDACIÓN DE PIN DE SEGURIDAD
+    const admin = req.body.sessionAdmin; // Injected by AuthAdminMiddleware
+    const { securityPin } = req.body;
+
+    if (!admin) return res.status(401).json({ message: "No autorizado" });
+
+    if (!admin.securityPin) {
+      return res.status(403).json({
+        message: "Debe configurar su PIN de seguridad antes de crear motorizados.",
+      });
+    }
+
+    if (!securityPin) {
+      return res.status(400).json({ message: "Ingrese su PIN de seguridad" });
+    }
+
+    const isPinValid = encriptAdapter.compare(securityPin, admin.securityPin);
+    if (!isPinValid) {
+      return res.status(401).json({ message: "PIN de seguridad incorrecto" });
+    }
+
+    // CONTINUAR CREACIÓN
     const [error, dto] = CreateMotorizadoDTO.create(req.body);
     if (error) return this.handleError(error, res);
     this.motorizadoService

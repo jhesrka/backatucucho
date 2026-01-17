@@ -60,9 +60,14 @@ export class Useradmin extends BaseEntity {
   })
   whatsapp: string;
 
+  @Column("varchar", {
+    nullable: true,
+  })
+  securityPin: string;
+
   @CreateDateColumn({
     type: "timestamp",
-    
+
   })
   created_at: Date;
 
@@ -82,7 +87,7 @@ export class Useradmin extends BaseEntity {
     default: Statusadmin.ACTIVE,
   })
   status: Statusadmin;
-  
+
   @Column("int", { default: 0 })
   resetTokenVersion: number;
 

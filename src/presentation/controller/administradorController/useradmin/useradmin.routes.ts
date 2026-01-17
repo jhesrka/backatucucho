@@ -23,6 +23,17 @@ export class UseradminRoutes {
     router.post("/forgot-password", useradminController.forgotPassword);
     router.post("/reset-password", useradminController.resetPassword);
 
+    router.patch(
+      "/update-password",
+      AuthAdminMiddleware.protect,
+      useradminController.updatePassword
+    );
+    router.patch(
+      "/update-security-pin",
+      AuthAdminMiddleware.protect,
+      useradminController.updateSecurityPin
+    );
+
     // Buscar todos los usuarios administrativos
     router.get("/", useradminController.findAllUsersadmin);
 

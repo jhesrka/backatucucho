@@ -9,7 +9,7 @@ import {
 } from "../../../../domain";
 
 export class UseradminController {
-  constructor(private readonly useradminService: UseradminService) {}
+  constructor(private readonly useradminService: UseradminService) { }
   private handleError = (error: unknown, res: Response) => {
     if (error instanceof CustomError) {
       return res.status(error.statusCode).json({ message: error.message });
@@ -46,22 +46,38 @@ export class UseradminController {
   };
 
   resetPassword = (req: Request, res: Response) => {
-  const [errors, dto] = ResetPasswordDTO.create(req.body);
+    const [errors, dto] = ResetPasswordDTO.create(req.body);
 
-  if (errors.length > 0) {
-    return res.status(400).json({ message: errors });
-  }
+    if (errors.length > 0) {
+      return res.status(400).json({ message: errors });
+    }
 
-  this.useradminService
-    .resetPassword(dto!)
-    .then((data) => res.status(200).json(data))
-    .catch((err) => this.handleError(err, res));
-};
+    this.useradminService
+      .resetPassword(dto!)
+      .then((data) => res.status(200).json(data))
+      .catch((err) => this.handleError(err, res));
+  };
 
 
   findAllUsersadmin = (req: Request, res: Response) => {
     this.useradminService
       .findAllUsersadmin()
+      .then((data) => res.status(200).json(data))
+      .catch((error) => this.handleError(error, res));
+  };
+  updatePassword = (req: Request, res: Response) => {
+    const { user, currentPassword, newPassword } = req.body;
+    // user is injected by middleware
+    this.useradminService
+      .updatePassword(user.id, { currentPassword, newPassword })
+      .then((data) => res.status(200).json(data))
+      .catch((error) => this.handleError(error, res));
+  };
+
+  updateSecurityPin = (req: Request, res: Response) => {
+    const { user, pin } = req.body;
+    this.useradminService
+      .updateSecurityPin(user.id, pin)
       .then((data) => res.status(200).json(data))
       .catch((error) => this.handleError(error, res));
   };
