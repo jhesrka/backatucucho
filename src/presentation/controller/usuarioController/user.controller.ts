@@ -102,6 +102,16 @@ export class UserController {
     }
   };
 
+  completeProfile = (req: Request, res: Response) => {
+    const { whatsapp, password } = req.body;
+    const userId = req.body.sessionUser.id;
+
+    this.userService
+      .completeProfile(userId, { whatsapp, password })
+      .then((data) => res.status(200).json(data))
+      .catch((error) => this.handleError(error, res));
+  };
+
   findOneUser = (req: Request, res: Response) => {
     const { id } = req.params;
     this.userService

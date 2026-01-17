@@ -147,6 +147,7 @@ export class UserRoutes {
     );
     router.get("/me", AuthMiddleware.protect, userController.getLoggedUserInfo);
     router.post("/logout", AuthMiddleware.protect, userController.logout);
+    router.patch("/complete-profile", AuthMiddleware.protect, userController.completeProfile);
 
     //USUARIO
     //PUBLICO

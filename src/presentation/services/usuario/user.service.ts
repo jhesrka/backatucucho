@@ -276,13 +276,14 @@ export class UserService {
       user.name = (given_name || "Usuario").toLowerCase();
       user.surname = (family_name || "Google").toLowerCase();
       user.email = email.toLowerCase();
-      user.password = "";
+      // FIX: Null en lugar de string vacío para evitar error de constraint unique y hash de vacío
+      user.password = null as any;
       user.googleId = sub;
-      // ... (Rest of creation logic matches check)
       user.photoperfil = picture || "";
       user.status = Status.ACTIVE;
       user.birthday = new Date();
-      user.whatsapp = "";
+      // FIX: Null en lugar de string vacío para evitar unique constraint collision
+      user.whatsapp = null as any;
 
       // Init Session
       user.isLoggedIn = true;
@@ -311,7 +312,7 @@ export class UserService {
 
         user = newUser;
       } catch (error) {
-        throw CustomError.internalServer("Error creando usuario con Google");
+        throw CustomError.internalServer("Error creando usuario con Google" + error);
       }
     } else {
       // 1. Enlazar googleId si no existe
@@ -351,6 +352,8 @@ export class UserService {
     user.currentSessionId = jwt as string;
     await user.save();
 
+    const isProfileComplete = !!(user.whatsapp && user.password);
+
     return {
       token: jwt,
       user: {
@@ -358,7 +361,8 @@ export class UserService {
         name: user.name,
         surname: user.surname,
         email: user.email,
-        photoperfil: user.photoperfil
+        photoperfil: user.photoperfil,
+        isProfileComplete
       }
     };
   }
@@ -556,6 +560,34 @@ export class UserService {
       };
     } catch (error: any) {
       throw CustomError.internalServer("Error actualizando el Usuario");
+    }
+  }
+
+  // COMPLETAR PERFIL (GOOGLE)
+  async completeProfile(userId: string, data: { whatsapp: string, password: string }) {
+    const user = await this.findOneUser(userId);
+
+    // Validar WhatsApp único
+    if (data.whatsapp) {
+      const exists = await User.findOne({ where: { whatsapp: data.whatsapp } });
+      if (exists && exists.id !== userId) throw CustomError.badRequest("El número de WhatsApp ya está en uso en otra cuenta");
+      user.whatsapp = data.whatsapp.trim();
+    } else {
+      throw CustomError.badRequest("El WhatsApp es obligatorio");
+    }
+
+    // Validar Password
+    if (data.password) {
+      user.password = encriptAdapter.hash(data.password);
+    } else {
+      throw CustomError.badRequest("La contraseña es obligatoria");
+    }
+
+    try {
+      await user.save();
+      return { message: "Perfil completado correctamente", success: true };
+    } catch (error) {
+      throw CustomError.internalServer("Error al completar perfil");
     }
   }
 
