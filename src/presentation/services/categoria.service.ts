@@ -47,6 +47,9 @@ export class CategoriaService {
     if (dto.soloComision !== undefined) {
       categoria.soloComision = dto.soloComision;
     }
+    if (dto.statusCategoria !== undefined) {
+      categoria.statusCategoria = dto.statusCategoria;
+    }
     try {
       return await categoria.save();
     } catch {

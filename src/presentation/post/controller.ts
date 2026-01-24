@@ -237,6 +237,26 @@ export class PostController {
       return this.handleError(error, res);
     }
   };
+
+  // ADMIN: Get all posts for a specific user
+  getPostsByUserAdmin = async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params; // userId
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+
+      if (!id) return res.status(400).json({ message: "User ID is required" });
+
+      const data = await this.postService.getPostsByUserAdmin(id, page, limit);
+
+      return res.status(200).json({
+        success: true,
+        ...data,
+      });
+    } catch (error) {
+      return this.handleError(error, res);
+    }
+  }
   // ADMINISTRADOR - Bloquear post
   // POST /api/post/admin/:id/block
   // ADMINISTRADOR - Bloquear/Desbloquear post (toggle)
@@ -270,6 +290,30 @@ export class PostController {
   };
   // ADMINISTRADOR - Purgar posts ELIMINADO (>3 días) y sus imágenes
   // DELETE /api/post/admin/purge-deleted
+
+
+  // ADMIN: Change status explicitly
+  changeStatusPostAdmin = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!status) return res.status(400).json({ message: "Status is required" });
+
+    this.postService.changeStatusPostAdmin(id, status)
+      .then(data => res.status(200).json(data))
+      .catch(err => this.handleError(err, res));
+  }
+
+  // ADMIN: Purge definitive
+  purgePostAdmin = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    this.postService.purgePostAdmin(id)
+      .then(data => res.status(200).json(data))
+      .catch(err => this.handleError(err, res));
+  }
+
+  // ADMINISTRADOR - Purgar posts ELIMINADO (>3 días) y sus imágenes
+  // DELETE /api/post/admin/purge-deleted
   purgeDeletedPostsOlderThan3Days = async (_req: Request, res: Response) => {
     try {
       const { deletedCount } =
@@ -287,4 +331,35 @@ export class PostController {
       return this.handleError(error, res);
     }
   };
+  // ==========================================
+  // 🛡️ ADMIN DASHBOARD METHODS
+  // ==========================================
+
+  getAdminStats = (_req: Request, res: Response) => {
+    this.postService.getAdminStats()
+      .then(data => res.status(200).json(data))
+      .catch(error => this.handleError(error, res));
+  }
+
+  getAdminPosts = (req: Request, res: Response) => {
+    const filters = {
+      id: req.query.id,
+      status: req.query.status,
+      type: req.query.type,
+      startDate: req.query.startDate,
+      endDate: req.query.endDate
+    };
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 20;
+
+    this.postService.getAdminPosts(filters, page, limit)
+      .then(data => res.status(200).json(data))
+      .catch(error => this.handleError(error, res));
+  }
+
+  purgeOldDeletedPosts = (_req: Request, res: Response) => {
+    this.postService.purgeOldDeletedPosts()
+      .then(data => res.status(200).json(data))
+      .catch(error => this.handleError(error, res));
+  }
 }

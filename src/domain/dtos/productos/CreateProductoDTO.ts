@@ -7,9 +7,9 @@ export class CreateProductoDTO {
     public readonly precio: number,
     public readonly precioParaApp: number | null,
     public readonly negocioId: string,
-    public readonly modeloMonetizacion: "COMISION" | "SUSCRIPCION",
+    public readonly modeloMonetizacion: "SUSCRIPCION" | "COMISION_SUSCRIPCION",
     public readonly tipoId: string
-  ) {}
+  ) { }
 
   static create(obj: {
     nombre: string;
@@ -17,7 +17,7 @@ export class CreateProductoDTO {
     precio: number;
     precioParaApp?: number;
     negocioId: string;
-    modeloMonetizacion: "COMISION" | "SUSCRIPCION";
+    modeloMonetizacion: "SUSCRIPCION" | "COMISION_SUSCRIPCION";
     tipoId?: string; // ya no es opcional en lógica, pero puede venir undefined desde el cliente
   }): [string?, CreateProductoDTO?] {
     const {
@@ -46,13 +46,13 @@ export class CreateProductoDTO {
       return ["El ID del negocio no es válido"];
     }
 
-    if (!modeloMonetizacion || !["COMISION", "SUSCRIPCION"].includes(modeloMonetizacion)) {
+    if (!modeloMonetizacion || !["SUSCRIPCION", "COMISION_SUSCRIPCION"].includes(modeloMonetizacion)) {
       return ["Modelo de monetización inválido"];
     }
 
-    if (modeloMonetizacion === "COMISION") {
+    if (modeloMonetizacion === "COMISION_SUSCRIPCION") {
       if (precioParaApp === undefined || precioParaApp === null) {
-        return ["Debes proporcionar 'precioParaApp' para negocios con modelo COMISION"];
+        return ["Debes proporcionar 'precioParaApp' para negocios con modelo COMISION + SUSCRIPCION"];
       }
 
       if (isNaN(Number(precioParaApp)) || Number(precioParaApp) <= 0) {
@@ -74,7 +74,7 @@ export class CreateProductoDTO {
         nombre.trim(),
         descripcion.trim(),
         Number(precio),
-        modeloMonetizacion === "COMISION" ? Number(precioParaApp) : null,
+        modeloMonetizacion === "COMISION_SUSCRIPCION" ? Number(precioParaApp) : null,
         negocioId,
         modeloMonetizacion,
         tipoId.trim()

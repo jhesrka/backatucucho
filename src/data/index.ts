@@ -20,3 +20,8 @@ export * from "./postgres/models/TransaccionMotorizado";
 export * from "./postgres/models/BalanceNegocio";
 export * from "./postgres/models/AdminNotification";
 export * from "./postgres/models/global-settings.model";
+export * from "./postgres/models/transactionType.model";
+
+export * from './postgres/models/Campaign';
+export * from './postgres/models/CampaignLog';
+export * from './postgres/models/financial/FinancialClosing';

@@ -40,12 +40,35 @@ export class UserMotorizadoRoutes {
       motorizadoController.getMotorizadoMe
     );
 
+    // 🔄 Gestión de Pedidos (Admin)
+    router.patch("/orders/:pedidoId/status", motorizadoController.changeOrderStatus);
+
     router.get("/", motorizadoController.findAllMotorizados);
     router.get("/:id", motorizadoController.findMotorizadoById);
+    router.get("/:id/orders", motorizadoController.getOrdersHistory);
     router.patch("/:id", motorizadoController.updateMotorizado);
+
     router.patch("/toggle-active/:id", motorizadoController.toggleActivo);
-    router.delete("/:id", motorizadoController.deleteMotorizado);
+
     router.patch("/change-password/:id", motorizadoController.cambiarPassword);
+
+    router.get("/:id/stats/monthly", motorizadoController.getMonthlyPerformance);
+
+    // Billetera & Finanzas
+    router.get("/wallet/global-stats", AuthAdminMiddleware.protect, motorizadoController.getGlobalWalletStats);
+    router.get("/wallet/global-withdrawals", AuthAdminMiddleware.protect, motorizadoController.getAllGlobalWithdrawals);
+
+    router.get("/:id/wallet/stats", AuthAdminMiddleware.protect, motorizadoController.getWalletStats);
+    router.get("/:id/wallet/transactions", AuthAdminMiddleware.protect, motorizadoController.getTransactions);
+    router.post("/:id/wallet/adjust", AuthAdminMiddleware.protect, motorizadoController.adjustBalance);
+
+    // Solicitudes de Retiro
+    router.get("/:id/wallet/withdrawals", AuthAdminMiddleware.protect, motorizadoController.getWithdrawals);
+    router.post("/:id/wallet/withdrawals/:transactionId/approve", AuthAdminMiddleware.protect, upload.single('file'), motorizadoController.approveWithdrawal);
+    router.post("/:id/wallet/withdrawals/:transactionId/reject", AuthAdminMiddleware.protect, motorizadoController.rejectWithdrawal);
+
+    router.delete("/:id/force", AuthAdminMiddleware.protect, motorizadoController.deleteForce);
+    router.delete("/:id", motorizadoController.deleteMotorizado);
 
     return router;
   }

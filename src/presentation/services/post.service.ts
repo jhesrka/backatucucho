@@ -1,5 +1,5 @@
 // src/presentation/services/post.service.ts
-import { ILike, LessThan } from "typeorm";
+import { ILike, LessThan, MoreThan } from "typeorm";
 import { envs } from "../../config";
 import { getIO } from "../../config/socket";
 import { UploadFilesCloud } from "../../config/upload-files-cloud-adapter";
@@ -509,6 +509,56 @@ export class PostService {
     }
   }
 
+  // ADMIN: Get all posts for a specific user (Paginated, All Statuses)
+  async getPostsByUserAdmin(userId: string, page: number = 1, limit: number = 10) {
+    try {
+      const skip = (page - 1) * limit;
+
+      const [posts, total] = await Post.findAndCount({
+        where: { user: { id: userId } }, // No status filter implies ALL statuses
+        relations: ["user", "user.subscriptions"],
+        order: { createdAt: "DESC" },
+        take: limit,
+        skip: skip,
+        withDeleted: true // Include soft deleted logic if implemented with @DeleteDateColumn
+      });
+
+      // Process images
+      const formattedPosts = await Promise.all(
+        posts.map(async (post) => {
+          const resolvedImgs = await Promise.all(
+            (post.imgpost ?? []).map((img) =>
+              UploadFilesCloud.getFile({
+                bucketName: envs.AWS_BUCKET_NAME,
+                key: img
+              }).catch(() => null)
+            )
+          );
+
+          // Subscription Status Logic for specific user
+          const hasActiveSub = await this.subscriptionService.hasActiveSubscription(userId);
+
+          return {
+            ...post,
+            imgpost: resolvedImgs.filter(i => i),
+            hasActiveSubscription: hasActiveSub // Useful for frontend logic
+          };
+        })
+      );
+
+      return {
+        posts: formattedPosts,
+        total,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page
+      };
+
+    } catch (error) {
+      console.error("Error in getPostsByUserAdmin:", error);
+      throw CustomError.internalServer("Error fetching user posts for admin");
+    }
+  }
+
   async updatePostDate(
     postId: string,
     userId: string
@@ -571,7 +621,7 @@ export class PostService {
     return { message: "Post marcado como eliminado" };
   }
 
-  private async hardDeletePost(post: Post): Promise<{ message: string }> {
+  public async hardDeletePost(post: Post): Promise<{ message: string }> {
     if (post.imgpost?.length > 0) {
       await Promise.all(
         post.imgpost.map((key) =>
@@ -609,6 +659,122 @@ export class PostService {
       throw CustomError.internalServer("Error actualizando el Post");
     }
   }
+
+  // ==========================================
+  // 🛡️ ADMIN METHODS (Advanced Management)
+  // ==========================================
+
+  async getAdminStats() {
+    const totalPosts = await Post.count({ withDeleted: true });
+    const activePosts = await Post.count({ where: { statusPost: StatusPost.PUBLICADO } });
+    const deletedPosts = await Post.count({ where: { statusPost: StatusPost.ELIMINADO }, withDeleted: true });
+    const paidPosts = await Post.count({ where: { isPaid: true }, withDeleted: true });
+    const freePosts = await Post.count({ where: { isPaid: false }, withDeleted: true });
+
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const last30Days = await Post.count({ where: { createdAt: MoreThan(thirtyDaysAgo) }, withDeleted: true });
+
+    return {
+      totalPosts,
+      activePosts,
+      deletedPosts,
+      paidPosts,
+      freePosts,
+      last30Days,
+      revenue: 0 // Placeholder
+    };
+  }
+
+  async purgeOldDeletedPosts(): Promise<{ deletedCount: number }> {
+    try {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const postsToPurge = await Post.createQueryBuilder("post")
+        .withDeleted()
+        .where("post.statusPost = :status", { status: StatusPost.ELIMINADO })
+        .andWhere("post.deletedAt <= :threshold", { threshold: thirtyDaysAgo })
+        .getMany();
+
+      if (postsToPurge.length === 0) return { deletedCount: 0 };
+
+      let deletedCount = 0;
+      for (const post of postsToPurge) {
+        await this.hardDeletePost(post);
+        deletedCount++;
+      }
+      return { deletedCount };
+
+    } catch (error) {
+      console.error("Purge Error", error);
+      throw CustomError.internalServer("Error purging posts");
+    }
+  }
+
+  async getAdminPosts(filters: any, page: number = 1, limit: number = 20) {
+    const { id, status, type, startDate, endDate } = filters;
+
+    const query = Post.createQueryBuilder("post")
+      .leftJoinAndSelect("post.user", "user")
+      .withDeleted()
+      .orderBy("post.createdAt", "DESC")
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    if (id) {
+      query.andWhere("post.id = :id", { id });
+    }
+    if (status) {
+      query.andWhere("post.statusPost = :status", { status });
+    }
+    if (type) {
+      const isPaid = type === 'PAGADO';
+      query.andWhere("post.isPaid = :isPaid", { isPaid });
+    }
+    if (startDate && endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      query.andWhere("post.createdAt BETWEEN :start AND :end", { start: startDate, end });
+    }
+
+    const [posts, total] = await query.getManyAndCount();
+
+    const formattedPosts = await Promise.all(
+      posts.map(async (post) => {
+        const resolvedImgs = await Promise.all(
+          (post.imgpost ?? []).map((img) =>
+            UploadFilesCloud.getFile({
+              bucketName: envs.AWS_BUCKET_NAME,
+              key: img,
+            }).catch(() => null)
+          )
+        );
+
+        const userImage = post.user?.photoperfil
+          ? await UploadFilesCloud.getFile({ bucketName: envs.AWS_BUCKET_NAME, key: post.user.photoperfil }).catch(() => null)
+          : null;
+
+        return {
+          ...post,
+          imgpost: resolvedImgs.filter(i => i),
+          user: {
+            ...post.user,
+            photoperfil: userImage
+          }
+        };
+      })
+    );
+
+    return {
+      posts: formattedPosts,
+      total,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page
+    };
+  }
+
+
 
   //ADMINISTRADOR
 
@@ -798,29 +964,47 @@ export class PostService {
 
       // Toggle: si está bloqueado -> PUBLICADO; si no, BLOQUEADO
       const wasBlocked = post.statusPost === StatusPost.BLOQUEADO;
-
       post.statusPost = wasBlocked
         ? StatusPost.PUBLICADO
         : StatusPost.BLOQUEADO;
+
       await post.save();
 
-      getIO().emit("postChanged", {
-        action: wasBlocked ? "unblock" : "block",
-        postId: post.id,
-        status: post.statusPost,
-      });
-
       return {
-        message: wasBlocked
-          ? "Post desbloqueado correctamente"
-          : "Post bloqueado correctamente",
-        status: post.statusPost,
-      };
+        message: wasBlocked ? "Post desbloqueado" : "Post bloqueado",
+        status: post.statusPost
+      }
     } catch (error) {
-      if (error instanceof CustomError) throw error;
-      throw CustomError.internalServer("Error al bloquear/desbloquear el post");
+      throw CustomError.internalServer("Error toggling block");
     }
   }
+
+  // ADMIN: Cambiar estado explícito
+  async changeStatusPostAdmin(postId: string, status: StatusPost) {
+    const post = await Post.findOne({ where: { id: postId } });
+    if (!post) throw CustomError.notFound("Post no encontrado");
+
+    post.statusPost = status;
+    if (status === StatusPost.ELIMINADO) {
+      post.deletedAt = new Date();
+    } else {
+      post.deletedAt = null!;
+    }
+
+    await post.save();
+    getIO().emit("postChanged", { action: "update", postId: post.id });
+    return { message: `Estado cambiado a ${status}`, status: post.statusPost };
+  }
+
+  // ADMIN: Purga definitiva
+  async purgePostAdmin(postId: string) {
+    const post = await Post.findOne({ where: { id: postId } });
+    if (!post) throw CustomError.notFound("Post no encontrado");
+
+    return await this.hardDeletePost(post);
+  }
+
+
   // ADMINISTRADOR - Borrar permanentemente posts ELIMINADO (> 3 días) y sus imágenes
   async purgeDeletedPostsOlderThan3Days(): Promise<{ deletedCount: number }> {
     try {

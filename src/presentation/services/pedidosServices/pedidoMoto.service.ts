@@ -543,6 +543,31 @@ export class PedidoMotoService {
       take: 50, // Últimas 50
     });
 
+    // Calcular stats
+    const totalIngresos = await TransaccionMotorizado.sum("monto", {
+      motorizado: { id: motorizadoId },
+      tipo: TipoTransaccion.GANANCIA_ENVIO
+    });
+    const earnings = Number(totalIngresos || 0);
+
+    const deliveredOrders = await TransaccionMotorizado.count({
+      where: {
+        motorizado: { id: motorizadoId },
+        tipo: TipoTransaccion.GANANCIA_ENVIO
+      }
+    });
+
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const monthlyEarnings = await TransaccionMotorizado.createQueryBuilder("t")
+      .where("t.motorizadoId = :id", { id: motorizadoId })
+      .andWhere("t.tipo = :tipo", { tipo: TipoTransaccion.GANANCIA_ENVIO })
+      .andWhere("t.createdAt >= :start", { start: startOfMonth })
+      .select("SUM(t.monto)", "total")
+      .getRawOne();
+
     return {
       saldo: moto.saldo,
       datosBancarios: {
@@ -553,6 +578,12 @@ export class PedidoMotoService {
         identificacion: moto.bancoIdentificacion,
       },
       transacciones,
+      stats: {
+        deliveredOrders,
+        averagePerOrder: deliveredOrders > 0 ? (earnings / deliveredOrders).toFixed(2) : 0,
+        monthlyEarnings: Number(monthlyEarnings?.total || 0),
+        totalIngresos: earnings
+      }
     };
   }
 
@@ -593,9 +624,18 @@ export class PedidoMotoService {
     const moto = await UserMotorizado.findOneBy({ id: motorizadoId });
     if (!moto) throw CustomError.notFound("Motorizado no encontrado");
 
+    // Validar saldo suficiente (Saldo Actual - Retiros Pendientes)
     const saldoActual = Number(moto.saldo);
-    if (saldoActual < monto) {
-      throw CustomError.badRequest("Saldo insuficiente");
+
+    const pendingWithdrawals = await TransaccionMotorizado.sum("monto", {
+      motorizado: { id: motorizadoId },
+      tipo: TipoTransaccion.RETIRO,
+      estado: EstadoTransaccion.PENDIENTE
+    });
+    const totalPending = Math.abs(pendingWithdrawals || 0);
+
+    if ((saldoActual - totalPending) < monto) {
+      throw CustomError.badRequest(`Saldo insuficiente. Tienes $${totalPending.toFixed(2)} en solicitudes pendientes.`);
     }
 
     if (!moto.bancoNumeroCuenta || !moto.bancoNombre) {
@@ -604,18 +644,18 @@ export class PedidoMotoService {
       );
     }
 
-    // Descontar inmediatamente para evitar duplicidad
-    const saldoNuevo = saldoActual - monto;
-    moto.saldo = saldoNuevo;
+    // NO Descontar saldo aquí (se descuenta al aprobar)
+    // const saldoNuevo = saldoActual - monto;
+    // moto.saldo = saldoNuevo;
 
     const tx = new TransaccionMotorizado();
     tx.motorizado = moto;
     tx.tipo = TipoTransaccion.RETIRO;
-    tx.monto = -monto; // Negativo para indicar egreso visualmente, aunque la lógica ya descontó
+    tx.monto = -monto;
     tx.descripcion = `Solicitud de Retiro`;
     tx.estado = EstadoTransaccion.PENDIENTE;
     tx.saldoAnterior = saldoActual;
-    tx.saldoNuevo = saldoNuevo;
+    tx.saldoNuevo = saldoActual; // Se mantiene igual
     tx.detalles = JSON.stringify({
       banco: moto.bancoNombre,
       cuenta: moto.bancoNumeroCuenta,
@@ -624,9 +664,8 @@ export class PedidoMotoService {
       ci: moto.bancoIdentificacion,
     });
 
-    // Guardamos ambos en transacción para atomicidad (idealmente usar queryRunner, pero por brevedad así)
     await tx.save();
-    await moto.save();
+    // await moto.save(); // No actualizamos saldo
 
     return tx;
   }

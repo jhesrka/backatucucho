@@ -8,6 +8,7 @@ import {
   UpdateDateColumn,
   BeforeInsert,
   OneToOne,
+  DeleteDateColumn,
 } from "typeorm";
 import { encriptAdapter } from "../../../config";
 import {
@@ -91,7 +92,7 @@ export class User extends BaseEntity {
   @CreateDateColumn({ type: "timestamp" })
   createdAt: Date;
 
-  @CreateDateColumn({ type: "timestamp" })
+  @UpdateDateColumn({ type: "timestamp" })
   updated_at: Date;
 
   @Column("enum", {
@@ -147,6 +148,9 @@ export class User extends BaseEntity {
   negocios: Negocio[];
   @OneToMany(() => Pedido, (pedido) => pedido.cliente)
   pedidos: Pedido[];
+
+  @DeleteDateColumn({ type: "timestamp", nullable: true })
+  deletedAt: Date;
 
   @BeforeInsert()
   encryptedPassword() {

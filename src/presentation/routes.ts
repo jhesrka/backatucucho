@@ -23,6 +23,9 @@ import { ProductoAdminRoutes } from "./producto/productoAdmin.routes";
 import { PedidoMotoRoutes } from "./pedidos/pedidoMoto.routes";
 import { BusinessRoutes } from "./business/routes";
 import { DashboardRoutes } from "./dashboard/dashboard.routes";
+import { WalletRoutes as WalletAdminRoutes } from "./controller/walletController/wallet.routes";
+import { AdvertisingRoutes } from "./advertising/advertising.routes";
+import { UploadRoutes } from "./upload/upload.routes";
 
 export class AppRoutes {
   //cuando hay metodoos estaticos no necesitams instanciar
@@ -75,6 +78,15 @@ export class AppRoutes {
 
     // 📊 NUEVA RUTA: Admin Dashboard Stats
     router.use("/api/admin/dashboard", DashboardRoutes.routes);
+
+    // 💰 NUEVA RUTA: Admin Wallet Management
+    router.use("/api/wallets", WalletAdminRoutes.routes);
+
+    // 📢 NUEVA RUTA: Advertising (Email & WhatsApp)
+    router.use("/api/admin/advertising", AdvertisingRoutes.routes);
+
+    // 📂 NUEVA RUTA: Validar subida archivos
+    router.use("/api/upload", UploadRoutes.routes);
 
     return router;
 

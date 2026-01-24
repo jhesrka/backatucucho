@@ -25,7 +25,13 @@ export class AuthAdminMiddleware {
       if (!useradmin)
         return res.status(401).json({ message: "Admin no autorizado" });
 
+      (req as any).sessionAdmin = useradmin;
+      (req as any).admin = useradmin;
+      (req as any).user = useradmin;
+
       req.body.sessionAdmin = useradmin;
+      req.body.admin = useradmin;
+      req.body.user = useradmin;
       next();
     } catch (error) {
       // Captura cualquier error de validación JWT
@@ -37,7 +43,7 @@ export class AuthAdminMiddleware {
 
   static restrictTo = (...roles: UserRoleAdmin[]) => {
     return (req: Request, res: Response, next: NextFunction) => {
-      const useradmin = req.body.sessionAdmin;
+      const useradmin = (req as any).sessionAdmin || req.body.sessionAdmin;
       if (!useradmin || !roles.includes(useradmin.rol)) {
         return res
           .status(403)

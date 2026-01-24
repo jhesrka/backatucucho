@@ -5,9 +5,10 @@ import { CreateRechargeRequestDTO, CustomError } from "../../../domain";
 import { UserService } from "../usuario/user.service";
 import { Parser } from "json2csv";
 import { Between, LessThan } from "typeorm";
+import { getIO } from "../../../config/socket";
 
 export class RechargeRequestService {
-  constructor(private readonly userService: UserService) {}
+  constructor(private readonly userService: UserService) { }
   //USUARIO
 
   //CREAR UNA RECARGA
@@ -48,9 +49,34 @@ export class RechargeRequestService {
       (recharge.receipt_number = rechargeData.receipt_number),
       (recharge.user = user);
 
+
+
     try {
       const savedRecharge = await recharge.save();
       savedRecharge.receipt_image = url;
+
+      // Emitir evento socket en tiempo real
+      try {
+        const io = getIO();
+        // Estructuramos el objeto tal cual lo espera el frontend
+        const socketPayload = {
+          ...savedRecharge,
+          user: {
+            id: user.id,
+            name: user.name,
+            surname: user.surname,
+            email: user.email,
+            whatsapp: user.whatsapp,
+            photoperfil: user.photoperfil, // Podría necesitar firmar URL si es S3 privado, pero createRecharge no lo hace aquí para la respuesta http, lo hace en get
+            status: user.status
+          },
+          receiptImage: url // El front usa receiptImage o receipt_image, en RecargaCardAdmin usa recarga.receiptImage. En el servicio getByUser mapea receipt_image -> receiptImage. Haremos lo mismo.
+        };
+        io.emit("new-recharge-request", socketPayload);
+      } catch (error) {
+        console.error("Error emitiendo socket recarga", error);
+      }
+
       return savedRecharge;
     } catch (error) {
       throw CustomError.internalServer("Error creando la solicitud de recarga");
@@ -135,9 +161,9 @@ export class RechargeRequestService {
           }),
           r.user.photoperfil
             ? UploadFilesCloud.getFile({
-                bucketName: envs.AWS_BUCKET_NAME,
-                key: r.user.photoperfil,
-              })
+              bucketName: envs.AWS_BUCKET_NAME,
+              key: r.user.photoperfil,
+            })
             : Promise.resolve(null),
         ]);
 
@@ -633,9 +659,9 @@ export class RechargeRequestService {
           }),
           r.user.photoperfil
             ? UploadFilesCloud.getFile({
-                bucketName: envs.AWS_BUCKET_NAME,
-                key: r.user.photoperfil,
-              })
+              bucketName: envs.AWS_BUCKET_NAME,
+              key: r.user.photoperfil,
+            })
             : Promise.resolve(null),
         ]);
 

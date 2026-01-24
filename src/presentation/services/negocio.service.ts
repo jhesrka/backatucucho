@@ -31,9 +31,9 @@ export class NegocioService {
     const usuario = await User.findOneBy({ id: dto.userId });
     if (!usuario) throw CustomError.notFound("Usuario no encontrado");
 
-    if (categoria.soloComision && dto.modeloMonetizacion !== "COMISION") {
+    if (categoria.soloComision && dto.modeloMonetizacion !== ModeloMonetizacion.COMISION_SUSCRIPCION) {
       throw CustomError.badRequest(
-        `La categoría '${categoria.nombre}' solo permite modelo de monetización COMISION`
+        `La categoría '${categoria.nombre}' solo permite el modelo COMISION + SUSCRIPCION`
       );
     }
 
@@ -76,10 +76,7 @@ export class NegocioService {
       });
     }
 
-    const modelo =
-      dto.modeloMonetizacion === "COMISION"
-        ? ModeloMonetizacion.COMISION
-        : ModeloMonetizacion.SUSCRIPCION;
+    const modelo = dto.modeloMonetizacion;
 
     // ⬇️ ⬇️ GUARDAMOS lat/long (y opcional direccionTexto si creas la columna)
     const negocio = Negocio.create({
@@ -373,10 +370,10 @@ export class NegocioService {
       if (
         data.modeloMonetizacion &&
         categoria.soloComision &&
-        data.modeloMonetizacion !== "COMISION"
+        data.modeloMonetizacion !== ModeloMonetizacion.COMISION_SUSCRIPCION
       ) {
         throw CustomError.badRequest(
-          "Esta categoría solo permite modelo de monetización COMISION"
+          "Esta categoría solo permite el modelo COMISION + SUSCRIPCION"
         );
       }
     }
@@ -384,16 +381,13 @@ export class NegocioService {
     if (data.modeloMonetizacion) {
       if (
         negocio.categoria.soloComision &&
-        data.modeloMonetizacion !== "COMISION"
+        data.modeloMonetizacion !== ModeloMonetizacion.COMISION_SUSCRIPCION
       ) {
         throw CustomError.badRequest(
-          "Esta categoría solo permite modelo de monetización COMISION"
+          "Esta categoría solo permite el modelo COMISION + SUSCRIPCION"
         );
       }
-      negocio.modeloMonetizacion =
-        data.modeloMonetizacion === "COMISION"
-          ? ModeloMonetizacion.COMISION
-          : ModeloMonetizacion.SUSCRIPCION;
+      negocio.modeloMonetizacion = data.modeloMonetizacion;
     }
 
     // ⬇️ ⬇️ NUEVO: lat/long opcionales en update
@@ -515,4 +509,19 @@ export class NegocioService {
 
   // ========================= TOGGLE STATUS =========================
 
+  // ADMIN: Cambiar estado
+  async changeStatusNegocioAdmin(id: string, status: StatusNegocio) {
+    const negocio = await Negocio.findOneBy({ id });
+    if (!negocio) throw CustomError.notFound("Negocio no encontrado");
+
+    negocio.statusNegocio = status;
+
+    await negocio.save();
+    return { message: `Estado cambiado a ${status}`, status: negocio.statusNegocio };
+  }
+
+  // ADMIN: Purga definitiva
+  async purgeNegocioAdmin(id: string) {
+    return await this.deleteNegocio(id);
+  }
 }

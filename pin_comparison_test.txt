@@ -1,0 +1,5 @@
+--- PIN COMPARISON TEST ---
+Found PIN Hash in DB: $2b$12$87.Qb2k14oRqmP9WJ5AmlOpuYuPrzjSjo/azEXAMcAwgeXG6Rqxj2
+Testing comparison with hardcoded PIN: 1503
+Comparison Result: NO MATCH
+--- TEST END ---

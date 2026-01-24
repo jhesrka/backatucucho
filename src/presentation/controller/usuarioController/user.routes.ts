@@ -239,11 +239,43 @@ export class UserRoutes {
       userController.countActiveUsers
     );
 
+    router.delete(
+      "/admin/purge/:id",
+      AuthAdminMiddleware.protect,
+      userController.purgeUser
+    );
+
     router.get(
       "/admin/metrics/registered/last24h",
       AuthAdminMiddleware.protect,
       userController.countUsersRegisteredLast24h
     );
+
+    // NUEVO: Gestión Avanzada de Usuarios (Admin)
+    router.patch(
+      "/admin/manage/:id",
+      AuthAdminMiddleware.protect,
+      userController.updateUserAdminAction
+    );
+
+    router.post(
+      "/admin/force-logout/:id",
+      AuthAdminMiddleware.protect,
+      userController.forceLogoutAdminAction
+    );
+
+    router.post(
+      "/admin/reset-password-email/:id",
+      AuthAdminMiddleware.protect,
+      userController.sendPasswordResetAdminAction
+    );
+
+    router.delete(
+      "/admin/purge-hard/:id",
+      AuthAdminMiddleware.protect,
+      userController.purgeUserAdminAction
+    );
+
     return router;
   }
 }

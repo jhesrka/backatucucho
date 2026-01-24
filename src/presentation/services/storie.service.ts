@@ -6,9 +6,9 @@ import { UploadFilesCloud } from "../../config/upload-files-cloud-adapter";
 import { getIO } from "../../config/socket";
 import { CustomError } from "../../domain";
 import { UserService } from "./usuario/user.service";
-import { WalletService } from "./wallet.service";
+import { WalletService } from "./postService/wallet.service";
 import { PriceService } from "./priceService/price-service.service";
-import { LessThan, LessThanOrEqual, IsNull, MoreThan } from "typeorm";
+import { LessThan, LessThanOrEqual, IsNull, MoreThan, Between, Like } from "typeorm";
 import { validate as uuidValidate } from "uuid";
 
 export class StorieService {
@@ -40,7 +40,7 @@ export class StorieService {
     );
 
     // Validar y descontar de wallet
-    await this.walletService.subtractFromWallet(user.id, costo);
+    await this.walletService.subtractFromWallet(user.id, costo, "Pago por publicación de historia", "STORIE");
 
     // Subir la imagen
     let key: string;
@@ -205,7 +205,7 @@ export class StorieService {
     return { message: "Story marcada como eliminada" };
   }
 
-  private async hardDeleteStorie(story: Storie): Promise<{ message: string }> {
+  public async hardDeleteStorie(story: Storie): Promise<{ message: string }> {
     if (story.imgstorie) {
       await UploadFilesCloud.deleteFile({
         bucketName: envs.AWS_BUCKET_NAME,
@@ -383,6 +383,31 @@ export class StorieService {
       );
     }
   }
+
+  // ADMIN: Cambiar estado explicitamente
+  async changeStatusStorieAdmin(storieId: string, status: StatusStorie) {
+    const story = await Storie.findOne({ where: { id: storieId } });
+    if (!story) throw CustomError.notFound("Story no encontrada");
+
+    story.statusStorie = status;
+    if (status === StatusStorie.DELETED) {
+      story.deletedAt = new Date();
+    } else {
+      story.deletedAt = null!;
+    }
+
+    await story.save();
+    getIO().emit("storieChanged", { action: "update", storieId: story.id, status: story.statusStorie });
+    return { message: `Estado cambiado a ${status}`, status: story.statusStorie };
+  }
+
+  // ADMIN: Purga definitiva
+  async purgeStorieAdmin(storieId: string) {
+    const story = await Storie.findOne({ where: { id: storieId } });
+    if (!story) throw CustomError.notFound("Story no encontrada");
+
+    return await this.hardDeleteStorie(story);
+  }
   async purgeDeletedStoriesOlderThan3Days(): Promise<{ deletedCount: number }> {
     try {
       const cutoff = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
@@ -473,6 +498,244 @@ export class StorieService {
       throw CustomError.internalServer(
         "Error al contar historias pagadas de las últimas 24 horas"
       );
+    }
+  }
+
+  // ==========================================
+  // 🛡️ ADMIN PANEL METHODS
+  // ==========================================
+
+  async getAdminStats() {
+    try {
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+      // Total stories (including soft deleted)
+      const totalStories = await Storie.count({ withDeleted: true });
+
+      // By Status
+      const published = await Storie.count({ where: { statusStorie: StatusStorie.PUBLISHED } });
+      const blocked = await Storie.count({ where: { statusStorie: StatusStorie.BANNED } });
+      const hidden = await Storie.count({ where: { statusStorie: StatusStorie.HIDDEN } });
+
+      // Soft Deleted
+      const deleted = await Storie.count({
+        where: { statusStorie: StatusStorie.DELETED },
+        withDeleted: true
+      });
+
+      // Purge Candidates (Deleted +30 days ago)
+      const purgeCandidates = await Storie.count({
+        where: {
+          statusStorie: StatusStorie.DELETED,
+          deletedAt: LessThan(thirtyDaysAgo)
+        },
+        withDeleted: true
+      });
+
+      // Paid vs Free (assuming total_pagado > 0 is paid)
+      const paid = await Storie.count({ where: { total_pagado: MoreThan(0) }, withDeleted: true });
+      const free = await Storie.count({ where: { total_pagado: 0 }, withDeleted: true });
+
+      // Expiring Soon (Published and expires in < 24h)
+      const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      const expiringSoon = await Storie.count({
+        where: {
+          statusStorie: StatusStorie.PUBLISHED,
+          expires_at: Between(now, tomorrow)
+        }
+      });
+
+      return {
+        totalStories,
+        published,
+        deleted,
+        blocked,
+        hidden,
+        paid,
+        free,
+        expiringSoon,
+        purgeCandidates
+      };
+    } catch (error) {
+      console.error("Error fetching admin stats:", error);
+      throw CustomError.internalServer("Error calculando estadísticas de historias");
+    }
+  }
+
+  async getAllStoriesAdmin(options: {
+    page: number;
+    limit: number;
+    id?: string;
+    status?: string;
+    type?: 'PAGADO' | 'GRATIS';
+    startDate?: string;
+    endDate?: string;
+    userId?: string; // Optional filter by user
+  }) {
+    const { page = 1, limit = 10, id, status, type, startDate, endDate, userId } = options;
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+
+    // Filters
+    if (id) where.id = id;
+    if (status) where.statusStorie = status;
+    if (userId) where.user = { id: userId };
+
+    // Date Range (Creation)
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      where.createdAt = Between(start, end);
+    } else if (startDate) {
+      const start = new Date(startDate);
+      where.createdAt = MoreThan(start);
+    }
+
+    // Type (Paid/Free)
+    if (type === 'PAGADO') {
+      where.total_pagado = MoreThan(0);
+    } else if (type === 'GRATIS') {
+      where.total_pagado = 0;
+    }
+
+    try {
+      const [stories, total] = await Storie.findAndCount({
+        where,
+        relations: ["user"],
+        order: { createdAt: "DESC" },
+        take: limit,
+        skip,
+        withDeleted: true // Important to see soft deleted ones
+      });
+
+      // Enrich with signed URLs
+      const enrichedStories = await Promise.all(
+        stories.map(async (story) => {
+          const imgUrl = story.imgstorie
+            ? await UploadFilesCloud.getFile({ bucketName: envs.AWS_BUCKET_NAME, key: story.imgstorie }).catch(() => null)
+            : null;
+
+          const userImg = story.user?.photoperfil
+            ? await UploadFilesCloud.getFile({ bucketName: envs.AWS_BUCKET_NAME, key: story.user.photoperfil }).catch(() => null)
+            : null;
+
+          return {
+            ...story,
+            imgstorie: imgUrl,
+            user: { ...story.user, photoperfil: userImg }
+          };
+        })
+      );
+
+      return {
+        stories: enrichedStories,
+        total,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page
+      };
+    } catch (error) {
+      console.error("Error in getAllStoriesAdmin:", error);
+      throw CustomError.internalServer("Error listando historias para admin");
+    }
+  }
+
+  async purgeOldDeletedStories(days: number = 30): Promise<{ deletedCount: number }> {
+    try {
+      const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+      // 1. Find candidates (Status DELETED + deletedAt < cutoff) OR (Status BANNED + createdAt < cutoff)
+      const stories = await Storie.find({
+        where: [
+          {
+            statusStorie: StatusStorie.DELETED,
+            deletedAt: LessThan(cutoff),
+          },
+          {
+            statusStorie: StatusStorie.BANNED,
+            createdAt: LessThan(cutoff),
+          }
+        ],
+        withDeleted: true
+      });
+
+      if (stories.length === 0) return { deletedCount: 0 };
+
+      let deletedCount = 0;
+
+      for (const story of stories) {
+        try {
+          // A. Delete from S3
+          if (story.imgstorie) {
+            await UploadFilesCloud.deleteFile({
+              bucketName: envs.AWS_BUCKET_NAME,
+              key: story.imgstorie,
+            }).catch(err => console.warn(`Failed to delete S3 file ${story.imgstorie}`, err));
+          }
+
+          // B. Delete from DB (Hard Delete)
+          await Storie.remove(story);
+          deletedCount++;
+        } catch (err) {
+          console.error(`Error purging story ${story.id}`, err);
+        }
+      }
+
+      getIO().emit("storiesPurged", { count: deletedCount });
+      return { deletedCount };
+
+    } catch (error) {
+      throw CustomError.internalServer(`Error en purga de historias (+${days} días)`);
+    }
+  }
+  // ADMIN: Get all stories for a user (Pagination + Admin View)
+  async getStoriesByUserAdmin(userId: string, page: number = 1, limit: number = 10) {
+    try {
+      const skip = (page - 1) * limit;
+
+      const [stories, total] = await Storie.findAndCount({
+        where: { user: { id: userId } },
+        relations: ["user"],
+        order: { createdAt: "DESC" },
+        take: limit,
+        skip: skip,
+        withDeleted: true // Include soft deleted if applicable
+      });
+
+      // Process images
+      const formattedStories = await Promise.all(
+        stories.map(async (story) => {
+          const resolvedImg = story.imgstorie
+            ? await UploadFilesCloud.getFile({
+              bucketName: envs.AWS_BUCKET_NAME,
+              key: story.imgstorie
+            }).catch(() => null)
+            : null;
+
+          const isExpired = new Date(story.expires_at) < new Date();
+          const isVisible = story.statusStorie === StatusStorie.PUBLISHED && !isExpired;
+
+          return {
+            ...story,
+            imgstorie: resolvedImg,
+            isExpired,
+            isVisible
+          };
+        })
+      );
+
+      return {
+        stories: formattedStories,
+        total,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page
+      };
+
+    } catch (error) {
+      console.error("Error in getStoriesByUserAdmin:", error);
+      throw CustomError.internalServer("Error fetching user stories for admin");
     }
   }
 }

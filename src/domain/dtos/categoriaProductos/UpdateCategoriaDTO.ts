@@ -1,19 +1,20 @@
-import { RestriccionModeloMonetizacion } from "../../../data";
+import { RestriccionModeloMonetizacion, StatusCategoria } from "../../../data";
 
 export class UpdateCategoriaDTO {
   private constructor(
     public readonly name?: string,
     public readonly icon?: string,
     public readonly restriccionModeloMonetizacion?: RestriccionModeloMonetizacion,
-    public readonly soloComision?: boolean
-  ) {}
+    public readonly soloComision?: boolean,
+    public readonly statusCategoria?: StatusCategoria
+  ) { }
 
   static create(obj: { [key: string]: any }): [string?, UpdateCategoriaDTO?] {
-    const { name, icon, restriccionModeloMonetizacion, soloComision } = obj;
+    const { name, icon, restriccionModeloMonetizacion, soloComision, statusCategoria } = obj;
 
-    if (!name && !icon && !restriccionModeloMonetizacion) {
+    if (!name && !icon && !restriccionModeloMonetizacion && statusCategoria === undefined && soloComision === undefined) {
       return [
-        "Debes enviar al menos 'name', 'icon' o 'restriccionModeloMonetizacion'",
+        "Debes enviar al menos un campo para actualizar",
       ];
     }
 
@@ -21,6 +22,7 @@ export class UpdateCategoriaDTO {
       name?: string;
       icon?: string;
       restriccionModeloMonetizacion?: RestriccionModeloMonetizacion;
+      statusCategoria?: StatusCategoria;
     } = {};
 
     if (name !== undefined) {
@@ -39,11 +41,19 @@ export class UpdateCategoriaDTO {
 
     if (restriccionModeloMonetizacion !== undefined) {
       if (
-        !["COMISION", "SUSCRIPCION"].includes(restriccionModeloMonetizacion)
+        restriccionModeloMonetizacion !== null &&
+        !["COMISION_SUSCRIPCION", "SUSCRIPCION"].includes(restriccionModeloMonetizacion)
       ) {
-        return ["La restricción debe ser 'COMISION' o 'SUSCRIPCION'"];
+        return ["La restricción debe ser 'COMISION_SUSCRIPCION' o 'SUSCRIPCION'"];
       }
       updates.restriccionModeloMonetizacion = restriccionModeloMonetizacion;
+    }
+
+    if (statusCategoria !== undefined) {
+      if (!Object.values(StatusCategoria).includes(statusCategoria)) {
+        return ["Estado de categoría inválido"];
+      }
+      updates.statusCategoria = statusCategoria;
     }
 
     return [
@@ -52,7 +62,8 @@ export class UpdateCategoriaDTO {
         updates.name,
         updates.icon,
         updates.restriccionModeloMonetizacion,
-        soloComision === undefined ? undefined : !!soloComision
+        soloComision === undefined ? undefined : !!soloComision,
+        updates.statusCategoria
       ),
     ];
   }

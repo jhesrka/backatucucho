@@ -10,8 +10,13 @@ export class PedidoAdminController {
     if (error instanceof CustomError) {
       return res.status(error.statusCode).json({ message: error.message });
     }
-    console.error("Unhandled error:", error);
-    return res.status(500).json({ message: "Something went very wrong" });
+
+    const message = error instanceof Error ? error.message : "Error interno en pedidos admin";
+    console.error("Orders Admin Error:", error);
+
+    return res.status(500).json({
+      message: `Error de Pedidos (Admin): ${message}`
+    });
   };
 
   // ======================== 1. Obtener pedidos con filtros ========================

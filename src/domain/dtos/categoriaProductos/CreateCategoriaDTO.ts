@@ -6,7 +6,7 @@ export class CreateCategoriaDTO {
     public readonly icon: string,
     public readonly restriccionModeloMonetizacion?: RestriccionModeloMonetizacion,
     public readonly soloComision: boolean = false
-  ) {}
+  ) { }
 
   static create(obj: { [key: string]: any }): [string?, CreateCategoriaDTO?] {
     const { name, icon, restriccionModeloMonetizacion, soloComision } = obj;
@@ -21,9 +21,9 @@ export class CreateCategoriaDTO {
 
     if (
       restriccionModeloMonetizacion &&
-      !["COMISION", "SUSCRIPCION"].includes(restriccionModeloMonetizacion)
+      !["COMISION_SUSCRIPCION", "SUSCRIPCION"].includes(restriccionModeloMonetizacion)
     ) {
-      return ["La restricción debe ser 'COMISION' o 'SUSCRIPCION'"];
+      return ["La restricción debe ser 'COMISION_SUSCRIPCION' o 'SUSCRIPCION'"];
     }
 
     return [

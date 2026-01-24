@@ -4,10 +4,10 @@ export class CreateMotorizadoDTO {
   constructor(
     public readonly name: string,
     public readonly surname: string,
-    public readonly password: string,
     public readonly whatsapp: string,
     public readonly cedula: number,
-  ) {}
+    public readonly password?: string,
+  ) { }
 
   static create(object: {
     [key: string]: any;
@@ -24,12 +24,13 @@ export class CreateMotorizadoDTO {
       return ["El apellido es obligatorio y debe tener al menos 2 caracteres"];
     }
 
-    // Validación de contraseña
-    if (!password) return ["La contraseña es obligatoria"];
-    if (!regularExp.password.test(password)) {
-      return [
-        "La contraseña debe tener mínimo 8 caracteres, al menos una mayúscula, una minúscula, un número y un símbolo",
-      ];
+    // Validación de contraseña (Opcional)
+    if (password) {
+      if (!regularExp.password.test(password)) {
+        return [
+          "La contraseña debe tener mínimo 8 caracteres, al menos una mayúscula, una minúscula, un número y un símbolo",
+        ];
+      }
     }
 
     // Validación de WhatsApp
@@ -44,6 +45,6 @@ export class CreateMotorizadoDTO {
       return ["La cédula debe tener exactamente 10 dígitos"];
     }
 
-    return [undefined, new CreateMotorizadoDTO(name, surname, password, whatsapp, cedula)];
+    return [undefined, new CreateMotorizadoDTO(name, surname, whatsapp, cedula, password)];
   }
 }

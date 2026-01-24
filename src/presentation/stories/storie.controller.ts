@@ -4,7 +4,7 @@ import { CreateStorieDTO } from "../../domain/dtos/stories/CreateStorie.dto";
 import { StorieService } from "../services/storie.service";
 
 export class StorieController {
-  constructor(private readonly storieService: StorieService) {}
+  constructor(private readonly storieService: StorieService) { }
   private handleError = (error: unknown, res: Response) => {
     if (error instanceof CustomError) {
       return res.status(error.statusCode).json({ message: error.message });
@@ -149,4 +149,93 @@ export class StorieController {
       return this.handleError(error, res);
     }
   };
+
+  // ADMIN: Change status explicitly
+  changeStatusStorieAdmin = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!status) return res.status(400).json({ message: "Status is required" });
+
+    this.storieService.changeStatusStorieAdmin(id, status)
+      .then(data => res.status(200).json(data))
+      .catch(err => this.handleError(err, res));
+  }
+
+  // ADMIN: Purge definitive
+  purgeStorieAdmin = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    this.storieService.purgeStorieAdmin(id)
+      .then(data => res.status(200).json(data))
+      .catch(err => this.handleError(err, res));
+  }
+  // ADMIN: Get All Stories of User
+  getStoriesByUserAdmin = async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params; // userId
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+
+      if (!id) return res.status(400).json({ message: "User ID is required" });
+
+      const data = await this.storieService.getStoriesByUserAdmin(id, page, limit);
+
+      return res.status(200).json({
+        success: true,
+        ...data,
+      });
+    } catch (error) {
+      return this.handleError(error, res);
+    }
+  }
+  // 4) Get Admin Stats
+  getAdminStats = async (req: Request, res: Response) => {
+    try {
+      const stats = await this.storieService.getAdminStats();
+      return res.json(stats);
+    } catch (error) {
+      return this.handleError(error, res);
+    }
+  }
+
+  // 5) Get All Stories Admin (Filtered)
+  getAllStoriesAdmin = async (req: Request, res: Response) => {
+    try {
+      const {
+        page,
+        limit,
+        id,
+        status,
+        type,
+        startDate,
+        endDate
+      } = req.query;
+
+      const data = await this.storieService.getAllStoriesAdmin({
+        page: page ? Number(page) : 1,
+        limit: limit ? Number(limit) : 50,
+        id: id as string,
+        status: status as string,
+        type: type as any,
+        startDate: startDate as string,
+        endDate: endDate as string
+      });
+
+      return res.json(data);
+    } catch (error) {
+      return this.handleError(error, res);
+    }
+  }
+
+  // 6) Purge Old Deleted Stories (+30 days default or specified)
+  purgeOldStories = async (req: Request, res: Response) => {
+    try {
+      const { days } = req.body; // Optional override
+      const result = await this.storieService.purgeOldDeletedStories(days ? Number(days) : 30);
+      return res.json({ success: true, ...result });
+    } catch (error) {
+      return this.handleError(error, res);
+    }
+  }
+
 }

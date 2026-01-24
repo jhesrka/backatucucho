@@ -1,0 +1,7 @@
+--- DEBUGGER START V2 ---
+Total GlobalSettings Records: 1
+Record 0: ID=6ed782cd-81bd-4a43-9fe1-8034cde49b3e, PIN=PRESENT, Updated=Thu Jan 22 2026 20:04:03 GMT-0500 (hora de Ecuador)
+  Hash=$2b$12$51Z.MzBoQpyQkaJ5HSyQx.f1drHKETdHgYWKcyPz7C7aSunIl5J36
+Total Admins: 1
+Admin c8eeb7a5-e252-4c64-8cca-766ce3ad22da (jhesrka@hotmail.com): Security PIN Present: false
+--- DEBUGGER END ---

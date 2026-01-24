@@ -22,11 +22,25 @@ export class ProductoAdminRoutes {
       productoControllerAdmin.getProductosAdmin
     );
     // ======================== ACTUALIZAR PRODUCTO ADMIN ========================
-      router.patch(
+    router.patch(
       "/:id",
       AuthAdminMiddleware.protect,
       uploadSingleFile("imagen"), // 👈 usa tu helper multer configurado
       productoControllerAdmin.updateProductoAdmin
+    );
+
+    // NUEVO: Admin Change Status
+    router.put(
+      "/status/:id",
+      AuthAdminMiddleware.protect,
+      productoControllerAdmin.changeStatusProductoAdmin
+    );
+
+    // NUEVO: Admin Purge Definitive
+    router.delete(
+      "/purge/:id",
+      AuthAdminMiddleware.protect,
+      productoControllerAdmin.deleteProductoAdmin
     );
     return router;
   }

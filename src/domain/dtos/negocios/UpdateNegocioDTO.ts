@@ -8,11 +8,13 @@ export class UpdateNegocioDTO {
     public readonly descripcion?: string,
     public readonly categoriaId?: string,
     public readonly statusNegocio?: StatusNegocio,
-    public readonly modeloMonetizacion?: "COMISION" | "SUSCRIPCION",
+    public readonly modeloMonetizacion?: ModeloMonetizacion,
     public readonly latitud?: number,
     public readonly longitud?: number,
-    public readonly direccionTexto?: string | null
-  ) {}
+    public readonly direccionTexto?: string | null,
+    public readonly valorSuscripcion?: number,
+    public readonly diaPago?: number
+  ) { }
 
   static create(obj: { [key: string]: any }): [string?, UpdateNegocioDTO?] {
     const {
@@ -24,6 +26,8 @@ export class UpdateNegocioDTO {
       latitud,
       longitud,
       direccionTexto,
+      valorSuscripcion,
+      diaPago,
     } = obj;
 
     // Validaciones opcionales
@@ -45,7 +49,7 @@ export class UpdateNegocioDTO {
 
     if (
       modeloMonetizacion !== undefined &&
-      !["COMISION", "SUSCRIPCION"].includes(modeloMonetizacion)
+      !Object.values(ModeloMonetizacion).includes(modeloMonetizacion)
     ) {
       return ["Debes seleccionar un modelo de monetización válido"];
     }
@@ -64,6 +68,20 @@ export class UpdateNegocioDTO {
       }
     }
 
+    if (valorSuscripcion !== undefined) {
+      const val = Number(valorSuscripcion);
+      if (isNaN(val) || val < 0) {
+        return ["El valor de suscripción debe ser un número positivo"];
+      }
+    }
+
+    if (diaPago !== undefined) {
+      const dia = Number(diaPago);
+      if (isNaN(dia) || dia < 1 || dia > 31) {
+        return ["El día de pago debe ser entre 1 y 31"];
+      }
+    }
+
     const dirTxt =
       typeof direccionTexto === "string" && direccionTexto.trim().length > 0
         ? direccionTexto.trim().slice(0, 200)
@@ -76,10 +94,12 @@ export class UpdateNegocioDTO {
         descripcion?.trim(),
         categoriaId,
         statusNegocio,
-        modeloMonetizacion as "COMISION" | "SUSCRIPCION",
+        modeloMonetizacion,
         latitud !== undefined ? Number(latitud) : undefined,
         longitud !== undefined ? Number(longitud) : undefined,
-        dirTxt
+        dirTxt,
+        valorSuscripcion !== undefined ? Number(valorSuscripcion) : undefined,
+        diaPago !== undefined ? Number(diaPago) : undefined
       ),
     ];
   }

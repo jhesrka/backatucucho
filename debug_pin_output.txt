@@ -1,0 +1,8 @@
+--- DEBUGGER START ---
+GlobalSettings Found: 1
+Global Setting ID: 6ed782cd-81bd-4a43-9fe1-8034cde49b3e
+Master PIN Present: true
+Master PIN Value (Hashed): $2b$12$87.Qb2k14oRqmP9WJ5AmlOpuYuPrzjSjo/azEXAMcAwgeXG6Rqxj2
+Total Admins: 1
+Admin c8eeb7a5-e252-4c64-8cca-766ce3ad22da (jhesrka@hotmail.com): Security PIN Present: false
+--- DEBUGGER END ---

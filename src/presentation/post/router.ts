@@ -41,6 +41,27 @@ export class PostRoutes {
     );
     router.get("/search", AuthMiddleware.protect, postController.searchPost);
 
+    // ===================================
+    // 🛡️ NEW ADMIN DASHBOARD ROUTES
+    // ===================================
+    router.get(
+      "/admin/list",
+      AuthAdminMiddleware.protect,
+      postController.getAdminPosts
+    );
+
+    router.get(
+      "/admin/stats",
+      AuthAdminMiddleware.protect,
+      postController.getAdminStats
+    );
+
+    router.delete(
+      "/admin/purge/old",
+      AuthAdminMiddleware.protect,
+      postController.purgeOldDeletedPosts
+    );
+
     // Totales de posts pagados activos
     router.get(
       "/paid/active/count",
@@ -64,6 +85,13 @@ export class PostRoutes {
       postController.getPostByIdAdmin
     );
 
+    // NUEVO: Admin - Get All Posts of User
+    router.get(
+      "/admin/user/:id/posts",
+      AuthAdminMiddleware.protect,
+      postController.getPostsByUserAdmin
+    );
+
     router.get("/:id", AuthMiddleware.protect, postController.findOnePost);
 
     router.post(
@@ -85,6 +113,20 @@ export class PostRoutes {
       postController.purgeDeletedPostsOlderThan3Days
     );
 
+    // NUEVO: Admin Purge Individual
+    router.delete(
+      "/admin/purge/:id",
+      AuthAdminMiddleware.protect,
+      postController.purgePostAdmin
+    );
+
+    // NUEVO: Admin Change Status
+    router.put(
+      "/admin/status/:id",
+      AuthAdminMiddleware.protect,
+      postController.changeStatusPostAdmin
+    );
+
     router.delete("/:id", AuthMiddleware.protect, postController.deletePost);
     router.patch(
       "/:id/update-date",
@@ -93,6 +135,8 @@ export class PostRoutes {
     );
 
     router.patch("/:id", AuthMiddleware.protect, postController.updatePost);
+
+
     //ADMINISTRADOR
     return router;
   }

@@ -2,6 +2,7 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   PutObjectCommand,
+  HeadObjectCommand,
 } from "@aws-sdk/client-s3";
 import { s3 } from "./awsConfig";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
@@ -19,6 +20,20 @@ interface PropsGetFile {
 }
 
 export class UploadFilesCloud {
+  static async checkFileExists(props: PropsGetFile): Promise<boolean> {
+    try {
+      const params = {
+        Bucket: props.bucketName,
+        Key: props.key,
+      };
+      const command = new HeadObjectCommand(params);
+      await s3.send(command);
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
   static async uploadSingleFile(props: PropsUploadFile): Promise<string> {
     const { bucketName, key, body, contentType } = props;
 
@@ -35,7 +50,7 @@ export class UploadFilesCloud {
     const params = {
       Bucket: props.bucketName,
       Key: props.key,
-      ACL: "private",
+      // ACL: "private", // ACL not needed for GetObject
     };
     const command = new GetObjectCommand(params);
     const url = await getSignedUrl(s3, command, {
@@ -51,5 +66,5 @@ export class UploadFilesCloud {
     const command = new DeleteObjectCommand(params);
     await s3.send(command);
   }
-  
+
 }

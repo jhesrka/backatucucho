@@ -74,6 +74,13 @@ export class UseradminController {
       .catch((error) => this.handleError(error, res));
   };
 
+  validateMasterPin = (req: Request, res: Response) => {
+    const { pin, sessionAdmin } = req.body;
+    (this.useradminService as any).validateMasterPin(pin, sessionAdmin?.id)
+      .then((data: any) => res.status(200).json(data))
+      .catch((error: any) => this.handleError(error, res));
+  };
+
   updateSecurityPin = (req: Request, res: Response) => {
     const { user, pin } = req.body;
     this.useradminService

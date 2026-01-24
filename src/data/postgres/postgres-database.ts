@@ -1,4 +1,4 @@
-import { DataSource, Transaction } from "typeorm";
+import { DataSource } from "typeorm";
 import {
   Post,
   User,
@@ -19,6 +19,10 @@ import {
   TransaccionMotorizado,
   BalanceNegocio,
   AdminNotification,
+  Transaction,
+  Campaign,
+  CampaignLog,
+  FinancialClosing,
 } from "../index";
 import { PriceSettings } from "./models/PriceSettings";
 import { DeliverySettings } from "./models/DeliverySettings";
@@ -66,6 +70,9 @@ export class PostgresDatabase {
         DeliverySettings,
         AdminNotification,
         GlobalSettings,
+        Campaign,
+        CampaignLog,
+        FinancialClosing,
       ],
       synchronize: true,
       ssl: {

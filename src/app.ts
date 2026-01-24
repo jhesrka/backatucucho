@@ -5,6 +5,7 @@ import { AppRoutes } from "./presentation/routes";
 import { Server } from "./presentation/server";
 import "dotenv/config";
 import { startPedidoMotoCron } from "./cron/pedidoMoto.cron";
+import { startSubscriptionCron } from "./cron/subscription.cron";
 async function main() {
   const postgres = new PostgresDatabase({
     username: envs.DB_USERNAME,
@@ -20,8 +21,9 @@ async function main() {
     port: envs.PORT,
     routes: AppRoutes.routes, //este viene de un metodo estatico por es no ponemos new
   });
-  // 👇 INICIAR EL CRON DE ASIGNACIÓN AUTOMÁTICA
+  // 👇 INICIAR CRONES
   startPedidoMotoCron();
+  startSubscriptionCron();
 
   await server.start();
 }

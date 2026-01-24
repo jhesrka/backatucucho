@@ -7,8 +7,8 @@ export class UpdateProductoDTO {
     public readonly precio?: number,
     public readonly precioParaApp?: number | null,
     public readonly tipoId?: string,
-    public readonly modeloMonetizacion?: "COMISION" | "SUSCRIPCION"
-  ) {}
+    public readonly modeloMonetizacion?: "SUSCRIPCION" | "COMISION_SUSCRIPCION"
+  ) { }
 
   static create(obj: {
     nombre?: string;
@@ -16,7 +16,7 @@ export class UpdateProductoDTO {
     precio?: number;
     precioParaApp?: number;
     tipoId?: string;
-    modeloMonetizacion?: "COMISION" | "SUSCRIPCION";
+    modeloMonetizacion?: "SUSCRIPCION" | "COMISION_SUSCRIPCION";
   }): [string?, UpdateProductoDTO?] {
     const {
       nombre,
@@ -39,7 +39,7 @@ export class UpdateProductoDTO {
       return ["El precio debe ser un número positivo"];
     }
 
-    if (modeloMonetizacion && !["COMISION", "SUSCRIPCION"].includes(modeloMonetizacion)) {
+    if (modeloMonetizacion && !["SUSCRIPCION", "COMISION_SUSCRIPCION"].includes(modeloMonetizacion)) {
       return ["Modelo de monetización inválido"];
     }
 
@@ -48,7 +48,7 @@ export class UpdateProductoDTO {
     }
 
     if (
-      modeloMonetizacion === "COMISION" &&
+      modeloMonetizacion === "COMISION_SUSCRIPCION" &&
       precioParaApp !== undefined &&
       precio !== undefined &&
       Number(precioParaApp) >= Number(precio)

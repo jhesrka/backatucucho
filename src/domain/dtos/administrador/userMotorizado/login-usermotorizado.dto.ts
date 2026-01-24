@@ -4,7 +4,7 @@ export class LoginMotorizadoUserDTO {
   constructor(
     public readonly cedula: string,
     public readonly password: string
-  ) {}
+  ) { }
 
   static create(object: { [key: string]: any }): [string[]?, LoginMotorizadoUserDTO?] {
     const { cedula, password } = object;
@@ -15,8 +15,7 @@ export class LoginMotorizadoUserDTO {
       typeof cedula === "string" && regularExp.cedula.test(cedula.trim());
 
     const isPasswordValid =
-      typeof password === "string" &&
-      regularExp.password.test(password.trim());
+      typeof password === "string" && password.length > 0;
 
     // Mensaje genérico si algo está mal
     if (!isCedulaValid || !isPasswordValid) {

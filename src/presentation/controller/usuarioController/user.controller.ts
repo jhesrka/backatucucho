@@ -308,4 +308,57 @@ export class UserController {
       return this.handleError(error, res);
     }
   };
+
+  // 11. Purgar usuario (Eliminación definitiva)
+  purgeUser = (req: Request, res: Response) => {
+    const { id } = req.params;
+    this.userService
+      .purgeUser(id)
+      .then((data) => res.status(200).json(data))
+      .catch((error) => this.handleError(error, res));
+  };
+
+  // ===================== NUEVOS MÉTODOS DE GESTIÓN AVANZADA =====================
+
+  updateUserAdminAction = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { email, whatsapp, status } = req.body;
+    try {
+      const result = await this.userService.updateUserAdmin(id, { email, whatsapp, status });
+      return res.status(200).json(result);
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  }
+
+  forceLogoutAdminAction = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    try {
+      const result = await this.userService.forceLogoutAdmin(id);
+      return res.status(200).json(result);
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  }
+
+  sendPasswordResetAdminAction = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    try {
+      const result = await this.userService.sendPasswordResetAdmin(id);
+      return res.status(200).json(result);
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  }
+
+  purgeUserAdminAction = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    try {
+      const result = await this.userService.purgeUserAdmin(id);
+      return res.status(200).json(result);
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  }
+
 }

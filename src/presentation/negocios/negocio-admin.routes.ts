@@ -3,13 +3,15 @@ import { AuthAdminMiddleware } from "../../middlewares/auth-admin.middleware";
 import { uploadSingleFile } from "../../config";
 import { NegocioAdminService } from "../services/negocioAdmin.service";
 import { NegocioAdminController } from "./negocio.admin.controller";
+import { SubscriptionService } from "../services/subscription.service";
 
 export class NegocioAdminRoutes {
   static get routes(): Router {
     const router = Router();
 
-    const service = new NegocioAdminService();
-    const controller = new NegocioAdminController(service);
+    const subscriptionService = new SubscriptionService();
+    const service = new NegocioAdminService(subscriptionService);
+    const controller = new NegocioAdminController(service, subscriptionService);
 
     // Crear negocio (admin)
     router.post(
@@ -55,6 +57,34 @@ export class NegocioAdminRoutes {
       "/:id",
       AuthAdminMiddleware.protect,
       controller.deleteNegocioAdmin
+    );
+
+    // NUEVO: Admin Purge Individual
+    router.delete(
+      "/purge/:id",
+      AuthAdminMiddleware.protect,
+      controller.purgeNegocioAdmin
+    );
+
+    // NUEVO: Admin Change Status
+    router.put(
+      "/status/:id",
+      AuthAdminMiddleware.protect,
+      controller.changeStatusNegocioAdmin
+    );
+
+    // NUEVO: Admin - Get All Businesses of User
+    router.get(
+      "/user/:id/negocios",
+      AuthAdminMiddleware.protect,
+      controller.getNegociosByUserAdmin
+    );
+
+    // NUEVO: Admin - Forzar cobro de suscripción
+    router.post(
+      "/:id/force-subscription",
+      AuthAdminMiddleware.protect,
+      controller.forceChargeSubscription
     );
 
     return router;

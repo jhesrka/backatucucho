@@ -5,21 +5,33 @@ import { StatusNegocio } from "../../data";
 import { CreateNegocioDTO } from "../../domain/dtos/negocios/CreateNegocioDTO";
 import { UpdateNegocioDTO } from "../../domain/dtos/negocios/UpdateNegocioDTO";
 
+import { SubscriptionService } from "../services/subscription.service";
+
 type UpdateNegocioData = {
   categoriaId?: string;
   statusNegocio?: string;
-  modeloMonetizacion?: "COMISION" | "SUSCRIPCION";
+  modeloMonetizacion?: "SUSCRIPCION" | "COMISION_SUSCRIPCION";
   imagenNegocio?: string;
 };
 export class NegocioAdminController {
-  constructor(private readonly negocioAdminService: NegocioAdminService) {}
+  constructor(
+    private readonly negocioAdminService: NegocioAdminService,
+    private readonly subscriptionService: SubscriptionService = new SubscriptionService()
+  ) { }
 
   private handleError = (error: unknown, res: Response) => {
     if (error instanceof CustomError) {
       return res.status(error.statusCode).json({ message: error.message });
     }
+
+    // Si no es un CustomError, intentamos extraer el mensaje para ser claros con el Admin
+    const message = error instanceof Error ? error.message : "Error interno no controlado";
     console.error("Unhandled error:", error);
-    return res.status(500).json({ message: "Something went very wrong" });
+
+    return res.status(500).json({
+      message: `Error de Sistema: ${message}`,
+      error: process.env.NODE_ENV === 'development' ? error : undefined
+    });
   };
 
   // ===================== GET ALL CON FILTROS Y PAGINACIÓN =====================
@@ -31,7 +43,7 @@ export class NegocioAdminController {
       // Validamos que sea un valor válido del enum StatusNegocio
       const statusEnum =
         statusRaw &&
-        Object.values(StatusNegocio).includes(statusRaw as StatusNegocio)
+          Object.values(StatusNegocio).includes(statusRaw as StatusNegocio)
           ? (statusRaw as StatusNegocio)
           : undefined;
 
@@ -147,4 +159,60 @@ export class NegocioAdminController {
       this.handleError(error, res);
     }
   };
+
+  changeStatusNegocioAdmin = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { status } = req.body;
+    if (!status) return res.status(400).json({ message: "Status required" });
+
+    try {
+      const result = await this.negocioAdminService.changeStatusNegocioAdmin(id, status);
+      return res.status(200).json(result);
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  }
+
+  purgeNegocioAdmin = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    try {
+      const result = await this.negocioAdminService.purgeNegocioAdmin(id);
+      return res.status(200).json(result);
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  }
+  // ADMIN: Get All Businesses of User
+  getNegociosByUserAdmin = async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params; // userId
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+
+      if (!id) return res.status(400).json({ message: "User ID is required" });
+
+      const data = await this.negocioAdminService.getNegociosByUserAdmin(id, page, limit);
+
+      return res.status(200).json({
+        success: true,
+        ...data,
+      });
+    } catch (error) {
+      return this.handleError(error, res);
+    }
+  }
+
+  forceChargeSubscription = async (req: Request, res: Response) => {
+    const { id } = req.params; // negocioId
+    try {
+      const updatedNegocio = await this.subscriptionService.forceChargeSubscription(id);
+      return res.status(200).json({
+        success: true,
+        message: "Cobro realizado correctamente y período activado",
+        negocio: updatedNegocio
+      });
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  }
 }

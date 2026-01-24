@@ -15,7 +15,10 @@ import { Parser } from "json2csv";
 import { CreateNegocioDTO } from "../../domain/dtos/negocios/CreateNegocioDTO";
 import { UpdateNegocioDTO } from "../../domain/dtos/negocios/UpdateNegocioDTO";
 
+import { SubscriptionService } from "./subscription.service";
+
 export class NegocioAdminService {
+  constructor(private readonly subscriptionService?: SubscriptionService) { }
   // ========================= READ =========================
   async getNegociosAdmin({
     limit = 4,
@@ -52,7 +55,7 @@ export class NegocioAdminService {
 
     const [negocios, total] = await Negocio.findAndCount({
       where,
-      relations: ["categoria", "usuario"],
+      relations: ["categoria", "usuario", "usuario.wallet"],
       take: limit,
       skip: offset,
       order: { created_at: "DESC" },
@@ -66,16 +69,18 @@ export class NegocioAdminService {
             bucketName: envs.AWS_BUCKET_NAME,
             key: negocio.imagenNegocio,
           });
-        } catch (error) {}
+        } catch (error) { }
 
         // 🔒 Filtrar datos del usuario
         const usuarioSeguro = negocio.usuario
           ? {
-              id: negocio.usuario.id,
-              name: negocio.usuario.name,
-              surname: negocio.usuario.surname,
-              whatsapp: negocio.usuario.whatsapp,
-            }
+            id: negocio.usuario.id,
+            name: negocio.usuario.name,
+            surname: negocio.usuario.surname,
+            email: negocio.usuario.email,
+            whatsapp: negocio.usuario.whatsapp,
+            balance: negocio.usuario.wallet ? Number(negocio.usuario.wallet.balance) : 0,
+          }
           : null;
 
         return {
@@ -95,7 +100,7 @@ export class NegocioAdminService {
   async getNegocioByIdAdmin(id: string) {
     const negocio = await Negocio.findOne({
       where: { id },
-      relations: ["categoria", "usuario", "productos"],
+      relations: ["categoria", "usuario", "usuario.wallet", "productos"],
     });
 
     if (!negocio) throw CustomError.notFound("Negocio no encontrado");
@@ -105,7 +110,18 @@ export class NegocioAdminService {
       key: negocio.imagenNegocio,
     });
 
-    return { ...negocio, imagenUrl };
+    const usuarioSeguro = negocio.usuario
+      ? {
+        id: negocio.usuario.id,
+        name: negocio.usuario.name,
+        surname: negocio.usuario.surname,
+        email: negocio.usuario.email,
+        whatsapp: negocio.usuario.whatsapp,
+        balance: negocio.usuario.wallet ? Number(negocio.usuario.wallet.balance) : 0,
+      }
+      : null;
+
+    return { ...negocio, usuario: usuarioSeguro, imagenUrl };
   }
 
   // ========================= CREATE =========================
@@ -130,18 +146,15 @@ export class NegocioAdminService {
       });
     }
 
-    const modelo =
-      dto.modeloMonetizacion === "COMISION"
-        ? ModeloMonetizacion.COMISION
-        : ModeloMonetizacion.SUSCRIPCION;
-
     const negocio = Negocio.create({
       nombre: dto.nombre,
       descripcion: dto.descripcion,
       categoria,
       usuario,
       imagenNegocio: key,
-      modeloMonetizacion: modelo,
+      modeloMonetizacion: dto.modeloMonetizacion,
+      valorSuscripcion: dto.valorSuscripcion,
+      diaPago: dto.diaPago,
     });
 
     const saved = await negocio.save();
@@ -171,7 +184,7 @@ export class NegocioAdminService {
   async updateNegocioAdmin(id: string, dto: UpdateNegocioDTO) {
     const negocio = await Negocio.findOne({
       where: { id },
-      relations: ["categoria"],
+      relations: ["categoria", "usuario"],
     });
     if (!negocio) throw CustomError.notFound("Negocio no encontrado");
 
@@ -188,18 +201,26 @@ export class NegocioAdminService {
     if (dto.modeloMonetizacion) {
       if (!negocio.categoria)
         throw CustomError.badRequest("Negocio sin categoría asignada");
-      if (
-        negocio.categoria.soloComision &&
-        dto.modeloMonetizacion !== "COMISION"
-      ) {
-        throw CustomError.badRequest(
-          `La categoría '${negocio.categoria.nombre}' solo permite modelo COMISION`
-        );
+
+      // Validar restricciones de la categoría si existen
+      if (negocio.categoria.soloComision && dto.modeloMonetizacion !== ModeloMonetizacion.COMISION_SUSCRIPCION) {
+        throw CustomError.badRequest(`La categoría '${negocio.categoria.nombre}' solo permite el modelo COMISION + SUSCRIPCION`);
       }
-      negocio.modeloMonetizacion =
-        dto.modeloMonetizacion === "COMISION"
-          ? ModeloMonetizacion.COMISION
-          : ModeloMonetizacion.SUSCRIPCION;
+
+      if (negocio.categoria.restriccionModeloMonetizacion && negocio.categoria.restriccionModeloMonetizacion !== (dto.modeloMonetizacion as any)) {
+        throw CustomError.badRequest(`La categoría '${negocio.categoria.nombre}' tiene restricción a: ${negocio.categoria.restriccionModeloMonetizacion}`);
+      }
+
+      negocio.modeloMonetizacion = dto.modeloMonetizacion;
+    }
+
+    // ========================= ACTUALIZAR SUBSCRIPCIÓN =========================
+    if (dto.valorSuscripcion !== undefined) {
+      negocio.valorSuscripcion = dto.valorSuscripcion;
+    }
+
+    if (dto.diaPago !== undefined) {
+      negocio.diaPago = dto.diaPago;
     }
 
     // ========================= ACTUALIZAR STATUS =========================
@@ -207,7 +228,40 @@ export class NegocioAdminService {
       if (!Object.values(StatusNegocio).includes(dto.statusNegocio)) {
         throw CustomError.badRequest("Estado de negocio inválido");
       }
-      negocio.statusNegocio = dto.statusNegocio;
+
+      // 🔄 FLUJO ATÓMICO: Si el admin intenta poner ACTIVO y se requiere cobro:
+      // (needsCharge se calcula después de haber actualizado valorSuscripcion arriba)
+      const needsCharge = Number(negocio.valorSuscripcion) > 0 && (
+        negocio.statusNegocio === StatusNegocio.NO_PAGADO ||
+        negocio.statusNegocio === StatusNegocio.PENDIENTE ||
+        !negocio.fechaFinSuscripcion ||
+        new Date(negocio.fechaFinSuscripcion) <= new Date()
+      );
+
+      if (dto.statusNegocio === StatusNegocio.ACTIVO && needsCharge) {
+        if (!this.subscriptionService) {
+          throw CustomError.internalServer("Servicio de suscripción no inicializado");
+        }
+
+        try {
+          // Intentamos cobrar. Si falla (ej: No hay saldo), el error cortará la ejecución
+          // y el negocio NO pasará a ACTIVO.
+          await this.subscriptionService.chargeSubscription(negocio);
+          // chargeSubscription ya actualiza el estado a ACTIVO, fechaInicio, etc.
+        } catch (error: any) {
+          // Re-lanzar error con mensaje claro que ya viene del SubscriptionService o WalletService
+          throw error;
+        }
+      } else if (dto.statusNegocio === StatusNegocio.NO_PAGADO) {
+        // REGLA: No pasar a NO_PAGADO si aún tiene periodo vigente
+        if (negocio.fechaFinSuscripcion && new Date(negocio.fechaFinSuscripcion) > new Date()) {
+          throw CustomError.badRequest(`El negocio aún tiene una suscripción vigente hasta el ${new Date(negocio.fechaFinSuscripcion).toLocaleDateString()}. No se puede pasar a NO_PAGADO prematuramente.`);
+        }
+        negocio.statusNegocio = StatusNegocio.NO_PAGADO;
+      } else {
+        // Si no necesita cobro (es de $0 o ya tiene período activo), simplemente actualizamos el estado
+        negocio.statusNegocio = dto.statusNegocio as StatusNegocio;
+      }
     }
 
     const saved = await negocio.save();
@@ -217,6 +271,8 @@ export class NegocioAdminService {
       nombre: saved.nombre,
       statusNegocio: saved.statusNegocio,
       modeloMonetizacion: saved.modeloMonetizacion,
+      valorSuscripcion: saved.valorSuscripcion,
+      diaPago: saved.diaPago,
       categoria: {
         id: saved.categoria.id,
         nombre: saved.categoria.nombre,
@@ -224,6 +280,10 @@ export class NegocioAdminService {
         soloComision: saved.categoria.soloComision,
       },
       updated_at: saved.updated_at,
+      fechaInicioSuscripcion: saved.fechaInicioSuscripcion,
+      fechaFinSuscripcion: saved.fechaFinSuscripcion,
+      fechaUltimoCobro: saved.fechaUltimoCobro,
+      intentosCobro: saved.intentosCobro,
     };
   }
 
@@ -284,7 +344,7 @@ export class NegocioAdminService {
     return Buffer.from(csv); // se puede devolver como archivo en rutas
   }
 
-    // ========================= ESTADÍSTICAS =========================
+  // ========================= ESTADÍSTICAS =========================
   async getNegociosStatsAdmin() {
     // Contar negocios activos
     const activos = await Negocio.count({
@@ -313,7 +373,117 @@ export class NegocioAdminService {
       pendientes,
       pendientesUltimas24h,
     };
+  };
+
+
+  // Wrappers for consistent Admin Panel actions
+  async changeStatusNegocioAdmin(id: string, status: StatusNegocio) {
+    const negocio = await Negocio.findOne({ where: { id } });
+    if (!negocio) throw CustomError.notFound("Negocio no encontrado");
+
+    const needsCharge = Number(negocio.valorSuscripcion) > 0 && (
+      negocio.statusNegocio === StatusNegocio.NO_PAGADO ||
+      negocio.statusNegocio === StatusNegocio.PENDIENTE ||
+      !negocio.fechaFinSuscripcion ||
+      new Date(negocio.fechaFinSuscripcion) <= new Date()
+    );
+
+    if (status === StatusNegocio.ACTIVO && needsCharge) {
+      throw CustomError.badRequest("No se puede activar el negocio manualmente (Suscripción paga). Use el botón 'Reactivar Suscripción' para procesar el pago y activar el período.");
+    }
+
+    if (status === StatusNegocio.NO_PAGADO && negocio.fechaFinSuscripcion && new Date(negocio.fechaFinSuscripcion) > new Date()) {
+      throw CustomError.badRequest(`El negocio aún tiene una suscripción vigente hasta el ${new Date(negocio.fechaFinSuscripcion).toLocaleDateString()}. No se puede pasar a NO_PAGADO prematuramente.`);
+    }
+
+    negocio.statusNegocio = status;
+    await negocio.save();
+    return { message: `Estado cambiado a ${status}`, status: negocio.statusNegocio };
+  }
+
+  async purgeNegocioAdmin(id: string) {
+    return this.deleteNegocioAdmin(id);
   }
 
 
+  // ADMIN: Get all businesses for a user (Pagination + Admin View)
+  async getNegociosByUserAdmin(userId: string, page: number = 1, limit: number = 10) {
+    // Validate UUID
+    if (!regularExp.uuid.test(userId)) {
+      throw CustomError.badRequest("ID de usuario inválido");
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [negocios, total] = await Negocio.findAndCount({
+      where: { usuario: { id: userId } },
+      relations: ["categoria", "productos"], // Include products to count them
+      order: { created_at: "DESC" },
+      take: limit,
+      skip: skip,
+      withDeleted: true // Include soft deleted if applicable but typeorm default delete is soft usually needs @DeleteDateColumn. 
+      // Assuming your entity uses typical status columns.
+    });
+
+    // Process images and stats
+    const formattedNegocios = await Promise.all(
+      negocios.map(async (negocio) => {
+        const resolvedImg = negocio.imagenNegocio
+          ? await UploadFilesCloud.getFile({
+            bucketName: envs.AWS_BUCKET_NAME,
+            key: negocio.imagenNegocio
+          }).catch(() => null)
+          : null;
+
+        // Count products
+        const totalProductos = negocio.productos?.length || 0;
+        // Count active products if you had a status on products, assuming you iterate or count in DB.
+        // For efficiency, usually better to use query builder specifically for counts, but relations load is okay for small sets.
+        // Let's assume 'productos' are loaded.
+        // StatusProducto enum check:
+        // Adjust if StatusProducto is not imported here.
+        // We will just count total for now as requested "Cantidad de productos asociados".
+        // "Cantidad de productos activos" -> need to filter.
+
+        let activeProducts = 0;
+        if (negocio.productos) {
+          // Assuming product has a status field
+          activeProducts = negocio.productos.filter((p: any) => p.statusProducto === 'ACTIVO').length;
+        }
+
+        return {
+          id: negocio.id,
+          nombre: negocio.nombre,
+          descripcion: negocio.descripcion,
+          statusNegocio: negocio.statusNegocio,
+          estadoNegocio: negocio.estadoNegocio, // Abierto/Cerrado
+          categoria: negocio.categoria?.nombre,
+          modeloMonetizacion: negocio.modeloMonetizacion,
+          valorSuscripcion: negocio.valorSuscripcion,
+          diaPago: negocio.diaPago,
+          fechaUltimoCobro: negocio.fechaUltimoCobro,
+          intentosCobro: negocio.intentosCobro,
+          fechaInicioSuscripcion: negocio.fechaInicioSuscripcion,
+          fechaFinSuscripcion: negocio.fechaFinSuscripcion,
+          direccion: negocio.direccionTexto,
+          latitud: negocio.latitud,
+          longitud: negocio.longitud,
+          direccionTexto: negocio.direccionTexto,
+          whatsapp: negocio.usuario?.whatsapp,
+          created_at: negocio.created_at,
+          updated_at: negocio.updated_at,
+          imagenUrl: resolvedImg,
+          totalProductos,
+          activeProducts
+        };
+      })
+    );
+
+    return {
+      negocios: formattedNegocios,
+      total,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page
+    };
+  }
 }

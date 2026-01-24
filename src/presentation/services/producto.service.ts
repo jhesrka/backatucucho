@@ -290,9 +290,36 @@ export class ProductoService {
     const producto = await Producto.findOneBy({ id });
     if (!producto) throw CustomError.notFound("Producto no encontrado");
 
-    await Producto.remove(producto); // o setear disponible = false si quieres soft-delete
+    if (producto.imagen) {
+      await UploadFilesCloud.deleteFile({
+        bucketName: envs.AWS_BUCKET_NAME,
+        key: producto.imagen,
+      }).catch(err => console.log('Error deleting s3 file', err));
+    }
+
+    await Producto.remove(producto);
 
     return { message: "Producto eliminado correctamente" };
+  }
+
+  // ADMIN: Cambiar status
+  async changeStatusProductoAdmin(id: string, status: StatusProducto) {
+    const producto = await Producto.findOneBy({ id });
+    if (!producto) throw CustomError.notFound("Producto no encontrado");
+
+    producto.statusProducto = status;
+    // Also sync disponible if needed? Assuming status is higher level.
+    if (status === StatusProducto.SUSPENDIDO || status === StatusProducto.BLOQUEADO) {
+      producto.disponible = false;
+    }
+
+    await producto.save();
+    return { message: `Estado cambiado a ${status}`, status: producto.statusProducto };
+  }
+
+  // ADMIN: Purga definitiva
+  async purgeProductoAdmin(id: string) {
+    return await this.deleteProducto(id);
   }
 
   // ========================= TOGGLE =========================

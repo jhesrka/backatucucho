@@ -19,6 +19,13 @@ export class UseradminRoutes {
       AuthAdminMiddleware.protect,
       useradminController.createUseradmin
     );
+
+    router.post(
+      "/validate-pin",
+      AuthAdminMiddleware.protect,
+      useradminController.validateMasterPin
+    );
+
     router.post("/loginadmin", useradminController.loginAdmin);
     router.post("/forgot-password", useradminController.forgotPassword);
     router.post("/reset-password", useradminController.resetPassword);

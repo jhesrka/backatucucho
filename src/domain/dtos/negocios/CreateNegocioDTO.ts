@@ -1,5 +1,5 @@
-// src/domain/dtos/negocios/CreateNegocioDTO.ts
 import { regularExp } from "../../../config";
+import { ModeloMonetizacion } from "../../../data";
 
 export class CreateNegocioDTO {
   private constructor(
@@ -7,14 +7,16 @@ export class CreateNegocioDTO {
     public readonly descripcion: string,
     public readonly categoriaId: string,
     public readonly userId: string,
-    public readonly modeloMonetizacion: "COMISION" | "SUSCRIPCION",
+    public readonly modeloMonetizacion: ModeloMonetizacion,
     public readonly latitud: number,
     public readonly longitud: number,
     public readonly banco: string,
     public readonly tipoCuenta: string,
     public readonly numeroCuenta: string,
     public readonly titularCuenta: string,
-    public readonly direccionTexto?: string | null
+    public readonly direccionTexto?: string | null,
+    public readonly valorSuscripcion: number = 0,
+    public readonly diaPago: number = 1
   ) { }
 
   static create(obj: { [key: string]: any }): [string?, CreateNegocioDTO?] {
@@ -30,7 +32,9 @@ export class CreateNegocioDTO {
       banco,
       tipoCuenta,
       numeroCuenta,
-      titularCuenta
+      titularCuenta,
+      valorSuscripcion,
+      diaPago
     } = obj;
 
     if (!nombre || typeof nombre !== "string" || nombre.trim().length < 3) {
@@ -49,7 +53,7 @@ export class CreateNegocioDTO {
       return ["El ID de usuario no es válido"];
     }
 
-    if (!modeloMonetizacion || !["COMISION", "SUSCRIPCION"].includes(modeloMonetizacion)) {
+    if (!modeloMonetizacion || !Object.values(ModeloMonetizacion).includes(modeloMonetizacion)) {
       return ["Debes seleccionar un modelo de monetización válido"];
     }
 
@@ -77,6 +81,20 @@ export class CreateNegocioDTO {
       return ["Longitud inválida"];
     }
 
+    if (valorSuscripcion !== undefined) {
+      const val = Number(valorSuscripcion);
+      if (isNaN(val) || val < 0) {
+        return ["El valor de suscripción debe ser un número positivo"];
+      }
+    }
+
+    if (diaPago !== undefined) {
+      const dia = Number(diaPago);
+      if (isNaN(dia) || dia < 1 || dia > 31) {
+        return ["El día de pago debe ser entre 1 y 31"];
+      }
+    }
+
     // opcional, pero si viene validamos tamaño
     const dirTxt =
       typeof direccionTexto === "string" && direccionTexto.trim().length > 0
@@ -90,14 +108,16 @@ export class CreateNegocioDTO {
         descripcion.trim(),
         categoriaId,
         userId,
-        modeloMonetizacion as "COMISION" | "SUSCRIPCION",
+        modeloMonetizacion,
         lat,
         lng,
         banco.trim(),
         tipoCuenta.trim(),
         numeroCuenta.trim(),
         titularCuenta.trim(),
-        dirTxt
+        dirTxt,
+        valorSuscripcion !== undefined ? Number(valorSuscripcion) : 0,
+        diaPago !== undefined ? Number(diaPago) : 1
       ),
     ];
   }

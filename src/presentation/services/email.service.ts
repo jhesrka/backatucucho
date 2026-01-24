@@ -21,6 +21,9 @@ export class EmailService {
   ) {
     this.transporter = nodemailer.createTransport({
       service: mailerService,
+      pool: true, // Use pooled connections
+      maxConnections: 1, // Limit concurrent connections to avoid blocking
+      rateLimit: 3, // Rate limit messages per second
       auth: {
         user: mailerEmail,
         pass: senderEmailPassword,
@@ -41,8 +44,8 @@ export class EmailService {
       });
       return true;
     } catch (error) {
-      
-      return false;
+      console.error("Email Service Error:", error);
+      throw error;
     }
   }
 }

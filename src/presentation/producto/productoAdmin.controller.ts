@@ -4,7 +4,7 @@ import { CustomError } from "../../domain";
 import { StatusProducto } from "../../data";
 
 export class ProductoControllerAdmin {
-  constructor(private readonly productoServiceAdmin: ProductoServiceAdmin) {}
+  constructor(private readonly productoServiceAdmin: ProductoServiceAdmin) { }
 
   private handleError = (error: unknown, res: Response) => {
     if (error instanceof CustomError) {
@@ -97,4 +97,28 @@ export class ProductoControllerAdmin {
       this.handleError(error, res);
     }
   };
+
+
+  changeStatusProductoAdmin = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { status } = req.body;
+    if (!status) return res.status(400).json({ message: "Status required" });
+
+    try {
+      const result = await this.productoServiceAdmin.changeStatusProductoAdmin(id, status);
+      return res.status(200).json(result);
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  }
+
+  deleteProductoAdmin = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    try {
+      const result = await this.productoServiceAdmin.deleteProductoAdmin(id);
+      return res.status(200).json(result);
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  }
 }

@@ -14,7 +14,7 @@ export enum StatusCategoria {
   SUSPENDIDO = "SUSPENDIDO",
 }
 export enum RestriccionModeloMonetizacion {
-  COMISION = "COMISION",
+  COMISION_SUSCRIPCION = "COMISION_SUSCRIPCION",
   SUSCRIPCION = "SUSCRIPCION",
 }
 @Entity()

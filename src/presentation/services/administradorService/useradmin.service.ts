@@ -1,5 +1,5 @@
 import { encriptAdapter, envs, JwtAdapterAdmin } from "../../../config";
-import { Statusadmin, Useradmin } from "../../../data";
+import { Statusadmin, Useradmin, GlobalSettings } from "../../../data";
 import {
   CreateUseradminDTO,
   CustomError,
@@ -233,12 +233,36 @@ export class UseradminService {
   async updateSecurityPin(userId: string, pin: string) {
     if (!pin || pin.length < 4) throw CustomError.badRequest("El PIN debe tener al menos 4 caracteres");
 
-    const user = await Useradmin.findOne({ where: { id: userId } });
-    if (!user) throw CustomError.notFound("Usuario no encontrado");
+    // Buscar o Crear Configuración Global
+    let settings = await GlobalSettings.findOne({ where: {}, order: { updatedAt: "DESC" } });
+    if (!settings) {
+      settings = new GlobalSettings();
+    }
 
-    user.securityPin = encriptAdapter.hash(pin);
-    await user.save();
+    settings.masterPin = encriptAdapter.hash(pin);
+    await settings.save();
 
-    return { message: "PIN de seguridad actualizado correctamente" };
+    return { message: "PIN Maestro Global actualizado correctamente" };
+  }
+
+  async validateMasterPin(pin: string, adminId?: string) {
+    if (!pin) throw CustomError.badRequest("PIN es requerido");
+
+    const cleanPin = String(pin).trim();
+
+    // 1. Validar EXCLUSIVAMENTE contra GlobalSettings
+    const settings = await GlobalSettings.findOne({ where: {}, order: { updatedAt: "DESC" } });
+
+    if (!settings || !settings.masterPin) {
+      throw CustomError.badRequest("El sistema no tiene un PIN Maestro configurado. Por favor configure su 'PIN de Seguridad' en su perfil de administrador.");
+    }
+
+    const isValid = encriptAdapter.compare(cleanPin, settings.masterPin);
+
+    if (!isValid) {
+      throw CustomError.badRequest("PIN Maestro Incorrecto");
+    }
+
+    return { valid: true };
   }
 }

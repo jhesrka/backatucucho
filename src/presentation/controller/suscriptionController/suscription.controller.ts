@@ -6,14 +6,19 @@ export class SubscriptionController {
   constructor(
     private readonly subscriptionService: SubscriptionService,
     private readonly freePostTrackerService: FreePostTrackerService
-  ) {}
+  ) { }
 
   private handleError = (error: unknown, res: Response) => {
     if (error instanceof CustomError) {
       return res.status(error.statusCode).json({ message: error.message });
     }
-    console.error("Unhandled error:", error);
-    return res.status(500).json({ message: "Something went very wrong" });
+
+    const message = error instanceof Error ? error.message : "Error interno de suscripción";
+    console.error("Subscription Error:", error);
+
+    return res.status(500).json({
+      message: `Error de Suscripción: ${message}`
+    });
   };
 
   /**
@@ -122,14 +127,177 @@ export class SubscriptionController {
         subscriptionStatus,
         currentSubscription: latest
           ? {
-              id: latest.id,
-              plan: latest.plan,
-              status: latest.status,
-              startDate: latest.startDate,
-              endDate: latest.endDate,
-              autoRenewal: !!latest.autoRenewal,
-            }
+            id: latest.id,
+            plan: latest.plan,
+            status: latest.status,
+            startDate: latest.startDate,
+            endDate: latest.endDate,
+            autoRenewal: !!latest.autoRenewal,
+          }
           : null,
+      });
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  };
+
+  // ========================= ADMIN CONTROLLER METHODS =========================
+
+  getSubscriptionsByUserAdmin = async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params; // User ID from route /admin/user/:id/subscriptions
+      const { page = 1, limit = 10 } = req.query;
+
+      const result = await this.subscriptionService.getSubscriptionsByUserAdmin(id, +page, +limit);
+      res.json({ success: true, ...result });
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  };
+
+  updateSubscriptionAdmin = async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params; // Subscription ID
+      const dto = req.body;
+      const subscription = await this.subscriptionService.updateSubscriptionAdmin(id, dto);
+      res.json({ success: true, subscription });
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  };
+
+  changeSubscriptionStatusAdmin = async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params; // Subscription ID
+      const { status } = req.body;
+      const subscription = await this.subscriptionService.changeSubscriptionStatusAdmin(id, status);
+      res.json({ success: true, subscription });
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  };
+
+  // ========================= MASTER PIN OPERATIONS =========================
+
+  /**
+   * 🆓 Activar suscripción sin cobro (requiere Master PIN)
+   */
+  activateSubscriptionWithoutCharge = async (req: Request, res: Response) => {
+    try {
+      const { userId, masterPin, plan } = req.body;
+
+      if (!userId || !masterPin) {
+        return res.status(400).json({ message: "userId y masterPin son requeridos" });
+      }
+
+      const subscription = await this.subscriptionService.activateSubscriptionWithoutCharge(
+        userId,
+        masterPin,
+        plan
+      );
+
+      res.json({
+        success: true,
+        message: "Suscripción activada sin cobro por administrador",
+        subscription: {
+          id: subscription.id,
+          plan: subscription.plan,
+          status: subscription.status,
+          startDate: subscription.startDate,
+          endDate: subscription.endDate,
+          autoRenewal: subscription.autoRenewal,
+        }
+      });
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  };
+
+  /**
+   * 📅 Modificar fecha de expiración (requiere Master PIN)
+   */
+  updateSubscriptionExpirationDate = async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params; // Subscription ID
+      const { newEndDate, masterPin } = req.body;
+
+      if (!newEndDate || !masterPin) {
+        return res.status(400).json({ message: "newEndDate y masterPin son requeridos" });
+      }
+
+      const subscription = await this.subscriptionService.updateSubscriptionExpirationDate(
+        id,
+        newEndDate,
+        masterPin
+      );
+
+      res.json({
+        success: true,
+        message: "Fecha de expiración actualizada por administrador",
+        subscription: {
+          id: subscription.id,
+          plan: subscription.plan,
+          status: subscription.status,
+          startDate: subscription.startDate,
+          endDate: subscription.endDate,
+          autoRenewal: subscription.autoRenewal,
+        }
+      });
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  };
+
+  /**
+   * 🔧 Configurar Master PIN
+   */
+  setMasterPin = async (req: Request, res: Response) => {
+    try {
+      const { newPin } = req.body;
+
+      if (!newPin) {
+        return res.status(400).json({ message: "newPin es requerido" });
+      }
+
+      await this.subscriptionService.setMasterPin(newPin);
+
+      res.json({
+        success: true,
+        message: "PIN maestro configurado correctamente"
+      });
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  };
+
+  /**
+   * 🔍 Verificar si el Master PIN está configurado
+   */
+  getMasterPinStatus = async (req: Request, res: Response) => {
+    try {
+      const status = await this.subscriptionService.getMasterPinStatus();
+      res.json({ success: true, ...status });
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  };
+
+  /**
+   * 🔄 Cambiar Master PIN (requiere PIN actual)
+   */
+  changeMasterPin = async (req: Request, res: Response) => {
+    try {
+      const { currentPin, newPin } = req.body;
+
+      if (!currentPin || !newPin) {
+        return res.status(400).json({ message: "currentPin y newPin son requeridos" });
+      }
+
+      await this.subscriptionService.changeMasterPin(currentPin, newPin);
+
+      res.json({
+        success: true,
+        message: "PIN maestro actualizado correctamente"
       });
     } catch (error) {
       this.handleError(error, res);

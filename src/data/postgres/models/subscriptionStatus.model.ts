@@ -67,12 +67,18 @@ export class Subscription extends BaseEntity {
   updatedAt: Date;
 
   // Método para verificar si la suscripción está activa
- isActive(): boolean {
+  isActive(): boolean {
     const now = new Date();
     return (
       this.status === SubscriptionStatus.ACTIVA &&
       this.startDate <= now &&
       (this.endDate === null || this.endDate >= now)
     );
-}
+  }
+
+  // Método para verificar si la suscripción está expirada
+  isExpired(): boolean {
+    const now = new Date();
+    return this.endDate !== null && this.endDate < now;
+  }
 }

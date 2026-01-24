@@ -13,22 +13,48 @@ export class SubscriptionRoutes {
       freePostTrackerService
     );
 
-    // Todas las rutas protegidas
-    router.use(AuthMiddleware.protect);
+    // ================= USER ROUTES (Protected by AuthMiddleware) =================
     // 🌟 NUEVA RUTA: obtener estado de publicaciones (gratis + suscripción)
-    router.get("/status", subscriptionController.getUserPostStatus);
+    router.get("/status", [AuthMiddleware.protect], subscriptionController.getUserPostStatus);
 
     // Activar o renovar suscripción
     router.post(
       "/activate-or-renew",
+      [AuthMiddleware.protect],
       subscriptionController.activateOrRenewSubscription
     );
 
     // Verificar si tiene suscripción activa
-    router.get("/is-active", subscriptionController.hasActiveSubscription);
+    router.get("/is-active", [AuthMiddleware.protect], subscriptionController.hasActiveSubscription);
 
+    // ================= ADMIN ROUTES (Protected by AuthAdminMiddleware) =================
     // Cambiar costo de la suscripción (solo admin)
-    router.patch("/set-cost", subscriptionController.setSubscriptionCost);
+    router.patch("/set-cost", [AuthAdminMiddleware.protect], subscriptionController.setSubscriptionCost);
+
+    // Listar suscripciones de un usuario
+    router.get("/admin/user/:id/subscriptions", [AuthAdminMiddleware.protect], subscriptionController.getSubscriptionsByUserAdmin);
+
+    // Editar suscripción
+    router.put("/admin/:id", [AuthAdminMiddleware.protect], subscriptionController.updateSubscriptionAdmin);
+
+    // Cambiar estado suscripción
+    router.put("/admin/status/:id", [AuthAdminMiddleware.protect], subscriptionController.changeSubscriptionStatusAdmin);
+
+    // ================= MASTER PIN OPERATIONS =================
+    // Activar suscripción sin cobro (requiere Master PIN)
+    router.post("/admin/activate-without-charge", [AuthAdminMiddleware.protect], subscriptionController.activateSubscriptionWithoutCharge);
+
+    // Modificar fecha de expiración (requiere Master PIN)
+    router.put("/admin/:id/expiration-date", [AuthAdminMiddleware.protect], subscriptionController.updateSubscriptionExpirationDate);
+
+    // Configurar Master PIN (primera vez, sin PIN actual)
+    router.post("/admin/master-pin/set", [AuthAdminMiddleware.protect], subscriptionController.setMasterPin);
+
+    // Cambiar Master PIN (requiere PIN actual)
+    router.post("/admin/master-pin/change", [AuthAdminMiddleware.protect], subscriptionController.changeMasterPin);
+
+    // Verificar estado del Master PIN
+    router.get("/admin/master-pin/status", [AuthAdminMiddleware.protect], subscriptionController.getMasterPinStatus);
 
     return router;
   }

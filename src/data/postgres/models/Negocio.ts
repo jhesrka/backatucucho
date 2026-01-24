@@ -21,10 +21,11 @@ export enum StatusNegocio {
   ACTIVO = "ACTIVO",
   SUSPENDIDO = "SUSPENDIDO",
   BLOQUEADO = "BLOQUEADO",
+  NO_PAGADO = "NO_PAGADO",
 }
 export enum ModeloMonetizacion {
-  COMISION = "COMISION",
   SUSCRIPCION = "SUSCRIPCION",
+  COMISION_SUSCRIPCION = "COMISION_SUSCRIPCION",
 }
 
 export enum EstadoNegocio {
@@ -69,6 +70,24 @@ export class Negocio extends BaseEntity {
     default: EstadoNegocio.CERRADO,
   })
   estadoNegocio: EstadoNegocio;
+
+  @Column({ type: "decimal", precision: 10, scale: 2, default: 0 })
+  valorSuscripcion: number;
+
+  @Column({ type: "int", default: 1 })
+  diaPago: number;
+
+  @Column({ type: "timestamp", nullable: true })
+  fechaUltimoCobro: Date | null;
+
+  @Column({ type: "timestamp", nullable: true })
+  fechaInicioSuscripcion: Date | null;
+
+  @Column({ type: "timestamp", nullable: true })
+  fechaFinSuscripcion: Date | null;
+
+  @Column({ type: "int", default: 0 })
+  intentosCobro: number;
 
   @CreateDateColumn({ type: "timestamp" })
   created_at: Date;

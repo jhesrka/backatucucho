@@ -43,7 +43,7 @@ export class ProductoServiceAdmin {
             bucketName: envs.AWS_BUCKET_NAME,
             key: p.imagen,
           });
-        } catch {}
+        } catch { }
 
         // 🔹 Contar total de unidades pedidas del producto
         const { total } = (await ProductoPedido.createQueryBuilder("pp")
@@ -55,11 +55,11 @@ export class ProductoServiceAdmin {
 
         const dueño = p.negocio?.usuario
           ? {
-              id: p.negocio.usuario.id,
-              nombre: p.negocio.usuario.name,
-              apellido: p.negocio.usuario.surname,
-              whatsapp: p.negocio.usuario.whatsapp,
-            }
+            id: p.negocio.usuario.id,
+            nombre: p.negocio.usuario.name,
+            apellido: p.negocio.usuario.surname,
+            whatsapp: p.negocio.usuario.whatsapp,
+          }
           : null;
 
         return {
@@ -74,17 +74,17 @@ export class ProductoServiceAdmin {
           tipo: p.tipo ? { id: p.tipo.id, nombre: p.tipo.nombre } : null,
           negocio: p.negocio
             ? {
-                id: p.negocio.id,
-                nombre: p.negocio.nombre,
-                estado: p.negocio.statusNegocio || null,
-                categoria: p.negocio.categoria
-                  ? {
-                      id: p.negocio.categoria.id,
-                      nombre: p.negocio.categoria.nombre,
-                    }
-                  : null,
-                dueño,
-              }
+              id: p.negocio.id,
+              nombre: p.negocio.nombre,
+              estado: p.negocio.statusNegocio || null,
+              categoria: p.negocio.categoria
+                ? {
+                  id: p.negocio.categoria.id,
+                  nombre: p.negocio.categoria.nombre,
+                }
+                : null,
+              dueño,
+            }
             : null,
           imagenUrl,
           vecesPedidoApp,
@@ -92,7 +92,10 @@ export class ProductoServiceAdmin {
       })
     );
 
-    return { total, productos: productosConDatos };
+    const totalPages = Math.ceil(total / limit);
+    const currentPage = Math.ceil((offset + 1) / limit);
+
+    return { total, productos: productosConDatos, totalPages, currentPage };
   }
   async updateProductoAdmin(
     id: string,
@@ -160,7 +163,7 @@ export class ProductoServiceAdmin {
           bucketName: envs.AWS_BUCKET_NAME,
           key: producto.imagen,
         });
-      } catch {}
+      } catch { }
     }
 
     return {
@@ -173,5 +176,34 @@ export class ProductoServiceAdmin {
       statusProducto: producto.statusProducto,
       imagenUrl,
     };
+  }
+
+  // ADMIN: Change status only
+  async changeStatusProductoAdmin(id: string, status: StatusProducto) {
+    const producto = await Producto.findOne({ where: { id } });
+    if (!producto) throw new Error("Producto no encontrado");
+
+    producto.statusProducto = status;
+    if (status === StatusProducto.SUSPENDIDO || status === StatusProducto.BLOQUEADO) {
+      producto.disponible = false;
+    }
+    await producto.save();
+    return { message: `Estado cambiado a ${status}`, status: producto.statusProducto };
+  }
+
+  // ADMIN: Purge definitive
+  async deleteProductoAdmin(id: string) {
+    const producto = await Producto.findOne({ where: { id } });
+    if (!producto) throw new Error("Producto no encontrado");
+
+    if (producto.imagen) {
+      await UploadFilesCloud.deleteFile({
+        bucketName: envs.AWS_BUCKET_NAME,
+        key: producto.imagen
+      }).catch(() => null);
+    }
+
+    await Producto.remove(producto);
+    return { message: "Producto eliminado correctamente" };
   }
 }
