@@ -6,11 +6,12 @@ export class CreateStorieDTO {
     public readonly description: string,
     public readonly imgstorie: string,
     public readonly userId: string,
-    public readonly dias: number
-  ) {}
+    public readonly dias: number,
+    public readonly showWhatsapp: boolean
+  ) { }
 
   static create(object: { [key: string]: any }): [string?, CreateStorieDTO?] {
-    const { description, userId, dias } = object;
+    const { description, userId, dias, showWhatsapp } = object;
 
     if (
       !userId ||
@@ -28,9 +29,16 @@ export class CreateStorieDTO {
     if (isNaN(diasNumber) || diasNumber < 1) {
       return ["Debes ingresar al menos 1 día"];
     }
+
+    // Parse 'true'/'false' string or boolean
+    let showWhatsappBool = true;
+    if (showWhatsapp !== undefined && showWhatsapp !== null) {
+      showWhatsappBool = String(showWhatsapp) === 'true';
+    }
+
     return [
       undefined,
-      new CreateStorieDTO(description, "", userId, diasNumber),
+      new CreateStorieDTO(description, "", userId, diasNumber, showWhatsappBool),
     ];
   }
 }

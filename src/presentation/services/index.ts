@@ -16,3 +16,5 @@ export { SubscriptionService } from "./postService/subscription.service";
 export { PriceService } from "./priceService/price-service.service";
 //GENERAL
 export { EmailService } from "./email.service";
+export { GlobalSettingsService } from "./globalSettings/global-settings.service";
+export { OcrService } from "./ocr/ocr.service";

@@ -6,6 +6,7 @@ import { Server } from "./presentation/server";
 import "dotenv/config";
 import { startPedidoMotoCron } from "./cron/pedidoMoto.cron";
 import { startSubscriptionCron } from "./cron/subscription.cron";
+import { startPostExpirationCron } from "./cron/post-expiration.cron";
 async function main() {
   const postgres = new PostgresDatabase({
     username: envs.DB_USERNAME,
@@ -24,6 +25,7 @@ async function main() {
   // 👇 INICIAR CRONES
   startPedidoMotoCron();
   startSubscriptionCron();
+  startPostExpirationCron();
 
   await server.start();
 }

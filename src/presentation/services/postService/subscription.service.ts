@@ -83,7 +83,17 @@ export class SubscriptionService {
     let newStartDate = now;
     let newEndDate: Date = now; // inicialización obligatoria
 
-    const daysToAdd = 30; // duración de la suscripción en días calendario (lunes a domingo)
+    // Dynamic Settings Retrieval
+    const settings = await GlobalSettings.findOne({ where: {} });
+    let finalCost = 5.00;
+    let daysToAdd = 30;
+
+    if (settings) {
+      daysToAdd = settings.subscriptionBasicDurationDays || 30;
+      const promo = settings.subscriptionBasicPromoPrice ? Number(settings.subscriptionBasicPromoPrice) : 0;
+      const normal = Number(settings.subscriptionBasicPrice) || 5.00;
+      finalCost = promo > 0 ? promo : normal;
+    }
 
     if (!subscription) {
       // Crear nueva suscripción si no existía
@@ -116,14 +126,14 @@ export class SubscriptionService {
     }
 
     // Validar saldo
-    if (wallet.balance < this.subscriptionCost) {
+    if (wallet.balance < finalCost) {
       throw CustomError.badRequest(
-        "Saldo insuficiente para activar la suscripción"
+        `Saldo insuficiente para activar la suscripción. Costo: $${finalCost.toFixed(2)}`
       );
     }
 
     // Debitar Wallet
-    wallet.balance -= this.subscriptionCost;
+    wallet.balance -= finalCost;
     await wallet.save();
 
     // Actualizar suscripción
@@ -242,7 +252,7 @@ export class SubscriptionService {
   /**
    * 🔐 Validar Master PIN (con bcrypt)
    */
-  private async validateMasterPin(pin: string): Promise<boolean> {
+  public async validateMasterPin(pin: string): Promise<boolean> {
     const settings = await GlobalSettings.findOne({ where: {}, order: { updatedAt: "DESC" } });
     if (!settings || !settings.masterPin) {
       throw CustomError.badRequest("PIN maestro no configurado en el sistema");
@@ -279,7 +289,9 @@ export class SubscriptionService {
       });
 
       const now = new Date();
-      const daysToAdd = 30;
+
+      const settings = await GlobalSettings.findOne({ where: {} });
+      const daysToAdd = settings?.subscriptionBasicDurationDays || 30;
 
       if (!subscription) {
         // Crear nueva suscripción

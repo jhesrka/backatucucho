@@ -31,4 +31,8 @@ export class CustomError extends Error {
   static internalServer(message: string) {
     return new CustomError(500, message);
   }
+
+  static serviceUnavailable(message: string) {
+    return new CustomError(503, message);
+  }
 }

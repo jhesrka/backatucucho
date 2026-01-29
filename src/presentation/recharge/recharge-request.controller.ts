@@ -7,7 +7,7 @@ import {
 } from "../../domain";
 import { StatusRecarga } from "../../data";
 export class RechargeRequestController {
-  constructor(private readonly rechargeService: RechargeRequestService) {}
+  constructor(private readonly rechargeService: RechargeRequestService) { }
 
   private handleError = (error: unknown, res: Response) => {
     if (error instanceof CustomError) {
@@ -34,6 +34,16 @@ export class RechargeRequestController {
         res.status(201).json(responseDTO);
       })
       .catch((error: unknown) => this.handleError(error, res));
+  };
+
+  // SCAN RECEIPT
+  scanReceipt = async (req: Request, res: Response) => {
+    try {
+      const data = await this.rechargeService.analyzeReceipt(req.file as Express.Multer.File);
+      res.json({ success: true, data });
+    } catch (error) {
+      this.handleError(error, res);
+    }
   };
 
   // OBTENER RECARGAS POR PAGINACION DE 5 USUARIO LOGEADO
@@ -348,6 +358,20 @@ export class RechargeRequestController {
         message: result.message,
         deleted: result.deleted,
       });
+    } catch (error) {
+      return this.handleError(error, res);
+    }
+  };
+
+  // 9 REVERSAR RECARGA
+  reverseRecharge = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    // req.body.sessionUser comes from AuthAdminMiddleware
+    const adminUser = req.body.sessionAdmin || req.body.sessionUser;
+
+    try {
+      const result = await this.rechargeService.reverseRecharge(id, adminUser);
+      return res.status(200).json(result);
     } catch (error) {
       return this.handleError(error, res);
     }

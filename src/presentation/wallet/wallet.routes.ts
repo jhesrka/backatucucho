@@ -29,6 +29,17 @@ export class WalletRoutes {
       AuthMiddleware.protect,
       walletController.getWalletByUserId
     );
+    router.get(
+      "/:userId/transactions",
+      AuthMiddleware.protect,
+      walletController.getUserTransactions
+    );
+    // SOLICITUD DE RETIRO
+    router.post(
+      "/:userId/withdraw",
+      AuthMiddleware.protect,
+      walletController.requestWithdrawal
+    );
     //ADMINISTRADOR
     // Todas las wallets
     router.get(

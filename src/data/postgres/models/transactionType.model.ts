@@ -16,7 +16,8 @@ export enum TransactionReason {
   REVERSAL = 'REVERSAL',                    // Reverso/devolución
   ORDER = 'ORDER',                          // Débito por pedido
   REFUND = 'REFUND',                         // Reembolso
-  STORIE = 'STORIE'                          // Débito por historia
+  STORIE = 'STORIE',                         // Débito por historia
+  WITHDRAWAL = 'WITHDRAWAL'                  // Retiro (Solicitud o Ejecución)
 }
 
 @Entity('transactions')
@@ -46,6 +47,12 @@ export class Transaction extends BaseEntity {
     default: TransactionOrigin.SYSTEM
   })
   origin: TransactionOrigin;
+
+  @Column({
+    type: 'varchar', // Simple varchar to avoid enum issues/complexities with migration scripts in this context
+    default: 'APPROVED'
+  })
+  status: string; // 'PENDING' | 'APPROVED' | 'REJECTED'
 
   @Column('decimal', { precision: 10, scale: 2 })
   previousBalance: number;

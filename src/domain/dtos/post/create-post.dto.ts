@@ -5,4 +5,6 @@ export class CreatePostDTO {
   readonly subtitle: string;
   readonly content: string;
   readonly isPaid?: boolean; // Opcional (default: false)
+  readonly showWhatsApp?: boolean;
+  readonly showLikes?: boolean;
 }

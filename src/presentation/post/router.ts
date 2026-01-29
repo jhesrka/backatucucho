@@ -5,7 +5,7 @@ import { UserService } from "../services/usuario/user.service";
 import { EmailService } from "../services/email.service";
 import { envs, uploadMultipleFile } from "../../config";
 import { AuthMiddleware } from "../../middlewares/auth.middleware";
-import { FreePostTrackerService, SubscriptionService } from "../services";
+import { FreePostTrackerService, SubscriptionService, GlobalSettingsService } from "../services";
 import { AuthAdminMiddleware } from "../../middlewares";
 
 export class PostRoutes {
@@ -20,12 +20,14 @@ export class PostRoutes {
     const userService = new UserService(emailService);
     const subscriptionService = new SubscriptionService(); // Nueva instancia
     const freePostTrackerService = new FreePostTrackerService(); // Nueva instancia
+    const globalSettingsService = new GlobalSettingsService();
 
     // Corregimos aquí los parámetros:
     const postService = new PostService(
       userService,
       subscriptionService,
-      freePostTrackerService
+      freePostTrackerService,
+      globalSettingsService
     );
     const postController = new PostController(postService);
 
@@ -97,7 +99,7 @@ export class PostRoutes {
     router.post(
       "/plan",
       AuthMiddleware.protect,
-      uploadMultipleFile("imgs", 4),
+      uploadMultipleFile("imgs", 5),
       postController.createPostPlan
     );
     // Bloquear post (ADMIN)

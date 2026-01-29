@@ -51,6 +51,9 @@ export class Storie extends BaseEntity {
   @Column("decimal", { precision: 10, scale: 2, default: 0 })
   total_pagado: number;
 
+  @Column("boolean", { default: true })
+  showWhatsapp: boolean;
+
   @Column("enum", {
     enum: StatusStorie,
     default: StatusStorie.PUBLISHED,

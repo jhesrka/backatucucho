@@ -14,6 +14,7 @@ import {
   UpdateUserAdminDTO,
   FilterUsersByStatusDTO,
   LoginGoogleUserDTO,
+  ChangePasswordUserDTO,
 } from "../../../domain";
 
 export class UserController {
@@ -86,6 +87,17 @@ export class UserController {
       .then((data) => res.status(200).json(data))
       .catch((err) => this.handleError(err, res));
   };
+
+  changePassword = (req: Request, res: Response) => {
+    const userId = req.body.sessionUser.id;
+    const [error, dto] = ChangePasswordUserDTO.create(req.body);
+    if (error) return res.status(400).json({ message: error });
+
+    this.userService
+      .changePassword(userId, dto!)
+      .then((data) => res.status(200).json(data))
+      .catch((error) => this.handleError(error, res));
+  };
   updateUser = async (req: Request, res: Response) => {
     const { id } = req.params;
     const [error, updateUserDto] = UpdateUserDTO.create(req.body);
@@ -103,11 +115,11 @@ export class UserController {
   };
 
   completeProfile = (req: Request, res: Response) => {
-    const { whatsapp, password } = req.body;
+    const { whatsapp, password, acceptedTerms, acceptedPrivacy } = req.body;
     const userId = req.body.sessionUser.id;
 
     this.userService
-      .completeProfile(userId, { whatsapp, password })
+      .completeProfile(userId, { whatsapp, password, acceptedTerms, acceptedPrivacy })
       .then((data) => res.status(200).json(data))
       .catch((error) => this.handleError(error, res));
   };

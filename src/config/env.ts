@@ -11,6 +11,7 @@ export const envs = {
 
   JWT_SEED: get("JWT_SEED").required().asString(),
   JWT_EXPIRE_IN: get("JWT_EXPIRE_IN").required().asString(),
+  JWT_REFRESH_EXPIRE_IN: get("JWT_REFRESH_EXPIRE_IN").default("5d").asString(),
 
   AWS_ACCESS_KEY_ID: get("AWS_ACCESS_KEY_ID").required().asString(),
   AWS_SECRET_ACCESS_KEY: get("AWS_SECRET_ACCESS_KEY").required().asString(),

@@ -7,7 +7,7 @@ import {
   CreateDateColumn,
   BaseEntity,
 } from "typeorm";
-import { User } from "../../index";
+import { User } from "./user.model";
 
 export enum StatusRecarga {
   PENDIENTE = "PENDIENTE",
@@ -24,24 +24,30 @@ export class RechargeRequest extends BaseEntity {
   @ManyToOne(() => User, (user) => user.rechargeRequests)
   user: User;
 
-  @Column("decimal", { precision: 10, scale: 2 })
-  amount: number;
+  @Column("decimal", { precision: 10, scale: 2, nullable: true })
+  amount: number | null;
 
   @Column("varchar", {
-    nullable: false,
+    nullable: true,
   })
-  bank_name: string;
+  bank_name: string | null;
 
-  @Column({
-    nullable: false,
+  @Column("date", {
+    nullable: true,
   })
-  transaction_date: Date;
+  transaction_date: Date | null;
 
   @Column("varchar", {
-    nullable: false,
-    unique: true,
+    nullable: true,
+    // unique: true  <-- Removed to use Composite Unique Index instead
   })
-  receipt_number: string;
+  receipt_number: string | null;
+
+  @Column({ default: false })
+  isDuplicateWarning: boolean;
+
+  @Column({ default: false })
+  requiresManualReview: boolean;
 
   @Column("varchar", {
     nullable: false,
@@ -62,6 +68,6 @@ export class RechargeRequest extends BaseEntity {
   @CreateDateColumn({ type: "timestamp" })
   created_at: Date;
 
-  @Column({ nullable: true })
+  @Column("timestamp", { nullable: true })
   resolved_at: Date;
 }

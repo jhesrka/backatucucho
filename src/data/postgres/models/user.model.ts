@@ -149,6 +149,21 @@ export class User extends BaseEntity {
   @OneToMany(() => Pedido, (pedido) => pedido.cliente)
   pedidos: Pedido[];
 
+  @Column("boolean", { default: false })
+  acceptedTerms: boolean;
+
+  @Column("timestamp", { nullable: true })
+  acceptedTermsAt: Date;
+
+  @Column("boolean", { default: false })
+  acceptedPrivacy: boolean;
+
+  @Column("timestamp", { nullable: true })
+  acceptedPrivacyAt: Date;
+
+  @OneToMany("Report", "user") // Using string for relation to avoid circular dependency issues if Report isn't imported yet, or import it.
+  reports: any[]; // will type properly later
+
   @DeleteDateColumn({ type: "timestamp", nullable: true })
   deletedAt: Date;
 

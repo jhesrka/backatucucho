@@ -70,14 +70,23 @@ export class UseradminService {
     const tokenadmin = await JwtAdapterAdmin.generateTokenAdmin(
       {
         id: useradmin.id,
+        role: "ADMIN"
       },
       envs.JWT_EXPIRE_IN
     );
+    const refreshToken = await JwtAdapterAdmin.generateTokenAdmin(
+      {
+        id: useradmin.id,
+        role: "ADMIN"
+      },
+      envs.JWT_REFRESH_EXPIRE_IN
+    );
 
-    if (!tokenadmin) throw CustomError.internalServer("Error generando Jwt");
+    if (!tokenadmin || !refreshToken) throw CustomError.internalServer("Error generando Jwt");
 
     return {
       tokenadmin: tokenadmin,
+      refreshToken: refreshToken,
       useradmin: {
         id: useradmin.id,
         name: useradmin.name,

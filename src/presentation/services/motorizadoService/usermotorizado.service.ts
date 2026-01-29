@@ -203,16 +203,25 @@ export class UserMotorizadoService {
     const tokenmotorizado = await JwtAdapterMotorizado.generateTokenMotorizado(
       {
         id: usermotorizado.id,
+        role: "MOTORIZADO"
       },
       envs.JWT_EXPIRE_IN
     );
+    const refreshToken = await JwtAdapterMotorizado.generateTokenMotorizado(
+      {
+        id: usermotorizado.id,
+        role: "MOTORIZADO"
+      },
+      envs.JWT_REFRESH_EXPIRE_IN
+    );
 
-    if (!tokenmotorizado) {
+    if (!tokenmotorizado || !refreshToken) {
       throw CustomError.internalServer("Error generando Jwt");
     }
 
     return {
       tokenmotorizado,
+      refreshToken,
       usermotorizado: {
         id: usermotorizado.id,
         name: usermotorizado.name,

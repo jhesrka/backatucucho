@@ -48,7 +48,7 @@ export class Post extends BaseEntity {
   isPaid: boolean; // true = pago, false = gratis
 
   @CreateDateColumn({ type: 'timestamp' }) // <-- Esto soluciona el problema
-    createdAt: Date;
+  createdAt: Date;
 
   @Column({ type: "timestamp", nullable: true })
   expiresAt: Date; // Fecha de expiración (solo para posts gratis)
@@ -63,6 +63,12 @@ export class Post extends BaseEntity {
   statusPost: StatusPost;
   @Column({ type: "int", default: 0 })
   likesCount: number;
+
+  @Column({ type: "boolean", default: true })
+  showWhatsApp: boolean;
+
+  @Column({ type: "boolean", default: true })
+  showLikes: boolean;
 
   @Column({ type: "uuid", nullable: true })
   freePostTrackerId: string; // Relación con el contador mensual

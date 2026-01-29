@@ -2,8 +2,13 @@ import { Request, Response } from "express";
 import { PriceService } from "../../services";
 import { CustomError } from "../../../domain";
 
+import { UseradminService } from "../../services/administradorService/useradmin.service";
+
 export class PriceController {
-  constructor(private readonly priceService: PriceService) {}
+  constructor(
+    private readonly priceService: PriceService,
+    private readonly userAdminService: UseradminService
+  ) { }
 
   private handleError = (error: unknown, res: Response) => {
     if (error instanceof CustomError) {
@@ -23,8 +28,8 @@ export class PriceController {
   };
 
   // Actualizar configuración de precios (admin)
-  updatePriceSettings = (req: Request, res: Response) => {
-    const { basePrice, extraDayPrice } = req.body;
+  updatePriceSettings = async (req: Request, res: Response) => {
+    const { basePrice, extraDayPrice, masterPin } = req.body;
 
     if (basePrice === undefined || extraDayPrice === undefined) {
       return res
@@ -32,10 +37,24 @@ export class PriceController {
         .json({ message: "Debe proporcionar basePrice y extraDayPrice" });
     }
 
-    this.priceService
-      .updatePriceSettings(Number(basePrice), Number(extraDayPrice))
-      .then((updated) => res.status(200).json(updated))
-      .catch((error: unknown) => this.handleError(error, res));
+    if (!masterPin) {
+      return res.status(400).json({ message: "Se requiere el PIN maestro para realizar cambios" });
+    }
+
+    try {
+      // Validar PIN
+      await this.userAdminService.validateMasterPin(masterPin);
+
+      // Si es válido, actualizar
+      const updated = await this.priceService.updatePriceSettings(
+        Number(basePrice),
+        Number(extraDayPrice)
+      );
+
+      return res.status(200).json(updated);
+    } catch (error) {
+      return this.handleError(error, res);
+    }
   };
 
   // Calcular precio de historia según días

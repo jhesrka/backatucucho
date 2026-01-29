@@ -6,6 +6,15 @@ export const encriptAdapter = {
     return hashSync(password, salt);
   },
   compare: (unHashedPassword: string, hashedPassword: string) => {
-    return compareSync(unHashedPassword, hashedPassword);
+    try {
+      if (typeof unHashedPassword !== 'string' || typeof hashedPassword !== 'string') {
+        console.error('Bcrypt Error: Invalid arguments. Both must be strings.');
+        return false;
+      }
+      return compareSync(unHashedPassword, hashedPassword);
+    } catch (error) {
+      console.error('Bcrypt Error:', error);
+      return false;
+    }
   },
 };

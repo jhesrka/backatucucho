@@ -2,10 +2,13 @@ import { Request, Response } from "express";
 import { FreePostTrackerService, SubscriptionService } from "../../services";
 import { CustomError } from "../../../domain";
 
+import { GlobalSettingsService } from "../../services";
+
 export class SubscriptionController {
   constructor(
     private readonly subscriptionService: SubscriptionService,
-    private readonly freePostTrackerService: FreePostTrackerService
+    private readonly freePostTrackerService: FreePostTrackerService,
+    private readonly globalSettingsService: GlobalSettingsService
   ) { }
 
   private handleError = (error: unknown, res: Response) => {
@@ -114,7 +117,8 @@ export class SubscriptionController {
       const tracker = await this.freePostTrackerService.getOrCreateTracker(
         userId
       );
-      const freePostsRemaining = Math.max(0, 5 - tracker.count);
+      const settings = await this.globalSettingsService.getSettings();
+      const freePostsRemaining = Math.max(0, settings.freePostsLimit - tracker.count);
 
       const latest = await this.subscriptionService.getLatestSubscription(
         userId
@@ -298,6 +302,58 @@ export class SubscriptionController {
       res.json({
         success: true,
         message: "PIN maestro actualizado correctamente"
+      });
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  };
+
+  /**
+   * Actualizar configuración de posts gratuitos (solo admin)
+   */
+  updateFreePostSettings = async (req: Request, res: Response) => {
+    try {
+      const { freePostsLimit, freePostDurationDays, freePostDurationHours, masterPin } = req.body;
+
+      // Validar PIN Maestro
+      const isValidPin = await this.subscriptionService.validateMasterPin(masterPin);
+      if (!isValidPin) {
+        throw CustomError.forbiden("PIN Maestro incorrecto");
+      }
+
+      const settings = await this.globalSettingsService.updateFreePostSettings({
+        freePostsLimit,
+        freePostDurationDays,
+        freePostDurationHours,
+      });
+
+      res.json({
+        success: true,
+        message: "Configuración de posts gratuitos actualizada",
+        settings: {
+          freePostsLimit: settings.freePostsLimit,
+          freePostDurationDays: settings.freePostDurationDays,
+          freePostDurationHours: settings.freePostDurationHours,
+        }
+      });
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  };
+
+  /**
+   * Obtener configuración actual de posts gratuitos (solo admin)
+   */
+  getFreePostSettings = async (req: Request, res: Response) => {
+    try {
+      const settings = await this.globalSettingsService.getSettings();
+      res.json({
+        success: true,
+        settings: {
+          freePostsLimit: settings.freePostsLimit,
+          freePostDurationDays: settings.freePostDurationDays,
+          freePostDurationHours: settings.freePostDurationHours,
+        }
       });
     } catch (error) {
       this.handleError(error, res);

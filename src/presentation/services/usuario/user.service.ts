@@ -28,6 +28,7 @@ import {
   SendNotificationDTO,
   UpdateUserAdminDTO,
   FilterUsersByStatusDTO,
+  ChangePasswordUserDTO,
 } from "../../../domain"; // DTOs
 import { AdminNotification, NotificationType } from '../../../data/postgres/models/AdminNotification';
 import * as geoip from 'geoip-lite';
@@ -70,6 +71,9 @@ export class UserService {
     user.password = userData.password;
     user.birthday = new Date(userData.birthday);
     user.whatsapp = userData.whatsapp.trim();
+    user.acceptedTerms = userData.acceptedTerms;
+    if (user.acceptedTerms) user.acceptedTermsAt = new Date();
+    user.acceptedPrivacy = userData.acceptedPrivacy;
 
     // Manejo de imagen (código existente)
     if (file?.originalname && file.originalname.length > 0) {
@@ -170,28 +174,29 @@ export class UserService {
     }
 
     // 2️⃣ CONTROL DE SESIÓN ÚNICA
+    // 2️⃣ CONTROL DE SESIÓN ÚNICA
+    // Simplemente notificamos si ya estaba logueado, pero PERMITIMOS el login (invalidando el anterior por sobrescritura de sessionId)
     if (user.isLoggedIn) {
-      if (!credentials.force) {
-        // Si no es forzado, devolvemos error 409 (Conflict) para que el front muestre el modal
-        throw CustomError.conflict("Tu cuenta ya tiene una sesión activa en otro dispositivo.");
-      } else {
-        // Si es forzado, notificamos al admin y procedemos
-        const notification = new AdminNotification();
-        notification.message = `Cierre de sesión FORZADO por nuevo inicio desde ${currentIp} para ${user.email}`;
-        notification.type = NotificationType.WARNING;
-        notification.relatedUser = user;
-        notification.ip = currentIp;
-        notification.country = country;
-        await notification.save();
-      }
+      const notification = new AdminNotification();
+      notification.message = `Nuevo inicio de sesión desde ${currentIp} para ${user.email}. Sesión anterior invalidada.`;
+      notification.type = NotificationType.WARNING;
+      notification.relatedUser = user;
+      notification.ip = currentIp;
+      notification.country = country;
+      await notification.save();
     }
 
     //generar un jwt
     const token = await JwtAdapter.generateToken(
-      { id: user.id },
+      { id: user.id, role: "USER" },
       envs.JWT_EXPIRE_IN
     );
-    if (!token) throw CustomError.internalServer("Error generando Jwt");
+    const refreshToken = await JwtAdapter.generateToken(
+      { id: user.id, role: "USER" },
+      envs.JWT_REFRESH_EXPIRE_IN
+    );
+
+    if (!token || !refreshToken) throw CustomError.internalServer("Error generando Jwt");
 
     // Actualizar estado de sesión
     user.isLoggedIn = true;
@@ -211,12 +216,20 @@ export class UserService {
 
     return {
       token: token,
+      refreshToken: refreshToken,
       user: {
         id: user.id,
         name: user.name,
         surname: user.surname,
         email: user.email,
+        whatsapp: user.whatsapp,
         photoperfil: urlPhoto || user.photoperfil,
+        acceptedTerms: user.acceptedTerms,
+        acceptedTermsAt: user.acceptedTermsAt,
+        acceptedPrivacy: user.acceptedPrivacy,
+        hasPassword: !!user.password,
+        isProfileComplete: !!(user.whatsapp && user.password && user.acceptedTerms && user.acceptedPrivacy),
+        googleId: user.googleId
       },
     };
   }
@@ -324,18 +337,15 @@ export class UserService {
       }
 
       // 2. CONTROL SESIÓN (SOLO SI EL USUARIO YA EXISTÍA)
+      // 2. CONTROL SESIÓN (SOLO SI EL USUARIO YA EXISTÍA)
       if (user.isLoggedIn) {
-        if (!force) {
-          throw CustomError.conflict("Tu cuenta ya tiene una sesión activa en otro dispositivo.");
-        } else {
-          const notification = new AdminNotification();
-          notification.message = `Cierre de sesión FORZADO (Google) desde ${ip} para ${user.email}`;
-          notification.type = NotificationType.WARNING;
-          notification.relatedUser = user;
-          notification.ip = ip;
-          notification.country = country;
-          await notification.save();
-        }
+        const notification = new AdminNotification();
+        notification.message = `Nuevo inicio de sesión (Google) desde ${ip} para ${user.email}. Sesión anterior invalidada.`;
+        notification.type = NotificationType.WARNING;
+        notification.relatedUser = user;
+        notification.ip = ip;
+        notification.country = country;
+        await notification.save();
       }
 
       // Update session info
@@ -347,24 +357,33 @@ export class UserService {
     }
 
     // Generar JWT y retornar
-    const jwt = await JwtAdapter.generateToken({ id: user.id }, envs.JWT_EXPIRE_IN);
-    if (!jwt) throw CustomError.internalServer("Error generando Jwt");
+    const jwt = await JwtAdapter.generateToken({ id: user.id, role: "USER" }, envs.JWT_EXPIRE_IN);
+    const refreshToken = await JwtAdapter.generateToken({ id: user.id, role: "USER" }, envs.JWT_REFRESH_EXPIRE_IN);
+
+    if (!jwt || !refreshToken) throw CustomError.internalServer("Error generando Jwt");
 
     // Update session ID with real token
     user.currentSessionId = jwt as string;
     await user.save();
 
-    const isProfileComplete = !!(user.whatsapp && user.password);
+    const isProfileComplete = !!(user.whatsapp && user.password && user.acceptedTerms && user.acceptedPrivacy);
 
     return {
       token: jwt,
+      refreshToken,
       user: {
         id: user.id,
         name: user.name,
         surname: user.surname,
         email: user.email,
+        whatsapp: user.whatsapp,
         photoperfil: user.photoperfil,
-        isProfileComplete
+        acceptedTerms: user.acceptedTerms,
+        acceptedTermsAt: user.acceptedTermsAt,
+        acceptedPrivacy: user.acceptedPrivacy,
+        hasPassword: !!user.password,
+        isProfileComplete,
+        googleId: user.googleId
       }
     };
   }
@@ -400,7 +419,7 @@ export class UserService {
         id: user.id,
         resetTokenVersion: user.resetTokenVersion,
       },
-      "5m"
+      "1h"
     );
 
     if (!token) throw CustomError.internalServer("Error generando token");
@@ -418,7 +437,7 @@ export class UserService {
           Restablecer contraseña
         </a>
       </p>
-      <p>Este enlace expirará en 5 minutos.</p>
+      <p>Este enlace expirará en 1 hora.</p>
       <br />
       <p style="font-size: 0.9em; color: #888;">Si no solicitaste este cambio, puedes ignorar este correo.</p>
     </body>
@@ -431,8 +450,8 @@ export class UserService {
     });
 
     if (!sent)
-      throw CustomError.internalServer(
-        "No se pudo enviar el correo de recuperación"
+      throw CustomError.serviceUnavailable(
+        "No se pudo enviar el correo de recuperación. Intente más tarde."
       );
 
     return {
@@ -465,6 +484,36 @@ export class UserService {
     return { message: "Contraseña actualizada correctamente" };
   }
 
+  // CAMBIAR CONTRASEÑA (Desde Perfil - Seguridad)
+  async changePassword(userId: string, dto: ChangePasswordUserDTO) {
+    const user = await this.findOneUser(userId);
+
+    if (!user.password) {
+      throw CustomError.badRequest("Este usuario no tiene contraseña establecida (Registro con Google). Usa 'Olvidé mi contraseña'.");
+    }
+
+    const isMatching = encriptAdapter.compare(dto.currentPassword, user.password);
+    if (!isMatching) throw CustomError.badRequest("La contraseña actual es incorrecta");
+
+    // Hash nueva
+    user.password = encriptAdapter.hash(dto.newPassword);
+
+    // Invalidar sesiones anteriores y generar nueva para ESTA sesión
+    const token = await JwtAdapter.generateToken({ id: user.id, role: "USER" }, envs.JWT_EXPIRE_IN);
+    const refreshToken = await JwtAdapter.generateToken({ id: user.id, role: "USER" }, envs.JWT_REFRESH_EXPIRE_IN);
+
+    if (!token || !refreshToken) throw CustomError.internalServer("Error generando tokens");
+
+    user.currentSessionId = token as string;
+    await user.save();
+
+    return {
+      message: "Contraseña actualizada. Sesiones en otros dispositivos cerradas.",
+      token,
+      refreshToken
+    };
+  }
+
   //OBTIENE PERFIL DEL USUARIO LOGEADO
   async getProfileUserLogged(user: User) {
     try {
@@ -493,6 +542,12 @@ export class UserService {
         updated_at: userData.updated_at,
         rol: userData.rol,
         status: userData.status,
+        acceptedTerms: userData.acceptedTerms,
+        acceptedTermsAt: userData.acceptedTermsAt,
+        acceptedPrivacy: userData.acceptedPrivacy,
+        hasPassword: !!userData.password,
+        isProfileComplete: !!(userData.whatsapp && userData.password && userData.acceptedTerms && userData.acceptedPrivacy),
+        googleId: userData.googleId
       };
     } catch (error) {
       throw CustomError.internalServer("Error obteniendo perfil del usuario");
@@ -565,29 +620,55 @@ export class UserService {
     }
   }
 
-  // COMPLETAR PERFIL (GOOGLE)
-  async completeProfile(userId: string, data: { whatsapp: string, password: string }) {
+  // COMPLETAR PERFIL (GOOGLE Y NORMAL)
+  async completeProfile(userId: string, data: { whatsapp?: string, password?: string, acceptedTerms?: boolean, acceptedPrivacy?: boolean }) {
     const user = await this.findOneUser(userId);
 
-    // Validar WhatsApp único
-    if (data.whatsapp) {
-      const exists = await User.findOne({ where: { whatsapp: data.whatsapp } });
-      if (exists && exists.id !== userId) throw CustomError.badRequest("El número de WhatsApp ya está en uso en otra cuenta");
-      user.whatsapp = data.whatsapp.trim();
-    } else {
-      throw CustomError.badRequest("El WhatsApp es obligatorio");
+    // 1. Aceptación de Términos
+    if (data.acceptedTerms) {
+      user.acceptedTerms = true;
+      user.acceptedTermsAt = new Date();
     }
 
-    // Validar Password
+    // 2. Aceptación de Privacidad
+    if (data.acceptedPrivacy) {
+      user.acceptedPrivacy = true;
+      user.acceptedPrivacyAt = new Date();
+    }
+
+    // 3. Validar WhatsApp único (solo si se envía)
+    if (data.whatsapp) {
+      // Si el usuario ya lo tiene y es el mismo, no hacemos nada. Si es diferente, validamos.
+      if (user.whatsapp !== data.whatsapp) {
+        const exists = await User.findOne({ where: { whatsapp: data.whatsapp } });
+        if (exists && exists.id !== userId) throw CustomError.badRequest("El número de WhatsApp ya está en uso en otra cuenta");
+        user.whatsapp = data.whatsapp.trim();
+      }
+    }
+
+    // 4. Validar Password (solo si se envía)
     if (data.password) {
       user.password = encriptAdapter.hash(data.password);
-    } else {
-      throw CustomError.badRequest("La contraseña es obligatoria");
     }
 
     try {
-      await user.save();
-      return { message: "Perfil completado correctamente", success: true };
+      const updatedUser = await user.save();
+      // Emitir evento de cambio de usuario
+      getIO().emit("userChanged", updatedUser);
+
+      return {
+        message: "Perfil completado correctamente",
+        success: true,
+        user: {
+          id: updatedUser.id,
+          email: updatedUser.email,
+          acceptedTerms: updatedUser.acceptedTerms,
+          acceptedTermsAt: updatedUser.acceptedTermsAt,
+          acceptedPrivacy: updatedUser.acceptedPrivacy,
+          hasPassword: !!updatedUser.password,
+          isProfileComplete: !!(updatedUser.whatsapp && updatedUser.password && updatedUser.acceptedTerms && updatedUser.acceptedPrivacy)
+        }
+      };
     } catch (error) {
       throw CustomError.internalServer("Error al completar perfil");
     }
@@ -619,12 +700,12 @@ export class UserService {
   </div>
 `;
 
-    const isSent = this.emailService.sendEmail({
+    const isSent = await this.emailService.sendEmail({
       to: email,
       subject: "Validate your email",
       htmlBody: html,
     });
-    if (!isSent) throw CustomError.internalServer("Error enviando el correo");
+    if (!isSent) throw CustomError.serviceUnavailable("Error enviando el correo de validación");
     return true;
   };
 
@@ -709,9 +790,16 @@ export class UserService {
         name: userWithRelations.name,
         surname: userWithRelations.surname,
         email: userWithRelations.email,
+        whatsapp: userWithRelations.whatsapp,
         photoperfil: photoUrl,
         posts,
         stories,
+        acceptedTerms: userWithRelations.acceptedTerms,
+        acceptedTermsAt: userWithRelations.acceptedTermsAt,
+        acceptedPrivacy: userWithRelations.acceptedPrivacy,
+        hasPassword: !!userWithRelations.password,
+        isProfileComplete: !!(userWithRelations.whatsapp && userWithRelations.password && userWithRelations.acceptedTerms && userWithRelations.acceptedPrivacy),
+        googleId: userWithRelations.googleId
       };
     } catch (error) {
       throw CustomError.internalServer("Error obteniendo perfil completo");

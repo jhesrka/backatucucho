@@ -4,7 +4,7 @@ import { CustomError } from "../../domain";
 import { CreateWalletDTO } from "../../domain/dtos/wallet/CreateWallet.dto";
 
 export class WalletController {
-  constructor(private readonly walletService: WalletService) {}
+  constructor(private readonly walletService: WalletService) { }
 
   private handleError = (error: unknown, res: Response) => {
     if (error instanceof CustomError) {
@@ -51,7 +51,7 @@ export class WalletController {
     let { amount } = req.body;
 
     amount = Number(amount); // Asegúrate de que sea un número
-   
+
 
     if (isNaN(amount) || amount <= 0) {
       return res.status(400).json({ message: "Monto inválido para restar" });
@@ -123,6 +123,45 @@ export class WalletController {
       return res
         .status(200)
         .json({ message: "Wallet activada", wallet: result });
+    } catch (err) {
+      return this.handleError(err, res);
+    }
+  };
+
+  // ✅ Solicitar Retiro
+  requestWithdrawal = async (req: Request, res: Response) => {
+    const { userId } = req.params; // Or from session
+    const { amount, bankInfo } = req.body;
+
+    // TODO: Validate user owns wallet via sessionUser (middleware already does most)
+    // Assuming auth middleware puts sessionUser in body
+    const sessionUser = req.body.sessionUser;
+    if (sessionUser && sessionUser.id !== userId) {
+      return res.status(403).json({ message: "No autorizado" });
+    }
+
+    try {
+      const result = await this.walletService.requestWithdrawal(userId, Number(amount), bankInfo);
+      return res.status(201).json(result);
+    } catch (err) {
+      return this.handleError(err, res);
+    }
+  };
+
+  getUserTransactions = async (req: Request, res: Response) => {
+    const { userId } = req.params;
+    const { page = 1, limit = 10, type, startDate, endDate } = req.query;
+
+    try {
+      const result = await this.walletService.getUserTransactions(
+        userId,
+        Number(page),
+        Number(limit),
+        type as string,
+        startDate as string,
+        endDate as string
+      );
+      return res.status(200).json(result);
     } catch (err) {
       return this.handleError(err, res);
     }

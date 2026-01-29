@@ -1,21 +1,72 @@
-import { RechargeRequest, StatusRecarga, Wallet } from "../../../data";
+import { RechargeRequest, StatusRecarga, Wallet, Transaction, TransactionReason, TransactionOrigin } from "../../../data";
 import { UploadFilesCloud } from "../../../config/upload-files-cloud-adapter";
 import { envs } from "../../../config";
 import { CreateRechargeRequestDTO, CustomError } from "../../../domain";
 import { UserService } from "../usuario/user.service";
+import { OcrService } from "../ocr/ocr.service"; // Added
 import { Parser } from "json2csv";
 import { Between, LessThan } from "typeorm";
 import { getIO } from "../../../config/socket";
 
 export class RechargeRequestService {
+  private ocrService = new OcrService();
+
   constructor(private readonly userService: UserService) { }
   //USUARIO
+
+  // ANALISIS OCR
+  async analyzeReceipt(file: Express.Multer.File) {
+    if (!file) throw CustomError.badRequest("Imagen requerida");
+    return this.ocrService.processImage(file.buffer);
+  }
 
   //CREAR UNA RECARGA
   async createRecharge(
     rechargeData: CreateRechargeRequestDTO,
     file: Express.Multer.File
   ) {
+    // 1. DUPLICATE CHECK (LOGICAL)
+    const { bank_name, receipt_number, transaction_date, force, requiresManualReview } = rechargeData;
+
+    let existingPending = null;
+
+    // Only check duplicates if we have complete data
+    if (bank_name && receipt_number && transaction_date) {
+      // A. Check Strictly Approved (BLOCKING)
+      const existingApproved = await RechargeRequest.findOne({
+        where: {
+          bank_name,
+          receipt_number,
+          transaction_date,
+          status: StatusRecarga.APROBADO
+        }
+      });
+
+      if (existingApproved) {
+        if (!force && !requiresManualReview) {
+          throw CustomError.conflict("DUPLICATE_APPROVED");
+        }
+      }
+
+      existingPending = await RechargeRequest.findOne({
+        where: {
+          bank_name,
+          receipt_number,
+          transaction_date,
+          status: StatusRecarga.PENDIENTE
+        }
+      });
+    }
+
+    // B. Check Pending/Duplicate (WARNING)
+    if (existingPending) {
+      // If force is false AND manual review is false, we block.
+      // If manual review is true, we assume user overrides everything (including potential duplicates) or duplicate check is partial.
+      if (!force && !requiresManualReview) {
+        throw CustomError.conflict("POSSIBLE_DUPLICATE");
+      }
+    }
+
     if (!file) {
       throw CustomError.badRequest("El comprobante de banco es obligatorio");
     }
@@ -43,17 +94,41 @@ export class RechargeRequestService {
         "Error subiendo la imagen del comprobante de banco"
       );
     }
-    (recharge.amount = rechargeData.amount),
-      (recharge.bank_name = rechargeData.bank_name),
-      (recharge.transaction_date = rechargeData.transaction_date),
-      (recharge.receipt_number = rechargeData.receipt_number),
-      (recharge.user = user);
 
-
+    recharge.amount = rechargeData.amount ?? null;
+    recharge.bank_name = rechargeData.bank_name ?? null;
+    recharge.transaction_date = rechargeData.transaction_date ?? null;
+    recharge.receipt_number = rechargeData.receipt_number ?? null;
+    recharge.user = user;
+    recharge.requiresManualReview = !!requiresManualReview;
+    recharge.isDuplicateWarning = (!!existingPending && !!force);
 
     try {
       const savedRecharge = await recharge.save();
       savedRecharge.receipt_image = url;
+
+      // ✅ NUEVO: Crear Transacción PENDIENTE para que aparezca en el historial unificado (Movimientos)
+      // Solo si es una recarga válida (tiene monto > 0 visualmente), aunque sea pendiente
+      // El saldo NO cambia (previous = resulting)
+      if (recharge.amount && recharge.amount > 0) {
+        const wallet = await Wallet.findOne({ where: { user: { id: user.id } } });
+        if (wallet) {
+          const transaction = new Transaction();
+          transaction.wallet = wallet;
+          transaction.amount = recharge.amount;
+          transaction.type = 'credit'; // Recarga es un ingreso
+          transaction.reason = TransactionReason.RECHARGE;
+          transaction.origin = TransactionOrigin.USER;
+          transaction.status = 'PENDING';
+          transaction.observation = `Solicitud de Recarga - Banco: ${recharge.bank_name}`;
+          transaction.reference = savedRecharge.id; // Vinculamos con la solicitud
+
+          transaction.previousBalance = Number(wallet.balance);
+          transaction.resultingBalance = Number(wallet.balance); // Sin cambios aún
+
+          await transaction.save();
+        }
+      }
 
       // Emitir evento socket en tiempo real
       try {
@@ -61,16 +136,17 @@ export class RechargeRequestService {
         // Estructuramos el objeto tal cual lo espera el frontend
         const socketPayload = {
           ...savedRecharge,
+          isDuplicateWarning: savedRecharge.isDuplicateWarning, // Explicitly send flag
           user: {
             id: user.id,
             name: user.name,
             surname: user.surname,
             email: user.email,
             whatsapp: user.whatsapp,
-            photoperfil: user.photoperfil, // Podría necesitar firmar URL si es S3 privado, pero createRecharge no lo hace aquí para la respuesta http, lo hace en get
+            photoperfil: user.photoperfil,
             status: user.status
           },
-          receiptImage: url // El front usa receiptImage o receipt_image, en RecargaCardAdmin usa recarga.receiptImage. En el servicio getByUser mapea receipt_image -> receiptImage. Haremos lo mismo.
+          receiptImage: url
         };
         io.emit("new-recharge-request", socketPayload);
       } catch (error) {
@@ -110,6 +186,7 @@ export class RechargeRequestService {
           transaction_date: req.transaction_date,
           receipt_number: req.receipt_number,
           status: req.status,
+          requiresManualReview: req.requiresManualReview,
           admin_comment: req.admin_comment,
           created_at: req.created_at,
           resolved_at: req.resolved_at,
@@ -174,6 +251,7 @@ export class RechargeRequestService {
           transaction_date: r.transaction_date,
           receipt_number: r.receipt_number,
           status: r.status,
+          requiresManualReview: r.requiresManualReview,
           admin_comment: r.admin_comment,
           created_at: r.created_at,
           resolved_at: r.resolved_at,
@@ -245,6 +323,7 @@ export class RechargeRequestService {
           transaction_date: r.transaction_date,
           receipt_number: r.receipt_number,
           status: r.status,
+          requiresManualReview: r.requiresManualReview,
           admin_comment: r.admin_comment,
           created_at: r.created_at,
           resolved_at: r.resolved_at,
@@ -303,6 +382,7 @@ export class RechargeRequestService {
           transaction_date: r.transaction_date,
           receipt_number: r.receipt_number,
           status: r.status,
+          requiresManualReview: r.requiresManualReview,
           admin_comment: r.admin_comment,
           created_at: r.created_at,
           resolved_at: r.resolved_at,
@@ -338,11 +418,15 @@ export class RechargeRequestService {
     const termLower = term.toLowerCase();
 
     const filtered = allRequests.filter((r) => {
+      const bank = r.bank_name?.toLowerCase() || "";
+      const receipt = r.receipt_number || "";
+      const amountStr = r.amount?.toString() || "";
+
       return (
-        r.bank_name.toLowerCase().includes(termLower) ||
+        bank.includes(termLower) ||
         r.id === term ||
-        r.receipt_number === term ||
-        r.amount.toString().includes(term)
+        receipt === term ||
+        amountStr.includes(term)
       );
     });
 
@@ -365,6 +449,7 @@ export class RechargeRequestService {
           transaction_date: r.transaction_date,
           receipt_number: r.receipt_number,
           status: r.status,
+          requiresManualReview: r.requiresManualReview,
           admin_comment: r.admin_comment,
           created_at: r.created_at,
           resolved_at: r.resolved_at,
@@ -410,6 +495,7 @@ export class RechargeRequestService {
           transaction_date: req.transaction_date,
           receipt_number: req.receipt_number,
           status: req.status,
+          requiresManualReview: req.requiresManualReview,
           admin_comment: req.admin_comment,
           created_at: req.created_at,
           resolved_at: req.resolved_at,
@@ -473,6 +559,7 @@ export class RechargeRequestService {
           transaction_date: r.transaction_date,
           receipt_number: r.receipt_number,
           status: r.status,
+          requiresManualReview: r.requiresManualReview,
           admin_comment: r.admin_comment,
           created_at: r.created_at,
           resolved_at: r.resolved_at,
@@ -531,12 +618,33 @@ export class RechargeRequestService {
     if (transaction_date) request.transaction_date = new Date(transaction_date);
     if (receipt_number) request.receipt_number = receipt_number;
 
+    // VALIDACION DUPLICADO AL APROBAR (CRÍTICO)
+    if (status === StatusRecarga.APROBADO) {
+      if (request.bank_name && request.receipt_number && request.transaction_date) {
+        const duplicate = await RechargeRequest.findOne({
+          where: {
+            bank_name: request.bank_name,
+            receipt_number: request.receipt_number,
+            transaction_date: request.transaction_date,
+            status: StatusRecarga.APROBADO,
+          }
+        });
+
+        if (duplicate) {
+          throw CustomError.badRequest("Este comprobante ya fue aprobado anteriormente y no puede volver a acreditarse.");
+        }
+      }
+    }
+
     request.status = status;
     request.admin_comment = adminComment ?? "";
     request.resolved_at = new Date();
     await request.save();
 
-    // Si fue aprobado, actualizar la wallet del usuario
+    // ✅ ACTUALIZAR TRANSACCIÓN VINCULADA (Si existe)
+    const linkedTx = await Transaction.findOne({ where: { reference: request.id } });
+
+    // Si fue aprobado, actualizar la wallet del usuario Y la transacción
     if (status === StatusRecarga.APROBADO) {
       const wallet = await Wallet.findOne({
         where: { user: { id: request.user.id } },
@@ -545,8 +653,38 @@ export class RechargeRequestService {
       if (!wallet)
         throw CustomError.notFound("Wallet del usuario no encontrada");
 
+      const previous = Number(wallet.balance);
       wallet.balance = Number(wallet.balance) + Number(request.amount);
       await wallet.save();
+
+      if (linkedTx) {
+        linkedTx.status = 'APPROVED';
+        linkedTx.previousBalance = previous; // Ahora sí tiene sentido actualizar esto para registro histórico real
+        linkedTx.resultingBalance = Number(wallet.balance);
+        linkedTx.admin = null; // Podríamos guardar el admin si lo tuviéramos
+        linkedTx.created_at = new Date(); // Opcional: ¿Actualizamos la fecha a la de aprobación o dejamos la de solicitud? Dejemos la original o actualicémosla para que salga arriba. Mejor dejar original.
+        await linkedTx.save();
+      } else {
+        // Fallback por si la transacción no se creó (legacy data): Crear la transacción ahora APROBADA
+        const transaction = new Transaction();
+        transaction.wallet = wallet;
+        transaction.amount = Number(request.amount);
+        transaction.type = 'credit';
+        transaction.reason = TransactionReason.RECHARGE;
+        transaction.origin = TransactionOrigin.ADMIN; // Fue aprobado por admin
+        transaction.status = 'APPROVED';
+        transaction.reference = request.id;
+        transaction.observation = `Recarga Aprobada - Banco: ${request.bank_name}`;
+        transaction.previousBalance = previous;
+        transaction.resultingBalance = Number(wallet.balance);
+        await transaction.save();
+      }
+    } else if (status === StatusRecarga.RECHAZADO) {
+      if (linkedTx) {
+        linkedTx.status = 'REJECTED';
+        linkedTx.observation = linkedTx.observation + ` (Rechazado: ${adminComment || 'Sin motivo'})`;
+        await linkedTx.save();
+      }
     }
 
     return {
@@ -600,6 +738,7 @@ export class RechargeRequestService {
           transaction_date: r.transaction_date,
           receipt_number: r.receipt_number,
           status: r.status,
+          requiresManualReview: r.requiresManualReview,
           created_at: r.created_at,
           resolved_at: r.resolved_at,
           "user.name": r.user.name,
@@ -672,6 +811,7 @@ export class RechargeRequestService {
           transaction_date: r.transaction_date,
           receipt_number: r.receipt_number,
           status: r.status,
+          requiresManualReview: r.requiresManualReview,
           admin_comment: r.admin_comment,
           created_at: r.created_at,
           resolved_at: r.resolved_at,
@@ -710,6 +850,7 @@ export class RechargeRequestService {
       },
     });
 
+
     if (!oldRequests.length) {
       return {
         deleted: 0,
@@ -725,4 +866,81 @@ export class RechargeRequestService {
       message: `${result.length} solicitudes eliminadas correctamente.`,
     };
   }
+
+
+
+
+  // Helper para obtener saldo rápido
+  private async getWalletBalance(userId: string): Promise<number> {
+    const wallet = await Wallet.findOne({ where: { user: { id: userId } } });
+    return wallet ? Number(wallet.balance) : 0;
+  }
+
+  // 9. Reversar recarga aprobada (ADMIN)
+  async reverseRecharge(rechargeId: string, adminUser: any) {
+    const recharge = await RechargeRequest.findOne({
+      where: { id: rechargeId },
+      relations: ["user"]
+    });
+
+    if (!recharge) throw CustomError.notFound("Recarga no encontrada");
+
+    // Validaciones
+    if (recharge.status !== StatusRecarga.APROBADO) {
+      throw CustomError.badRequest("Solo se pueden reversar recargas APROBADAS.");
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    const createdDate = new Date(recharge.created_at).toISOString().split('T')[0];
+
+    if (createdDate !== today) {
+      throw CustomError.badRequest("Solo se pueden reversar recargas del día actual (HOY).");
+    }
+
+    const wallet = await Wallet.findOne({ where: { user: { id: recharge.user.id } } });
+    if (!wallet) throw CustomError.notFound("Wallet del usuario no encontrada");
+
+    const amount = Number(recharge.amount);
+    if (wallet.balance < amount) {
+      throw CustomError.badRequest("El usuario no tiene saldo suficiente para reversar esta recarga.");
+    }
+
+    // Ejecutar Reverso
+    try {
+      // 1. Descontar saldo
+      wallet.balance = Number(wallet.balance) - amount;
+      await wallet.save();
+
+      // 2. Registrar Transacción de Egreso (Reverso)
+      const transaction = new Transaction();
+      transaction.wallet = wallet;
+      transaction.amount = amount;
+      transaction.type = 'debit';
+      transaction.reason = TransactionReason.REVERSAL;
+      transaction.origin = TransactionOrigin.ADMIN;
+      transaction.reference = `Reverso Recarga #${recharge.receipt_number || recharge.id}`;
+      transaction.observation = `Reverso ejecutado por admin: ${adminUser.email}`;
+      transaction.admin = adminUser;
+      transaction.previousBalance = Number(wallet.balance) + amount; // Lo que tenía antes
+      transaction.resultingBalance = Number(wallet.balance);
+      await transaction.save();
+
+      // 3. Actualizar estado de la recarga a PENDIENTE
+      recharge.status = StatusRecarga.PENDIENTE;
+      recharge.admin_comment = `Reversado por admin el ${new Date().toLocaleString()}`;
+      recharge.resolved_at = null as any; // Reset resolved date
+      await recharge.save();
+
+      return {
+        success: true,
+        message: "Recarga reversada correctamente. El saldo ha sido descontado y la solicitud está pendiente nuevamente.",
+        newBalance: wallet.balance,
+        rechargeStatus: recharge.status
+      };
+
+    } catch (error: any) {
+      throw CustomError.internalServer("Error al procesar el reverso: " + error.message);
+    }
+  }
 }
+

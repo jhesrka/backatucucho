@@ -10,11 +10,14 @@ import { SubscriptionService } from "./postService/subscription.service";
 import { FreePostTrackerService } from "./postService/free-post-tracker.service";
 import { validate as uuidValidate } from "uuid";
 
+import { GlobalSettingsService } from "./globalSettings/global-settings.service";
+
 export class PostService {
   constructor(
     public readonly userService: UserService,
     public readonly subscriptionService: SubscriptionService,
-    public readonly freePostTrackerService: FreePostTrackerService
+    public readonly freePostTrackerService: FreePostTrackerService,
+    public readonly globalSettingsService: GlobalSettingsService
   ) { }
   //este ya esta funcionando
 
@@ -258,7 +261,7 @@ export class PostService {
       const user = await this.userService.findOneUser(postData.userId);
       if (!user) throw CustomError.notFound("Usuario no encontrado");
 
-      // 2. Validar suscripción si es post pago
+      // 2. Validar suscripción e imágenes si es post pago
       if (postData.isPaid) {
         const hasActiveSub =
           await this.subscriptionService.hasActiveSubscription(user.id);
@@ -267,18 +270,29 @@ export class PostService {
             "Requieres suscripción activa para posts pagos"
           );
         }
+
+        if (imgs && imgs.length > 5) {
+          throw CustomError.badRequest("Los posts pagados permiten un máximo de 5 imágenes");
+        }
+      } else {
+        // Validación para posts gratuitos
+        if (imgs && imgs.length > 1) {
+          throw CustomError.badRequest("Los posts gratuitos solo permiten 1 imagen");
+        }
       }
 
-      // 3. Manejar posts gratuitos (límite mensual)
+      // 3. Manejar posts gratuitos (límite mensual y duración configurable)
       let freePostTracker;
+      let settings;
 
       if (!postData.isPaid) {
+        settings = await this.globalSettingsService.getSettings();
         freePostTracker = await this.freePostTrackerService.getOrCreateTracker(
           user.id
         );
-        if (freePostTracker.count >= 5) {
+        if (freePostTracker.count >= settings.freePostsLimit) {
           throw CustomError.forbiden(
-            "Límite de posts gratuitos alcanzado (5/mes)"
+            `Límite de posts gratuitos alcanzado (${settings.freePostsLimit}/mes)`
           );
         }
 
@@ -321,11 +335,15 @@ export class PostService {
       post.user = user;
       post.isPaid = postData.isPaid || false;
       post.imgpost = keys;
+      post.showWhatsApp = postData.showWhatsApp ?? true;
+      post.showLikes = postData.showLikes ?? true;
 
       // Configurar expiración para posts gratuitos
 
-      if (!post.isPaid && freePostTracker) {
-        post.expiresAt = new Date(Date.now() + 2 * 60 * 1000); // 2 minutos
+      if (!post.isPaid && freePostTracker && settings) {
+        const durationMs = (settings.freePostDurationDays * 24 * 60 * 60 * 1000) +
+          (settings.freePostDurationHours * 60 * 60 * 1000);
+        post.expiresAt = new Date(Date.now() + durationMs);
         post.freePostTracker = freePostTracker;
       } else if (!post.isPaid) {
         throw CustomError.internalServer(
@@ -343,11 +361,15 @@ export class PostService {
         imgpost: urls,
         expiresAt: postSaved.expiresAt,
         createdAt: postSaved.createdAt,
+        showWhatsApp: postSaved.showWhatsApp,
+        showLikes: postSaved.showLikes,
         user: {
           id: user.id,
           name: user.name,
           surname: user.surname,
-          photoperfil: user.photoperfil,
+          photoperfil: user.photoperfil
+            ? await UploadFilesCloud.getFile({ bucketName: envs.AWS_BUCKET_NAME, key: user.photoperfil })
+            : null,
         },
       };
       postSaved.imgpost = urls; // Asignar URLs para la respuesta
@@ -375,6 +397,7 @@ export class PostService {
         throw error;
       }
 
+      console.error("Error creating post:", error);
       throw CustomError.internalServer("Error al crear el post");
     }
   }
@@ -1052,6 +1075,28 @@ export class PostService {
       throw CustomError.internalServer(
         "Error al purgar posts eliminados mayores a 3 días"
       );
+    }
+  }
+
+  async expirePosts() {
+    const now = new Date();
+    try {
+      const result = await Post.update(
+        {
+          statusPost: StatusPost.ELIMINADO,
+          expiresAt: null as any,
+          deletedAt: now,
+        },
+        {
+          statusPost: StatusPost.PUBLICADO,
+          isPaid: false,
+          expiresAt: LessThan(now) as any,
+        }
+      );
+      return result.affected || 0;
+    } catch (error) {
+      console.error("Error al expirar posts:", error);
+      throw CustomError.internalServer("Error al procesar la expiración de posts");
     }
   }
 }

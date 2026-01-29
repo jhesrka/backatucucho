@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { FreePostTrackerService, SubscriptionService } from "../../services";
+import { FreePostTrackerService, SubscriptionService, GlobalSettingsService } from "../../services";
 import { SubscriptionController } from "./suscription.controller";
 import { AuthAdminMiddleware, AuthMiddleware } from "../../../middlewares";
 
@@ -8,9 +8,11 @@ export class SubscriptionRoutes {
     const router = Router();
     const subscriptionService = new SubscriptionService();
     const freePostTrackerService = new FreePostTrackerService();
+    const globalSettingsService = new GlobalSettingsService();
     const subscriptionController = new SubscriptionController(
       subscriptionService,
-      freePostTrackerService
+      freePostTrackerService,
+      globalSettingsService
     );
 
     // ================= USER ROUTES (Protected by AuthMiddleware) =================
@@ -30,6 +32,12 @@ export class SubscriptionRoutes {
     // ================= ADMIN ROUTES (Protected by AuthAdminMiddleware) =================
     // Cambiar costo de la suscripción (solo admin)
     router.patch("/set-cost", [AuthAdminMiddleware.protect], subscriptionController.setSubscriptionCost);
+
+    // Actualizar configuración de posts gratuitos (solo admin)
+    router.patch("/update-free-posts-settings", [AuthAdminMiddleware.protect], subscriptionController.updateFreePostSettings);
+
+    // Obtener configuración de posts gratuitos (solo admin)
+    router.get("/get-free-posts-settings", [AuthAdminMiddleware.protect], subscriptionController.getFreePostSettings);
 
     // Listar suscripciones de un usuario
     router.get("/admin/user/:id/subscriptions", [AuthAdminMiddleware.protect], subscriptionController.getSubscriptionsByUserAdmin);

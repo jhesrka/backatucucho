@@ -161,6 +161,7 @@ export class UserRoutes {
     router.get("/validate-email/:token", userController.validateAccount);
     router.post("/forgot-password", userController.forgotPassword);
     router.post("/reset-password", userController.resetPassword);
+    router.post("/change-password", AuthMiddleware.protect, userController.changePassword);
     //PROTEGIDO
 
     //ADMINISTRADOR

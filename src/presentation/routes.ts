@@ -4,6 +4,7 @@ import {
   UserMotorizadoRoutes,
   UserRoutes,
 } from "./controller";
+import { AuthRoutes } from "./auth/auth.routes";
 import { PostRoutes } from "./post/router";
 import { StorieRoutes } from "./stories/storie.routes";
 import { LikeRoutes } from "./likes/like.routes";
@@ -27,13 +28,22 @@ import { WalletRoutes as WalletAdminRoutes } from "./controller/walletController
 import { AdvertisingRoutes } from "./advertising/advertising.routes";
 import { UploadRoutes } from "./upload/upload.routes";
 
+import { GlobalSettingsRoutes } from "./controller/globalSettings/global-settings.routes";
+
+import { ReportRoutes } from "./controller/report/report.routes";
+
 export class AppRoutes {
   //cuando hay metodoos estaticos no necesitams instanciar
   static get routes(): Router {
     const router = Router();
+    //AUTH
+    router.use("/api/auth", AuthRoutes.routes);
+
     //USUARIO
     router.use("/api/user", UserRoutes.routes);
     router.use("/api/wallet", WalletRoutes.routes);
+    router.use("/api/settings", GlobalSettingsRoutes.routes);
+    router.use("/api/reports", ReportRoutes.routes);
 
     //ADMINISTRADOR
     router.use("/api/useradmin", UseradminRoutes.routes);

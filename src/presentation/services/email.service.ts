@@ -34,18 +34,25 @@ export class EmailService {
   async sendEmail(options: SendEmailOptions) {
     const { to, subject, htmlBody, attachments = [] } = options;
 
-    if (!this.postToProvider) return true;
+    if (!this.postToProvider) {
+      console.warn("⚠️ Email sending is disabled in .env (SEND_EMAIL=false). returning 'true' to simulate success.");
+      return true;
+    }
     try {
-      await this.transporter.sendMail({
+      const sentInformation = await this.transporter.sendMail({
         to: to,
         subject: subject,
         html: htmlBody,
-        //attachments: attachments,
+        attachments: attachments,
       });
+      console.log(`✅ Email sent to ${to} | ID: ${sentInformation.messageId}`);
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Email Service Error:", error);
-      throw error;
+      if (error?.responseCode === 535) {
+        console.error("⚠️ SMTP 535 Error: Authentication failed. If using Gmail, make sure to use an 'App Password', not your main password.");
+      }
+      return false;
     }
   }
 }

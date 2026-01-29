@@ -25,3 +25,4 @@ export * from "./postgres/models/transactionType.model";
 export * from './postgres/models/Campaign';
 export * from './postgres/models/CampaignLog';
 export * from './postgres/models/financial/FinancialClosing';
+export * from './postgres/models/report.model';

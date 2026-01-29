@@ -70,6 +70,7 @@ export class StorieService {
     storie.imgstorie = key;
     storie.user = user;
     storie.expires_at = addDays(new Date(), storieData.dias);
+    storie.showWhatsapp = storieData.showWhatsapp;
 
     // Guardar snapshot de precios
     storie.val_primer_dia = config.basePrice;

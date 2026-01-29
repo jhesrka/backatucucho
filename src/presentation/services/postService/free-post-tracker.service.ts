@@ -5,7 +5,8 @@ export class FreePostTrackerService {
   async getOrCreateTracker(userId: string): Promise<FreePostTracker> {
     const currentMonth = new Date();
     currentMonth.setDate(1); // Primer día del mes
-    
+    currentMonth.setHours(0, 0, 0, 0);
+
     // Usa findOneBy en lugar de findOne
     let tracker = await FreePostTracker.findOneBy({
       user: { id: userId },

@@ -13,6 +13,7 @@ export { UpdateUserRoleDTO } from "./dtos/user/UpdateUserRoleDTO"
 export { UpdateUserStatusDTO } from "./dtos/user/UpdateUserStatusDTO"
 export { FilterUsersByStatusDTO } from "./dtos/user/FindUserByIdDTO"
 export { UpdateUserAdminDTO } from "./dtos/user/UpdateUserAdminDTO"
+export { ChangePasswordUserDTO } from "./dtos/user/change-password-user.dto";
 
 //ADMINISTRADOR
 

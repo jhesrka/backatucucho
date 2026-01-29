@@ -22,6 +22,14 @@ export class RechargeRoutes {
 
     //USUARIO
 
+    // SCAN COMPROBANTE
+    router.post(
+      "/scan",
+      AuthMiddleware.protect,
+      uploadSingleFile("receipt_image"),
+      rechargeRequestController.scanReceipt
+    );
+
     //CREAR RECARGA
     router.post(
       "/",
@@ -109,6 +117,13 @@ export class RechargeRoutes {
       "/delete-old",
       AuthAdminMiddleware.protect,
       rechargeRequestController.deleteOldRechargeRequests
+    );
+
+    // 9. Reversar recarga aprobada
+    router.patch(
+      "/admin/:id/reverse",
+      AuthAdminMiddleware.protect,
+      rechargeRequestController.reverseRecharge
     );
 
     return router;

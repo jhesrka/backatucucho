@@ -3,19 +3,21 @@ import { PriceController } from "./price-controller.controller";
 import { PriceService } from "../../services";
 import { AuthAdminMiddleware, AuthMiddleware } from "../../../middlewares";
 
+import { UseradminService } from "../../services/administradorService/useradmin.service";
+
 export class PriceRoutes {
   static get routes(): Router {
     const router = Router();
 
     const priceService = new PriceService();
-    const priceController = new PriceController(priceService);
+    const userAdminService = new UseradminService();
+    const priceController = new PriceController(priceService, userAdminService);
 
-  
+
 
     // Obtener configuración actual de precios
     router.get(
       "/",
-      AuthMiddleware.protect,
       priceController.getPriceSettings
     );
 
@@ -29,7 +31,6 @@ export class PriceRoutes {
     // Calcular precio según días
     router.get(
       "/calculate",
-      AuthMiddleware.protect,
       priceController.calculateStoriePrice
     );
 

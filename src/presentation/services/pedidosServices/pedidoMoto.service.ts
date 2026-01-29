@@ -1,10 +1,9 @@
-import { Pedido, EstadoPedido } from "../../../data/postgres/models/Pedido";
 import {
+  Pedido,
+  EstadoPedido,
   UserMotorizado,
   EstadoCuentaMotorizado,
   EstadoTrabajoMotorizado,
-} from "../../../data/postgres/models/UserMotorizado";
-import {
   TransaccionMotorizado,
   TipoTransaccion,
   EstadoTransaccion,

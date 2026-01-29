@@ -17,10 +17,17 @@ export class PostController {
   //revisado y aprobado
 
   createPostPlan = (req: Request, res: Response) => {
-    const { userId, title, subtitle, content, isPaid } = req.body;
+    const { title, subtitle, content, isPaid, showWhatsApp, showLikes } = req.body;
+    const userId = req.body.sessionUser?.id || req.body.userId;
+
+    if (!userId || !this.isValidUUID(userId)) {
+      return res.status(400).json({ message: "ID de usuario inválido o no proporcionado" });
+    }
 
     // Convertir isPaid a booleano correctamente
     const isPaidBool = isPaid === "true" || isPaid === true;
+    const showWhatsAppBool = showWhatsApp === "true" || showWhatsApp === true || showWhatsApp === undefined;
+    const showLikesBool = showLikes === "true" || showLikes === true || showLikes === undefined;
 
     this.postService
       .createPostPlan(
@@ -30,6 +37,8 @@ export class PostController {
           subtitle,
           content,
           isPaid: isPaidBool,
+          showWhatsApp: showWhatsAppBool,
+          showLikes: showLikesBool,
         },
         req.files as Express.Multer.File[]
       )
