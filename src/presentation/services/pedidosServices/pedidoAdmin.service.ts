@@ -50,7 +50,7 @@ export class PedidoAdminService {
       take: limit,
       skip: offset,
       order: { createdAt: "DESC" },
-      relations: ["cliente", "motorizado", "negocio", "productos"],
+      relations: ["cliente", "motorizado", "negocio", "productos", "productos.producto"],
     });
 
     return { total, pedidos };
@@ -60,7 +60,7 @@ export class PedidoAdminService {
   async getPedidoById(id: string) {
     const pedido = await Pedido.findOne({
       where: { id },
-      relations: ["cliente", "motorizado", "negocio", "productos"],
+      relations: ["cliente", "motorizado", "negocio", "productos", "productos.producto"],
     });
 
     if (!pedido) throw CustomError.notFound("Pedido no encontrado");

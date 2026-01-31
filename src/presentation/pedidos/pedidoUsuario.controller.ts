@@ -67,14 +67,20 @@ export class PedidoUsuarioController {
   obtenerPedidosCliente = (req: Request, res: Response) => {
     const clienteId = req.params.clienteId;
     const page = Number(req.query.page) || 1;
-    const limit = Number(req.query.limit) || 8;
+    const limit = Number(req.query.limit) || 5;
+
+    const filters = {
+      estado: req.query.estado as string,
+      startDate: req.query.startDate as string,
+      endDate: req.query.endDate as string,
+    };
 
     if (!clienteId) {
       return res.status(400).json({ message: "Falta el ID del cliente" });
     }
 
     this.pedidoUsuarioService
-      .obtenerPedidosCliente(clienteId, page, limit)
+      .obtenerPedidosCliente(clienteId, page, limit, filters)
       .then((result) => res.status(200).json(result))
       .catch((error) => this.handleError(error, res));
   };

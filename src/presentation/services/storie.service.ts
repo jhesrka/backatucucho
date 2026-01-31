@@ -54,10 +54,10 @@ export class StorieService {
         contentType: file.mimetype,
       });
 
-      url = await UploadFilesCloud.getFile({
+      url = await UploadFilesCloud.getOptimizedUrls({
         bucketName: envs.AWS_BUCKET_NAME,
         key,
-      });
+      }) as any;
     } catch {
       throw CustomError.internalServer(
         "Error subiendo la imagen de la historia"
@@ -119,14 +119,14 @@ export class StorieService {
       const storiesWithUrls = await Promise.all(
         stories.map(async (story) => {
           const imgstorieUrl = story.imgstorie
-            ? await UploadFilesCloud.getFile({
+            ? await UploadFilesCloud.getOptimizedUrls({
               bucketName: envs.AWS_BUCKET_NAME,
               key: story.imgstorie,
             })
             : null;
 
           const photoperfilUrl = story.user?.photoperfil
-            ? await UploadFilesCloud.getFile({
+            ? await UploadFilesCloud.getOptimizedUrls({
               bucketName: envs.AWS_BUCKET_NAME,
               key: story.user.photoperfil,
             })

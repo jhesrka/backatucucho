@@ -85,10 +85,10 @@ export class RechargeRequestService {
       });
       recharge.receipt_image = key;
 
-      url = await UploadFilesCloud.getFile({
+      url = await UploadFilesCloud.getOptimizedUrls({
         bucketName: envs.AWS_BUCKET_NAME,
         key,
-      });
+      }) as any;
     } catch (error) {
       throw CustomError.internalServer(
         "Error subiendo la imagen del comprobante de banco"

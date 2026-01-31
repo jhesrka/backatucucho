@@ -5,7 +5,11 @@
   "scripts": {
     "dev": "tsnd --respawn src/app.ts",
     "build": "rimraf ./dist && tsc",
-    "start": "node dist/app.js"
+    "start": "node dist/app.js",
+    "typeorm": "typeorm-ts-node-commonjs",
+    "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/data/postgres/data-source.ts",
+    "migration:run": "typeorm-ts-node-commonjs migration:run -d src/data/postgres/data-source.ts",
+    "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/data/postgres/data-source.ts"
   },
   "keywords": [],
   "author": "",
@@ -32,6 +36,7 @@
     "@aws-sdk/client-s3": "^3.782.0",
     "@aws-sdk/s3-request-presigner": "^3.806.0",
     "@types/geoip-lite": "^1.4.4",
+    "@types/sharp": "^0.31.1",
     "aws-sdk": "2.1692.0",
     "bcryptjs": "3.0.2",
     "class-transformer": "0.5.1",
@@ -54,6 +59,7 @@
     "nodemailer": "6.10.1",
     "pg": "8.14.1",
     "reflect-metadata": "0.2.2",
+    "sharp": "^0.34.5",
     "socket.io": "4.8.1",
     "tesseract.js": "^7.0.0",
     "typeorm": "^0.3.21",

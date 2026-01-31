@@ -214,22 +214,42 @@ export class PedidoUsuarioService {
   }
 
   // Ver los pedidos de un cliente
-  async obtenerPedidosCliente(clienteId: string, page = 1, limit = 8) {
+  async obtenerPedidosCliente(clienteId: string, page = 1, limit = 5, filters: { estado?: string; startDate?: string; endDate?: string } = {}) {
     const skip = (page - 1) * limit;
 
-    const [pedidos, total] = await Pedido.findAndCount({
-      where: { cliente: { id: clienteId } },
-      relations: ["negocio", "productos", "productos.producto", "motorizado"],
-      order: { createdAt: "DESC" },
-      skip,
-      take: limit,
-    });
+    const query = Pedido.createQueryBuilder("pedido")
+      .leftJoinAndSelect("pedido.negocio", "negocio")
+      .leftJoinAndSelect("pedido.productos", "productos")
+      .leftJoinAndSelect("productos.producto", "producto")
+      .leftJoinAndSelect("pedido.motorizado", "motorizado")
+      .where("pedido.clienteId = :clienteId", { clienteId })
+      .orderBy("pedido.createdAt", "DESC")
+      .skip(skip)
+      .take(limit);
+
+    if (filters.estado) {
+      query.andWhere("pedido.estado = :estado", { estado: filters.estado });
+    }
+
+    if (filters.startDate) {
+      query.andWhere("pedido.createdAt >= :startDate", { startDate: filters.startDate });
+    }
+
+    if (filters.endDate) {
+      // Ajustar endDate al final del día
+      const end = new Date(filters.endDate);
+      end.setHours(23, 59, 59, 999);
+      query.andWhere("pedido.createdAt <= :endDate", { endDate: end });
+    }
+
+    const [pedidos, total] = await query.getManyAndCount();
 
     const pedidosMapeados = pedidos.map((p) => ({
       id: p.id,
       estado: p.estado,
       total: p.total,
       costoEnvio: p.costoEnvio,
+      motivoCancelacion: p.motivoCancelacion,
 
       negocio: {
         id: p.negocio.id,
@@ -245,7 +265,7 @@ export class PedidoUsuarioService {
       })),
       fecha: p.createdAt,
       metodoPago: p.metodoPago,
-      vuelto: p.montoVuelto ? true : false, // Simple flag
+      vuelto: p.montoVuelto ? true : false,
       montoVuelto: p.montoVuelto,
       comprobantePagoUrl: p.comprobantePagoUrl,
       motorizado: p.motorizado ? {
@@ -254,7 +274,6 @@ export class PedidoUsuarioService {
         surname: p.motorizado.surname,
         telefono: p.motorizado.whatsapp,
         whatsapp: p.motorizado.whatsapp,
-        // placa: p.motorizado.placa // Property does not exist on entity
       } : null,
     }));
 

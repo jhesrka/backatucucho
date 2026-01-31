@@ -13,6 +13,7 @@ export class GlobalSettingsService {
             settings.freePostDurationHours = 0;
             settings.subscriptionBasicPrice = 5.00;
             settings.subscriptionBasicDurationDays = 30;
+            settings.currentTermsVersion = "v1.0";
             await settings.save();
         }
         return settings;
@@ -20,10 +21,37 @@ export class GlobalSettingsService {
 
     async updateSettings(data: any) { // Type with DTO later
         let settings = await this.getSettings();
+
+        let termsChanged = false;
+
         if (data.supportWhatsapp !== undefined) settings.supportWhatsapp = data.supportWhatsapp;
+
         // Explicitly update text fields even if empty string (to allow clearing)
-        if (data.termsAndConditions !== undefined) settings.termsAndConditions = data.termsAndConditions;
-        if (data.privacyPolicy !== undefined) settings.privacyPolicy = data.privacyPolicy;
+        if (data.termsAndConditions !== undefined) {
+            if (settings.termsAndConditions !== data.termsAndConditions) {
+                settings.termsAndConditions = data.termsAndConditions;
+                termsChanged = true;
+            }
+        }
+        if (data.privacyPolicy !== undefined) {
+            if (settings.privacyPolicy !== data.privacyPolicy) {
+                settings.privacyPolicy = data.privacyPolicy;
+                termsChanged = true;
+            }
+        }
+
+        if (termsChanged) {
+            // Incrementar versión (ej: v1.0 -> v1.1 o generar timestamp-based)
+            const matches = settings.currentTermsVersion.match(/v(\d+)\.(\d+)/);
+            if (matches) {
+                const major = parseInt(matches[1]);
+                const minor = parseInt(matches[2]) + 1;
+                settings.currentTermsVersion = `v${major}.${minor}`;
+            } else {
+                settings.currentTermsVersion = `v1.1`;
+            }
+            settings.termsUpdatedAt = new Date();
+        }
 
         // Maintain existing logic if any
         if (data.orderRetentionDays !== undefined) settings.orderRetentionDays = data.orderRetentionDays;

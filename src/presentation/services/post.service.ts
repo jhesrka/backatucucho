@@ -68,14 +68,14 @@ export class PostService {
           const [imgs, userImage, isLiked] = await Promise.all([
             Promise.all(
               (post.imgpost ?? []).map((img) =>
-                UploadFilesCloud.getFile({
+                UploadFilesCloud.getOptimizedUrls({
                   bucketName: envs.AWS_BUCKET_NAME,
                   key: img,
                 })
               )
             ),
             post.user?.photoperfil
-              ? UploadFilesCloud.getFile({
+              ? UploadFilesCloud.getOptimizedUrls({
                 bucketName: envs.AWS_BUCKET_NAME,
                 key: post.user.photoperfil,
               })
@@ -172,13 +172,13 @@ export class PostService {
           const [resolvedImgs, userImage, isLiked] = await Promise.all([
             Promise.all(
               (post.imgpost ?? []).map(async (img) => {
-                return await UploadFilesCloud.getFile({
+                return await UploadFilesCloud.getOptimizedUrls({
                   bucketName: envs.AWS_BUCKET_NAME,
                   key: img,
                 });
               })
             ),
-            UploadFilesCloud.getFile({
+            UploadFilesCloud.getOptimizedUrls({
               bucketName: envs.AWS_BUCKET_NAME,
               key: post.user.photoperfil,
             }),
@@ -191,10 +191,10 @@ export class PostService {
 
           return {
             ...post,
-            imgpost: resolvedImgs,
+            imgpost: resolvedImgs as any,
             user: {
               ...post.user,
-              photoperfil: userImage,
+              photoperfil: userImage as any,
             },
             isLiked, // <--- return stat
           };
@@ -227,13 +227,13 @@ export class PostService {
     const [resolvedImgs, userImage, isLiked] = await Promise.all([
       Promise.all(
         (post.imgpost ?? []).map(async (img) => {
-          return await UploadFilesCloud.getFile({
+          return await UploadFilesCloud.getOptimizedUrls({
             bucketName: envs.AWS_BUCKET_NAME,
             key: img,
           });
         })
       ),
-      UploadFilesCloud.getFile({
+      UploadFilesCloud.getOptimizedUrls({
         bucketName: envs.AWS_BUCKET_NAME,
         key: post.user.photoperfil,
       }),
@@ -246,11 +246,8 @@ export class PostService {
 
     return {
       ...post,
-      imgpost: resolvedImgs,
-      user: {
-        ...post.user,
-        photoperfil: userImage,
-      },
+      imgpost: resolvedImgs as any,
+      user: { ...post.user, photoperfil: userImage as any },
       isLiked,
     };
   }
@@ -260,6 +257,13 @@ export class PostService {
       // 1. Validar usuario
       const user = await this.userService.findOneUser(postData.userId);
       if (!user) throw CustomError.notFound("Usuario no encontrado");
+
+      // 1.5 Validar aceptación de términos y privacidad (Versionado)
+      const settings = await this.globalSettingsService.getSettings();
+      if (!user.acceptedTermsVersion || user.acceptedTermsVersion !== settings.currentTermsVersion ||
+        !user.acceptedPrivacyVersion || user.acceptedPrivacyVersion !== settings.currentTermsVersion) {
+        throw CustomError.forbiden("Debes aceptar los términos y condiciones actualizados antes de publicar.");
+      }
 
       // 2. Validar suscripción e imágenes si es post pago
       if (postData.isPaid) {
@@ -283,10 +287,8 @@ export class PostService {
 
       // 3. Manejar posts gratuitos (límite mensual y duración configurable)
       let freePostTracker;
-      let settings;
 
       if (!postData.isPaid) {
-        settings = await this.globalSettingsService.getSettings();
         freePostTracker = await this.freePostTrackerService.getOrCreateTracker(
           user.id
         );
@@ -316,16 +318,17 @@ export class PostService {
           )
         );
 
-        // Obtener URLs firmadas
-        urls = await Promise.all(
+        // Obtener URLs firmadas optimizadas
+        urls = (await Promise.all(
           keys.map((key) =>
-            UploadFilesCloud.getFile({
+            UploadFilesCloud.getOptimizedUrls({
               bucketName: envs.AWS_BUCKET_NAME,
               key,
             })
           )
-        );
+        )) as any;
       }
+
 
       // 5. Crear y guardar el post
       const post = new Post();

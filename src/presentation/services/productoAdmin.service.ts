@@ -39,11 +39,12 @@ export class ProductoServiceAdmin {
         let imagenUrl: string | null = null;
 
         try {
-          imagenUrl = await UploadFilesCloud.getFile({
+          imagenUrl = await UploadFilesCloud.getOptimizedUrls({
             bucketName: envs.AWS_BUCKET_NAME,
             key: p.imagen,
-          });
+          }) as any;
         } catch { }
+
 
         // 🔹 Contar total de unidades pedidas del producto
         const { total } = (await ProductoPedido.createQueryBuilder("pp")
@@ -130,14 +131,15 @@ export class ProductoServiceAdmin {
       }
 
       const key = `productos/${Date.now()}-${imagen.originalname}`;
-      await UploadFilesCloud.uploadSingleFile({
+      const savedKey = await UploadFilesCloud.uploadSingleFile({
         bucketName: envs.AWS_BUCKET_NAME,
         key,
         body: imagen.buffer,
         contentType: imagen.mimetype,
       });
 
-      producto.imagen = key;
+      producto.imagen = savedKey;
+
     }
 
     // 🔹 Actualizar campos opcionales
@@ -159,12 +161,13 @@ export class ProductoServiceAdmin {
     let imagenUrl: string | null = null;
     if (producto.imagen) {
       try {
-        imagenUrl = await UploadFilesCloud.getFile({
+        imagenUrl = await UploadFilesCloud.getOptimizedUrls({
           bucketName: envs.AWS_BUCKET_NAME,
           key: producto.imagen,
-        });
+        }) as any;
       } catch { }
     }
+
 
     return {
       id: producto.id,

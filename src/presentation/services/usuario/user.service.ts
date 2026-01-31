@@ -71,9 +71,12 @@ export class UserService {
     user.password = userData.password;
     user.birthday = new Date(userData.birthday);
     user.whatsapp = userData.whatsapp.trim();
-    user.acceptedTerms = userData.acceptedTerms;
-    if (user.acceptedTerms) user.acceptedTermsAt = new Date();
-    user.acceptedPrivacy = userData.acceptedPrivacy;
+
+    // Versionado inicial: Todo usuario nuevo empieza sin versión aceptada (null)
+    user.acceptedTermsVersion = null;
+    user.acceptedTermsAt = null;
+    user.acceptedPrivacyVersion = null;
+    user.acceptedPrivacyAt = null;
 
     // Manejo de imagen (código existente)
     if (file?.originalname && file.originalname.length > 0) {
@@ -85,10 +88,10 @@ export class UserService {
         contentType: file.mimetype,
       });
       user.photoperfil = imgName;
-      urlPhoto = await UploadFilesCloud.getFile({
+      urlPhoto = await UploadFilesCloud.getOptimizedUrls({
         bucketName: envs.AWS_BUCKET_NAME,
-        key: path,
-      });
+        key: imgName,
+      }) as any;
     }
 
     // Crear wallet
@@ -208,10 +211,10 @@ export class UserService {
 
     // enviar la data
     if (user.photoperfil) {
-      urlPhoto = await UploadFilesCloud.getFile({
+      urlPhoto = await UploadFilesCloud.getOptimizedUrls({
         bucketName: envs.AWS_BUCKET_NAME,
         key: user.photoperfil,
-      });
+      }) as any;
     }
 
     return {
@@ -224,11 +227,12 @@ export class UserService {
         email: user.email,
         whatsapp: user.whatsapp,
         photoperfil: urlPhoto || user.photoperfil,
-        acceptedTerms: user.acceptedTerms,
+        acceptedTermsVersion: user.acceptedTermsVersion,
         acceptedTermsAt: user.acceptedTermsAt,
-        acceptedPrivacy: user.acceptedPrivacy,
+        acceptedPrivacyVersion: user.acceptedPrivacyVersion,
+        acceptedPrivacyAt: user.acceptedPrivacyAt,
         hasPassword: !!user.password,
-        isProfileComplete: !!(user.whatsapp && user.password && user.acceptedTerms && user.acceptedPrivacy),
+        isProfileComplete: !!(user.whatsapp && user.password && user.acceptedTermsVersion && user.acceptedPrivacyVersion),
         googleId: user.googleId
       },
     };
@@ -366,7 +370,7 @@ export class UserService {
     user.currentSessionId = jwt as string;
     await user.save();
 
-    const isProfileComplete = !!(user.whatsapp && user.password && user.acceptedTerms && user.acceptedPrivacy);
+    const isProfileComplete = !!(user.whatsapp && user.password && user.acceptedTermsVersion && user.acceptedPrivacyVersion);
 
     return {
       token: jwt,
@@ -378,11 +382,12 @@ export class UserService {
         email: user.email,
         whatsapp: user.whatsapp,
         photoperfil: user.photoperfil,
-        acceptedTerms: user.acceptedTerms,
+        acceptedTermsVersion: user.acceptedTermsVersion,
         acceptedTermsAt: user.acceptedTermsAt,
-        acceptedPrivacy: user.acceptedPrivacy,
+        acceptedPrivacyVersion: user.acceptedPrivacyVersion,
+        acceptedPrivacyAt: user.acceptedPrivacyAt,
         hasPassword: !!user.password,
-        isProfileComplete,
+        isProfileComplete: !!(user.whatsapp && user.password && user.acceptedTermsVersion && user.acceptedPrivacyVersion),
         googleId: user.googleId
       }
     };
@@ -524,7 +529,7 @@ export class UserService {
       if (!userData) throw CustomError.notFound("Usuario no encontrado");
 
       const photoUrl = userData.photoperfil
-        ? await UploadFilesCloud.getFile({
+        ? await UploadFilesCloud.getOptimizedUrls({
           bucketName: envs.AWS_BUCKET_NAME,
           key: userData.photoperfil,
         })
@@ -542,11 +547,12 @@ export class UserService {
         updated_at: userData.updated_at,
         rol: userData.rol,
         status: userData.status,
-        acceptedTerms: userData.acceptedTerms,
+        acceptedTermsVersion: userData.acceptedTermsVersion,
         acceptedTermsAt: userData.acceptedTermsAt,
-        acceptedPrivacy: userData.acceptedPrivacy,
+        acceptedPrivacyVersion: userData.acceptedPrivacyVersion,
+        acceptedPrivacyAt: userData.acceptedPrivacyAt,
         hasPassword: !!userData.password,
-        isProfileComplete: !!(userData.whatsapp && userData.password && userData.acceptedTerms && userData.acceptedPrivacy),
+        isProfileComplete: !!(userData.whatsapp && userData.password && userData.acceptedTermsVersion && userData.acceptedPrivacyVersion),
         googleId: userData.googleId
       };
     } catch (error) {
@@ -589,15 +595,15 @@ export class UserService {
 
       user.photoperfil = imgKey;
 
-      photoUrl = await UploadFilesCloud.getFile({
+      photoUrl = await UploadFilesCloud.getOptimizedUrls({
         bucketName: envs.AWS_BUCKET_NAME,
-        key: path,
-      });
+        key: imgKey,
+      }) as any;
     } else if (user.photoperfil) {
-      photoUrl = await UploadFilesCloud.getFile({
+      photoUrl = await UploadFilesCloud.getOptimizedUrls({
         bucketName: envs.AWS_BUCKET_NAME,
         key: user.photoperfil,
-      });
+      }) as any;
     }
 
     try {
@@ -624,16 +630,27 @@ export class UserService {
   async completeProfile(userId: string, data: { whatsapp?: string, password?: string, acceptedTerms?: boolean, acceptedPrivacy?: boolean }) {
     const user = await this.findOneUser(userId);
 
-    // 1. Aceptación de Términos
-    if (data.acceptedTerms) {
-      user.acceptedTerms = true;
-      user.acceptedTermsAt = new Date();
-    }
-
-    // 2. Aceptación de Privacidad
-    if (data.acceptedPrivacy) {
-      user.acceptedPrivacy = true;
-      user.acceptedPrivacyAt = new Date();
+    // 1. Aceptación de Términos y Privacidad (Versionado)
+    if (data.acceptedTerms || data.acceptedPrivacy) {
+      // Obtener versión actual de GlobalSettings
+      const settings = await User.getRepository().manager.findOne(require("../../../data").GlobalSettings, { where: {} });
+      if (settings) {
+        if (data.acceptedTerms) {
+          user.acceptedTermsVersion = settings.currentTermsVersion;
+          user.acceptedTermsAt = new Date();
+        }
+        if (data.acceptedPrivacy) {
+          user.acceptedPrivacyVersion = settings.currentTermsVersion;
+          user.acceptedPrivacyAt = new Date();
+        }
+        // Si se acepta uno en este flujo (completeProfile), normalmente forzamos ambos si el frontend los unifica
+        // Pero para ser flexibles con la API:
+        if (data.acceptedTerms && !data.acceptedPrivacy) {
+          // Frontend actual manda 'acceptedTerms' como un "acepto todo"
+          user.acceptedPrivacyVersion = settings.currentTermsVersion;
+          user.acceptedPrivacyAt = new Date();
+        }
+      }
     }
 
     // 3. Validar WhatsApp único (solo si se envía)
@@ -656,18 +673,13 @@ export class UserService {
       // Emitir evento de cambio de usuario
       getIO().emit("userChanged", updatedUser);
 
+      // Obtener el perfil completo usando el helper estandarizado
+      const fullProfile = await this.getUserProfile(updatedUser);
+
       return {
         message: "Perfil completado correctamente",
         success: true,
-        user: {
-          id: updatedUser.id,
-          email: updatedUser.email,
-          acceptedTerms: updatedUser.acceptedTerms,
-          acceptedTermsAt: updatedUser.acceptedTermsAt,
-          acceptedPrivacy: updatedUser.acceptedPrivacy,
-          hasPassword: !!updatedUser.password,
-          isProfileComplete: !!(updatedUser.whatsapp && updatedUser.password && updatedUser.acceptedTerms && updatedUser.acceptedPrivacy)
-        }
+        user: fullProfile
       };
     } catch (error) {
       throw CustomError.internalServer("Error al completar perfil");
@@ -738,7 +750,7 @@ export class UserService {
       if (!userWithRelations)
         throw CustomError.notFound("Usuario no encontrado");
       const photoUrl = userWithRelations.photoperfil
-        ? await UploadFilesCloud.getFile({
+        ? await UploadFilesCloud.getOptimizedUrls({
           bucketName: envs.AWS_BUCKET_NAME,
           key: userWithRelations.photoperfil,
         })
@@ -750,7 +762,7 @@ export class UserService {
             const imgpostUrls = post.imgpost
               ? await Promise.all(
                 post.imgpost.map((imgKey) =>
-                  UploadFilesCloud.getFile({
+                  UploadFilesCloud.getOptimizedUrls({
                     bucketName: envs.AWS_BUCKET_NAME,
                     key: imgKey,
                   })
@@ -771,7 +783,7 @@ export class UserService {
       const stories = await Promise.all(
         userWithRelations.stories.map(async (storie) => {
           const imgstorieUrl = storie.imgstorie
-            ? await UploadFilesCloud.getFile({
+            ? await UploadFilesCloud.getOptimizedUrls({
               bucketName: envs.AWS_BUCKET_NAME,
               key: storie.imgstorie,
             })
@@ -794,11 +806,12 @@ export class UserService {
         photoperfil: photoUrl,
         posts,
         stories,
-        acceptedTerms: userWithRelations.acceptedTerms,
+        acceptedTermsVersion: userWithRelations.acceptedTermsVersion,
         acceptedTermsAt: userWithRelations.acceptedTermsAt,
-        acceptedPrivacy: userWithRelations.acceptedPrivacy,
+        acceptedPrivacyVersion: userWithRelations.acceptedPrivacyVersion,
+        acceptedPrivacyAt: userWithRelations.acceptedPrivacyAt,
         hasPassword: !!userWithRelations.password,
-        isProfileComplete: !!(userWithRelations.whatsapp && userWithRelations.password && userWithRelations.acceptedTerms && userWithRelations.acceptedPrivacy),
+        isProfileComplete: !!(userWithRelations.whatsapp && userWithRelations.password && userWithRelations.acceptedTermsVersion && userWithRelations.acceptedPrivacyVersion),
         googleId: userWithRelations.googleId
       };
     } catch (error) {
@@ -821,7 +834,15 @@ export class UserService {
       name: user.name,
       surname: user.surname,
       email: user.email,
-      photo: user.photoperfil,
+      whatsapp: user.whatsapp,
+      photoperfil: user.photoperfil,
+      rol: user.rol,
+      status: user.status,
+      acceptedTermsVersion: user.acceptedTermsVersion,
+      acceptedTermsAt: user.acceptedTermsAt,
+      acceptedPrivacyVersion: user.acceptedPrivacyVersion,
+      acceptedPrivacyAt: user.acceptedPrivacyAt,
+      hasPassword: !!user.password,
     };
   }
 

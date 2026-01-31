@@ -39,6 +39,12 @@ export class GlobalSettings extends BaseEntity {
     @Column("int", { default: 30 })
     subscriptionBasicDurationDays: number;
 
+    @Column("varchar", { length: 20, default: "v1.0" })
+    currentTermsVersion: string;
+
+    @Column("timestamp", { default: () => "CURRENT_TIMESTAMP" })
+    termsUpdatedAt: Date;
+
     @UpdateDateColumn()
     updatedAt: Date;
 }

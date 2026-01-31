@@ -119,7 +119,7 @@ export class UserController {
     const userId = req.body.sessionUser.id;
 
     this.userService
-      .completeProfile(userId, { whatsapp, password, acceptedTerms, acceptedPrivacy })
+      .completeProfile(userId, { whatsapp, password, acceptedTerms, acceptedPrivacy } as any)
       .then((data) => res.status(200).json(data))
       .catch((error) => this.handleError(error, res));
   };

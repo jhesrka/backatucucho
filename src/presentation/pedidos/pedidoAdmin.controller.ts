@@ -90,6 +90,7 @@ export class PedidoAdminController {
             },
             productos: p.productos.map((prod) => ({
               id: prod.id,
+              nombre: prod.producto.nombre, // Map product name
               cantidad: prod.cantidad,
               precioUnitario: prod.precioUnitario,
               subtotal: prod.subtotal,

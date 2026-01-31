@@ -74,7 +74,7 @@ export class PostgresDatabase {
         FinancialClosing,
         Report,
       ],
-      synchronize: true,
+      synchronize: false, // PRODUCCIÓN: SIEMPRE FALSE. Usar migraciones.
       ssl: {
         rejectUnauthorized: false,
       },
@@ -93,14 +93,31 @@ export class PostgresDatabase {
       await this.datasource.query(`
         ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "showWhatsApp" BOOLEAN DEFAULT true;
         ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "showLikes" BOOLEAN DEFAULT true;
-        ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "acceptedTerms" BOOLEAN DEFAULT false;
-        ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "acceptedTermsAt" TIMESTAMP;
-        ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "acceptedPrivacy" BOOLEAN DEFAULT false;
-        ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "acceptedPrivacyAt" TIMESTAMP;
         
         ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "subscriptionBasicPrice" DECIMAL(10,2) DEFAULT 5.00;
         ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "subscriptionBasicPromoPrice" DECIMAL(10,2);
         ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "subscriptionBasicDurationDays" INT DEFAULT 30;
+        ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "currentTermsVersion" VARCHAR(20) DEFAULT 'v1.0';
+        ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "termsUpdatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+        -- Migración para Versionado de Términos y Privacidad
+        ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "acceptedTermsVersion" VARCHAR(20) DEFAULT NULL;
+        ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "acceptedTermsAt" TIMESTAMP DEFAULT NULL;
+        ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "acceptedPrivacyVersion" VARCHAR(20) DEFAULT NULL;
+        ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "acceptedPrivacyAt" TIMESTAMP DEFAULT NULL;
+        
+        -- Eliminar columnas obsoletas
+        DO $$ 
+        BEGIN 
+          BEGIN
+            ALTER TABLE "user" DROP COLUMN "acceptedTerms";
+          EXCEPTION WHEN undefined_column THEN 
+          END;
+          BEGIN
+            ALTER TABLE "user" DROP COLUMN "acceptedPrivacy";
+          EXCEPTION WHEN undefined_column THEN 
+          END;
+        END $$;
 
         ALTER TABLE "recharge_requests" ADD COLUMN IF NOT EXISTS "isDuplicateWarning" BOOLEAN DEFAULT false;
         -- Removing old strict unique constraint on receipt_number if exists (guessing common name or just ensuring flow)
