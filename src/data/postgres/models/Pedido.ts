@@ -7,6 +7,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   BaseEntity,
+  JoinColumn, // Added import
 } from "typeorm";
 import { User } from "./user.model";
 import { Negocio } from "./Negocio";
@@ -15,6 +16,7 @@ import type { ProductoPedido } from "./ProductoPedido";
 
 export enum EstadoPedido {
   PENDIENTE = "PENDIENTE",
+  ACEPTADO = "ACEPTADO",
   PREPARANDO = "PREPARANDO",
   PREPARANDO_ASIGNADO = "PREPARANDO_ASIGNADO",
   PREPARANDO_NO_ASIGNADO = "PREPARANDO_NO_ASIGNADO",
@@ -37,6 +39,7 @@ export class Pedido extends BaseEntity {
   cliente: User;
 
   @ManyToOne(() => Negocio, (negocio) => negocio.pedidos)
+  @JoinColumn({ name: "negocioId" }) // Explicitly map to camelCase column verified in DB
   negocio: Negocio;
 
   // ==============================
@@ -73,6 +76,36 @@ export class Pedido extends BaseEntity {
 
   @Column("decimal", { precision: 10, scale: 2, default: 1.25 })
   costoEnvio: number;
+
+  @Column("decimal", { precision: 10, scale: 2, default: 80.00 })
+  porcentaje_motorizado_aplicado: number;
+
+  @Column("decimal", { precision: 10, scale: 2, default: 20.00 })
+  porcentaje_app_aplicado: number;
+
+  @Column("decimal", { precision: 10, scale: 2, default: 0 })
+  ganancia_motorizado: number;
+
+  @Column("decimal", { precision: 10, scale: 2, default: 0 })
+  comision_app_domicilio: number;
+
+  @Column("decimal", { precision: 10, scale: 2, default: 0 })
+  ganancia_app_producto: number;
+
+  @Column("decimal", { precision: 10, scale: 2, default: 0 })
+  total_precio_venta_publico: number;
+
+  @Column("decimal", { precision: 10, scale: 2, default: 0 })
+  total_precio_app: number;
+
+  @Column("decimal", { precision: 10, scale: 2, default: 0 })
+  total_comision_productos: number;
+
+  @Column("decimal", { precision: 10, scale: 2, default: 0 })
+  pago_motorizado: number;
+
+  @Column("decimal", { precision: 10, scale: 2, default: 0 })
+  comision_moto_app: number;
 
   // ==============================
   // 🚚 MOTORIZADO ASIGNADO (FINAL)

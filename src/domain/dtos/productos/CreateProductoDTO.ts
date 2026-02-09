@@ -4,8 +4,8 @@ export class CreateProductoDTO {
   private constructor(
     public readonly nombre: string,
     public readonly descripcion: string,
-    public readonly precio: number,
-    public readonly precioParaApp: number | null,
+    public readonly precio_venta: number,
+    public readonly precio_app: number | null,
     public readonly negocioId: string,
     public readonly modeloMonetizacion: "SUSCRIPCION" | "COMISION_SUSCRIPCION",
     public readonly tipoId: string
@@ -14,8 +14,8 @@ export class CreateProductoDTO {
   static create(obj: {
     nombre: string;
     descripcion: string;
-    precio: number;
-    precioParaApp?: number;
+    precio_venta: number;
+    precio_app?: number;
     negocioId: string;
     modeloMonetizacion: "SUSCRIPCION" | "COMISION_SUSCRIPCION";
     tipoId?: string; // ya no es opcional en lógica, pero puede venir undefined desde el cliente
@@ -23,8 +23,8 @@ export class CreateProductoDTO {
     const {
       nombre,
       descripcion,
-      precio,
-      precioParaApp,
+      precio_venta,
+      precio_app,
       negocioId,
       modeloMonetizacion,
       tipoId,
@@ -38,8 +38,8 @@ export class CreateProductoDTO {
       return ["La descripción debe tener al menos 5 caracteres"];
     }
 
-    if (isNaN(Number(precio)) || Number(precio) <= 0) {
-      return ["El precio debe ser un número positivo"];
+    if (isNaN(Number(precio_venta)) || Number(precio_venta) <= 0) {
+      return ["El precio de venta debe ser un número positivo"];
     }
 
     if (!negocioId || typeof negocioId !== "string" || !regularExp.uuid.test(negocioId)) {
@@ -51,16 +51,16 @@ export class CreateProductoDTO {
     }
 
     if (modeloMonetizacion === "COMISION_SUSCRIPCION") {
-      if (precioParaApp === undefined || precioParaApp === null) {
-        return ["Debes proporcionar 'precioParaApp' para negocios con modelo COMISION + SUSCRIPCION"];
+      if (precio_app === undefined || precio_app === null) {
+        return ["Debes proporcionar 'precio_app' para negocios con modelo COMISION + SUSCRIPCION"];
       }
 
-      if (isNaN(Number(precioParaApp)) || Number(precioParaApp) <= 0) {
+      if (isNaN(Number(precio_app)) || Number(precio_app) <= 0) {
         return ["El precio para la app debe ser un número positivo"];
       }
 
-      if (Number(precioParaApp) >= Number(precio)) {
-        return ["El precio para la app debe ser menor que el precio normal"];
+      if (Number(precio_app) >= Number(precio_venta)) {
+        return ["El precio para la app debe ser menor que el precio de venta"];
       }
     }
 
@@ -73,8 +73,8 @@ export class CreateProductoDTO {
       new CreateProductoDTO(
         nombre.trim(),
         descripcion.trim(),
-        Number(precio),
-        modeloMonetizacion === "COMISION_SUSCRIPCION" ? Number(precioParaApp) : null,
+        Number(precio_venta),
+        modeloMonetizacion === "COMISION_SUSCRIPCION" ? Number(precio_app) : Number(precio_venta),
         negocioId,
         modeloMonetizacion,
         tipoId.trim()

@@ -26,13 +26,27 @@ const hpp_1 = __importDefault(require("hpp"));
 class Server {
     constructor(options) {
         this.app = (0, express_1.default)();
-        this.acceptedOrigins = ["http://localhost:5173"];
+        this.acceptedOrigins = [
+            "http://localhost:5173",
+            "http://localhost:5174",
+            "http://192.168.100.19:5173",
+            "http://192.168.100.19:5174",
+            "https://atucuchoshop.vercel.app",
+            "https://atucucho-web-front.vercel.app"
+        ];
         this.port = options.port;
         this.routes = options.routes;
         this.server = http_1.default.createServer(this.app); // Crear servidor HTTP
         this.io = new socket_io_1.Server(this.server, {
             cors: {
-                origin: "http://localhost:5173", // ✅ Aquí añadimos CORS para Socket.IO
+                origin: [
+                    "http://localhost:5173",
+                    "http://localhost:5174",
+                    "http://192.168.100.19:5173",
+                    "http://192.168.100.19:5174",
+                    "https://atucuchoshop.vercel.app",
+                    "https://atucucho-web-front.vercel.app"
+                ], // ✅ CORS para Socket.IO (desarrollo y producción)
                 methods: ["GET", "POST"],
             },
         }); // Crear instancia de Socket.IO con configuración de CORS
@@ -62,10 +76,18 @@ class Server {
             this.app.use((0, hpp_1.default)());
             this.app.use((0, helmet_1.default)()); // esto es una seguridad
             this.app.use(this.routes);
+            // Servir archivos estáticos
+            this.app.use("/uploads", express_1.default.static(uploadsPath));
+            this.app.use("/comprobantes", express_1.default.static(path_1.default.join(uploadsPath, "comprobantes")));
             this.io.on("connection", (socket) => {
-                console.log("Nuevo cliente conectado");
+                socket.on("join_motorizado", (motorizadoId) => {
+                    socket.join(motorizadoId);
+                });
+                socket.on("join_business", (businessId) => {
+                    socket.join(businessId);
+                });
             });
-            this.server.listen(this.port, () => {
+            this.server.listen(this.port, "0.0.0.0", () => {
                 console.log(`Server started on port ${this.port}`);
             });
         });

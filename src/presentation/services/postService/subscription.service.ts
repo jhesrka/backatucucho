@@ -6,6 +6,9 @@ import {
   User,
   WalletStatus,
   GlobalSettings,
+  Transaction,
+  TransactionOrigin,
+  TransactionReason,
 } from "../../../data";
 import { CustomError } from "../../../domain";
 import { addDays } from "date-fns";
@@ -131,6 +134,23 @@ export class SubscriptionService {
         `Saldo insuficiente para activar la suscripción. Costo: $${finalCost.toFixed(2)}`
       );
     }
+
+    // Create Transaction for Audit
+    const transaction = new Transaction();
+    transaction.wallet = wallet;
+    transaction.amount = finalCost;
+    transaction.type = 'debit';
+    transaction.reason = TransactionReason.SUBSCRIPTION;
+    transaction.origin = TransactionOrigin.USER;
+    transaction.previousBalance = Number(wallet.balance);
+    transaction.resultingBalance = Number(wallet.balance) - finalCost;
+    transaction.observation = `Pago de suscripción: ${plan}`;
+    transaction.daysBought = daysToAdd;
+    transaction.prevEndDate = subscription.endDate || null;
+    transaction.newEndDate = newEndDate;
+    transaction.reference = subscription.id || null;
+
+    await transaction.save();
 
     // Debitar Wallet
     wallet.balance -= finalCost;

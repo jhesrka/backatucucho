@@ -78,11 +78,16 @@ export class SubscriptionService {
         return results;
     }
 
-    async chargeSubscription(negocio: Negocio) {
-        if (!negocio.usuario) throw CustomError.internalServer("Negocio sin usuario asociado");
+    async chargeSubscription(negocio: Negocio, updateOnFail: boolean = true) {
+        if (!negocio.usuario) throw CustomError.internalServer("El negocio no tiene un usuario (dueño) asociado");
 
         const amount = Number(negocio.valorSuscripcion);
         const today = new Date();
+        const prevEndDate = negocio.fechaFinSuscripcion ? new Date(negocio.fechaFinSuscripcion) : null;
+
+        // Período de 30 días
+        const newEndDate = new Date();
+        newEndDate.setDate(today.getDate() + 30);
 
         try {
             // Intentar descontar de la wallet
@@ -90,15 +95,16 @@ export class SubscriptionService {
                 negocio.usuario.id,
                 amount,
                 `Pago de suscripción: ${negocio.nombre}`,
-                TransactionReason.SUBSCRIPTION
+                TransactionReason.SUBSCRIPTION,
+                {
+                    daysBought: 30,
+                    prevEndDate: prevEndDate || undefined,
+                    newEndDate: newEndDate
+                }
             );
 
-            // ÉXITO: Activar período de 30 días desde hoy
-            const fechaFin = new Date();
-            fechaFin.setDate(today.getDate() + 30);
-
             negocio.fechaInicioSuscripcion = today;
-            negocio.fechaFinSuscripcion = fechaFin;
+            negocio.fechaFinSuscripcion = newEndDate;
             negocio.fechaUltimoCobro = today;
             negocio.intentosCobro = 0;
             negocio.statusNegocio = StatusNegocio.ACTIVO;
@@ -106,20 +112,43 @@ export class SubscriptionService {
             await negocio.save();
             return true;
         } catch (error: any) {
-            // FALLO: Incrementar intentos y marcar como NO_PAGADO
-            negocio.intentosCobro += 1;
-            negocio.fechaUltimoCobro = today;
-            negocio.statusNegocio = StatusNegocio.NO_PAGADO;
-
-            await negocio.save();
-
-            // Si el error es específicamente de saldo insuficiente, lanzamos un error claro para el Admin UI
-            if (error.message && error.message.includes("insuficiente")) {
-                throw CustomError.badRequest("Saldo insuficiente en la wallet del dueño para pagar la suscripción");
+            if (updateOnFail) {
+                // FALLO: Incrementar intentos y marcar como NO_PAGADO (Para CRON diario)
+                negocio.intentosCobro += 1;
+                negocio.fechaUltimoCobro = today;
+                negocio.statusNegocio = StatusNegocio.NO_PAGADO;
+                await negocio.save();
             }
 
             throw error;
         }
+    }
+
+    async payBusinessSubscription(negocioId: string, userId: string) {
+        const negocio = await Negocio.findOne({
+            where: { id: negocioId },
+            relations: ["usuario"]
+        });
+        if (!negocio) throw CustomError.notFound("Negocio no encontrado");
+        if (negocio.usuario.id !== userId) throw CustomError.forbiden("No tienes permiso para pagar esta suscripción");
+
+        // Regla: Solo pagar si no está en PENDIENTE y está en NO_PAGADO
+        if (negocio.statusNegocio === StatusNegocio.PENDIENTE) {
+            throw CustomError.badRequest("El negocio está pendiente de aprobación. No se puede cobrar aún.");
+        }
+
+        if (negocio.statusNegocio === StatusNegocio.ACTIVO) {
+            // Verificar si realmente está activo o si ya venció
+            const today = new Date();
+            if (negocio.fechaFinSuscripcion && new Date(negocio.fechaFinSuscripcion) > today) {
+                throw CustomError.badRequest("El negocio ya tiene una suscripción activa y vigente.");
+            }
+        }
+
+        // Si llegó aquí y es ACTIVO pero vencido, o si es NO_PAGADO, permitimos el pago.
+        // updateOnFail = false para cobro manual (atomicidad)
+        await this.chargeSubscription(negocio, false);
+        return negocio;
     }
 
     async forceChargeSubscription(negocioId: string) {

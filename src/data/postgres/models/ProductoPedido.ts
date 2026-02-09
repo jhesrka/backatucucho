@@ -24,15 +24,15 @@ export class ProductoPedido extends BaseEntity {
   cantidad: number;
 
   @Column("decimal", { precision: 10, scale: 2 })
-  precioUnitario: number; // Precio App Snapshot
+  subtotal: number; // cantidad * precio_app
 
   @Column("decimal", { precision: 10, scale: 2, default: 0 })
-  precioPublico: number; // Precio Restaurante Snapshot
+  precio_venta: number;
 
   @Column("decimal", { precision: 10, scale: 2, default: 0 })
-  comision: number; // Comision por unidad Snapshot
+  precio_app: number;
 
-  @Column("decimal", { precision: 10, scale: 2 })
-  subtotal: number; // cantidad * precioUnitario
+  @Column("decimal", { precision: 10, scale: 2, default: 0 })
+  comision_producto: number;
 }
 

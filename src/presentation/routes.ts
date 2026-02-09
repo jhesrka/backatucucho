@@ -30,7 +30,9 @@ import { UploadRoutes } from "./upload/upload.routes";
 
 import { GlobalSettingsRoutes } from "./controller/globalSettings/global-settings.routes";
 
+
 import { ReportRoutes } from "./controller/report/report.routes";
+import { FinancialRoutes } from "./controller/financial/financial.routes";
 
 export class AppRoutes {
   //cuando hay metodoos estaticos no necesitams instanciar
@@ -95,8 +97,12 @@ export class AppRoutes {
     // 📢 NUEVA RUTA: Advertising (Email & WhatsApp)
     router.use("/api/admin/advertising", AdvertisingRoutes.routes);
 
+
     // 📂 NUEVA RUTA: Validar subida archivos
     router.use("/api/upload", UploadRoutes.routes);
+
+    // 🧾 NUEVA RUTA: Financial Module
+    router.use("/api/financial", FinancialRoutes.routes);
 
     return router;
 

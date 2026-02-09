@@ -121,10 +121,10 @@ export class DashboardService {
                 relations: ["productos"]
             });
 
-            // Comisión por Productos: Suma de (pp.comision * pp.cantidad)
+            // Comisión por Productos: Suma de (pp.comision_producto * pp.cantidad)
             const comisionProductos = pedidosEntregadosHoy.reduce((total, pedido) => {
                 const comisionPedido = pedido.productos.reduce((subtotal, pp) => {
-                    return subtotal + (Number(pp.comision) * pp.cantidad);
+                    return subtotal + (Number(pp.comision_producto) * pp.cantidad);
                 }, 0);
                 return total + comisionPedido;
             }, 0);

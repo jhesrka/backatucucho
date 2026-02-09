@@ -66,13 +66,22 @@ export class PedidoAdminController {
             estado: p.estado,
             total: p.total,
             costoEnvio: p.costoEnvio,
+            total_negocio: p.totalNegocio,
+            comision_app_ganancia: p.ganancia_app_producto,
+            ganancia_motorizado: p.ganancia_motorizado,
+            comision_app_domicilio: p.comision_app_domicilio,
+            metodoPago: p.metodoPago,
+            direccionEntrega: p.direccionTexto,
+            referencia: null, // No hay campo de referencia en el modelo actual
             createdAt: p.createdAt,
             updatedAt: p.updatedAt,
             cliente: {
               id: p.cliente.id,
               name: p.cliente.name,
               surname: p.cliente.surname,
+              phone: p.cliente.whatsapp,
               whatsapp: p.cliente.whatsapp,
+              email: p.cliente.email,
             },
             motorizado: p.motorizado
               ? {
@@ -85,14 +94,16 @@ export class PedidoAdminController {
             negocio: {
               id: p.negocio.id,
               nombre: p.negocio.nombre,
+              direccion: null, // No hay dirección en el modelo abreviado del negocio aquí
               statusNegocio: p.negocio.statusNegocio,
               modeloMonetizacion: p.negocio.modeloMonetizacion,
             },
             productos: p.productos.map((prod) => ({
               id: prod.id,
-              nombre: prod.producto.nombre, // Map product name
+              nombre: prod.producto.nombre,
               cantidad: prod.cantidad,
-              precioUnitario: prod.precioUnitario,
+              precio_unitario: prod.precio_venta,
+              precio_venta: prod.precio_venta,
               subtotal: prod.subtotal,
             })),
           }));

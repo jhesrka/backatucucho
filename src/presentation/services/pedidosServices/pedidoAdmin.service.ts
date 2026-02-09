@@ -45,6 +45,11 @@ export class PedidoAdminService {
     if (clienteId) where.cliente = { id: clienteId };
     if (desde && hasta) where.createdAt = Between(desde, hasta);
 
+    // Search logic for UUID or short ID
+    if (search) {
+      where.id = ILike(`%${search}%`);
+    }
+
     const [pedidos, total] = await Pedido.findAndCount({
       where,
       take: limit,
@@ -83,26 +88,28 @@ export class PedidoAdminService {
     if (!pedido) throw CustomError.notFound("Pedido no encontrado");
 
     const motorizado = await UserMotorizado.findOneBy({ id: dto.motorizadoId });
-    if (!motorizado) throw CustomError.notFound("Motorizado no encontrado");
+    if (!motorizado) throw CustomError.notFound("El motorizado ya no existe en el sistema");
 
+    // 1. Validar que el motorizado esté apto (ACTIVO y DISPONIBLE)
     if (motorizado.estadoCuenta !== "ACTIVO") {
-      throw CustomError.badRequest(
-        "Solo se pueden asignar motorizados con estado ACTIVO"
-      );
+      throw CustomError.badRequest("El motorizado ya no está activo administrativamente");
+    }
+    if (motorizado.estadoTrabajo !== "DISPONIBLE") {
+      throw CustomError.badRequest(`El motorizado ya no está disponible (Estado actual: ${motorizado.estadoTrabajo})`);
     }
 
-    if (pedido.estado === EstadoPedido.PREPARANDO) {
-      // Primera asignación: asignar motorizado y cambiar estado a EN_CAMINO
+    // 2. Validar que el pedido siga en un estado asignable
+    if (pedido.estado !== EstadoPedido.PREPARANDO_NO_ASIGNADO && pedido.estado !== EstadoPedido.PREPARANDO && pedido.estado !== EstadoPedido.EN_CAMINO) {
+      throw CustomError.badRequest(`El pedido ya cambió de estado o fue asignado por otro administrador (Estado actual: ${pedido.estado})`);
+    }
+
+    if (pedido.estado === EstadoPedido.PREPARANDO_NO_ASIGNADO || pedido.estado === EstadoPedido.PREPARANDO) {
+      // Asignación inicial
       pedido.motorizado = motorizado;
-      pedido.estado = EstadoPedido.EN_CAMINO;
+      pedido.estado = EstadoPedido.PREPARANDO; // Pasa a PREPARANDO al tener motorizado
     } else if (pedido.estado === EstadoPedido.EN_CAMINO) {
-      // Reasignación permitida solo si ya está en EN_CAMINO
+      // Reasignación
       pedido.motorizado = motorizado;
-      // El estado no cambia
-    } else {
-      throw CustomError.badRequest(
-        "Solo se puede asignar o reasignar motorizado si el pedido está en estado PREPARANDO o EN_CAMINO"
-      );
     }
 
     await pedido.save();

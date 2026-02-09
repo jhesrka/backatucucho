@@ -64,8 +64,9 @@ export class ProductoService {
     const producto = Producto.create({
       nombre: dto.nombre.trim(),
       descripcion: dto.descripcion.trim(),
-      precio: dto.precio,
-      precioParaApp: dto.precioParaApp ?? null,
+      precio_venta: dto.precio_venta,
+      precio_app: dto.precio_app ?? dto.precio_venta,
+      comision_producto: Number(dto.precio_venta) - Number(dto.precio_app ?? dto.precio_venta),
       imagen: key,
       disponible: true,
       negocio,
@@ -79,8 +80,9 @@ export class ProductoService {
         id: saved.id,
         nombre: saved.nombre,
         descripcion: saved.descripcion,
-        precio: saved.precio,
-        precioParaApp: saved.precioParaApp,
+        precio_venta: saved.precio_venta,
+        precio_app: saved.precio_app,
+        comision_producto: saved.comision_producto,
         imagen: imageUrl,
         disponible: saved.disponible,
         created_at: saved.created_at,
@@ -117,9 +119,14 @@ export class ProductoService {
 
     if (data.nombre) producto.nombre = data.nombre.trim();
     if (data.descripcion) producto.descripcion = data.descripcion.trim();
-    if (typeof data.precio === "number") producto.precio = data.precio;
-    if (typeof data.precioParaApp === "number")
-      producto.precioParaApp = data.precioParaApp;
+    if (typeof data.precio_venta === "number") {
+      producto.precio_venta = data.precio_venta;
+      producto.comision_producto = Number(data.precio_venta) - Number(producto.precio_app || data.precio_venta);
+    }
+    if (typeof data.precio_app === "number") {
+      producto.precio_app = data.precio_app;
+      producto.comision_producto = Number(producto.precio_venta) - Number(data.precio_app);
+    }
 
     if (data.tipoId) {
       const tipo = await this.resolveTipo(data.tipoId);
@@ -153,8 +160,9 @@ export class ProductoService {
       id: producto.id,
       nombre: producto.nombre,
       descripcion: producto.descripcion,
-      precio: producto.precio,
-      precioParaApp: producto.precioParaApp,
+      precio_venta: producto.precio_venta,
+      precio_app: producto.precio_app,
+      comision_producto: producto.comision_producto,
       imagen: imageUrl,
       disponible: producto.disponible,
       created_at: producto.created_at,
@@ -189,8 +197,9 @@ export class ProductoService {
           id: p.id,
           nombre: p.nombre,
           descripcion: p.descripcion,
-          precio: p.precio,
-          precioParaApp: p.precioParaApp ?? null,
+          precio_venta: p.precio_venta,
+          precio_app: p.precio_app,
+          comision_producto: p.comision_producto,
           imagen: imageUrl,
           disponible: p.disponible,
           created_at: p.created_at,
@@ -241,8 +250,9 @@ export class ProductoService {
           id: p.id,
           nombre: p.nombre,
           descripcion: p.descripcion,
-          precio: p.precio,
-          precioParaApp: p.precioParaApp ?? null,
+          precio_venta: p.precio_venta,
+          precio_app: p.precio_app,
+          comision_producto: p.comision_producto,
           imagen: imageUrl,
           disponible: p.disponible,
           created_at: p.created_at,
@@ -271,6 +281,7 @@ export class ProductoService {
         id: negocio.id,
         nombre: negocio.nombre,
         imagenNegocio: imagenNegocio,
+        imagenUrl: imagenNegocio,
         banco: negocio.banco,
         tipoCuenta: negocio.tipoCuenta,
         numeroCuenta: negocio.numeroCuenta,

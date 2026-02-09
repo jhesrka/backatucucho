@@ -35,10 +35,10 @@ export class BusinessController {
 
     getOrders = (req: Request, res: Response) => {
         const { businessId } = req.params;
-        const { status, page = 1, limit = 10 } = req.query;
+        const { status, page = 1, limit = 10, date } = req.query;
 
         this.businessService
-            .getOrdersByBusiness(businessId, status as string, +page, +limit)
+            .getOrdersByBusiness(businessId, status as string, +page, +limit, date as string)
             .then((data) => res.status(200).json(data))
             .catch((error) => this.handleError(error, res));
     };

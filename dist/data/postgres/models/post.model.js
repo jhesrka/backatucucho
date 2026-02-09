@@ -9,9 +9,16 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Post = void 0;
+exports.Post = exports.StatusPost = void 0;
 const typeorm_1 = require("typeorm");
-const user_model_1 = require("./user.model"); // Importar la entidad User
+const index_1 = require("../../index");
+var StatusPost;
+(function (StatusPost) {
+    StatusPost["PUBLICADO"] = "PUBLICADO";
+    StatusPost["OCULTO"] = "OCULTO";
+    StatusPost["ELIMINADO"] = "ELIMINADO";
+    StatusPost["BLOQUEADO"] = "BLOQUEADO";
+})(StatusPost || (exports.StatusPost = StatusPost = {}));
 let Post = class Post extends typeorm_1.BaseEntity {
 };
 exports.Post = Post;
@@ -28,7 +35,7 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)("varchar", {
         array: true,
-        nullable: true
+        nullable: true,
     }),
     __metadata("design:type", Array)
 ], Post.prototype, "imgpost", void 0);
@@ -47,24 +54,62 @@ __decorate([
     __metadata("design:type", String)
 ], Post.prototype, "subtitle", void 0);
 __decorate([
-    (0, typeorm_1.Column)("timestamp", {
-        default: () => "CURRENT_TIMESTAMP",
-    }),
+    (0, typeorm_1.Column)({ default: true }),
+    __metadata("design:type", Boolean)
+], Post.prototype, "isPaid", void 0);
+__decorate([
+    (0, typeorm_1.CreateDateColumn)({ type: 'timestamp' }) // <-- Esto soluciona el problema
+    ,
     __metadata("design:type", Date)
 ], Post.prototype, "createdAt", void 0);
 __decorate([
-    (0, typeorm_1.Column)("bool", {
-        default: true,
-    }),
-    __metadata("design:type", Boolean)
-], Post.prototype, "status", void 0);
+    (0, typeorm_1.Column)({ type: "timestamp", nullable: true }),
+    __metadata("design:type", Date)
+], Post.prototype, "expiresAt", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => user_model_1.User, (user) => user.posts) // Un post pertenece a un usuario
-    ,
+    (0, typeorm_1.Column)({ type: "timestamp", nullable: true }),
+    __metadata("design:type", Date)
+], Post.prototype, "deletedAt", void 0);
+__decorate([
+    (0, typeorm_1.Column)("enum", {
+        enum: StatusPost,
+        default: StatusPost.PUBLICADO,
+    }),
+    __metadata("design:type", String)
+], Post.prototype, "statusPost", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "int", default: 0 }),
+    __metadata("design:type", Number)
+], Post.prototype, "likesCount", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "boolean", default: true }),
+    __metadata("design:type", Boolean)
+], Post.prototype, "showWhatsApp", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "boolean", default: true }),
+    __metadata("design:type", Boolean)
+], Post.prototype, "showLikes", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "uuid", nullable: true }),
+    __metadata("design:type", String)
+], Post.prototype, "freePostTrackerId", void 0);
+__decorate([
+    (0, typeorm_1.ManyToOne)(() => index_1.User, (user) => user.posts, {
+        eager: false,
+        onDelete: "CASCADE",
+    }),
     (0, typeorm_1.JoinColumn)({ name: "userId" }) // La columna que se usa para la relación
     ,
-    __metadata("design:type", user_model_1.User)
+    __metadata("design:type", index_1.User)
 ], Post.prototype, "user", void 0);
+__decorate([
+    (0, typeorm_1.ManyToOne)(() => index_1.FreePostTracker, (tracker) => tracker.posts, {
+        onDelete: "SET NULL",
+        nullable: true,
+    }),
+    (0, typeorm_1.JoinColumn)({ name: "freePostTrackerId" }),
+    __metadata("design:type", index_1.FreePostTracker)
+], Post.prototype, "freePostTracker", void 0);
 exports.Post = Post = __decorate([
     (0, typeorm_1.Entity)()
 ], Post);

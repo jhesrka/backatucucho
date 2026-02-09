@@ -13,6 +13,7 @@ interface PropsUploadFile {
   key: string;
   body: Buffer;
   contentType: string;
+  isReceipt?: boolean;
 }
 
 interface PropsGetFile {
@@ -36,10 +37,10 @@ export class UploadFilesCloud {
   }
 
   static async uploadSingleFile(props: PropsUploadFile): Promise<string> {
-    const { bucketName, key, body, contentType } = props;
+    const { bucketName, key, body, contentType, isReceipt } = props;
 
-    // Si no es imagen, subir normalmente
-    if (!contentType.startsWith('image/')) {
+    // Si no es imagen, subir normalmente (Case insensitive check)
+    if (!contentType.toLowerCase().startsWith('image/')) {
       const command = new PutObjectCommand({
         Bucket: bucketName,
         Key: key,
@@ -52,19 +53,23 @@ export class UploadFilesCloud {
 
     // Si es imagen, optimizar y generar versiones
     try {
-      // El key base siempre será .webp
-      const baseKey = key.replace(/\.[^/.]+$/, "") + ".webp";
+      // El key base siempre será .webp (Manejo robusto de extensiones)
+      const extensionRegex = /\.[^/.]+$/;
+      const baseKey = extensionRegex.test(key)
+        ? key.replace(extensionRegex, ".webp")
+        : key + ".webp";
+
       const thumbKey = baseKey.replace(".webp", "_thumb.webp");
       const cardKey = baseKey.replace(".webp", "_card.webp");
 
-      // Generar versiones en paralelo utilizando el ImageOptimizer
-      const [thumb, card, large] = await Promise.all([
-        ImageOptimizer.optimize(body, ImageSize.THUMBNAIL),
-        ImageOptimizer.optimize(body, ImageSize.CARD),
-        ImageOptimizer.optimize(body, ImageSize.LARGE),
-      ]);
+      // Generar versiones SECUENCIALMENTE para ahorrar memoria en el servidor local
+      const thumb = await ImageOptimizer.optimize(body, ImageSize.THUMBNAIL);
+      const card = await ImageOptimizer.optimize(body, ImageSize.CARD);
+      // Use RECEIPT size (no crop) if isReceipt is true, otherwise default to LARGE (crop)
+      const baseSize = isReceipt ? ImageSize.RECEIPT : ImageSize.LARGE;
+      const large = await ImageOptimizer.optimize(body, baseSize);
 
-      // Subir todas las versiones en paralelo
+      // Subir todas las versiones en paralelo (E/S es menos pesada que CPU)
       await Promise.all([
         this.directUpload({ bucketName, key: thumbKey, body: thumb, contentType: 'image/webp' }),
         this.directUpload({ bucketName, key: cardKey, body: card, contentType: 'image/webp' }),
@@ -73,7 +78,7 @@ export class UploadFilesCloud {
 
       return baseKey;
     } catch (error) {
-      console.error("Error optimizing image, uploading original instead:", error);
+      console.error("❌ Error optimizando imagen:", error instanceof Error ? error.message : error);
       // Fallback a subida original si algo falla en la optimización
       const command = new PutObjectCommand({
         Bucket: bucketName,

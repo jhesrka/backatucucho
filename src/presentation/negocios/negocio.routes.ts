@@ -53,12 +53,6 @@ export class NegocioRoutes {
       uploadSingleFile("imagenNegocio"),
       negocioController.updateNegocio
     );
-    router.patch(
-      "/admin/:id",
-      AuthAdminMiddleware.protect,
-      uploadSingleFile("imagenNegocio"),
-      negocioController.updateNegocio
-    );
 
     // ===================== CAMBIAR ESTADO =====================
     // 🔄 Alternar entre ABIERTO / CERRADO (solo el dueño del negocio o admin)
@@ -67,16 +61,18 @@ export class NegocioRoutes {
       AuthMiddleware.protect, // o AuthAdminMiddleware si quieres solo admin
       negocioController.toggleEstadoNegocio
     );
+
+    // 💳 Pagar suscripción manualmente (solo dueño)
+    router.post(
+      "/:id/pay-subscription",
+      AuthMiddleware.protect,
+      negocioController.paySubscription
+    );
     // ===================== ELIMINAR =====================
     router.delete(
       "/:id",
       AuthMiddleware.protect,
       negocioController.deleteIfNotActivo
-    );
-    router.delete(
-      "/admin/:id",
-      AuthAdminMiddleware.protect,
-      negocioController.deleteNegocio
     );
 
     return router;

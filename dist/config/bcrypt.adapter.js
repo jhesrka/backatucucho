@@ -8,6 +8,16 @@ exports.encriptAdapter = {
         return (0, bcryptjs_1.hashSync)(password, salt);
     },
     compare: (unHashedPassword, hashedPassword) => {
-        return (0, bcryptjs_1.compareSync)(unHashedPassword, hashedPassword);
+        try {
+            if (typeof unHashedPassword !== 'string' || typeof hashedPassword !== 'string') {
+                console.error('Bcrypt Error: Invalid arguments. Both must be strings.');
+                return false;
+            }
+            return (0, bcryptjs_1.compareSync)(unHashedPassword, hashedPassword);
+        }
+        catch (error) {
+            console.error('Bcrypt Error:', error);
+            return false;
+        }
     },
 };

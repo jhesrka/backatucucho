@@ -4,7 +4,7 @@ import { NegocioService } from "../services/negocio.service";
 import { CreateNegocioDTO } from "../../domain/dtos/negocios/CreateNegocioDTO";
 
 export class NegocioController {
-  constructor(private readonly negocioService: NegocioService) {}
+  constructor(private readonly negocioService: NegocioService) { }
 
   private handleError = (error: unknown, res: Response) => {
     if (error instanceof CustomError) {
@@ -94,6 +94,18 @@ export class NegocioController {
     this.negocioService
       .deleteNegocio(id)
       .then((result) => res.status(200).json(result))
+      .catch((error) => this.handleError(error, res));
+  };
+
+  paySubscription = (req: Request, res: Response) => {
+    const { id } = req.params;
+    const userId = req.body.sessionUser?.id;
+
+    if (!userId) return res.status(401).json({ message: "Usuario no autenticado" });
+
+    this.negocioService
+      .paySubscription(id, userId)
+      .then((result) => res.status(200).json({ success: true, message: "Suscripción pagada exitosamente", negocio: result }))
       .catch((error) => this.handleError(error, res));
   };
 }

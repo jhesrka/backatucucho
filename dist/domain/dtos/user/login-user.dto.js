@@ -4,12 +4,14 @@ exports.LoginUserDTO = void 0;
 const config_1 = require("../../../config");
 // src/domain/dtos/user/create-user.dto.ts
 class LoginUserDTO {
-    constructor(email, password) {
+    constructor(email, password, ip, force = false) {
         this.email = email;
         this.password = password;
+        this.ip = ip;
+        this.force = force;
     }
     static create(object) {
-        const { email, password } = object;
+        const { email, password, ip, force } = object;
         // Validación de email
         if (!email)
             return ["El correo electrónico es obligatorio"];
@@ -23,7 +25,7 @@ class LoginUserDTO {
                 "La contraseña debe tener mínimo 8 caracteres, al menos una mayúscula, una minúscula, un número y un símbolo",
             ];
         }
-        return [undefined, new LoginUserDTO(email, password)];
+        return [undefined, new LoginUserDTO(email, password, ip, !!force)];
     }
 }
 exports.LoginUserDTO = LoginUserDTO;

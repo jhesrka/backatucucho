@@ -13,7 +13,8 @@ export class UpdateNegocioDTO {
     public readonly longitud?: number,
     public readonly direccionTexto?: string | null,
     public readonly valorSuscripcion?: number,
-    public readonly diaPago?: number
+    public readonly diaPago?: number,
+    public readonly masterPin?: string
   ) { }
 
   static create(obj: { [key: string]: any }): [string?, UpdateNegocioDTO?] {
@@ -99,7 +100,8 @@ export class UpdateNegocioDTO {
         longitud !== undefined ? Number(longitud) : undefined,
         dirTxt,
         valorSuscripcion !== undefined ? Number(valorSuscripcion) : undefined,
-        diaPago !== undefined ? Number(diaPago) : undefined
+        diaPago !== undefined ? Number(diaPago) : undefined,
+        obj.masterPin
       ),
     ];
   }

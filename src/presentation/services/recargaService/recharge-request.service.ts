@@ -1,5 +1,8 @@
 import { RechargeRequest, StatusRecarga, Wallet, Transaction, TransactionReason, TransactionOrigin } from "../../../data";
+import { GlobalSettings } from "../../../data/postgres/models/global-settings.model";
+import { FinancialClosing } from "../../../data/postgres/models/financial/FinancialClosing"; // Check path correctness
 import { UploadFilesCloud } from "../../../config/upload-files-cloud-adapter";
+import bcrypt from "bcryptjs";
 import { envs } from "../../../config";
 import { CreateRechargeRequestDTO, CustomError } from "../../../domain";
 import { UserService } from "../usuario/user.service";
@@ -82,6 +85,7 @@ export class RechargeRequestService {
         key: `recharge/${Date.now()}-${file.originalname}`,
         body: file.buffer,
         contentType: file.mimetype,
+        isReceipt: true,
       });
       recharge.receipt_image = key;
 
@@ -122,6 +126,7 @@ export class RechargeRequestService {
           transaction.status = 'PENDING';
           transaction.observation = `Solicitud de Recarga - Banco: ${recharge.bank_name}`;
           transaction.reference = savedRecharge.id; // Vinculamos con la solicitud
+          transaction.receipt_image = savedRecharge.receipt_image; // Guardamos el key de la imagen
 
           transaction.previousBalance = Number(wallet.balance);
           transaction.resultingBalance = Number(wallet.balance); // Sin cambios aún
@@ -146,7 +151,7 @@ export class RechargeRequestService {
             photoperfil: user.photoperfil,
             status: user.status
           },
-          receiptImage: url
+          receiptImage: (url as any).original
         };
         io.emit("new-recharge-request", socketPayload);
       } catch (error) {
@@ -518,9 +523,10 @@ export class RechargeRequestService {
   async filterByDateRangePaginated(
     startDate: Date,
     endDate: Date,
-    page: number = 1
+    page: number = 1,
+    limit: number = 9
   ) {
-    const take = 9;
+    const take = limit;
     const skip = (page - 1) * take;
 
     // Ajustar las fechas para reflejar correctamente el rango en UTC-5 (Ecuador)
@@ -602,6 +608,9 @@ export class RechargeRequestService {
     if (!request)
       throw CustomError.notFound("Solicitud de recarga no encontrada");
 
+    // 🔒 VALIDADOR DE CIERRE DIARIO
+    await this.validateDayNotClosed(request.created_at);
+
     if (request.status !== StatusRecarga.PENDIENTE)
       throw CustomError.badRequest("La solicitud ya fue procesada");
 
@@ -674,6 +683,7 @@ export class RechargeRequestService {
         transaction.origin = TransactionOrigin.ADMIN; // Fue aprobado por admin
         transaction.status = 'APPROVED';
         transaction.reference = request.id;
+        transaction.receipt_image = request.receipt_image;
         transaction.observation = `Recarga Aprobada - Banco: ${request.bank_name}`;
         transaction.previousBalance = previous;
         transaction.resultingBalance = Number(wallet.balance);
@@ -836,18 +846,22 @@ export class RechargeRequestService {
       data,
     };
   }
-  // 8. Eliminar solicitudes de recarga más antiguas a X días (ejemplo: 2 días)
+  // 8. Eliminar solicitudes de recarga antiguas (PURGA)
   async deleteOldRechargeRequests() {
-    // 🧪 Por ahora usamos 2 días, después puedes cambiarlo a 60 días para "2 meses"
+    // Obtener configuración
+    const settings = await GlobalSettings.findOne({ where: {} });
+    const days = settings?.rechargeRetentionDays || 60; // Default
+
     const today = new Date();
     const cutoffDate = new Date(today);
-    cutoffDate.setDate(today.getDate() - 60); // 👈 Aquí cambiarás a -60 para 2 meses
+    cutoffDate.setDate(today.getDate() - days);
 
     // Encontramos solicitudes anteriores a esa fecha
     const oldRequests = await RechargeRequest.find({
       where: {
         created_at: LessThan(cutoffDate),
       },
+      select: ["id", "receipt_image"] // Optimización: solo traer lo necesario
     });
 
 
@@ -858,13 +872,49 @@ export class RechargeRequestService {
       };
     }
 
-    // Eliminamos en lote
+    // TODO: Eliminar imágenes de S3 si es requerido (requiere iterar y llamar a deleteFile)
+    // Por rendimiento, en purgas masivas, a veces se hace en background job.
+
+    // Eliminamos registros de BD
     const result = await RechargeRequest.remove(oldRequests);
 
     return {
       deleted: result.length,
-      message: `${result.length} solicitudes eliminadas correctamente.`,
+      message: `Se han purgado ${result.length} registros anteriores a ${days} días.`,
     };
+  }
+
+  // 8.1 Configurar Purga
+  async configurePurge(pin: string, days: number) {
+    if (!pin) throw CustomError.badRequest("PIN es requerido");
+    if (days < 1) throw CustomError.badRequest("Días debe ser mayor a 0");
+
+    const settings = await GlobalSettings.findOne({ where: {} });
+    if (!settings || !settings.masterPin) {
+      throw CustomError.badRequest("Error de sistema: PIN Maestro no configurado.");
+    }
+
+    const isValid = await bcrypt.compare(pin, settings.masterPin);
+    if (!isValid) {
+      throw CustomError.unAuthorized("PIN Maestro incorrecto.");
+    }
+
+    settings.rechargeRetentionDays = days;
+    await settings.save();
+
+    return {
+      success: true,
+      message: `Configuración actualizada. Retención: ${days} días.`
+    };
+  }
+
+  // Helper: Validar día cerrado
+  private async validateDayNotClosed(date: Date) {
+    const dateStr = new Date(date).toISOString().split('T')[0];
+    const closed = await FinancialClosing.findOne({ where: { closingDate: dateStr } });
+    if (closed) {
+      throw CustomError.badRequest(`El día ${dateStr} está CERRADO contablemente. No se permiten modificaciones.`);
+    }
   }
 
 
@@ -884,6 +934,9 @@ export class RechargeRequestService {
     });
 
     if (!recharge) throw CustomError.notFound("Recarga no encontrada");
+
+    // 🔒 VALIDADOR DE CIERRE DIARIO
+    await this.validateDayNotClosed(recharge.created_at);
 
     // Validaciones
     if (recharge.status !== StatusRecarga.APROBADO) {

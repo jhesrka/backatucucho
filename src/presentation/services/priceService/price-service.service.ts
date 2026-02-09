@@ -1,5 +1,4 @@
-// src/domain/services/PriceService.ts
-import { PriceSettings } from "../../../data";
+import { PriceSettings, CommissionLog, Useradmin } from "../../../data";
 import { CustomError } from "../../../domain";
 
 export class PriceService {
@@ -12,6 +11,8 @@ export class PriceService {
       const defaultConfig = new PriceSettings();
       defaultConfig.basePrice = 1.0;
       defaultConfig.extraDayPrice = 0.25;
+      defaultConfig.motorizadoPercentage = 80.00;
+      defaultConfig.appPercentage = 20.00;
       return await defaultConfig.save();
     }
 
@@ -22,6 +23,23 @@ export class PriceService {
     const config = await this.getCurrentPriceSettings();
     config.basePrice = basePrice;
     config.extraDayPrice = extraDayPrice;
+    return await config.save();
+  }
+
+  async updateCommissionSettings(motorizadoPercentage: number, appPercentage: number, administrativeUser: Useradmin) {
+    const config = await this.getCurrentPriceSettings();
+
+    // Guardar log de auditoría
+    const log = new CommissionLog();
+    log.prevMotorizadoPercentage = Number(config.motorizadoPercentage);
+    log.newMotorizadoPercentage = motorizadoPercentage;
+    log.prevAppPercentage = Number(config.appPercentage);
+    log.newAppPercentage = appPercentage;
+    log.changedBy = administrativeUser;
+    await log.save();
+
+    config.motorizadoPercentage = motorizadoPercentage;
+    config.appPercentage = appPercentage;
     return await config.save();
   }
 

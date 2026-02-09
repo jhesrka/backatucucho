@@ -17,14 +17,21 @@ class AuthMiddleware {
         return __awaiter(this, void 0, void 0, function* () {
             const authorization = req.header("Authorization");
             if (!authorization)
-                return res.status(401).json({ message: "No Token provided" });
+                return res
+                    .status(401)
+                    .json({ message: "Token no proporcionado o inválido" });
             if (!authorization.startsWith("Bearer "))
-                return res.status(401).json({ message: "Invalid token" });
+                return res
+                    .status(401)
+                    .json({ message: "Token no proporcionado o inválido" });
             const token = authorization.split(" ").at(1) || "";
             try {
                 const payload = (yield config_1.JwtAdapter.validateToken(token));
-                if (!payload)
-                    return res.status(401).json({ message: "Invalid Token" });
+                if (!payload) {
+                    return res.status(401).json({
+                        message: "Token expirado. Por favor inicia sesión nuevamente.",
+                    });
+                }
                 const user = yield data_1.User.findOne({
                     where: {
                         id: payload.id,
@@ -32,12 +39,26 @@ class AuthMiddleware {
                     },
                 });
                 if (!user)
-                    return res.status(401).json({ message: "invalid user" });
+                    return res
+                        .status(401)
+                        .json({ message: "Usuario no válido o inactivo" });
+                // Validar sesión única (backend restriction)
+                // Validar sesión única (backend restriction)
+                // if (user.currentSessionId && user.currentSessionId !== token) {
+                //   return res.status(401).json({
+                //     message: "Tu sesión fue cerrada porque iniciaste sesión en otro dispositivo",
+                //   });
+                // }
                 req.body.sessionUser = user;
                 next();
             }
             catch (error) {
-                return res.status(500).json({ message: "Interval Server Error" });
+                // Si el token es inválido o expirado, esto lo atrapará
+                return res
+                    .status(401)
+                    .json({
+                    message: "Token inválido o expirado. Inicia sesión nuevamente.",
+                });
             }
         });
     }
@@ -48,7 +69,7 @@ AuthMiddleware.restrictTo = (...roles) => {
         if (!roles.includes(req.body.sessionUser.rol)) {
             return res
                 .status(403)
-                .json({ message: "No tienes acceso a esta ruta" });
+                .json({ message: "No tienes permiso para acceder a esta ruta" });
         }
         next();
     };

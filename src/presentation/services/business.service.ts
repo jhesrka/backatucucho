@@ -42,12 +42,22 @@ export class BusinessService {
             );
         }
 
-        // 4. Generar JWT
+        // 4. Generar JWT (Access + Refresh)
         const token = await JwtAdapter.generateToken(
-            { id: user.id },
+            { id: user.id, role: "USER" },
             envs.JWT_EXPIRE_IN
         );
-        if (!token) throw CustomError.internalServer("Error generando Jwt");
+        const refreshToken = await JwtAdapter.generateToken(
+            { id: user.id, role: "USER" },
+            envs.JWT_REFRESH_EXPIRE_IN || '7d'
+        );
+
+        if (!token || !refreshToken) throw CustomError.internalServer("Error generando Jwt");
+
+        // Guardar sesión para validar en middleware
+        user.currentSessionId = token;
+        user.isLoggedIn = true;
+        await user.save();
 
         // 5. Preparar respuesta con foto
         let urlPhoto = "";
@@ -81,6 +91,7 @@ export class BusinessService {
         // Retornamos token, usuario y sus negocios (para que seleccione)
         return {
             token,
+            refreshToken,
             user: {
                 id: user.id,
                 name: user.name,
@@ -128,47 +139,80 @@ export class BusinessService {
     // 📦 GESTIÓN DE PEDIDOS (Business)
     // ==========================================
 
-    async getOrdersByBusiness(businessId: string, status?: string | string[], page: number = 1, limit: number = 10) {
+    async getOrdersByBusiness(businessId: string, status?: string | string[], page: number = 1, limit: number = 10, date?: string) {
         // Validar que el negocio exista
+        const Negocio = (await import("../../data")).Negocio;
         const negocio = await Negocio.findOne({ where: { id: businessId } });
         if (!negocio) throw CustomError.notFound("Negocio no encontrado");
 
-        // Construir query
-        const queryOrder: any = {
-            negocio: { id: businessId },
-        };
+        const Pedido = (await import("../../data")).Pedido;
+        const EstadoPedido = (await import("../../data")).EstadoPedido;
 
+        const qb = Pedido.createQueryBuilder("p") // Alias p
+            .leftJoinAndSelect("p.negocio", "n") // Alias n
+            .leftJoinAndSelect("p.cliente", "c")
+            .leftJoinAndSelect("p.productos", "pp")
+            .leftJoinAndSelect("pp.producto", "prod")
+            .leftJoinAndSelect("p.motorizado", "m")
+            .where("p.negocio = :businessId", { businessId });
+
+        // Normalize status to array (handling arrays, single strings, and comma-separated strings)
+        let statusFilter: string[] = [];
         if (status) {
             if (Array.isArray(status)) {
-                // Si es array, usar In()
-                const { In } = await import("typeorm");
-                queryOrder.estado = In(status);
-            } else if (status === 'NOT_PENDING') {
-                // Filtro especial para historial (Todo lo que NO sea PENDIENTE)
-                const { Not } = await import("typeorm");
-                const EstadoPedido = (await import("../../data")).EstadoPedido;
-                queryOrder.estado = Not(EstadoPedido.PENDIENTE);
-            } else {
-                queryOrder.estado = status;
+                statusFilter = status as string[];
+            } else if (typeof status === 'string') {
+                statusFilter = status.split(',');
             }
         }
 
-        const skip = (page - 1) * limit;
+        if (statusFilter.length > 0) {
+            qb.andWhere("p.estado::text IN (:...statuses)", { statuses: statusFilter });
+        }
 
-        const [orders, total] = await import("../../data").then(({ Pedido }) => Pedido.findAndCount({
-            where: queryOrder,
-            relations: ["productos", "productos.producto", "cliente", "motorizado"],
-            order: { createdAt: "DESC" },
-            take: limit,
-            skip: skip
-        }));
+        // Filter by Date (Ecuador Time UTC-5 awareness)
+        if (date) {
+            // Assuming date comes as YYYY-MM-DD
+            const start = new Date(`${date}T00:00:00-05:00`);
+            const end = new Date(`${date}T23:59:59.999-05:00`);
+            qb.andWhere("p.createdAt BETWEEN :start AND :end", { start, end });
+        }
 
-        return {
-            orders,
-            total,
-            page,
-            totalPages: Math.ceil(total / limit)
-        };
+        qb.orderBy("p.createdAt", "DESC")
+            .skip((page - 1) * limit)
+            .take(limit);
+
+        try {
+            const [orders, total] = await qb.getManyAndCount();
+
+            // Resolve Signed URLs for Comprobantes
+            const { UploadFilesCloud } = await import("../../config/upload-files-cloud-adapter");
+            const { envs } = await import("../../config/env");
+
+            const ordersMapped = await Promise.all(orders.map(async (order) => {
+                if (order.comprobantePagoUrl && !order.comprobantePagoUrl.startsWith('http')) {
+                    try {
+                        order.comprobantePagoUrl = await UploadFilesCloud.getFile({
+                            bucketName: envs.AWS_BUCKET_NAME,
+                            key: order.comprobantePagoUrl
+                        });
+                    } catch (error) {
+                        console.error(`Error resolving URL for order ${order.id}:`, error);
+                    }
+                }
+                return order;
+            }));
+
+            return {
+                orders: ordersMapped,
+                total,
+                page,
+                totalPages: Math.ceil(total / limit)
+            };
+        } catch (error) {
+            console.error("❌ [ERROR] getOrdersByBusiness failed:", error);
+            throw CustomError.internalServer("Error al obtener pedidos");
+        }
     }
 
     async updateOrderStatus(businessId: string, orderId: string, status: string, motivoCancelacion?: string) {
@@ -183,13 +227,33 @@ export class BusinessService {
 
         if (!order) throw CustomError.notFound("Pedido no encontrado o no pertenece a este negocio");
 
-        // Reglas de negocio: Solo puede pasar a PREPARANDO o CANCELADO
-        if (status === EstadoPedido.PREPARANDO) {
+        // Reglas de negocio: 
+        // 1. PENDIENTE -> ACEPTADO
+        // 2. ACEPTADO -> PREPARANDO
+        // 3. PENDIENTE -> CANCELADO (Rechazo)
+
+        if (status === EstadoPedido.ACEPTADO) {
             if (order.estado !== EstadoPedido.PENDIENTE) {
                 throw CustomError.badRequest("Solo se pueden aceptar pedidos en estado PENDIENTE");
             }
+            order.estado = EstadoPedido.ACEPTADO;
+        } else if (status === EstadoPedido.PREPARANDO) {
+            // Permitir paso directo de PENDIENTE a PREPARANDO por compatibilidad o solo de ACEPTADO? 
+            // Usuario dice: "Al presionar Listo (en estado Aceptado): El pedido pasa a PREPARANDO".
+            // Asumimos flujo estricto: PENDIENTE -> ACEPTADO -> PREPARANDO.
+            // Pero mantendremos PENDIENTE -> PREPARANDO por si acaso el frontend antiguo sigue enviando directo, 
+            // aunque el usuario solicita el nuevo flujo.
+            // Update: User request implicit "Al presionar Aceptar... pasa a ACEPTADO". 
+
+            if (order.estado !== EstadoPedido.ACEPTADO && order.estado !== EstadoPedido.PENDIENTE) {
+                throw CustomError.badRequest("El pedido debe estar ACEPTADO para pasar a PREPARANDO");
+            }
             order.estado = EstadoPedido.PREPARANDO;
         } else if (status === EstadoPedido.CANCELADO) {
+            // Regla 4: "Un pedido solo puede ser rechazado en estado PENDIENTE"
+            if (order.estado !== EstadoPedido.PENDIENTE) {
+                throw CustomError.badRequest("Solo se pueden rechazar pedidos en estado PENDIENTE");
+            }
             if (!motivoCancelacion) throw CustomError.badRequest("Se requiere un motivo para cancelar");
             order.estado = EstadoPedido.CANCELADO;
             order.motivoCancelacion = motivoCancelacion;
@@ -308,13 +372,14 @@ export class BusinessService {
         if (!balanceSnapshot) {
             balanceSnapshot = new BalanceNegocio();
             balanceSnapshot.negocio = { id: businessId } as any;
-            balanceSnapshot.fecha = startOfDay;
+            balanceSnapshot.fecha = startOfDay.toISOString().split('T')[0];
         }
 
         if (balanceSnapshot.estado !== EstadoBalance.LIQUIDADO) {
             balanceSnapshot.totalVendido = totalVendido;
             balanceSnapshot.totalComision = totalComision;
             balanceSnapshot.totalDelivery = totalDelivery;
+            balanceSnapshot.totalComisionApp = totalComision + totalDelivery;
             balanceSnapshot.totalEfectivo = totalEfectivo;
             balanceSnapshot.totalTransferencia = totalTransferencia;
             balanceSnapshot.balanceFinal = balanceFinal;

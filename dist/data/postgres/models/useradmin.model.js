@@ -77,16 +77,20 @@ __decorate([
     __metadata("design:type", String)
 ], Useradmin.prototype, "whatsapp", void 0);
 __decorate([
+    (0, typeorm_1.Column)("varchar", {
+        nullable: true,
+    }),
+    __metadata("design:type", String)
+], Useradmin.prototype, "securityPin", void 0);
+__decorate([
     (0, typeorm_1.CreateDateColumn)({
         type: "timestamp",
-        default: () => "CURRENT_TIMESTAMP",
     }),
     __metadata("design:type", Date)
 ], Useradmin.prototype, "created_at", void 0);
 __decorate([
     (0, typeorm_1.UpdateDateColumn)({
         type: "timestamp",
-        default: () => "CURRENT_TIMESTAMP",
         onUpdate: "CURRENT_TIMESTAMP",
     }),
     __metadata("design:type", Date)
@@ -94,7 +98,6 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)("enum", {
         enum: UserRoleAdmin,
-        default: UserRoleAdmin.ADMIN,
     }),
     __metadata("design:type", String)
 ], Useradmin.prototype, "rol", void 0);
@@ -105,6 +108,10 @@ __decorate([
     }),
     __metadata("design:type", String)
 ], Useradmin.prototype, "status", void 0);
+__decorate([
+    (0, typeorm_1.Column)("int", { default: 0 }),
+    __metadata("design:type", Number)
+], Useradmin.prototype, "resetTokenVersion", void 0);
 __decorate([
     (0, typeorm_1.BeforeInsert)(),
     __metadata("design:type", Function),

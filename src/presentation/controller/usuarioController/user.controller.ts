@@ -24,8 +24,15 @@ export class UserController {
     if (error instanceof CustomError) {
       return res.status(error.statusCode).json({ message: error.message });
     }
+
+    // Handle validation strings from DTOs
+    if (typeof error === 'string') {
+      return res.status(400).json({ message: error });
+    }
+
     console.error("Unhandled error:", error);
-    return res.status(500).json({ message: "Internal Server Error" });
+    const message = error instanceof Error ? error.message : "Internal Server Error";
+    return res.status(500).json({ message });
   };
   //USUARIO
   createUser = (req: Request, res: Response) => {

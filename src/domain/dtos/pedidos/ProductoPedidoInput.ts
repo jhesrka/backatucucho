@@ -2,11 +2,12 @@ export class ProductoPedidoInput {
   constructor(
     public readonly productoId: string,
     public readonly cantidad: number,
-    public readonly precioUnitario: number, // snapshot que vio el usuario
-  ) {}
+    public readonly precio_venta?: number,
+    public readonly precio_app?: number,
+  ) { }
 
   static create(object: { [key: string]: any }): [string?, ProductoPedidoInput?] {
-    const { productoId, cantidad, precioUnitario } = object ?? {};
+    const { productoId, cantidad, precio_venta, precio_app } = object ?? {};
 
     if (!productoId || typeof productoId !== "string") {
       return ["productoId es obligatorio"];
@@ -15,11 +16,10 @@ export class ProductoPedidoInput {
     if (!Number.isFinite(cant) || cant <= 0 || !Number.isInteger(cant)) {
       return ["cantidad inválida (entero positivo)"];
     }
-    const pu = Number(precioUnitario);
-    if (!Number.isFinite(pu) || pu < 0) {
-      return ["precioUnitario inválido (número >= 0)"];
-    }
 
-    return [undefined, new ProductoPedidoInput(productoId, cant, pu)];
+    const pv = precio_venta !== undefined ? Number(precio_venta) : undefined;
+    const pa = precio_app !== undefined ? Number(precio_app) : undefined;
+
+    return [undefined, new ProductoPedidoInput(productoId, cant, pv, pa)];
   }
 }

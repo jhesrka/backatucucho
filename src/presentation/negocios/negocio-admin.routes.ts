@@ -40,7 +40,7 @@ export class NegocioAdminRoutes {
 
     // ========================= ACTUALIZAR NEGOCIO =========================
     router.patch(
-      "/admin/:id",
+      "/:id",
       AuthAdminMiddleware.protect,
       controller.updateNegocioAdmin
     );

@@ -214,35 +214,54 @@ export class WalletService {
     /**
      * 💸 Descontar saldo de la billetera (Método interno para servicios)
      */
-    async subtractFromWallet(userId: string, amount: number, description: string = "Consumo de servicio", reasonStr: string = "ORDER"): Promise<Transaction> {
-        if (amount <= 0) return null as any;
+    async subtractFromWallet(
+        userId: string,
+        amount: number,
+        description: string = "Consumo de servicio",
+        reasonStr: string = "ORDER",
+        auditSubscription?: { daysBought?: number, prevEndDate?: Date, newEndDate?: Date },
+        receiptImage?: string
+    ): Promise<Transaction> {
+        const wallet = await Wallet.findOne({
+            where: { user: { id: userId } },
+            relations: ["user"]
+        });
 
-        const wallet = await this.getWalletByUserId(userId);
+        if (!wallet) throw CustomError.notFound("Billetera no encontrada");
+        if (wallet.status === WalletStatus.BLOQUEADO) throw CustomError.badRequest("La billetera está bloqueada");
+        if (wallet.balance < amount) throw CustomError.badRequest("El negocio no tiene saldo suficiente para activar la suscripción");
 
-        if (Number(wallet.balance) < amount) {
-            throw CustomError.badRequest("Saldo insuficiente en la billetera");
-        }
-
-        const newBalance = Number(wallet.balance) - amount;
-        wallet.balance = newBalance;
+        const previousBalance = Number(wallet.balance);
+        wallet.balance = Number(wallet.balance) - amount;
         await wallet.save();
 
         const transaction = new Transaction();
         transaction.wallet = wallet;
         transaction.amount = amount;
         transaction.type = 'debit';
-        // Map string reason to enum if possible, else default to ORDER
-        let reasonEnum = TransactionReason.ORDER;
-        if (reasonStr === 'STORIE') reasonEnum = TransactionReason.STORIE; // Explicit support
-        else if (Object.values(TransactionReason).includes(reasonStr as TransactionReason)) {
-            reasonEnum = reasonStr as TransactionReason;
+        transaction.status = 'APPROVED';
+        transaction.previousBalance = previousBalance;
+        transaction.resultingBalance = Number(wallet.balance);
+        transaction.observation = description;
+
+        // Map reason
+        const reason = reasonStr as TransactionReason;
+        transaction.reason = Object.values(TransactionReason).includes(reason)
+            ? reason
+            : TransactionReason.ORDER;
+
+        transaction.origin = TransactionOrigin.USER;
+
+        // Apply audit fields if present
+        if (auditSubscription) {
+            transaction.daysBought = auditSubscription.daysBought || null;
+            transaction.prevEndDate = auditSubscription.prevEndDate || null;
+            transaction.newEndDate = auditSubscription.newEndDate || null;
         }
 
-        transaction.reason = reasonEnum;
-        transaction.origin = TransactionOrigin.USER; // Or SYSTEM
-        transaction.previousBalance = Number(wallet.balance) + amount;
-        transaction.resultingBalance = newBalance;
-        transaction.observation = description;
+        if (receiptImage) {
+            transaction.receipt_image = receiptImage;
+        }
 
         return await transaction.save();
     }

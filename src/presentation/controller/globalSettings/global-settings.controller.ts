@@ -7,7 +7,10 @@ export class GlobalSettingsController {
     getSettings = (req: Request, res: Response) => {
         this.service.getSettings()
             .then(data => res.json(data))
-            .catch(error => res.status(500).json({ error: "Internal Server Error" }));
+            .catch(error => {
+                console.error("Error in getSettings:", error);
+                res.status(500).json({ error: "Internal Server Error" });
+            });
     };
 
     updateSettings = (req: Request, res: Response) => {

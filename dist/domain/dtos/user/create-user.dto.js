@@ -5,7 +5,7 @@ const config_1 = require("../../../config");
 // src/domain/dtos/user/create-user.dto.ts
 class CreateUserDTO {
     constructor(name, surname, email, password, birthday, // Fecha como string
-    whatsapp, photoperfil // Eliminar 'readonly' para poder modificarlo
+    whatsapp, acceptedTerms, acceptedPrivacy, photoperfil // Eliminar 'readonly' para poder modificarlo
     ) {
         this.name = name;
         this.surname = surname;
@@ -13,10 +13,16 @@ class CreateUserDTO {
         this.password = password;
         this.birthday = birthday;
         this.whatsapp = whatsapp;
+        this.acceptedTerms = acceptedTerms;
+        this.acceptedPrivacy = acceptedPrivacy;
         this.photoperfil = photoperfil;
     }
     static create(object) {
-        const { name, surname, email, password, birthday, whatsapp, photoperfil } = object;
+        const { name, surname, email, password, birthday, whatsapp, photoperfil, acceptedTerms, acceptedPrivacy } = object;
+        if (acceptedTerms !== true && acceptedTerms !== 'true')
+            return ["Debes aceptar los Términos y Condiciones"];
+        if (acceptedPrivacy !== true && acceptedPrivacy !== 'true')
+            return ["Debes aceptar las Políticas de Privacidad"];
         // Validación de nombre
         if (!name || name.trim().length < 2) {
             return ["El nombre es obligatorio y debe tener al menos 2 caracteres"];
@@ -49,7 +55,7 @@ class CreateUserDTO {
         if (!config_1.regularExp.phone.test(whatsapp)) {
             return ["El número de WhatsApp debe tener exactamente 10 dígitos"];
         }
-        return [undefined, new CreateUserDTO(name, surname, email, password, birthday, whatsapp, photoperfil)];
+        return [undefined, new CreateUserDTO(name, surname, email, password, birthday, whatsapp, acceptedTerms, acceptedPrivacy, photoperfil)];
     }
 }
 exports.CreateUserDTO = CreateUserDTO;

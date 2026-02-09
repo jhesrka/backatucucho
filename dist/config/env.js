@@ -12,6 +12,7 @@ exports.envs = {
     DB_PORT: (0, env_var_1.get)("PORT_DATABASE").required().asPortNumber(),
     JWT_SEED: (0, env_var_1.get)("JWT_SEED").required().asString(),
     JWT_EXPIRE_IN: (0, env_var_1.get)("JWT_EXPIRE_IN").required().asString(),
+    JWT_REFRESH_EXPIRE_IN: (0, env_var_1.get)("JWT_REFRESH_EXPIRE_IN").default("5d").asString(),
     AWS_ACCESS_KEY_ID: (0, env_var_1.get)("AWS_ACCESS_KEY_ID").required().asString(),
     AWS_SECRET_ACCESS_KEY: (0, env_var_1.get)("AWS_SECRET_ACCESS_KEY").required().asString(),
     AWS_REGION: (0, env_var_1.get)("AWS_REGION").required().asString(),
@@ -21,4 +22,6 @@ exports.envs = {
     MAILER_EMAIL: (0, env_var_1.get)("MAILER_EMAIL").required().asString(),
     MAILER_SECRET_KEY: (0, env_var_1.get)("MAILER_SECRET_KEY").required().asString(),
     WEBSERVICE_URL: (0, env_var_1.get)("WEBSERVICE_URL").required().asString(),
+    WEBSERVICE_URL_FRONT: (0, env_var_1.get)("WEBSERVICE_URL_FRONT").required().asString(),
+    GOOGLE_CLIENT_ID: (0, env_var_1.get)("GOOGLE_CLIENT_ID").required().asString(),
 };

@@ -15,6 +15,10 @@ const data_1 = require("./data");
 const routes_1 = require("./presentation/routes");
 const server_1 = require("./presentation/server");
 require("dotenv/config");
+const pedidoMoto_cron_1 = require("./cron/pedidoMoto.cron");
+const subscription_cron_1 = require("./cron/subscription.cron");
+const post_expiration_cron_1 = require("./cron/post-expiration.cron");
+const pedidoPurge_cron_1 = require("./cron/pedidoPurge.cron");
 function main() {
     return __awaiter(this, void 0, void 0, function* () {
         const postgres = new data_1.PostgresDatabase({
@@ -22,13 +26,18 @@ function main() {
             password: config_1.envs.DB_PASSWORD,
             host: config_1.envs.DB_HOST,
             database: config_1.envs.DB_DATABASE,
-            port: config_1.envs.DB_PORT
+            port: config_1.envs.DB_PORT,
         });
         yield postgres.connect();
         const server = new server_1.Server({
             port: config_1.envs.PORT,
-            routes: routes_1.AppRoutes.routes //este viene de un metodo estatico por es no ponemos new
+            routes: routes_1.AppRoutes.routes, //este viene de un metodo estatico por es no ponemos new
         });
+        // 👇 INICIAR CRONES
+        (0, pedidoMoto_cron_1.startPedidoMotoCron)();
+        (0, subscription_cron_1.startSubscriptionCron)();
+        (0, post_expiration_cron_1.startPostExpirationCron)();
+        (0, pedidoPurge_cron_1.startOrderPurgeCron)();
         yield server.start();
     });
 }

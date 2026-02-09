@@ -38,11 +38,12 @@ export class AuthMiddleware {
           .json({ message: "Usuario no válido o inactivo" });
 
       // Validar sesión única (backend restriction)
-      if (user.currentSessionId && user.currentSessionId !== token) {
-        return res.status(401).json({
-          message: "Tu sesión fue cerrada porque iniciaste sesión en otro dispositivo",
-        });
-      }
+      // Validar sesión única (backend restriction)
+      // if (user.currentSessionId && user.currentSessionId !== token) {
+      //   return res.status(401).json({
+      //     message: "Tu sesión fue cerrada porque iniciaste sesión en otro dispositivo",
+      //   });
+      // }
 
       req.body.sessionUser = user;
       next();

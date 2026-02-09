@@ -43,8 +43,8 @@ export class PedidoUsuarioController {
         return res.status(400).json({ message: "No se subió ningún archivo" });
       }
 
-      const url = await this.pedidoUsuarioService.subirComprobante(file);
-      return res.status(200).json({ url });
+      const result = await this.pedidoUsuarioService.subirComprobante(file);
+      return res.status(200).json(result);
     } catch (error) {
       return this.handleError(error, res);
     }

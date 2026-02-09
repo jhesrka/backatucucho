@@ -19,6 +19,12 @@ export class PriceSettings extends BaseEntity {
   @Column('decimal', { precision: 10, scale: 2, default: 0.25 })
   extraDayPrice: number; // Precio por cada día adicional
 
+  @Column('decimal', { precision: 10, scale: 2, default: 80.00 })
+  motorizadoPercentage: number; // Porcentaje que se lleva el motorizado (ej. 80%)
+
+  @Column('decimal', { precision: 10, scale: 2, default: 20.00 })
+  appPercentage: number; // Porcentaje que se lleva la app (ej. 20%)
+
   @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;
 

@@ -28,6 +28,12 @@ export class PriceRoutes {
       priceController.updatePriceSettings
     );
 
+    router.patch(
+      "/commissions",
+      AuthAdminMiddleware.protect,
+      priceController.updateCommissionSettings
+    );
+
     // Calcular precio según días
     router.get(
       "/calculate",

@@ -6,8 +6,10 @@ import {
   ModeloMonetizacion,
   User,
   EstadoNegocio,
+  GlobalSettings
 } from "../../data";
 import { UploadFilesCloud } from "../../config/upload-files-cloud-adapter";
+import { encriptAdapter } from "../../config/bcrypt.adapter";
 import { CustomError } from "../../domain";
 import { envs, regularExp } from "../../config";
 import { ILike, MoreThan } from "typeorm";
@@ -137,10 +139,9 @@ export class NegocioAdminService {
 
     let key = "ImgStore/imagenrota.jpg";
     if (img) {
-      key = `negocios/${Date.now()}-${img.originalname}`;
-      await UploadFilesCloud.uploadSingleFile({
+      key = await UploadFilesCloud.uploadSingleFile({
         bucketName: envs.AWS_BUCKET_NAME,
-        key,
+        key: `negocios/${Date.now()}-${img.originalname}`,
         body: img.buffer,
         contentType: img.mimetype,
       });
@@ -216,6 +217,23 @@ export class NegocioAdminService {
 
     // ========================= ACTUALIZAR SUBSCRIPCIÓN =========================
     if (dto.valorSuscripcion !== undefined) {
+      // 🔒 REGLA DE SEGURIDAD: Modificar precio en estado NO PENDIENTE requiere PIN Maestro.
+      // Solo si el precio realmente cambió (evitar falsos positivos si el frontend manda el mismo precio)
+      const currentPrice = Number(negocio.valorSuscripcion) || 0;
+      const newPrice = Number(dto.valorSuscripcion) || 0;
+      const hasPriceChanged = Math.abs(currentPrice - newPrice) > 0.01;
+
+      if (negocio.statusNegocio !== StatusNegocio.PENDIENTE && hasPriceChanged) {
+        const settings = await GlobalSettings.findOne({ where: {} });
+        const realMasterPin = settings?.masterPin;
+
+        if (realMasterPin) {
+          const isValid = encriptAdapter.compare(dto.masterPin || "", realMasterPin);
+          if (!isValid) {
+            throw CustomError.unAuthorized("Para modificar el precio de un negocio activo se requiere el PIN Maestro.");
+          }
+        }
+      }
       negocio.valorSuscripcion = dto.valorSuscripcion;
     }
 
@@ -229,6 +247,35 @@ export class NegocioAdminService {
         throw CustomError.badRequest("Estado de negocio inválido");
       }
 
+      // 🔒 REGLA DE SEGURIDAD: No se puede volver a PENDIENTE si ya está ACTIVO (o en otro estado avanzado)
+      if (dto.statusNegocio === StatusNegocio.PENDIENTE && negocio.statusNegocio !== StatusNegocio.PENDIENTE) {
+        throw CustomError.badRequest("No se puede revertir un negocio a estado PENDIENTE");
+      }
+
+      // 🔒 REGLA DE FLUJO: Si está PENDIENTE, solo puede pasar a ACTIVO (o quedarse en PENDIENTE si solo actualizo datos)
+      if (negocio.statusNegocio === StatusNegocio.PENDIENTE && dto.statusNegocio !== StatusNegocio.ACTIVO && dto.statusNegocio !== StatusNegocio.PENDIENTE) {
+        throw CustomError.badRequest("Un negocio PENDIENTE solo puede pasar a ACTIVO");
+      }
+
+      // 🔒 REGLA DE SEGURIDAD (PIN MAESTRO):
+      // Para activar un negocio nuevo (PENDIENTE -> ACTIVO), se requiere PIN Maestro.
+      if (negocio.statusNegocio === StatusNegocio.PENDIENTE && dto.statusNegocio === StatusNegocio.ACTIVO) {
+        // Obtener PIN real de la base de datos
+        const settings = await GlobalSettings.findOne({ where: {} });
+        const realMasterPin = settings?.masterPin;
+
+        if (!realMasterPin) {
+          console.warn("⚠️ ADVERTENCIA DE SEGURIDAD: No hay PIN Maestro configurado en GlobalSettings. Se permite activación.");
+          // Opcional: throw Error si quieres obligar a configurar uno.
+        } else {
+          // Validar hash si está encriptado o comparación directa si no (por compatibilidad, aunque debería ser siempre hash)
+          const isValid = encriptAdapter.compare(dto.masterPin || "", realMasterPin);
+          if (!isValid) {
+            throw CustomError.unAuthorized("El PIN Maestro es incorrecto.");
+          }
+        }
+      }
+
       // 🔄 FLUJO ATÓMICO: Si el admin intenta poner ACTIVO y se requiere cobro:
       // (needsCharge se calcula después de haber actualizado valorSuscripcion arriba)
       const needsCharge = Number(negocio.valorSuscripcion) > 0 && (
@@ -239,19 +286,27 @@ export class NegocioAdminService {
       );
 
       if (dto.statusNegocio === StatusNegocio.ACTIVO && needsCharge) {
-        if (!this.subscriptionService) {
-          throw CustomError.internalServer("Servicio de suscripción no inicializado");
+        // CASO 1: Activación desde PENDIENTE -> OBLIGATORIO COBRAR
+        // Si no cobra, no se activa.
+        if (negocio.statusNegocio === StatusNegocio.PENDIENTE) {
+          if (!this.subscriptionService) {
+            throw CustomError.internalServer("Servicio de suscripción no inicializado");
+          }
+          try {
+            await this.subscriptionService.chargeSubscription(negocio, false);
+          } catch (error: any) {
+            throw error;
+          }
         }
-
-        try {
-          // Intentamos cobrar. Si falla (ej: No hay saldo), el error cortará la ejecución
-          // y el negocio NO pasará a ACTIVO.
-          await this.subscriptionService.chargeSubscription(negocio);
-          // chargeSubscription ya actualiza el estado a ACTIVO, fechaInicio, etc.
-        } catch (error: any) {
-          // Re-lanzar error con mensaje claro que ya viene del SubscriptionService o WalletService
-          throw error;
+        // CASO 2: Reactivación desde BLOQUEADO/SUSPENDIDO con suscripción vencida
+        // No cobramos automático (podría no tener saldo), lo pasamos a NO_PAGADO para que pague manual.
+        else {
+          negocio.statusNegocio = StatusNegocio.NO_PAGADO;
+          // Opcional: Podríamos mostrar un mensaje, pero aquí solo actualizamos el estado.
         }
+      } else if (dto.statusNegocio === StatusNegocio.ACTIVO && !needsCharge) {
+        // CASO 3: Reactivación con suscripción vigente -> Pasa a ACTIVO directo
+        negocio.statusNegocio = StatusNegocio.ACTIVO;
       } else if (dto.statusNegocio === StatusNegocio.NO_PAGADO) {
         // REGLA: No pasar a NO_PAGADO si aún tiene periodo vigente
         if (negocio.fechaFinSuscripcion && new Date(negocio.fechaFinSuscripcion) > new Date()) {
@@ -262,6 +317,11 @@ export class NegocioAdminService {
         // Si no necesita cobro (es de $0 o ya tiene período activo), simplemente actualizamos el estado
         negocio.statusNegocio = dto.statusNegocio as StatusNegocio;
       }
+    }
+
+    // Asegurarnos de que el valorSuscripcion se persista incluso si chargeSubscription hizo save
+    if (dto.valorSuscripcion !== undefined) {
+      negocio.valorSuscripcion = dto.valorSuscripcion;
     }
 
     const saved = await negocio.save();
@@ -378,7 +438,10 @@ export class NegocioAdminService {
 
   // Wrappers for consistent Admin Panel actions
   async changeStatusNegocioAdmin(id: string, status: StatusNegocio) {
-    const negocio = await Negocio.findOne({ where: { id } });
+    const negocio = await Negocio.findOne({
+      where: { id },
+      relations: ["usuario"]
+    });
     if (!negocio) throw CustomError.notFound("Negocio no encontrado");
 
     const needsCharge = Number(negocio.valorSuscripcion) > 0 && (
@@ -389,7 +452,11 @@ export class NegocioAdminService {
     );
 
     if (status === StatusNegocio.ACTIVO && needsCharge) {
-      throw CustomError.badRequest("No se puede activar el negocio manualmente (Suscripción paga). Use el botón 'Reactivar Suscripción' para procesar el pago y activar el período.");
+      if (!this.subscriptionService) {
+        throw CustomError.internalServer("Servicio de suscripción no inicializado");
+      }
+      // Intentamos cobrar atómicamente. Si falla, el negocio sigue en su estado anterior.
+      await this.subscriptionService.chargeSubscription(negocio, false);
     }
 
     if (status === StatusNegocio.NO_PAGADO && negocio.fechaFinSuscripcion && new Date(negocio.fechaFinSuscripcion) > new Date()) {

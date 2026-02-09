@@ -1,0 +1,82 @@
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.BalanceNegocio = exports.EstadoBalance = void 0;
+const typeorm_1 = require("typeorm");
+const Negocio_1 = require("./Negocio");
+var EstadoBalance;
+(function (EstadoBalance) {
+    EstadoBalance["PENDIENTE"] = "PENDIENTE";
+    EstadoBalance["PAGADO"] = "PAGADO";
+    EstadoBalance["LIQUIDADO"] = "LIQUIDADO"; // Confirmado y cerrado
+})(EstadoBalance || (exports.EstadoBalance = EstadoBalance = {}));
+let BalanceNegocio = class BalanceNegocio extends typeorm_1.BaseEntity {
+};
+exports.BalanceNegocio = BalanceNegocio;
+__decorate([
+    (0, typeorm_1.PrimaryGeneratedColumn)("uuid"),
+    __metadata("design:type", String)
+], BalanceNegocio.prototype, "id", void 0);
+__decorate([
+    (0, typeorm_1.Column)("date"),
+    __metadata("design:type", Date)
+], BalanceNegocio.prototype, "fecha", void 0);
+__decorate([
+    (0, typeorm_1.Column)("decimal", { precision: 10, scale: 2, default: 0 }),
+    __metadata("design:type", Number)
+], BalanceNegocio.prototype, "totalVendido", void 0);
+__decorate([
+    (0, typeorm_1.Column)("decimal", { precision: 10, scale: 2, default: 0 }),
+    __metadata("design:type", Number)
+], BalanceNegocio.prototype, "totalComision", void 0);
+__decorate([
+    (0, typeorm_1.Column)("decimal", { precision: 10, scale: 2, default: 0 }),
+    __metadata("design:type", Number)
+], BalanceNegocio.prototype, "totalDelivery", void 0);
+__decorate([
+    (0, typeorm_1.Column)("decimal", { precision: 10, scale: 2, default: 0 }),
+    __metadata("design:type", Number)
+], BalanceNegocio.prototype, "totalEfectivo", void 0);
+__decorate([
+    (0, typeorm_1.Column)("decimal", { precision: 10, scale: 2, default: 0 }),
+    __metadata("design:type", Number)
+], BalanceNegocio.prototype, "totalTransferencia", void 0);
+__decorate([
+    (0, typeorm_1.Column)("decimal", { precision: 10, scale: 2, default: 0 }),
+    __metadata("design:type", Number)
+], BalanceNegocio.prototype, "balanceFinal", void 0);
+__decorate([
+    (0, typeorm_1.Column)({
+        type: "enum",
+        enum: EstadoBalance,
+        default: EstadoBalance.PENDIENTE
+    }),
+    __metadata("design:type", String)
+], BalanceNegocio.prototype, "estado", void 0);
+__decorate([
+    (0, typeorm_1.Column)("text", { nullable: true }),
+    __metadata("design:type", String)
+], BalanceNegocio.prototype, "comprobanteUrl", void 0);
+__decorate([
+    (0, typeorm_1.ManyToOne)(() => Negocio_1.Negocio, (negocio) => negocio.balances),
+    __metadata("design:type", Negocio_1.Negocio)
+], BalanceNegocio.prototype, "negocio", void 0);
+__decorate([
+    (0, typeorm_1.CreateDateColumn)(),
+    __metadata("design:type", Date)
+], BalanceNegocio.prototype, "createdAt", void 0);
+__decorate([
+    (0, typeorm_1.UpdateDateColumn)(),
+    __metadata("design:type", Date)
+], BalanceNegocio.prototype, "updatedAt", void 0);
+exports.BalanceNegocio = BalanceNegocio = __decorate([
+    (0, typeorm_1.Entity)()
+], BalanceNegocio);

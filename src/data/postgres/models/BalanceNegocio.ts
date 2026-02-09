@@ -1,10 +1,11 @@
 import { BaseEntity, Column, Entity, ManyToOne, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from "typeorm";
 import { Negocio } from "./Negocio";
+import { Useradmin } from "./useradmin.model";
 
 export enum EstadoBalance {
-    PENDIENTE = "PENDIENTE", // Hay deuda y no se ha pagado (o no se ha reclamado)
-    PAGADO = "PAGADO",       // Se subió comprobante (o app pagó) y espera confirmación
-    LIQUIDADO = "LIQUIDADO"  // Confirmado y cerrado
+    PENDIENTE = "PENDIENTE",
+    PAGADO = "PAGADO",
+    LIQUIDADO = "LIQUIDADO"
 }
 
 @Entity()
@@ -13,26 +14,28 @@ export class BalanceNegocio extends BaseEntity {
     id: string;
 
     @Column("date")
-    fecha: Date; // Fecha del reporte (YYYY-MM-DD)
+    fecha: string; // Changed to string to match FinancialClosing and ensure YYYY-MM-DD consistency
 
     @Column("decimal", { precision: 10, scale: 2, default: 0 })
-    totalVendido: number; // Solo productos
+    totalVendido: number; // Ventas Totales (Precio Cliente)
 
     @Column("decimal", { precision: 10, scale: 2, default: 0 })
-    totalComision: number; // App's share
+    totalComision: number; // Comisión por productos
 
     @Column("decimal", { precision: 10, scale: 2, default: 0 })
-    totalDelivery: number;
-
-    // Totales por método de pago (para cálculo de deuda)
-    @Column("decimal", { precision: 10, scale: 2, default: 0 })
-    totalEfectivo: number; // Cash received by business
+    totalDelivery: number; // Comisión por domicilio (envío)
 
     @Column("decimal", { precision: 10, scale: 2, default: 0 })
-    totalTransferencia: number; // Transfer received by App
+    totalComisionApp: number; // App's cut (total_comision_productos + costoEnvio)
 
     @Column("decimal", { precision: 10, scale: 2, default: 0 })
-    balanceFinal: number; // Positivo: App debe a Negocio. Negativo: Negocio debe a App.
+    totalEfectivo: number; // Cash received by motorizado (App has it)
+
+    @Column("decimal", { precision: 10, scale: 2, default: 0 })
+    totalTransferencia: number; // Transfer received by local (Shop has it)
+
+    @Column("decimal", { precision: 10, scale: 2, default: 0 })
+    balanceFinal: number; // Positivo: El local debe pagar a la APP. Negativo: La APP debe pagar al local.
 
     @Column({
         type: "enum",
@@ -42,7 +45,13 @@ export class BalanceNegocio extends BaseEntity {
     estado: EstadoBalance;
 
     @Column("text", { nullable: true })
-    comprobanteUrl: string; // URL de la foto del pago
+    comprobanteUrl: string;
+
+    @Column({ type: "boolean", default: false })
+    isClosed: boolean;
+
+    @ManyToOne(() => Useradmin, { nullable: true })
+    closedBy: Useradmin;
 
     @ManyToOne(() => Negocio, (negocio) => negocio.balances)
     negocio: Negocio;

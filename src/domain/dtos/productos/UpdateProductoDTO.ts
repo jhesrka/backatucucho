@@ -4,8 +4,8 @@ export class UpdateProductoDTO {
   private constructor(
     public readonly nombre?: string,
     public readonly descripcion?: string,
-    public readonly precio?: number,
-    public readonly precioParaApp?: number | null,
+    public readonly precio_venta?: number,
+    public readonly precio_app?: number | null,
     public readonly tipoId?: string,
     public readonly modeloMonetizacion?: "SUSCRIPCION" | "COMISION_SUSCRIPCION"
   ) { }
@@ -13,16 +13,16 @@ export class UpdateProductoDTO {
   static create(obj: {
     nombre?: string;
     descripcion?: string;
-    precio?: number;
-    precioParaApp?: number;
+    precio_venta?: number;
+    precio_app?: number;
     tipoId?: string;
     modeloMonetizacion?: "SUSCRIPCION" | "COMISION_SUSCRIPCION";
   }): [string?, UpdateProductoDTO?] {
     const {
       nombre,
       descripcion,
-      precio,
-      precioParaApp,
+      precio_venta,
+      precio_app,
       tipoId,
       modeloMonetizacion,
     } = obj;
@@ -35,25 +35,25 @@ export class UpdateProductoDTO {
       return ["La descripción debe tener al menos 5 caracteres"];
     }
 
-    if (precio !== undefined && (isNaN(Number(precio)) || Number(precio) <= 0)) {
-      return ["El precio debe ser un número positivo"];
+    if (precio_venta !== undefined && (isNaN(Number(precio_venta)) || Number(precio_venta) <= 0)) {
+      return ["El precio de venta debe ser un número positivo"];
     }
 
     if (modeloMonetizacion && !["SUSCRIPCION", "COMISION_SUSCRIPCION"].includes(modeloMonetizacion)) {
       return ["Modelo de monetización inválido"];
     }
 
-    if (precioParaApp !== undefined && (isNaN(Number(precioParaApp)) || Number(precioParaApp) <= 0)) {
+    if (precio_app !== undefined && (isNaN(Number(precio_app)) || Number(precio_app) <= 0)) {
       return ["El precio para la app debe ser un número positivo"];
     }
 
     if (
       modeloMonetizacion === "COMISION_SUSCRIPCION" &&
-      precioParaApp !== undefined &&
-      precio !== undefined &&
-      Number(precioParaApp) >= Number(precio)
+      precio_app !== undefined &&
+      precio_venta !== undefined &&
+      Number(precio_app) >= Number(precio_venta)
     ) {
-      return ["El precio para la app debe ser menor que el precio normal"];
+      return ["El precio para la app debe ser menor que el precio de venta"];
     }
 
     if (tipoId && !regularExp.uuid.test(tipoId)) {
@@ -65,8 +65,8 @@ export class UpdateProductoDTO {
       new UpdateProductoDTO(
         nombre?.trim(),
         descripcion?.trim(),
-        precio !== undefined ? Number(precio) : undefined,
-        precioParaApp !== undefined ? Number(precioParaApp) : undefined,
+        precio_venta !== undefined ? Number(precio_venta) : undefined,
+        precio_app !== undefined ? Number(precio_app) : undefined,
         tipoId?.trim(),
         modeloMonetizacion
       ),

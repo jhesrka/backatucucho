@@ -21,6 +21,12 @@ export class FinancialClosing extends BaseEntity {
     @Column('int')
     totalRechargesCount: number;
 
+    @Column('decimal', { precision: 10, scale: 2, default: 0 })
+    totalUserBalance: number; // Saldo total usuarios (Pasivo)
+
+    @Column('decimal', { precision: 10, scale: 2, default: 0 })
+    totalMotorizadoDebt: number; // Deuda total motorizados (Pasivo)
+
     @ManyToOne(() => Useradmin)
     closedBy: Useradmin;
 

@@ -67,8 +67,9 @@ export class ProductoServiceAdmin {
           id: p.id,
           nombre: p.nombre,
           descripcion: p.descripcion,
-          precio: p.precio,
-          precioParaApp: p.precioParaApp ?? null,
+          precio_venta: p.precio_venta,
+          precio_app: p.precio_app ?? null,
+          comision_producto: Number(p.precio_venta) - Number(p.precio_app || p.precio_venta),
           disponible: p.disponible,
           statusProducto: p.statusProducto,
           created_at: p.created_at,
@@ -103,16 +104,16 @@ export class ProductoServiceAdmin {
     {
       nombre,
       descripcion,
-      precio,
-      precioParaApp,
+      precio_venta,
+      precio_app,
       disponible,
       statusProducto,
       imagen,
     }: {
       nombre?: string;
       descripcion?: string;
-      precio?: number;
-      precioParaApp?: number;
+      precio_venta?: number;
+      precio_app?: number;
       disponible?: boolean;
       statusProducto?: StatusProducto;
       imagen?: Express.Multer.File;
@@ -145,8 +146,15 @@ export class ProductoServiceAdmin {
     // 🔹 Actualizar campos opcionales
     if (nombre !== undefined) producto.nombre = nombre;
     if (descripcion !== undefined) producto.descripcion = descripcion;
-    if (precio !== undefined) producto.precio = precio;
-    if (precioParaApp !== undefined) producto.precioParaApp = precioParaApp;
+    if (precio_venta !== undefined) {
+      producto.precio_venta = precio_venta;
+      // Auto-update comision if app price already exists
+      producto.comision_producto = Number(precio_venta) - Number(producto.precio_app || precio_venta);
+    }
+    if (precio_app !== undefined) {
+      producto.precio_app = precio_app;
+      producto.comision_producto = Number(producto.precio_venta) - Number(precio_app);
+    }
     if (disponible !== undefined) producto.disponible = disponible;
     if (
       statusProducto &&
@@ -173,8 +181,9 @@ export class ProductoServiceAdmin {
       id: producto.id,
       nombre: producto.nombre,
       descripcion: producto.descripcion,
-      precio: producto.precio,
-      precioParaApp: producto.precioParaApp,
+      precio_venta: producto.precio_venta,
+      precio_app: producto.precio_app,
+      comision_producto: producto.comision_producto,
       disponible: producto.disponible,
       statusProducto: producto.statusProducto,
       imagenUrl,

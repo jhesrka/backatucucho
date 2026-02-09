@@ -359,9 +359,9 @@ export class PedidoMotoService {
     await pedido.save();
 
     // ===========================
-    // 💰 CALCULAR PROPINAS/GANANCIAS (80/20)
+    // 💰 USAR GANANCIA PERSISTIDA (Snapshot en el pedido)
     // ===========================
-    const gananciaMoto = Number((pedido.costoEnvio * 0.8).toFixed(2));
+    const gananciaMoto = Number(pedido.ganancia_motorizado || (pedido.costoEnvio * 0.8).toFixed(2));
     const saldoAnterior = Number(moto.saldo);
     const saldoNuevo = saldoAnterior + gananciaMoto;
 
@@ -520,11 +520,11 @@ export class PedidoMotoService {
 
     const pedidos = await query.getMany();
 
-    // Enriquecer con cálculo de ganancia visual
+    // Enriquecer con cálculo de ganancia visual persistida
     return pedidos.map((p) => ({
       ...p,
-      gananciaEstimada: (p.costoEnvio * 0.8).toFixed(2),
-      comisionApp: (p.costoEnvio * 0.2).toFixed(2),
+      gananciaEstimada: Number(p.ganancia_motorizado || (p.costoEnvio * 0.8)).toFixed(2),
+      comisionApp: Number(p.comision_app_domicilio || (p.costoEnvio * 0.2)).toFixed(2),
     }));
   }
 

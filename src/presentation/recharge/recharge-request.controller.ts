@@ -229,10 +229,13 @@ export class RechargeRequestController {
         return res.status(400).json({ message: "Formato de fecha inválido" });
       }
 
+      const perPage = parseInt(req.query.itemsPerPage as string) || 9;
+
       const result = await this.rechargeService.filterByDateRangePaginated(
         start,
         end,
-        page
+        page,
+        perPage
       );
 
       return res.status(200).json(result);
@@ -371,6 +374,17 @@ export class RechargeRequestController {
 
     try {
       const result = await this.rechargeService.reverseRecharge(id, adminUser);
+      return res.status(200).json(result);
+    } catch (error) {
+      return this.handleError(error, res);
+    }
+  };
+
+  // 10 Configurar Purga
+  configurePurge = async (req: Request, res: Response) => {
+    const { pin, days } = req.body;
+    try {
+      const result = await this.rechargeService.configurePurge(pin, days);
       return res.status(200).json(result);
     } catch (error) {
       return this.handleError(error, res);

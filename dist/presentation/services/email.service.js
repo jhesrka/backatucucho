@@ -19,6 +19,9 @@ class EmailService {
         this.postToProvider = postToProvider;
         this.transporter = nodemailer_1.default.createTransport({
             service: mailerService,
+            pool: true, // Use pooled connections
+            maxConnections: 1, // Limit concurrent connections to avoid blocking
+            rateLimit: 3, // Rate limit messages per second
             auth: {
                 user: mailerEmail,
                 pass: senderEmailPassword,
@@ -28,19 +31,25 @@ class EmailService {
     sendEmail(options) {
         return __awaiter(this, void 0, void 0, function* () {
             const { to, subject, htmlBody, attachments = [] } = options;
-            if (!this.postToProvider)
+            if (!this.postToProvider) {
+                console.warn("⚠️ Email sending is disabled in .env (SEND_EMAIL=false). returning 'true' to simulate success.");
                 return true;
+            }
             try {
-                yield this.transporter.sendMail({
+                const sentInformation = yield this.transporter.sendMail({
                     to: to,
                     subject: subject,
                     html: htmlBody,
-                    //attachments: attachments,
+                    attachments: attachments,
                 });
+                console.log(`✅ Email sent to ${to} | ID: ${sentInformation.messageId}`);
                 return true;
             }
             catch (error) {
-                console.log(error);
+                console.error("Email Service Error:", error);
+                if ((error === null || error === void 0 ? void 0 : error.responseCode) === 535) {
+                    console.error("⚠️ SMTP 535 Error: Authentication failed. If using Gmail, make sure to use an 'App Password', not your main password.");
+                }
                 return false;
             }
         });

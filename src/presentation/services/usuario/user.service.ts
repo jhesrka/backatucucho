@@ -100,10 +100,8 @@ export class UserService {
     user.wallet = wallet;
 
     try {
-      // 1. Primero guarda el usuario para obtener el ID
       const newUser = await user.save();
 
-      // 2. Crear suscripción
       const subscription = new Subscription();
       subscription.user = newUser;
       subscription.plan = SubscriptionPlan.BASIC;
@@ -111,16 +109,22 @@ export class UserService {
       subscription.startDate = new Date();
       subscription.endDate = null!;
 
-      // 3. Crear FreePostTracker con servicio
       const freePostTrackerService = new FreePostTrackerService();
       await freePostTrackerService.getOrCreateTracker(newUser.id);
 
-      // Guardar suscripción y tracker en paralelo (tracker ya guardado dentro del servicio)
       await subscription.save();
 
-      // Notificaciones y respuesta
-      await this.sendEmailValidationLink(newUser.email);
-      getIO().emit("userChanged", newUser);
+      try {
+        await this.sendEmailValidationLink(newUser.email);
+      } catch (emailErr) {
+        console.error("Error enviando email de validación:", emailErr);
+      }
+
+      try {
+        getIO().emit("userChanged", newUser);
+      } catch (ioErr) {
+        console.error("Error en Socket.IO (no bloqueante):", ioErr);
+      }
 
       return {
         id: newUser.id,
@@ -140,6 +144,7 @@ export class UserService {
           `Correo:${userData.email} o Whatsapp:${userData.whatsapp} ya existen`
         );
       }
+      console.error("Error en createUser:", error);
       throw CustomError.internalServer("Error creando el Usuario");
     }
   }
@@ -1046,7 +1051,8 @@ export class UserService {
         productos: n.productos.map(prod => ({
           id: prod.id,
           nombre: prod.nombre,
-          precio: prod.precio,
+          precio_venta: prod.precio_venta,
+          precio_app: prod.precio_app,
           status: prod.statusProducto,
           imagen: prod.imagen
         }))

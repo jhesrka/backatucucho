@@ -1084,18 +1084,18 @@ export class PostService {
   async expirePosts() {
     const now = new Date();
     try {
-      const result = await Post.update(
-        {
+      const result = await Post.createQueryBuilder()
+        .update(Post)
+        .set({
           statusPost: StatusPost.ELIMINADO,
           expiresAt: null as any,
-          deletedAt: now,
-        },
-        {
-          statusPost: StatusPost.PUBLICADO,
-          isPaid: false,
-          expiresAt: LessThan(now) as any,
-        }
-      );
+          deletedAt: now
+        })
+        .where("statusPost = :status", { status: StatusPost.PUBLICADO })
+        .andWhere("isPaid = :isPaid", { isPaid: false })
+        .andWhere("expiresAt <= :now", { now })
+        .execute();
+
       return result.affected || 0;
     } catch (error) {
       console.error("Error al expirar posts:", error);

@@ -67,10 +67,9 @@ export class NegocioService {
           "Tipo de imagen no permitido. Usa JPG, PNG o WEBP."
         );
       }
-      key = `negocios/${Date.now()}-${img.originalname}`;
-      await UploadFilesCloud.uploadSingleFile({
+      key = await UploadFilesCloud.uploadSingleFile({
         bucketName: envs.AWS_BUCKET_NAME,
-        key,
+        key: `negocios/${Date.now()}-${img.originalname}`,
         body: img.buffer,
         contentType: img.mimetype,
       });
@@ -93,23 +92,39 @@ export class NegocioService {
       tipoCuenta: dto.tipoCuenta,
       numeroCuenta: dto.numeroCuenta,
       titularCuenta: dto.titularCuenta,
+      statusNegocio: StatusNegocio.PENDIENTE, // 🔒 Regla 2: SIEMPRE inicia en pendiente
     });
 
     try {
       const saved = await negocio.save();
+
+      const imagenUrl = await UploadFilesCloud.getFile({
+        bucketName: envs.AWS_BUCKET_NAME,
+        key: saved.imagenNegocio,
+      });
+
       return {
         id: saved.id,
         nombre: saved.nombre,
         descripcion: saved.descripcion,
         statusNegocio: saved.statusNegocio,
+        estadoNegocio: saved.estadoNegocio,
         created_at: saved.created_at,
         modeloMonetizacion: saved.modeloMonetizacion,
-        latitud: saved.latitud,
-        longitud: saved.longitud,
+        latitud: saved.latitud ? Number(saved.latitud) : null,
+        longitud: saved.longitud ? Number(saved.longitud) : null,
+        direccionTexto: saved.direccionTexto,
+        banco: saved.banco,
+        tipoCuenta: saved.tipoCuenta,
+        numeroCuenta: saved.numeroCuenta,
+        titularCuenta: saved.titularCuenta,
+        imagenUrl,
         categoria: {
           id: categoria.id,
           nombre: categoria.nombre,
           statusCategoria: categoria.statusCategoria,
+          restriccionModeloMonetizacion: categoria.restriccionModeloMonetizacion,
+          soloComision: categoria.soloComision,
         },
         usuario: { id: usuario.id },
       };
@@ -435,14 +450,12 @@ export class NegocioService {
           key: negocio.imagenNegocio,
         });
       }
-      const newKey = `negocios/${Date.now()}-${img.originalname}`;
-      await UploadFilesCloud.uploadSingleFile({
+      negocio.imagenNegocio = await UploadFilesCloud.uploadSingleFile({
         bucketName: envs.AWS_BUCKET_NAME,
-        key: newKey,
+        key: `negocios/${Date.now()}-${img.originalname}`,
         body: img.buffer,
         contentType: img.mimetype,
       });
-      negocio.imagenNegocio = newKey;
     }
 
     const saved = await negocio.save();
@@ -457,14 +470,22 @@ export class NegocioService {
       nombre: saved.nombre,
       descripcion: saved.descripcion,
       statusNegocio: saved.statusNegocio,
+      estadoNegocio: saved.estadoNegocio,
       modeloMonetizacion: saved.modeloMonetizacion,
       created_at: saved.created_at,
-      latitud: saved.latitud,
-      longitud: saved.longitud,
+      latitud: saved.latitud ? Number(saved.latitud) : null,
+      longitud: saved.longitud ? Number(saved.longitud) : null,
+      direccionTexto: saved.direccionTexto,
+      banco: saved.banco,
+      tipoCuenta: saved.tipoCuenta,
+      numeroCuenta: saved.numeroCuenta,
+      titularCuenta: saved.titularCuenta,
       categoria: {
         id: saved.categoria.id,
         nombre: saved.categoria.nombre,
         statusCategoria: saved.categoria.statusCategoria,
+        restriccionModeloMonetizacion: saved.categoria.restriccionModeloMonetizacion,
+        soloComision: saved.categoria.soloComision,
       },
       imagenUrl,
     };
@@ -523,5 +544,12 @@ export class NegocioService {
   // ADMIN: Purga definitiva
   async purgeNegocioAdmin(id: string) {
     return await this.deleteNegocio(id);
+  }
+
+  // ========================= SUBSCRIPTION =========================
+  async paySubscription(negocioId: string, userId: string) {
+    const { SubscriptionService } = await import("./subscription.service");
+    const subService = new SubscriptionService();
+    return await subService.payBusinessSubscription(negocioId, userId);
   }
 }

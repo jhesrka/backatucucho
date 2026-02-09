@@ -29,12 +29,6 @@ export class Producto extends BaseEntity {
   @Column({ type: "text", nullable: true })
   descripcion: string;
 
-  @Column({ type: "decimal", precision: 10, scale: 2 })
-  precio: number;
-
-  @Column({ type: "decimal", precision: 10, scale: 2, nullable: true })
-  precioParaApp: number | null; // ✅ lo que se queda la app si es modelo COMISION
-
   @Column({ type: "varchar", nullable: true })
   imagen: string;
 
@@ -62,4 +56,13 @@ export class Producto extends BaseEntity {
     onDelete: "SET NULL", // <-- esto es clave
   })
   tipo: TipoProducto | null;
+
+  @Column("decimal", { precision: 10, scale: 2, default: 0 })
+  precio_venta: number;
+
+  @Column("decimal", { precision: 10, scale: 2, default: 0 })
+  precio_app: number;
+
+  @Column("decimal", { precision: 10, scale: 2, default: 0 })
+  comision_producto: number;
 }

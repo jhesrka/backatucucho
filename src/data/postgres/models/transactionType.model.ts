@@ -69,6 +69,19 @@ export class Transaction extends BaseEntity {
   @Column({ type: 'text', nullable: true })
   observation: string | null; // Nota/motivo adicional
 
+  // Audit fields for Subscriptions (requested for daily reconciliation)
+  @Column({ type: 'int', nullable: true })
+  daysBought: number | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  prevEndDate: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  newEndDate: Date | null;
+
+  @Column({ type: 'text', nullable: true })
+  receipt_image: string | null;
+
   @CreateDateColumn()
   created_at: Date;
 }

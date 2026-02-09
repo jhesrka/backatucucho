@@ -66,8 +66,8 @@ export class ProductoControllerAdmin {
       const {
         nombre,
         descripcion,
-        precio,
-        precioParaApp,
+        precio_venta,
+        precio_app,
         disponible,
         statusProducto,
       } = req.body;
@@ -77,8 +77,8 @@ export class ProductoControllerAdmin {
       const result = await this.productoServiceAdmin.updateProductoAdmin(id, {
         nombre,
         descripcion,
-        precio: precio ? Number(precio) : undefined,
-        precioParaApp: precioParaApp ? Number(precioParaApp) : undefined,
+        precio_venta: precio_venta ? Number(precio_venta) : undefined,
+        precio_app: precio_app ? Number(precio_app) : undefined,
         disponible:
           disponible !== undefined
             ? disponible === "true"

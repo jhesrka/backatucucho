@@ -57,6 +57,36 @@ export class PriceController {
     }
   };
 
+  // Actualizar configuración de comisiones (admin)
+  updateCommissionSettings = async (req: Request, res: Response) => {
+    const { motorizadoPercentage, appPercentage, masterPin } = req.body;
+
+    if (motorizadoPercentage === undefined || appPercentage === undefined) {
+      return res.status(422).json({ message: "Debe proporcionar motorizadoPercentage y appPercentage" });
+    }
+
+    if (!masterPin) {
+      return res.status(400).json({ message: "Se requiere el PIN maestro para realizar cambios" });
+    }
+
+    try {
+      await this.userAdminService.validateMasterPin(masterPin);
+
+      // Get admin from request (set by middleware)
+      const admin = (req as any).admin;
+
+      const updated = await this.priceService.updateCommissionSettings(
+        Number(motorizadoPercentage),
+        Number(appPercentage),
+        admin
+      );
+
+      return res.status(200).json(updated);
+    } catch (error) {
+      return this.handleError(error, res);
+    }
+  };
+
   // Calcular precio de historia según días
   calculateStoriePrice = async (req: Request, res: Response) => {
     try {

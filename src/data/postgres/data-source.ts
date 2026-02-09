@@ -29,6 +29,7 @@ import { Report } from "./models/report.model";
 import { PriceSettings } from "./models/PriceSettings";
 import { DeliverySettings } from "./models/DeliverySettings";
 import { GlobalSettings } from "./models/global-settings.model";
+import { CommissionLog } from "./models/CommissionLog";
 
 export const AppDataSource = new DataSource({
     type: "postgres",
@@ -43,7 +44,7 @@ export const AppDataSource = new DataSource({
         User, Post, Useradmin, Storie, Like, Wallet, RechargeRequest, Subscription,
         FreePostTracker, Transaction, CategoriaNegocio, Negocio, Producto, TipoProducto,
         UserMotorizado, ProductoPedido, Pedido, TransaccionMotorizado, BalanceNegocio,
-        PriceSettings, DeliverySettings, AdminNotification, GlobalSettings, Campaign,
+        PriceSettings, DeliverySettings, AdminNotification, GlobalSettings, CommissionLog, Campaign,
         CampaignLog, FinancialClosing, Report
     ],
     migrations: ["src/data/postgres/migrations/*.ts"],
