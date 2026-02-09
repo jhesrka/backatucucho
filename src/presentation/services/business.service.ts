@@ -82,7 +82,8 @@ export class BusinessService {
             return {
                 id: n.id,
                 nombre: n.nombre,
-                imagenUrl: img, // Unify property name
+                imagenNegocio: img, // Legacy support
+                imagenUrl: img,     // New standard
                 statusNegocio: n.statusNegocio,
                 modeloMonetizacion: n.modeloMonetizacion
             };
@@ -104,7 +105,7 @@ export class BusinessService {
     }
 
     async getMyBusinesses(userId: string) {
-        // Consultar Negocios directamente por userId para mayor confiabilidad
+        // Consultar Negocios directamente para evitar problemas con la hidratación de la relación en User
         const negocios = await Negocio.find({
             where: { usuario: { id: userId } },
             order: { created_at: "DESC" }
@@ -125,7 +126,8 @@ export class BusinessService {
                 id: n.id,
                 nombre: n.nombre,
                 descripcion: n.descripcion,
-                imagenUrl: img, // Unify property name
+                imagenNegocio: img, // Legacy support
+                imagenUrl: img,     // New standard
                 statusNegocio: n.statusNegocio,
                 modeloMonetizacion: n.modeloMonetizacion
             };
