@@ -82,7 +82,7 @@ export class BusinessService {
             return {
                 id: n.id,
                 nombre: n.nombre,
-                imagenNegocio: img,
+                imagenUrl: img, // Unify property name
                 statusNegocio: n.statusNegocio,
                 modeloMonetizacion: n.modeloMonetizacion
             };
@@ -104,15 +104,14 @@ export class BusinessService {
     }
 
     async getMyBusinesses(userId: string) {
-        const user = await User.findOne({
-            where: { id: userId },
-            relations: ["negocios"],
+        // Consultar Negocios directamente por userId para mayor confiabilidad
+        const negocios = await Negocio.find({
+            where: { usuario: { id: userId } },
+            order: { created_at: "DESC" }
         });
 
-        if (!user) throw CustomError.notFound("Usuario no encontrado");
-
         // Mapear respuesta
-        const negociosWithImages = await Promise.all(user.negocios.map(async (n) => {
+        const negociosWithImages = await Promise.all(negocios.map(async (n) => {
             let img = "";
             if (n.imagenNegocio) {
                 try {
@@ -126,7 +125,7 @@ export class BusinessService {
                 id: n.id,
                 nombre: n.nombre,
                 descripcion: n.descripcion,
-                imagenNegocio: img,
+                imagenUrl: img, // Unify property name
                 statusNegocio: n.statusNegocio,
                 modeloMonetizacion: n.modeloMonetizacion
             };

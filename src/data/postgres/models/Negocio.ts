@@ -26,6 +26,7 @@ export enum StatusNegocio {
 export enum ModeloMonetizacion {
   SUSCRIPCION = "SUSCRIPCION",
   COMISION_SUSCRIPCION = "COMISION_SUSCRIPCION",
+  COMISION = "COMISION", // Soporte para datos antiguos
 }
 
 export enum EstadoNegocio {
