@@ -73,16 +73,16 @@ export class Transaction extends BaseEntity {
   @Column({ type: 'int', nullable: true })
   daysBought: number | null;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   prevEndDate: Date | null;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   newEndDate: Date | null;
 
   @Column({ type: 'text', nullable: true })
   receipt_image: string | null;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 }
 

@@ -40,6 +40,7 @@ export const AppDataSource = new DataSource({
     database: envs.DB_DATABASE,
     synchronize: false, // SIEMPRE FALSE EN MIGRACIONES
     logging: false,
+    timezone: 'UTC', // Fuerza que todas las fechas se serialicen en UTC con Z
     entities: [
         User, Post, Useradmin, Storie, Like, Wallet, RechargeRequest, Subscription,
         FreePostTracker, Transaction, CategoriaNegocio, Negocio, Producto, TipoProducto,

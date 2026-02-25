@@ -32,7 +32,7 @@ export class RechargeRequest extends BaseEntity {
   })
   bank_name: string | null;
 
-  @Column({ type: "timestamp", nullable: true })
+  @Column({ type: "timestamptz", nullable: true })
   transaction_date: Date | null;
 
   @Column("varchar", {
@@ -63,9 +63,9 @@ export class RechargeRequest extends BaseEntity {
   })
   admin_comment: string;
 
-  @CreateDateColumn({ type: "timestamp" })
+  @CreateDateColumn({ type: "timestamptz" })
   created_at: Date;
 
-  @Column("timestamp", { nullable: true })
+  @Column("timestamptz", { nullable: true })
   resolved_at: Date;
 }
