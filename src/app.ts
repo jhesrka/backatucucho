@@ -1,3 +1,4 @@
+process.env.TZ = 'UTC'; // Forzar Node.js a operar siempre en UTC
 import "reflect-metadata"; // esto si bien instalamos depues siempre debe ir primero
 import { envs } from "./config";
 import { PostgresDatabase } from "./data";
