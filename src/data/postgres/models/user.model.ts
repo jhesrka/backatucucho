@@ -28,6 +28,7 @@ export enum Status {
   INACTIVE = "INACTIVE",
   DELETED = "DELETED",
   BANNED = "BANNED",
+  SUSPENDED = "SUSPENDED",
 }
 
 export enum UserRole {
@@ -109,6 +110,12 @@ export class User extends BaseEntity {
 
   @Column("int", { default: 0 })
   resetTokenVersion: number;
+
+  @Column("int", { default: 0 })
+  warnings_count: number;
+
+  @Column("timestamp", { nullable: true })
+  suspension_until: Date;
 
   // Sesión Única y Seguridad
   @Column("boolean", { default: false })

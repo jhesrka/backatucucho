@@ -8,6 +8,8 @@ import { startPedidoMotoCron } from "./cron/pedidoMoto.cron";
 import { startSubscriptionCron } from "./cron/subscription.cron";
 import { startPostExpirationCron } from "./cron/post-expiration.cron";
 import { startOrderPurgeCron } from "./cron/pedidoPurge.cron";
+import { startReportPurgeCron } from "./cron/report-purge.cron";
+import { startGlobalScheduleCron } from "./cron/global-schedule.cron";
 async function main() {
   const postgres = new PostgresDatabase({
     username: envs.DB_USERNAME,
@@ -28,6 +30,9 @@ async function main() {
   startSubscriptionCron();
   startPostExpirationCron();
   startOrderPurgeCron();
+  startOrderPurgeCron();
+  startReportPurgeCron();
+  startGlobalScheduleCron();
 
   await server.start();
 }

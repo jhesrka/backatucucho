@@ -11,6 +11,29 @@ export class GlobalSettings extends BaseEntity {
     @Column("int", { default: 60 })
     rechargeRetentionDays: number; // Días de retención para recargas
 
+    @Column("int", { default: 30 })
+    reportsRetentionDays: number; // Purga de reportes
+
+    // ==========================================
+    // 🕒 HORARIOS Y ESTADO GLOBAL DE LA APP
+    // ==========================================
+
+    @Column("time", { default: "08:00:00" })
+    hora_apertura: string;
+
+    @Column("time", { default: "22:00:00" })
+    hora_cierre: string;
+
+    @Column("varchar", { length: 10, default: "CLOSED" })
+    app_status: "OPEN" | "CLOSED";
+
+    @Column("varchar", { length: 10, default: "AUTO" })
+    modo_operacion: "AUTO" | "MANUAL";
+
+    @Column("timestamp", { nullable: true })
+    ultimo_cambio_automatico: Date;
+
+
     @Column("varchar", { length: 60, nullable: true })
     masterPin?: string; // PIN de 4 dígitos hasheado con bcrypt (60 caracteres)
 

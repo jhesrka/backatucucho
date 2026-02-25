@@ -46,7 +46,7 @@ export class PedidoUsuarioService {
 
   // Crear un pedido desde el frontend del cliente
   async crearPedido(dto: CreatePedidoDTO) {
-    console.log("🚀 [DEBUG] Creating Pedido:", dto); // Debug log
+
     // ... (validation logic identical to original)
     const {
       clienteId,

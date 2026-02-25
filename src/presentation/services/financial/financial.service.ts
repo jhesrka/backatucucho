@@ -334,6 +334,10 @@ export class FinancialService {
         let totalComisionDomicilios = 0;
         let totalPagoMotorizadosArr = 0;
 
+        // NEW: Financial Reconciliation Accumulators
+        let totalDepositoEfectivo = 0; // Cash Orders (Total + Delivery)
+        let totalDepositoTransferencia = 0; // Transfer Orders (Delivery + Product Commission)
+
         for (const order of orders) {
             // 1. PRODUCT COMMISSION
             // Try new field first (User requirement: Only new orders fill these)
@@ -371,6 +375,18 @@ export class FinancialService {
                 pagoMoto = Number(order.ganancia_motorizado || 0);
             }
             totalPagoMotorizadosArr += pagoMoto;
+
+            // 4. DEPOSIT CALCULATIONS (New Requirement)
+            if (order.metodoPago === MetodoPago.EFECTIVO) {
+                // Depósito App (Efectivo) = TOTAL PEDIDO + COSTO DOMICILIO
+                // The driver collects this sum physically.
+                totalDepositoEfectivo += (Number(order.total || 0) + Number(order.costoEnvio || 0));
+            } else if (order.metodoPago === MetodoPago.TRANSFERENCIA) {
+                // Depósito App (Transferencia) = Costo domicilio + comisiones app
+                // User Rule: "Sumar: Costo domicilio + comisiones app" (excluding shop price)
+                // Note: comProd is the "comisión app".
+                totalDepositoTransferencia += (Number(order.costoEnvio || 0) + comProd);
+            }
         }
 
         const totalIngresosApp = totalSubsUser + totalSubsBiz + totalStories + totalComisionProductos + totalComisionDomicilios;
@@ -417,6 +433,10 @@ export class FinancialService {
                     comisionProductos: totalComisionProductos,
                     comisionDomicilio: totalComisionDomicilios
                 }
+            },
+            deposits: {
+                cash: totalDepositoEfectivo,
+                transferApp: totalDepositoTransferencia
             },
             liabilities: {
                 usuarios: totalSaldoUsuarios,
@@ -801,64 +821,205 @@ export class FinancialService {
 
         // 1. Check if already closed
         const existing = await FinancialClosing.findOne({ where: { closingDate: dateStr } });
-        if (existing) throw CustomError.conflict(`El día ${dateStr} ya está cerrado.`);
+        if (existing) throw CustomError.badRequest("El día ya está cerrado, no se puede sobrescribir.");
 
-        // 2. Calculate Totals (Snapshot)
-        // Ensure accurate range for that specific day
-        const start = new Date(dateStr);
-        start.setHours(0, 0, 0, 0); // Local time consideration? Backend is UTC usually.
-        // Assuming dateStr is YYYY-MM-DD, new Date(dateStr) is UTC 00:00.
-        // But getFinancialSummary logic used setHours override which works on local server time unless UTC is forced.
-        // Let's reuse getFinancialSummary logic logic for dates:
-        // Adjust for Ecuador (UTC-5) if strict, but consistency is key.
-        // We will use the SAME summary function to get the values to freeze.
-
-        // Important: getFinancialSummary adjusts 'end' to X:59:59.
-        // We need to pass the date object correctly.
-        // If 'date' input is "2026-02-03" (Date object), let's ensure it's treated as the start.
-
-        const summary = await this.getFinancialSummary(start, start);
-
-        // 2.1 Critical: Check for PENDING or IN_REVIEW transactions
-        // 2.1 Critical: Check for PENDING transactions in Ecuador Time
-        const startEcuador = new Date(dateStr);
-        startEcuador.setUTCHours(5, 0, 0, 0);
-        const endEcuador = new Date(dateStr);
-        endEcuador.setUTCHours(28, 59, 59, 999);
-
-        const pendingTransactions = await RechargeRequest.find({
-            where: {
-                status: In([StatusRecarga.PENDIENTE]),
-                created_at: Between(startEcuador, endEcuador)
-            },
-            take: 3
-        });
-
-        if (pendingTransactions.length > 0) {
-            const ids = pendingTransactions.map(t => `#${t.id.slice(0, 8)}`).join(", ");
-            throw CustomError.badRequest(`No se puede cerrar el día: Existen ${pendingTransactions.length} transacciones pendientes de aprobación (${ids}).`);
+        // 2. Validate S3 URL
+        if (!statementUrl.includes(envs.AWS_BUCKET_NAME)) {
+            // throw CustomError.badRequest("URL de archivo inválida"); 
+            // Warning: Maybe user pasted external link? Let's allow but maybe warn log.
         }
 
-        // 3. Create Record
+        // 3. Snapshot Data (Freeze)
+        // We reuse master summary logic for the snapshot
+        const summary = await this.getFinancialSummary(date, date);
+
+        // 4. Save
         const closing = new FinancialClosing();
         closing.closingDate = dateStr;
-        closing.totalIncome = summary.appRevenue.total;
-        closing.totalExpenses = 0;
-
-        // 📸 SAVE SNAPSHOTS
-        closing.totalUserBalance = summary.liabilities.usuarios;
-        closing.totalMotorizadoDebt = summary.liabilities.motorizados;
-
-        closing.totalRechargesCount = summary.bank.countRecargas;
-        closing.backupFileUrl = statementUrl;
         closing.closedBy = adminUser;
+        closing.backupFileUrl = statementUrl;
+
+        // Save Snapshot Values
+        if (summary) {
+            closing.totalRechargesCount = summary.bank.countRecargas; // Map count
+            closing.totalIncome = summary.appRevenue.total; // Map to available field
+            closing.totalExpenses = 0; // Or calculate if needed
+            closing.totalUserBalance = summary.liabilities.usuarios;
+            closing.totalMotorizadoDebt = summary.liabilities.motorizados;
+            // No snapshotData field in entity
+        }
 
         await closing.save();
 
-        return {
-            success: true,
-            message: `Día ${dateStr} cerrado correctamente.`,
-            data: closing
+        return { success: true, message: "Día cerrado exitosamente" };
+    }
+
+    // ===================================
+    // 🚨 PENDING CLOSINGS (GLOBAL)
+    // ===================================
+    async getPendingShopClosings() {
+        // Strategy:
+        // 1. Get all orders from last 60 days (reasonable window) grouped by Shop + Date
+        // 2. Get all BalanceNegocio entries from last 60 days
+        // 3. Diff: Any (Shop+Date) with orders but NO (BalanceNegocio.isClosed=true) is pending
+        // 4. Also include any BalanceNegocio.isClosed=false (explicitly pending)
+
+        const lookbackDays = 60;
+        const limitDate = new Date();
+        limitDate.setDate(limitDate.getDate() - lookbackDays);
+        limitDate.setHours(0, 0, 0, 0);
+
+        // A. Aggregate Orders: "Days with activity"
+        // Note: Using raw query builder on Pedido repository
+        const activeDays = await Pedido.createQueryBuilder("p")
+            .select("DATE(p.updatedAt)", "date")
+            .addSelect("p.negocioId", "shopId")
+            .addSelect("SUM(p.total)", "total")
+            .where("p.updatedAt >= :limit", { limit: limitDate })
+            .andWhere("p.estado = :status", { status: EstadoPedido.ENTREGADO })
+            .groupBy("DATE(p.updatedAt), p.negocioId")
+            .getRawMany();
+
+        // B. Get Closed Days
+        const closedDays = await BalanceNegocio.find({
+            where: {
+                fecha: MoreThanOrEqual(limitDate.toISOString().split('T')[0])
+            },
+            relations: ["negocio"]
+        });
+
+        // Map closed days for fast lookup: "shopId|dateString"
+        const closedMap = new Set();
+        closedDays.forEach(b => {
+            // If record exists and isClosed, it's done.
+            // If record exists and NOT closed (PENDIENTE), it's definitely pending, but handled by logic below (it won't be in closedMap)
+            if (b.isClosed) {
+                closedMap.add(`${b.negocio.id}|${b.fecha}`);
+            }
+        });
+
+        let pending = [];
+
+        // C. Filter
+        const uniqueActiveDays = new Map(); // Avoid duplicates if query returns multiple rows per group (shouldn't with group by)
+
+        // Enrich Shop Names Map
+        const shopIds = [...new Set(activeDays.map(d => d.shopId))];
+        let shopMap = new Map();
+        if (shopIds.length > 0) {
+            const shops = await Negocio.find({ where: { id: In(shopIds) }, select: ["id", "nombre"] });
+            shopMap = new Map(shops.map(s => [s.id, s.nombre]));
+        }
+
+        for (const day of activeDays) {
+            // day.date type depends on driver, usually Date object or string
+            let dateStr = day.date;
+            if (day.date instanceof Date) dateStr = day.date.toISOString().split('T')[0];
+            else if (typeof day.date === 'string' && day.date.includes('T')) dateStr = day.date.split('T')[0];
+
+            const key = `${day.shopId}|${dateStr}`;
+
+            // Skip today
+            const todayStr = new Date().toISOString().split('T')[0];
+            if (dateStr === todayStr) continue;
+
+            if (!closedMap.has(key)) {
+                pending.push({
+                    shopId: day.shopId,
+                    shopName: shopMap.get(day.shopId) || 'Desconocido',
+                    date: dateStr,
+                    total: Number(day.total),
+                    status: 'PENDIENTE'
+                });
+            }
+        }
+
+        // Filter out items with total 0 just in case
+        pending = pending.filter(p => p.total > 0);
+
+        // Sort by Date Desc
+        return pending.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }
+
+    // ===================================
+    // 🏍️ DRIVER MOVEMENTS (MOVIMIENTOS MOTORIZADOS)
+    // ===================================
+    public async getMovimientosMotorizados(startDate: Date, endDate: Date) {
+        const start = new Date(startDate);
+        start.setUTCHours(5, 0, 0, 0); // Start of day Ecuador
+
+        const end = new Date(endDate);
+        end.setUTCHours(28, 59, 59, 999); // End of day Ecuador
+
+        const orders = await Pedido.find({
+            where: {
+                estado: EstadoPedido.ENTREGADO, // Ensure enum match
+                updatedAt: Between(start, end)
+            },
+            relations: ["motorizado"],
+            order: { updatedAt: "DESC" }
+        });
+
+        console.log(`[DEBUG] getMovimientosMotorizados found ${orders.length} orders for range ${start.toISOString()} - ${end.toISOString()}`);
+
+        let totalDeuda = 0;
+        const movimientos: any[] = [];
+
+        for (const order of orders) {
+
+            const moto = (order.motorizado as any);
+            let motorizadoName = 'Motorizado No Encontrado';
+            if (moto) {
+                motorizadoName = `${moto.nombre || moto.name || ''} ${moto.apellido || moto.surname || ''}`.trim();
+            }
+
+            // Calculate Driver Gain (Without App Commission)
+            let gananciaMoto = 0;
+
+            // 1. Try direct field (NEWEST)
+            gananciaMoto = Number((order as any).pago_motorizado || 0);
+
+            // 2. Try legacy field
+            if (gananciaMoto === 0) {
+                gananciaMoto = Number((order as any).ganancia_motorizado || 0);
+            }
+
+            // 3. Fallback calculation
+            if (gananciaMoto === 0) {
+                let comisionApp = Number((order as any).comision_moto_app || (order as any).comision_app_domicilio || 0);
+                if (comisionApp === 0) comisionApp = Number(order.costoEnvio || 0) * 0.20;
+                gananciaMoto = Number(order.costoEnvio || 0) - comisionApp;
+            }
+
+            console.log(`[DEBUG] Order #${order.id.slice(0, 5)} | Moto: ${motorizadoName} | Gain: ${gananciaMoto}`);
+
+            // Format Time (Ecuador UTC-5)
+            const dateObj = new Date(order.updatedAt);
+            const ecuadorTime = new Date(dateObj.getTime() - (5 * 60 * 60 * 1000));
+            const fechaStr = ecuadorTime.toISOString().split('T')[0];
+            const horaStr = ecuadorTime.toISOString().split('T')[1].substring(0, 5); // HH:mm
+
+            const movObj = {
+                motorizado: motorizadoName,
+                pedidoId: order.id,
+                shortId: `#${order.id.slice(0, 5)}`,
+                valor: Number(gananciaMoto.toFixed(2)),
+                fecha: fechaStr,
+                hora: horaStr,
+                fullDate: order.updatedAt
+            };
+            movimientos.push(movObj);
+
+            totalDeuda += gananciaMoto;
+        }
+
+        const result = {
+            totalDeuda: Number(totalDeuda.toFixed(2)),
+            movimientos: movimientos
         };
+
+        console.log("[DEBUG] Final Result to Return:", JSON.stringify(result, null, 2));
+
+        return result;
     }
 }

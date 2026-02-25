@@ -78,6 +78,9 @@ export class Negocio extends BaseEntity {
   @Column({ type: "int", default: 1 })
   diaPago: number;
 
+  @Column({ type: "int", default: 0 })
+  orden: number;
+
   @Column({ type: "timestamp", nullable: true })
   fechaUltimoCobro: Date | null;
 

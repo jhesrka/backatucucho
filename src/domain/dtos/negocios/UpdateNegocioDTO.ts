@@ -14,7 +14,8 @@ export class UpdateNegocioDTO {
     public readonly direccionTexto?: string | null,
     public readonly valorSuscripcion?: number,
     public readonly diaPago?: number,
-    public readonly masterPin?: string
+    public readonly masterPin?: string,
+    public readonly orden?: number
   ) { }
 
   static create(obj: { [key: string]: any }): [string?, UpdateNegocioDTO?] {
@@ -29,6 +30,7 @@ export class UpdateNegocioDTO {
       direccionTexto,
       valorSuscripcion,
       diaPago,
+      orden
     } = obj;
 
     // Validaciones opcionales
@@ -83,6 +85,13 @@ export class UpdateNegocioDTO {
       }
     }
 
+    if (orden !== undefined) {
+      const ord = Number(orden);
+      if (isNaN(ord)) {
+        return ["El orden debe ser un número"];
+      }
+    }
+
     const dirTxt =
       typeof direccionTexto === "string" && direccionTexto.trim().length > 0
         ? direccionTexto.trim().slice(0, 200)
@@ -101,7 +110,8 @@ export class UpdateNegocioDTO {
         dirTxt,
         valorSuscripcion !== undefined ? Number(valorSuscripcion) : undefined,
         diaPago !== undefined ? Number(diaPago) : undefined,
-        obj.masterPin
+        obj.masterPin,
+        orden !== undefined ? Number(orden) : undefined
       ),
     ];
   }

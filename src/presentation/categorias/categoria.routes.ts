@@ -4,6 +4,8 @@ import { CategoriaController } from "./categoria.controller";
 import { AuthMiddleware } from "../../middlewares/auth.middleware";
 import { AuthAdminMiddleware } from "../../middlewares/auth-admin.middleware";
 
+import { uploadSingleFile } from "../../config/updoad-files.adapter";
+
 export class CategoriaRoutes {
   static get routes(): Router {
     const router = Router();
@@ -14,10 +16,10 @@ export class CategoriaRoutes {
     // ====================== ADMIN ======================
 
     // Crear categoría
-    router.post("/", AuthAdminMiddleware.protect, categoriaController.createCategoria);
+    router.post("/", [AuthAdminMiddleware.protect, uploadSingleFile("imagen")], categoriaController.createCategoria);
 
     // Actualizar categoría
-    router.patch("/:id", AuthAdminMiddleware.protect, categoriaController.updateCategoria);
+    router.patch("/:id", [AuthAdminMiddleware.protect, uploadSingleFile("imagen")], categoriaController.updateCategoria);
 
     // Eliminar categoría
     router.delete("/:id", AuthAdminMiddleware.protect, categoriaController.deleteCategoria);

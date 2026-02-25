@@ -13,7 +13,12 @@ export class GlobalSettingsService {
             settings.freePostDurationHours = 0;
             settings.subscriptionBasicPrice = 5.00;
             settings.subscriptionBasicDurationDays = 30;
+            settings.reportsRetentionDays = 30;
             settings.currentTermsVersion = "v1.0";
+            settings.hora_apertura = "08:00:00";
+            settings.hora_cierre = "22:00:00";
+            settings.app_status = "CLOSED";
+            settings.modo_operacion = "AUTO";
             await settings.save();
         }
         return settings;
@@ -55,7 +60,15 @@ export class GlobalSettingsService {
 
         // Maintain existing logic if any
         if (data.orderRetentionDays !== undefined) settings.orderRetentionDays = data.orderRetentionDays;
+        if (data.reportsRetentionDays !== undefined) settings.reportsRetentionDays = data.reportsRetentionDays;
         if (data.freePostsLimit !== undefined) settings.freePostsLimit = data.freePostsLimit;
+
+        // NEW: Schedule Settings
+        if (data.hora_apertura !== undefined) settings.hora_apertura = data.hora_apertura;
+        if (data.hora_cierre !== undefined) settings.hora_cierre = data.hora_cierre;
+        // status/mode should be handled by specific methods, but allowing manual override for flexibility could be okay.
+        // But per requirements, use specific endpoints. However, an admin might want to force "OPEN" manually.
+        // Let's stick to the requested endpoints for status/mode, but allow updating hours here.
 
         if (data.subscriptionBasicPrice !== undefined) settings.subscriptionBasicPrice = data.subscriptionBasicPrice;
         if (data.subscriptionBasicPromoPrice !== undefined) settings.subscriptionBasicPromoPrice = data.subscriptionBasicPromoPrice;
@@ -77,5 +90,64 @@ export class GlobalSettingsService {
 
         await settings.save();
         return settings;
+    }
+    async closeApp() {
+        const settings = await this.getSettings();
+        settings.app_status = "CLOSED";
+        settings.modo_operacion = "MANUAL";
+        await settings.save();
+        return settings;
+    }
+
+    async enableAutoMode() {
+        const settings = await this.getSettings();
+        settings.modo_operacion = "AUTO";
+        await settings.save();
+
+        // 🔥 RECÁLCULO INMEDIATO
+        await this.checkAppSchedule();
+
+        return settings;
+    }
+
+    async checkAppSchedule() {
+        const settings = await this.getSettings();
+
+        if (settings.modo_operacion === 'MANUAL') {
+            return; // Do nothing
+        }
+
+        // 1️⃣ 🔥 ZONA HORARIA OBLIGATORIA (America/Guayaquil)
+        // Obtener hora actual en Ecuador
+        const now = new Date();
+        const ecuadorTimeStr = now.toLocaleString("en-US", { timeZone: "America/Guayaquil" });
+        const ecuadorDate = new Date(ecuadorTimeStr);
+
+        const currentH = ecuadorDate.getHours();
+        const currentM = ecuadorDate.getMinutes();
+
+        // Parse database times which are strings "HH:mm:ss"
+        const [openH, openM] = settings.hora_apertura.split(':').map(Number);
+        const [closeH, closeM] = settings.hora_cierre.split(':').map(Number);
+
+        const currentMinutes = currentH * 60 + currentM;
+        const openMinutes = openH * 60 + openM;
+        const closeMinutes = closeH * 60 + closeM;
+
+        let newState: "OPEN" | "CLOSED" = "CLOSED";
+
+        if (currentMinutes >= openMinutes && currentMinutes < closeMinutes) {
+            newState = "OPEN";
+        } else {
+            newState = "CLOSED";
+        }
+
+        if (newState !== settings.app_status) {
+            console.log(`[CRON/AUTO] Updating App Status: ${settings.app_status} -> ${newState} (Ecuador Time: ${currentH}:${currentM})`);
+            settings.app_status = newState;
+            // 5️⃣ 🔥 MEJORA OPCIONAL: Audit field
+            settings.ultimo_cambio_automatico = new Date(); // Save server time or ecuador time? TypeORM handles Date as timestamp. using server time is fine for audit.
+            await settings.save();
+        }
     }
 }

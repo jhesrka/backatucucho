@@ -154,8 +154,16 @@ export class NegocioAdminService {
       usuario,
       imagenNegocio: key,
       modeloMonetizacion: dto.modeloMonetizacion,
+      latitud: dto.latitud,
+      longitud: dto.longitud,
+      direccionTexto: dto.direccionTexto,
+      banco: dto.banco,
+      tipoCuenta: dto.tipoCuenta,
+      numeroCuenta: dto.numeroCuenta,
+      titularCuenta: dto.titularCuenta,
       valorSuscripcion: dto.valorSuscripcion,
       diaPago: dto.diaPago,
+      orden: dto.orden ?? 0, // Nuevo campo, default 0
     });
 
     const saved = await negocio.save();
@@ -239,6 +247,10 @@ export class NegocioAdminService {
 
     if (dto.diaPago !== undefined) {
       negocio.diaPago = dto.diaPago;
+    }
+
+    if (dto.orden !== undefined) {
+      negocio.orden = dto.orden;
     }
 
     // ========================= ACTUALIZAR STATUS =========================
@@ -344,6 +356,7 @@ export class NegocioAdminService {
       fechaFinSuscripcion: saved.fechaFinSuscripcion,
       fechaUltimoCobro: saved.fechaUltimoCobro,
       intentosCobro: saved.intentosCobro,
+      orden: saved.orden,
     };
   }
 
@@ -530,6 +543,7 @@ export class NegocioAdminService {
           diaPago: negocio.diaPago,
           fechaUltimoCobro: negocio.fechaUltimoCobro,
           intentosCobro: negocio.intentosCobro,
+          orden: negocio.orden,
           fechaInicioSuscripcion: negocio.fechaInicioSuscripcion,
           fechaFinSuscripcion: negocio.fechaFinSuscripcion,
           direccion: negocio.direccionTexto,

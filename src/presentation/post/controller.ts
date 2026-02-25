@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { StatusPost } from "../../data";
 import { PostService } from "../services/post.service";
 import { CreateDTO, CreatePostDTO, CustomError, UpdateDTO } from "../../domain";
 
@@ -285,7 +286,7 @@ export class PostController {
       }
 
       const { message, status } = await this.postService.blockPostAdmin(id);
-      const action = status === "BLOQUEADO" ? "block" : "unblock";
+      const action = status === StatusPost.FLAGGED ? "block" : "unblock";
 
       return res.status(200).json({
         success: true,

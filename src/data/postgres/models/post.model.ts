@@ -10,10 +10,10 @@ import {
 } from "typeorm";
 import { FreePostTracker, Like, User } from "../../index";
 export enum StatusPost {
-  PUBLICADO = "PUBLICADO", // Publicado y visible para todos
-  OCULTO = "OCULTO", // Oculto temporalmente por el usuario o un moderador
-  ELIMINADO = "ELIMINADO", // Eliminado (eliminación lógica o "soft delete")
-  BLOQUEADO = "BLOQUEADO", // Bloqueado por incumplir las normas de la plataforma
+  PUBLISHED = "PUBLISHED",
+  FLAGGED = "FLAGGED",
+  HIDDEN = "HIDDEN",
+  DELETED = "DELETED",
 }
 
 @Entity()
@@ -58,7 +58,7 @@ export class Post extends BaseEntity {
 
   @Column("enum", {
     enum: StatusPost,
-    default: StatusPost.PUBLICADO,
+    default: StatusPost.PUBLISHED,
   })
   statusPost: StatusPost;
   @Column({ type: "int", default: 0 })

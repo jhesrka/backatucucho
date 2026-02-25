@@ -27,6 +27,9 @@ import { PriceSettings } from "./models/PriceSettings";
 import { DeliverySettings } from "./models/DeliverySettings";
 import { GlobalSettings } from "./models/global-settings.model";
 import { CommissionLog } from "./models/CommissionLog";
+import { PostReport } from "./models/PostReport";
+import { StorieReport } from "./models/StorieReport";
+import { ModerationLog } from "./models/ModerationLog";
 interface Options {
   host: string;
   port: number;
@@ -74,7 +77,10 @@ export class PostgresDatabase {
         CampaignLog,
         FinancialClosing,
         Report,
-        CommissionLog
+        CommissionLog,
+        PostReport,
+        StorieReport,
+        ModerationLog
       ],
       synchronize: false, // PRODUCCIÓN: SIEMPRE FALSE. Usar migraciones.
       ssl: {
@@ -91,7 +97,7 @@ export class PostgresDatabase {
       await this.datasource.initialize();
       console.log("database conected - Running manual migrations check");
 
-      // Manual Migration Check for showWhatsApp and showLikes
+      // 1. Core Extensions and structural changes
       await this.datasource.query(`
         CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
         ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "showWhatsApp" BOOLEAN DEFAULT true;
@@ -103,6 +109,7 @@ export class PostgresDatabase {
         ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "rechargeRetentionDays" INT DEFAULT 60;
         ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "currentTermsVersion" VARCHAR(20) DEFAULT 'v1.0';
         ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "termsUpdatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+        ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "reportsRetentionDays" INT DEFAULT 30;
 
         -- Migración para Versionado de Términos y Privacidad
         ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "acceptedTermsVersion" VARCHAR(20) DEFAULT NULL;
@@ -115,28 +122,24 @@ export class PostgresDatabase {
         BEGIN 
           BEGIN
             ALTER TABLE "user" DROP COLUMN "acceptedTerms";
-          EXCEPTION WHEN undefined_column THEN 
-          END;
+          EXCEPTION WHEN undefined_column THEN END;
           BEGIN
             ALTER TABLE "user" DROP COLUMN "acceptedPrivacy";
-          EXCEPTION WHEN undefined_column THEN 
-          END;
+          EXCEPTION WHEN undefined_column THEN END;
         END $$;
-
+        
         ALTER TABLE "recharge_requests" ADD COLUMN IF NOT EXISTS "isDuplicateWarning" BOOLEAN DEFAULT false;
-
+        
         -- Audit columns for transactions (subscriptions)
         ALTER TABLE "transactions" ADD COLUMN IF NOT EXISTS "daysBought" INT;
         ALTER TABLE "transactions" ADD COLUMN IF NOT EXISTS "prevEndDate" TIMESTAMP;
         ALTER TABLE "transactions" ADD COLUMN IF NOT EXISTS "newEndDate" TIMESTAMP;
         ALTER TABLE "transactions" ADD COLUMN IF NOT EXISTS "receipt_image" TEXT;
 
-        -- Create Partial Index for Approved Recharges
         CREATE UNIQUE INDEX IF NOT EXISTS "IDX_recharge_approved_unique" 
         ON "recharge_requests" ("bank_name", "receipt_number", "transaction_date") 
         WHERE "status" = 'APROBADO';
 
-        -- Commission Configuration and Persistent Commission Snapshots
         ALTER TABLE "price_settings" ADD COLUMN IF NOT EXISTS "motorizadoPercentage" DECIMAL(10,2) DEFAULT 80.00;
         ALTER TABLE "price_settings" ADD COLUMN IF NOT EXISTS "appPercentage" DECIMAL(10,2) DEFAULT 20.00;
 
@@ -151,7 +154,6 @@ export class PostgresDatabase {
         ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "pago_motorizado" DECIMAL(10,2) DEFAULT 0;
         ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "comision_moto_app" DECIMAL(10,2) DEFAULT 0;
 
-        -- Migración de Precios en PRODUCTOS
         ALTER TABLE "producto" ADD COLUMN IF NOT EXISTS "precio_venta" DECIMAL(10,2) DEFAULT 0;
         ALTER TABLE "producto" ADD COLUMN IF NOT EXISTS "precio_app" DECIMAL(10,2) DEFAULT 0;
         ALTER TABLE "producto" ADD COLUMN IF NOT EXISTS "comision_producto" DECIMAL(10,2) DEFAULT 0;
@@ -159,67 +161,14 @@ export class PostgresDatabase {
         DO $$ 
         BEGIN 
           IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='producto' AND column_name='precio') THEN
-            UPDATE "producto" 
-            SET "precio_venta" = "precio", 
-                "precio_app" = COALESCE("precioParaApp", "precio"),
-                "comision_producto" = "precio" - COALESCE("precioParaApp", "precio")
-            WHERE "precio_venta" = 0 AND "precio_app" = 0;
+            UPDATE "producto" SET "precio_venta" = "precio", "precio_app" = COALESCE("precioParaApp", "precio"), "comision_producto" = "precio" - COALESCE("precioParaApp", "precio") WHERE "precio_venta" = 0 AND "precio_app" = 0;
           END IF;
-
-          -- FIX ALWAYS: Recalculate commissions that are 0 but should have a value
-          UPDATE "producto" 
-          SET "comision_producto" = "precio_venta" - "precio_app"
-          WHERE "comision_producto" = 0 AND "precio_venta" != "precio_app";
-
-          -- Fix order items as well
-          UPDATE "producto_pedido"
-          SET "comision_producto" = "precio_venta" - "precio_app"
-          WHERE "comision_producto" = 0 AND "precio_venta" != "precio_app";
+          UPDATE "producto" SET "comision_producto" = "precio_venta" - "precio_app" WHERE "comision_producto" = 0 AND "precio_venta" != "precio_app";
         END $$;
 
-        -- Paso 3: Eliminar campos antiguos
-        DO $$ 
-        BEGIN 
-          BEGIN
-            ALTER TABLE "producto" DROP COLUMN "precio";
-          EXCEPTION WHEN undefined_column THEN END;
-          BEGIN
-            ALTER TABLE "producto" DROP COLUMN "precioParaApp";
-          EXCEPTION WHEN undefined_column THEN END;
-        END $$;
-
-        -- Aplicar lo mismo para PRODUCTO_PEDIDO
         ALTER TABLE "producto_pedido" ADD COLUMN IF NOT EXISTS "precio_venta" DECIMAL(10,2) DEFAULT 0;
         ALTER TABLE "producto_pedido" ADD COLUMN IF NOT EXISTS "precio_app" DECIMAL(10,2) DEFAULT 0;
         ALTER TABLE "producto_pedido" ADD COLUMN IF NOT EXISTS "comision_producto" DECIMAL(10,2) DEFAULT 0;
-
-        DO $$ 
-        BEGIN 
-          IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='producto_pedido' AND column_name='precioPublico') THEN
-            UPDATE "producto_pedido"
-            SET "precio_venta" = "precioPublico",
-                "precio_app" = "precioUnitario",
-                "comision_producto" = "precioPublico" - "precioUnitario"
-            WHERE "precio_venta" = 0 AND "precio_app" = 0;
-          END IF;
-          -- Fix any records that might have been migrated but have 0 commission
-          UPDATE "producto_pedido"
-          SET "comision_producto" = "precio_venta" - "precio_app"
-          WHERE "comision_producto" = 0 AND "precio_venta" != "precio_app";
-        END $$;
-
-        DO $$ 
-        BEGIN 
-          BEGIN
-            ALTER TABLE "producto_pedido" DROP COLUMN "precioPublico";
-          EXCEPTION WHEN undefined_column THEN END;
-          BEGIN
-            ALTER TABLE "producto_pedido" DROP COLUMN "precioUnitario";
-          EXCEPTION WHEN undefined_column THEN END;
-          BEGIN
-            ALTER TABLE "producto_pedido" DROP COLUMN "comision";
-          EXCEPTION WHEN undefined_column THEN END;
-        END $$;
 
         CREATE TABLE IF NOT EXISTS "commission_log" (
           "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
@@ -232,14 +181,6 @@ export class PostgresDatabase {
           CONSTRAINT "PK_commission_log" PRIMARY KEY ("id")
         );
 
-        DO $$ 
-        BEGIN 
-          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_commission_log_useradmin') THEN
-            ALTER TABLE "commission_log" ADD CONSTRAINT "FK_commission_log_useradmin" FOREIGN KEY ("changedById") REFERENCES "useradmin"("id");
-          END IF;
-        END $$;
-
-        -- Migración para Financial Closing (Snapshot Deudas)
         CREATE TABLE IF NOT EXISTS "financial_closings" (
           "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
           "closingDate" date NOT NULL UNIQUE,
@@ -251,15 +192,9 @@ export class PostgresDatabase {
           "totalMotorizadoDebt" decimal(10,2) NOT NULL DEFAULT 0,
           "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
           "closedById" uuid,
-          CONSTRAINT "PK_financial_closings" PRIMARY KEY ("id"),
-          CONSTRAINT "FK_financial_closings_useradmin" FOREIGN KEY ("closedById") REFERENCES "useradmin"("id")
+          CONSTRAINT "PK_financial_closings" PRIMARY KEY ("id")
         );
 
-        -- Asegurar columnas si la tabla ya existía sin ellas
-        ALTER TABLE "financial_closings" ADD COLUMN IF NOT EXISTS "totalUserBalance" decimal(10,2) DEFAULT 0;
-        ALTER TABLE "financial_closings" ADD COLUMN IF NOT EXISTS "totalMotorizadoDebt" decimal(10,2) DEFAULT 0;
-
-        -- Migración para Balance Negocio (Cuadre por local)
         CREATE TABLE IF NOT EXISTS "balance_negocio" (
           "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
           "fecha" date NOT NULL,
@@ -278,23 +213,127 @@ export class PostgresDatabase {
           CONSTRAINT "PK_balance_negocio" PRIMARY KEY ("id")
         );
 
-        -- Asegurar columnas y relaciones
-        ALTER TABLE "balance_negocio" ADD COLUMN IF NOT EXISTS "totalComisionApp" decimal(10,2) DEFAULT 0;
-        ALTER TABLE "balance_negocio" ADD COLUMN IF NOT EXISTS "isClosed" boolean DEFAULT false;
-        ALTER TABLE "balance_negocio" ADD COLUMN IF NOT EXISTS "closedById" uuid;
-        
+        -- Moderation Columns
+        ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "warnings_count" INT DEFAULT 0;
+        ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "suspension_until" TIMESTAMP DEFAULT NULL;
+        ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "isLoggedIn" BOOLEAN DEFAULT false;
+        ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "currentSessionId" VARCHAR;
+        ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "lastLoginIP" VARCHAR;
+        ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "lastLoginCountry" VARCHAR;
+        ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "lastLoginDate" TIMESTAMP;
+        ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "lastDeviceInfo" VARCHAR;
+
+        CREATE TABLE IF NOT EXISTS "moderation_log" (
+            "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+            "adminId" uuid NOT NULL,
+            "action" varchar NOT NULL,
+            "comment" text NOT NULL,
+            "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+            "userId" uuid,
+            "postId" uuid,
+            "storieId" uuid,
+            CONSTRAINT "PK_moderation_log" PRIMARY KEY ("id")
+        );
+
+        CREATE TABLE IF NOT EXISTS "post_report" (
+            "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+            "reason" varchar NOT NULL,
+            "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+            "reporterId" uuid,
+            "postId" uuid,
+            CONSTRAINT "PK_post_report" PRIMARY KEY ("id")
+        );
+
+        CREATE TABLE IF NOT EXISTS "storie_report" (
+            "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+            "reason" varchar NOT NULL,
+            "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+            "reporterId" uuid,
+            "storieId" uuid,
+            CONSTRAINT "PK_storie_report" PRIMARY KEY ("id")
+        );
+
+        -- Add status column if missing (Manual Migration)
+        ALTER TABLE "post_report" ADD COLUMN IF NOT EXISTS "status" VARCHAR DEFAULT 'PENDING';
+        ALTER TABLE "storie_report" ADD COLUMN IF NOT EXISTS "status" VARCHAR DEFAULT 'PENDING';
+
         DO $$ 
         BEGIN 
-          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_balance_negocio_useradmin') THEN
-            ALTER TABLE "balance_negocio" ADD CONSTRAINT "FK_balance_negocio_useradmin" FOREIGN KEY ("closedById") REFERENCES "useradmin"("id");
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_balance_negocio_negocio') THEN
-            ALTER TABLE "balance_negocio" ADD CONSTRAINT "FK_balance_negocio_negocio" FOREIGN KEY ("negocioId") REFERENCES "negocio"("id");
-          END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_moderation_log_user') THEN
+                ALTER TABLE "moderation_log" ADD CONSTRAINT "FK_moderation_log_user" FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE SET NULL;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_moderation_log_post') THEN
+                ALTER TABLE "moderation_log" ADD CONSTRAINT "FK_moderation_log_post" FOREIGN KEY ("postId") REFERENCES "post"("id") ON DELETE SET NULL;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_moderation_log_storie') THEN
+                ALTER TABLE "moderation_log" ADD CONSTRAINT "FK_moderation_log_storie" FOREIGN KEY ("storieId") REFERENCES "storie"("id") ON DELETE SET NULL;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_post_report_user') THEN
+                ALTER TABLE "post_report" ADD CONSTRAINT "FK_post_report_user" FOREIGN KEY ("reporterId") REFERENCES "user"("id") ON DELETE SET NULL;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_post_report_post') THEN
+                ALTER TABLE "post_report" ADD CONSTRAINT "FK_post_report_post" FOREIGN KEY ("postId") REFERENCES "post"("id") ON DELETE CASCADE;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_storie_report_user') THEN
+                ALTER TABLE "storie_report" ADD CONSTRAINT "FK_storie_report_user" FOREIGN KEY ("reporterId") REFERENCES "user"("id") ON DELETE SET NULL;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_storie_report_storie') THEN
+                ALTER TABLE "storie_report" ADD CONSTRAINT "FK_storie_report_storie" FOREIGN KEY ("storieId") REFERENCES "storie"("id") ON DELETE CASCADE;
+            END IF;
         END $$;
       `);
 
+      // 2. Enum Additions (Individual calls to ensure they commit)
+      const enums = [
+        { type: 'user_status_enum', label: 'SUSPENDED' },
+        { type: 'post_statuspost_enum', label: 'FLAGGED' },
+        { type: 'post_statuspost_enum', label: 'PUBLISHED' },
+        { type: 'post_statuspost_enum', label: 'HIDDEN' },
+        { type: 'storie_statusstorie_enum', label: 'FLAGGED' },
+        { type: 'storie_statusstorie_enum', label: 'PUBLISHED' },
+        { type: 'storie_statusstorie_enum', label: 'HIDDEN' },
+      ];
+
+      for (const e of enums) {
+        try {
+          const exists = await this.datasource.query(`SELECT 1 FROM pg_enum WHERE enumlabel = '${e.label}' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = '${e.type}')`);
+          if (exists.length === 0) {
+            await this.datasource.query(`ALTER TYPE "${e.type}" ADD VALUE '${e.label}'`);
+            console.log(`Enum value ${e.label} added to ${e.type}`);
+          }
+        } catch (err) {
+          console.warn(`Could not add enum ${e.label} to ${e.type}:`, (err as Error).message);
+        }
+      }
+
+      // 3. Data Migrations (with improved mapping)
+      await this.datasource.query(`
+        -- Migración para POSTS
+        UPDATE post SET "statusPost" = 'PUBLISHED' WHERE "statusPost"::text IN ('PUBLICADO', 'publicado');
+        UPDATE post SET "statusPost" = 'HIDDEN'    WHERE "statusPost"::text IN ('BLOQUEADO', 'bloqueado', 'OCULTO', 'oculto');
+        UPDATE post SET "statusPost" = 'DELETED'   WHERE "statusPost"::text IN ('ELIMINADO', 'eliminado');
+        UPDATE post SET "statusPost" = 'FLAGGED'   WHERE "statusPost"::text IN ('REPORTADO', 'reportado');
+        
+        -- Migración para STORIES
+        UPDATE storie SET "statusStorie" = 'PUBLISHED' WHERE "statusStorie"::text IN ('PUBLICADO', 'publicado');
+        UPDATE storie SET "statusStorie" = 'HIDDEN'    WHERE "statusStorie"::text IN ('BLOQUEADO', 'bloqueado', 'OCULTO', 'oculto');
+        UPDATE storie SET "statusStorie" = 'DELETED'   WHERE "statusStorie"::text IN ('ELIMINADO', 'eliminado');
+        UPDATE storie SET "statusStorie" = 'FLAGGED'   WHERE "statusStorie"::text IN ('REPORTADO', 'reportado');
+      `).catch(err => console.warn("Data migration failed or partially completed:", err.message));
+
       console.log("Manual migrations applied/checked successfully");
+
+      // 4. Negocio Order Migration
+      await this.datasource.query(`
+        ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "orden" INT DEFAULT 0;
+      `).catch(err => console.warn("Negocio order migration failed:", err.message));
+
+      // 5. Categoria Negocio Order Migration
+      await this.datasource.query(`
+        ALTER TABLE "categoria_negocio" ADD COLUMN IF NOT EXISTS "orden" INT DEFAULT 0;
+        ALTER TABLE "categoria_negocio" ADD COLUMN IF NOT EXISTS "modeloBloqueado" BOOLEAN DEFAULT false;
+        ALTER TABLE "categoria_negocio" ADD COLUMN IF NOT EXISTS "modeloMonetizacionDefault" VARCHAR DEFAULT NULL;
+      `).catch(err => console.warn("Categoria Negocio order migration failed:", err.message));
     } catch (error) {
       console.log("DB Connection Error:", error);
       throw error;

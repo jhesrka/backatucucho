@@ -10,6 +10,7 @@ import { WalletService } from "./postService/wallet.service";
 import { PriceService } from "./priceService/price-service.service";
 import { LessThan, LessThanOrEqual, IsNull, MoreThan, Between, Like } from "typeorm";
 import { validate as uuidValidate } from "uuid";
+import { containsForbiddenWords } from "../../config/content-moderation";
 
 export class StorieService {
   constructor(
@@ -64,11 +65,17 @@ export class StorieService {
       );
     }
 
+    // Validar contenido (Moderación automática)
+    if (containsForbiddenWords(storieData.description)) {
+      throw CustomError.badRequest("Tu contenido contiene texto no permitido. Corrígelo para continuar.");
+    }
+
     // Crear la historia
     const storie = new Storie();
     storie.description = storieData.description.trim();
     storie.imgstorie = key;
     storie.user = user;
+    storie.statusStorie = StatusStorie.PUBLISHED;
     storie.expires_at = addDays(new Date(), storieData.dias);
     storie.showWhatsapp = storieData.showWhatsapp;
 
@@ -118,37 +125,44 @@ export class StorieService {
       // 2️⃣ Convertir imágenes a URLs públicas
       const storiesWithUrls = await Promise.all(
         stories.map(async (story) => {
-          const imgstorieUrl = story.imgstorie
-            ? await UploadFilesCloud.getOptimizedUrls({
-              bucketName: envs.AWS_BUCKET_NAME,
-              key: story.imgstorie,
-            })
-            : null;
+          try {
+            const imgstorieUrl = story.imgstorie
+              ? await UploadFilesCloud.getOptimizedUrls({
+                bucketName: envs.AWS_BUCKET_NAME,
+                key: story.imgstorie,
+              })
+              : null;
 
-          const photoperfilUrl = story.user?.photoperfil
-            ? await UploadFilesCloud.getOptimizedUrls({
-              bucketName: envs.AWS_BUCKET_NAME,
-              key: story.user.photoperfil,
-            })
-            : null;
+            const photoperfilUrl = story.user?.photoperfil
+              ? await UploadFilesCloud.getOptimizedUrls({
+                bucketName: envs.AWS_BUCKET_NAME,
+                key: story.user.photoperfil,
+              })
+              : null;
 
-          return {
-            ...story,
-            imgstorie: imgstorieUrl,
-            user: {
-              ...story.user,
-              photoperfil: photoperfilUrl,
-            },
-          };
+            return {
+              ...story,
+              imgstorie: imgstorieUrl,
+              user: {
+                ...story.user,
+                photoperfil: photoperfilUrl,
+              },
+            };
+          } catch (error) {
+            console.error(`Error processing story ${story.id}:`, error);
+            return null;
+          }
         })
       );
 
-      // 3️⃣ Procesar stories expiradas en segundo plano
+      // 3️⃣ Filtrar historias con errores y procesar expiradas en segundo plano
+      const validStories = storiesWithUrls.filter((s) => s !== null);
+
       this.processExpiredStories().catch((error) => {
         console.error("Error procesando stories expiradas:", error);
       });
 
-      return storiesWithUrls;
+      return validStories;
     } catch (error) {
       throw CustomError.internalServer("Error obteniendo datos de stories");
     }
@@ -358,11 +372,11 @@ export class StorieService {
       const story = await Storie.findOne({ where: { id: storieId } });
       if (!story) throw CustomError.notFound("Story no encontrada");
 
-      const wasBanned = story.statusStorie === StatusStorie.BANNED;
+      const wasBanned = story.statusStorie === StatusStorie.FLAGGED;
 
       story.statusStorie = wasBanned
         ? StatusStorie.PUBLISHED
-        : StatusStorie.BANNED;
+        : StatusStorie.FLAGGED;
       await story.save();
 
       getIO().emit("storieChanged", {
@@ -516,7 +530,7 @@ export class StorieService {
 
       // By Status
       const published = await Storie.count({ where: { statusStorie: StatusStorie.PUBLISHED } });
-      const blocked = await Storie.count({ where: { statusStorie: StatusStorie.BANNED } });
+      const blocked = await Storie.count({ where: { statusStorie: StatusStorie.FLAGGED } });
       const hidden = await Storie.count({ where: { statusStorie: StatusStorie.HIDDEN } });
 
       // Soft Deleted
@@ -655,7 +669,7 @@ export class StorieService {
             deletedAt: LessThan(cutoff),
           },
           {
-            statusStorie: StatusStorie.BANNED,
+            statusStorie: StatusStorie.FLAGGED,
             createdAt: LessThan(cutoff),
           }
         ],

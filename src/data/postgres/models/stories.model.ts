@@ -8,10 +8,10 @@ import {
 } from "typeorm";
 import { User } from "./user.model"; // Importar la entidad User
 export enum StatusStorie {
-  PUBLISHED = "PUBLISHED", // Publicado y visible
-  HIDDEN = "HIDDEN", // Oculto temporalmente (por el usuario o moderador)
-  DELETED = "DELETED", // Eliminado (soft delete)
-  BANNED = "BANNED", // Bloqueado por infringir normas
+  PUBLISHED = "PUBLISHED",
+  FLAGGED = "FLAGGED",
+  HIDDEN = "HIDDEN",
+  DELETED = "DELETED",
 }
 @Entity()
 export class Storie extends BaseEntity {

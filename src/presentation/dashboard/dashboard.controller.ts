@@ -21,4 +21,25 @@ export class DashboardController {
             .then((stats) => res.json(stats))
             .catch((error) => this.handleError(error, res));
     };
+
+    getWeeklyPostStats = (req: Request, res: Response) => {
+        this.dashboardService
+            .getWeeklyPostStats()
+            .then((stats) => res.json(stats))
+            .catch((error) => this.handleError(error, res));
+    }
+
+    getAdvancedStats7Days = (req: Request, res: Response) => {
+        this.dashboardService
+            .getAdvancedStats7Days()
+            .then((stats) => res.json(stats))
+            .catch((error) => this.handleError(error, res));
+    }
+
+    getOperationalDashboardToday = (req: Request, res: Response) => {
+        this.dashboardService
+            .getOperationalDashboardToday()
+            .then((stats) => res.json(stats))
+            .catch((error) => this.handleError(error, res));
+    }
 }

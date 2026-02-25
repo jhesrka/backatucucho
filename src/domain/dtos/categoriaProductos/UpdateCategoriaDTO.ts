@@ -6,13 +6,16 @@ export class UpdateCategoriaDTO {
     public readonly icon?: string,
     public readonly restriccionModeloMonetizacion?: RestriccionModeloMonetizacion,
     public readonly soloComision?: boolean,
-    public readonly statusCategoria?: StatusCategoria
+    public readonly statusCategoria?: StatusCategoria,
+    public readonly orden?: number,
+    public readonly modeloBloqueado?: boolean,
+    public readonly modeloMonetizacionDefault?: string | null
   ) { }
 
   static create(obj: { [key: string]: any }): [string?, UpdateCategoriaDTO?] {
-    const { name, icon, restriccionModeloMonetizacion, soloComision, statusCategoria } = obj;
+    const { name, icon, restriccionModeloMonetizacion, soloComision, statusCategoria, modeloBloqueado, modeloMonetizacionDefault } = obj;
 
-    if (!name && !icon && !restriccionModeloMonetizacion && statusCategoria === undefined && soloComision === undefined) {
+    if (!name && !icon && !restriccionModeloMonetizacion && statusCategoria === undefined && soloComision === undefined && obj.orden === undefined && modeloBloqueado === undefined && modeloMonetizacionDefault === undefined) {
       return [
         "Debes enviar al menos un campo para actualizar",
       ];
@@ -33,7 +36,7 @@ export class UpdateCategoriaDTO {
     }
 
     if (icon !== undefined) {
-      if (typeof icon !== "string" || icon.trim().length === 0) {
+      if (typeof icon !== "string") {
         return ["El icono debe ser un texto válido"];
       }
       updates.icon = icon.trim();
@@ -63,7 +66,10 @@ export class UpdateCategoriaDTO {
         updates.icon,
         updates.restriccionModeloMonetizacion,
         soloComision === undefined ? undefined : !!soloComision,
-        updates.statusCategoria
+        updates.statusCategoria,
+        obj.orden !== undefined ? Number(obj.orden) : undefined,
+        modeloBloqueado === undefined ? undefined : !!modeloBloqueado,
+        modeloMonetizacionDefault
       ),
     ];
   }

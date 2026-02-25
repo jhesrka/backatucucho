@@ -16,7 +16,8 @@ export class CreateNegocioDTO {
     public readonly titularCuenta: string,
     public readonly direccionTexto?: string | null,
     public readonly valorSuscripcion: number = 0,
-    public readonly diaPago: number = 1
+    public readonly diaPago: number = 1,
+    public readonly orden: number = 0
   ) { }
 
   static create(obj: { [key: string]: any }): [string?, CreateNegocioDTO?] {
@@ -34,7 +35,8 @@ export class CreateNegocioDTO {
       numeroCuenta,
       titularCuenta,
       valorSuscripcion,
-      diaPago
+      diaPago,
+      orden
     } = obj;
 
     if (!nombre || typeof nombre !== "string" || nombre.trim().length < 3) {
@@ -95,6 +97,13 @@ export class CreateNegocioDTO {
       }
     }
 
+    if (orden !== undefined) {
+      const ord = Number(orden);
+      if (isNaN(ord)) {
+        return ["El orden debe ser un número"];
+      }
+    }
+
     // opcional, pero si viene validamos tamaño
     const dirTxt =
       typeof direccionTexto === "string" && direccionTexto.trim().length > 0
@@ -117,7 +126,8 @@ export class CreateNegocioDTO {
         titularCuenta.trim(),
         dirTxt,
         valorSuscripcion !== undefined ? Number(valorSuscripcion) : 0,
-        diaPago !== undefined ? Number(diaPago) : 1
+        diaPago !== undefined ? Number(diaPago) : 1,
+        orden !== undefined ? Number(orden) : 0
       ),
     ];
   }

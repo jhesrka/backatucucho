@@ -6,7 +6,7 @@ import { UpdateCategoriaDTO } from "../../domain/dtos/categoriaProductos/UpdateC
 
 // =============== CATEGORIA CONTROLLER ===============
 export class CategoriaController {
-  constructor(private readonly categoriaService: CategoriaService) {}
+  constructor(private readonly categoriaService: CategoriaService) { }
 
   private handleError = (error: unknown, res: Response) => {
     if (error instanceof CustomError) {
@@ -21,8 +21,15 @@ export class CategoriaController {
     const [error, dto] = CreateCategoriaDTO.create(req.body);
     if (error) return res.status(422).json({ message: error });
 
+    if (!req.file) {
+      return res.status(422).json({ message: "La imagen de la categoría es obligatoria" });
+    }
+
+    const { masterPin } = req.body;
+    if (!masterPin) return res.status(400).json({ message: "Master PIN es requerido" });
+
     this.categoriaService
-      .createCategoria(dto!)
+      .createCategoria(dto!, req.file, masterPin)
       .then((categoria) => res.status(201).json(categoria))
       .catch((error) => this.handleError(error, res));
   };
@@ -51,8 +58,11 @@ export class CategoriaController {
     const [error, dto] = UpdateCategoriaDTO.create(req.body);
     if (error) return res.status(422).json({ message: error });
 
+    const { masterPin } = req.body;
+    if (!masterPin) return res.status(400).json({ message: "Master PIN es requerido" });
+
     this.categoriaService
-      .updateCategoria(id, dto!)
+      .updateCategoria(id, dto!, req.file, masterPin)
       .then((categoria) => res.status(200).json(categoria))
       .catch((error) => this.handleError(error, res));
   };
@@ -60,9 +70,12 @@ export class CategoriaController {
   // Eliminar categoría
   deleteCategoria = (req: Request, res: Response) => {
     const id = req.params.id;
+    const { masterPin } = req.body;
+
+    if (!masterPin) return res.status(400).json({ message: "Master PIN es requerido" });
 
     this.categoriaService
-      .deleteCategoria(id)
+      .deleteCategoria(id, masterPin)
       .then(() => res.status(204).send())
       .catch((error) => this.handleError(error, res));
   };

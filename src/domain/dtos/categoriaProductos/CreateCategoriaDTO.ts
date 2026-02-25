@@ -3,20 +3,19 @@ import { RestriccionModeloMonetizacion } from "../../../data"; // o donde esté 
 export class CreateCategoriaDTO {
   private constructor(
     public readonly name: string,
-    public readonly icon: string,
+    public readonly icon?: string,
     public readonly restriccionModeloMonetizacion?: RestriccionModeloMonetizacion,
-    public readonly soloComision: boolean = false
+    public readonly soloComision: boolean = false,
+    public readonly orden: number = 0,
+    public readonly modeloBloqueado: boolean = false,
+    public readonly modeloMonetizacionDefault: string | null = null
   ) { }
 
   static create(obj: { [key: string]: any }): [string?, CreateCategoriaDTO?] {
-    const { name, icon, restriccionModeloMonetizacion, soloComision } = obj;
+    const { name, icon, restriccionModeloMonetizacion, soloComision, modeloBloqueado, modeloMonetizacionDefault } = obj;
 
     if (!name || typeof name !== "string" || name.trim().length < 3) {
       return ["El nombre de la categoría debe tener al menos 3 caracteres"];
-    }
-
-    if (!icon || typeof icon !== "string" || icon.trim().length === 0) {
-      return ["El icono es obligatorio"];
     }
 
     if (
@@ -30,9 +29,12 @@ export class CreateCategoriaDTO {
       undefined,
       new CreateCategoriaDTO(
         name.trim(),
-        icon.trim(),
+        icon?.trim(),
         restriccionModeloMonetizacion,
-        !!soloComision
+        !!soloComision,
+        obj.orden ? Number(obj.orden) : 0,
+        !!modeloBloqueado,
+        modeloMonetizacionDefault || null
       ),
     ];
   }

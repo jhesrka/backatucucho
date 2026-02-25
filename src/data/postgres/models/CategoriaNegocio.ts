@@ -45,6 +45,19 @@ export class CategoriaNegocio extends BaseEntity {
   @Column({ type: "boolean", default: false })
   soloComision: boolean;
 
+  @Column({ type: "boolean", default: false })
+  modeloBloqueado: boolean;
+
+  @Column({
+    type: "varchar",
+    nullable: true,
+    default: null,
+  })
+  modeloMonetizacionDefault: string | null;
+
+  @Column({ type: "int", default: 0 })
+  orden: number;
+
   @CreateDateColumn({ type: "timestamp" })
   created_at: Date;
 

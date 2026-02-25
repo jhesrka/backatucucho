@@ -966,13 +966,13 @@ export class UserService {
       const postCounts = {
         total: user.posts.length,
         published: user.posts.filter(
-          (p) => p.statusPost === StatusPost.PUBLICADO
+          (p) => p.statusPost === StatusPost.PUBLISHED
         ).length,
-        hidden: user.posts.filter((p) => p.statusPost === StatusPost.OCULTO)
+        hidden: user.posts.filter((p) => p.statusPost === StatusPost.HIDDEN)
           .length,
-        deleted: user.posts.filter((p) => p.statusPost === StatusPost.ELIMINADO)
+        deleted: user.posts.filter((p) => p.statusPost === StatusPost.DELETED)
           .length,
-        banned: user.posts.filter((p) => p.statusPost === StatusPost.BLOQUEADO)
+        banned: user.posts.filter((p) => p.statusPost === StatusPost.FLAGGED)
           .length,
       };
 
@@ -988,7 +988,7 @@ export class UserService {
           (s) => s.statusStorie === StatusStorie.DELETED
         ).length,
         banned: user.stories.filter(
-          (s) => s.statusStorie === StatusStorie.BANNED
+          (s) => s.statusStorie === StatusStorie.FLAGGED
         ).length,
       };
 

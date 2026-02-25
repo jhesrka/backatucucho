@@ -12,6 +12,10 @@ export class GlobalSettingsRoutes {
         router.get("/", controller.getSettings);
         router.patch("/", AuthAdminMiddleware.protect, controller.updateSettings);
 
+        // Control Manual de la App
+        router.put("/app/cerrar", AuthAdminMiddleware.protect, controller.closeApp);
+        router.put("/app/activar-auto", AuthAdminMiddleware.protect, controller.enableAuto);
+
         return router;
     }
 }

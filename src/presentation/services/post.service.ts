@@ -9,6 +9,9 @@ import { UserService } from "./usuario/user.service";
 import { SubscriptionService } from "./postService/subscription.service";
 import { FreePostTrackerService } from "./postService/free-post-tracker.service";
 import { validate as uuidValidate } from "uuid";
+import { containsForbiddenWords } from "../../config/content-moderation";
+import { Status as UserStatus } from "../../data/postgres/models/user.model";
+import { PostReport } from "../../data/postgres/models/PostReport";
 
 import { GlobalSettingsService } from "./globalSettings/global-settings.service";
 
@@ -29,7 +32,7 @@ export class PostService {
       // 1. Consulta base con condiciones de expiración
       const query = Post.createQueryBuilder("post")
         .leftJoinAndSelect("post.user", "user")
-        .where("post.statusPost = :status", { status: StatusPost.PUBLICADO })
+        .where("post.statusPost = :status", { status: StatusPost.PUBLISHED })
         .andWhere(
           "(post.isPaid = true OR (post.expiresAt IS NULL OR post.expiresAt > :now))",
           { now }
@@ -43,6 +46,8 @@ export class PostService {
       // Filtrar los posts pagados cuyo autor no tiene suscripción activa
       const filteredPosts = await Promise.all(
         posts.map(async (post) => {
+          if (!post.user) return null; // Post huérfano
+
           if (post.isPaid) {
             const hasSubscription =
               await this.subscriptionService.hasActiveSubscription(
@@ -54,8 +59,8 @@ export class PostService {
         })
       );
 
-      // Limpiar nulos (posts eliminados)
-      const validPosts = filteredPosts.filter((p) => p !== null);
+      // Limpiar nulos (posts eliminados o inviables)
+      const validPosts = filteredPosts.filter((p) => p !== null) as Post[];
 
       // 2. Procesar posts expirados en segundo plano
       this.processExpiredPosts().catch((error) => {
@@ -65,41 +70,46 @@ export class PostService {
       // 3. Procesamiento optimizado de imágenes + CHECK LIKES
       const formattedPosts = await Promise.all(
         validPosts.map(async (post) => {
-          const [imgs, userImage, isLiked] = await Promise.all([
-            Promise.all(
-              (post.imgpost ?? []).map((img) =>
-                UploadFilesCloud.getOptimizedUrls({
+          try {
+            const [imgs, userImage, isLiked] = await Promise.all([
+              Promise.all(
+                (post.imgpost ?? []).map((img) =>
+                  UploadFilesCloud.getOptimizedUrls({
+                    bucketName: envs.AWS_BUCKET_NAME,
+                    key: img,
+                  })
+                )
+              ),
+              post.user?.photoperfil
+                ? UploadFilesCloud.getOptimizedUrls({
                   bucketName: envs.AWS_BUCKET_NAME,
-                  key: img,
+                  key: post.user.photoperfil,
                 })
-              )
-            ),
-            post.user?.photoperfil
-              ? UploadFilesCloud.getOptimizedUrls({
-                bucketName: envs.AWS_BUCKET_NAME,
-                key: post.user.photoperfil,
-              })
-              : null,
-            userId
-              ? Like.findOne({
-                where: { post: { id: post.id }, user: { id: userId } },
-              }).then((like) => !!like)
-              : Promise.resolve(false),
-          ]);
+                : Promise.resolve(null),
+              userId
+                ? Like.findOne({
+                  where: { post: { id: post.id }, user: { id: userId } },
+                }).then((like) => !!like)
+                : Promise.resolve(false),
+            ]);
 
-          return {
-            ...post,
-            imgpost: imgs,
-            user: {
-              id: post.user.id,
-              name: post.user.name,
-              surname: post.user.surname,
-              whatsapp: post.user.whatsapp,
-              photoperfil: userImage,
-            },
-            totalLikes: post.likesCount ?? 0,
-            isLiked, // <--- Nueva propiedad
-          };
+            return {
+              ...post,
+              imgpost: imgs,
+              user: {
+                id: post.user.id,
+                name: post.user.name,
+                surname: post.user.surname,
+                whatsapp: post.user.whatsapp,
+                photoperfil: userImage,
+              },
+              totalLikes: post.likesCount ?? 0,
+              isLiked,
+            };
+          } catch (error) {
+            console.error(`Error processing post ${post.id}:`, error);
+            return null;
+          }
         })
       );
 
@@ -107,10 +117,11 @@ export class PostService {
         total,
         totalPages: Math.ceil(total / limit),
         currentPage: page,
-        posts: formattedPosts,
+        posts: formattedPosts.filter(p => p !== null),
       };
     } catch (error) {
-      throw CustomError.internalServer("Error al obtener posts paginados");
+      console.error("Critical error in findAllPostPaginated:", error);
+      throw CustomError.internalServer("Error al obtener posts paginados. Detalle: " + (error as Error).message);
     }
   }
 
@@ -120,7 +131,7 @@ export class PostService {
 
     // Buscar posts públicos gratuitos que hayan expirado
     const expiredPosts = await Post.createQueryBuilder("post")
-      .where("post.statusPost = :status", { status: StatusPost.PUBLICADO })
+      .where("post.statusPost = :status", { status: StatusPost.PUBLISHED })
       .andWhere("post.isPaid = false")
       .andWhere("post.expiresAt <= :now", { now })
       .getMany();
@@ -129,7 +140,7 @@ export class PostService {
       // Actualizar todos los posts expirados en una sola operación
       await Post.createQueryBuilder()
         .update()
-        .set({ statusPost: StatusPost.ELIMINADO })
+        .set({ statusPost: StatusPost.DELETED })
         .whereInIds(expiredPosts.map((p) => p.id))
         .execute();
 
@@ -146,63 +157,93 @@ export class PostService {
 
   async searchPost(searchTerm: string, userId?: string) {
     try {
-      const posts = await Post.find({
-        where: [
-          { title: ILike(`%${searchTerm}%`) },
-          { subtitle: ILike(`%${searchTerm}%`) },
-          { user: { name: ILike(`%${searchTerm}%`) } },
-          { user: { surname: ILike(`%${searchTerm}%`) } },
-        ],
-        relations: ["user"],
-        select: {
-          user: {
-            id: true,
-            name: true,
-            surname: true,
-            photoperfil: true,
-            whatsapp: true,
-          },
-        },
-        order: { createdAt: "DESC" },
-      });
+      const now = new Date();
 
-      // Resolviendo imágenes + LIKES
-      const resolvedPosts = await Promise.all(
+      // 1. Consulta con los MISMOS filtros que findAllPostPaginated:
+      //    - Solo PUBLISHED
+      //    - Posts pagados o gratuitos no expirados
+      const query = Post.createQueryBuilder("post")
+        .leftJoinAndSelect("post.user", "user")
+        .where("post.statusPost = :status", { status: StatusPost.PUBLISHED })
+        .andWhere(
+          "(post.isPaid = true OR (post.expiresAt IS NULL OR post.expiresAt > :now))",
+          { now }
+        )
+        .andWhere(
+          "(LOWER(post.title) LIKE LOWER(:term) OR LOWER(post.subtitle) LIKE LOWER(:term) OR LOWER(user.name) LIKE LOWER(:term) OR LOWER(user.surname) LIKE LOWER(:term))",
+          { term: `%${searchTerm}%` }
+        )
+        .orderBy("post.createdAt", "DESC");
+
+      const posts = await query.getMany();
+
+      // 2. Filtrar posts pagados sin suscripción activa + posts huérfanos
+      const filteredPosts = await Promise.all(
         posts.map(async (post) => {
-          const [resolvedImgs, userImage, isLiked] = await Promise.all([
-            Promise.all(
-              (post.imgpost ?? []).map(async (img) => {
-                return await UploadFilesCloud.getOptimizedUrls({
-                  bucketName: envs.AWS_BUCKET_NAME,
-                  key: img,
-                });
-              })
-            ),
-            UploadFilesCloud.getOptimizedUrls({
-              bucketName: envs.AWS_BUCKET_NAME,
-              key: post.user.photoperfil,
-            }),
-            userId
-              ? Like.findOne({
-                where: { post: { id: post.id }, user: { id: userId } },
-              }).then((like) => !!like)
-              : Promise.resolve(false),
-          ]);
+          if (!post.user) return null; // Post huérfano
 
-          return {
-            ...post,
-            imgpost: resolvedImgs as any,
-            user: {
-              ...post.user,
-              photoperfil: userImage as any,
-            },
-            isLiked, // <--- return stat
-          };
+          if (post.isPaid) {
+            const hasSubscription =
+              await this.subscriptionService.hasActiveSubscription(
+                post.user.id
+              );
+            return hasSubscription ? post : null;
+          }
+          return post; // Gratuitos se mantienen
         })
       );
 
-      return resolvedPosts;
+      const validPosts = filteredPosts.filter((p) => p !== null) as Post[];
+
+      // 3. Resolviendo imágenes + LIKES (mismo formato que el feed)
+      const resolvedPosts = await Promise.all(
+        validPosts.map(async (post) => {
+          try {
+            const [resolvedImgs, userImage, isLiked] = await Promise.all([
+              Promise.all(
+                (post.imgpost ?? []).map((img) =>
+                  UploadFilesCloud.getOptimizedUrls({
+                    bucketName: envs.AWS_BUCKET_NAME,
+                    key: img,
+                  })
+                )
+              ),
+              post.user?.photoperfil
+                ? UploadFilesCloud.getOptimizedUrls({
+                  bucketName: envs.AWS_BUCKET_NAME,
+                  key: post.user.photoperfil,
+                })
+                : Promise.resolve(null),
+              userId
+                ? Like.findOne({
+                  where: { post: { id: post.id }, user: { id: userId } },
+                }).then((like) => !!like)
+                : Promise.resolve(false),
+            ]);
+
+            return {
+              ...post,
+              imgpost: resolvedImgs as any,
+              user: {
+                id: post.user.id,
+                name: post.user.name,
+                surname: post.user.surname,
+                whatsapp: post.user.whatsapp,
+                photoperfil: userImage as any,
+              },
+              totalLikes: post.likesCount ?? 0,
+              isLiked,
+            };
+          } catch (error) {
+            console.error(`Error processing search post ${post.id}:`, error);
+            return null;
+          }
+        })
+      );
+
+      return resolvedPosts.filter((p) => p !== null);
     } catch (error) {
+      console.error("Error en searchPost:", error);
       throw CustomError.internalServer("Error buscando los posts");
     }
   }
@@ -330,11 +371,19 @@ export class PostService {
       }
 
 
+      // 4.5. Validar contenido (Moderación automática)
+      if (containsForbiddenWords(postData.title) ||
+        containsForbiddenWords(postData.subtitle) ||
+        containsForbiddenWords(postData.content)) {
+        throw CustomError.badRequest("Tu contenido contiene texto no permitido. Corrígelo para continuar.");
+      }
+
       // 5. Crear y guardar el post
       const post = new Post();
       post.title = postData.title.toLowerCase().trim();
       post.subtitle = postData.subtitle.toLowerCase().trim();
       post.content = postData.content.trim();
+      post.statusPost = StatusPost.PUBLISHED;
       post.user = user;
       post.isPaid = postData.isPaid || false;
       post.imgpost = keys;
@@ -409,7 +458,7 @@ export class PostService {
       // 1. Buscar posts gratuitos expirados (ELIMINADOS o con expiresAt pasado)
       const expiredPosts = await Post.find({
         where: [
-          { statusPost: StatusPost.ELIMINADO }, // Posts ya marcados como eliminados
+          { statusPost: StatusPost.DELETED }, // Posts ya marcados como eliminados
           {
             isPaid: false,
             expiresAt: LessThan(new Date()), // Posts gratuitos que ya expiraron
@@ -629,13 +678,13 @@ export class PostService {
     if (post.user.id !== userId)
       throw CustomError.forbiden("No autorizado para eliminar este post");
 
-    return post.statusPost === StatusPost.ELIMINADO
+    return post.statusPost === StatusPost.DELETED
       ? await this.hardDeletePost(post)
       : await this.softDeletePost(post);
   }
 
   private async softDeletePost(post: Post): Promise<{ message: string }> {
-    post.statusPost = StatusPost.ELIMINADO;
+    post.statusPost = StatusPost.DELETED;
     post.deletedAt = new Date();
     await post.save();
 
@@ -692,8 +741,8 @@ export class PostService {
 
   async getAdminStats() {
     const totalPosts = await Post.count({ withDeleted: true });
-    const activePosts = await Post.count({ where: { statusPost: StatusPost.PUBLICADO } });
-    const deletedPosts = await Post.count({ where: { statusPost: StatusPost.ELIMINADO }, withDeleted: true });
+    const activePosts = await Post.count({ where: { statusPost: StatusPost.PUBLISHED } });
+    const deletedPosts = await Post.count({ where: { statusPost: StatusPost.DELETED }, withDeleted: true });
     const paidPosts = await Post.count({ where: { isPaid: true }, withDeleted: true });
     const freePosts = await Post.count({ where: { isPaid: false }, withDeleted: true });
 
@@ -719,7 +768,7 @@ export class PostService {
 
       const postsToPurge = await Post.createQueryBuilder("post")
         .withDeleted()
-        .where("post.statusPost = :status", { status: StatusPost.ELIMINADO })
+        .where("post.statusPost = :status", { status: StatusPost.DELETED })
         .andWhere("post.deletedAt <= :threshold", { threshold: thirtyDaysAgo })
         .getMany();
 
@@ -811,7 +860,7 @@ export class PostService {
       const paidPosts = await Post.createQueryBuilder("post")
         .leftJoin("post.user", "user")
         .select(["post.id", "user.id"])
-        .where("post.statusPost = :status", { status: StatusPost.PUBLICADO })
+        .where("post.statusPost = :status", { status: StatusPost.PUBLISHED })
         .andWhere("post.isPaid = :isPaid", { isPaid: true })
         .getMany();
 
@@ -853,7 +902,7 @@ export class PostService {
       const posts = await Post.createQueryBuilder("post")
         .leftJoinAndSelect("post.user", "user")
         .select(["post.id", "user.id"])
-        .where("post.statusPost = :status", { status: StatusPost.PUBLICADO })
+        .where("post.statusPost = :status", { status: StatusPost.PUBLISHED })
         .andWhere("post.isPaid = :isPaid", { isPaid: true })
         .andWhere("post.createdAt >= :since", { since })
         .getMany();
@@ -895,7 +944,7 @@ export class PostService {
       const now = new Date();
 
       const total = await Post.createQueryBuilder("post")
-        .where("post.statusPost = :status", { status: StatusPost.PUBLICADO })
+        .where("post.statusPost = :status", { status: StatusPost.PUBLISHED })
         .andWhere("post.isPaid = :isPaid", { isPaid: false })
         .andWhere("(post.expiresAt IS NULL OR post.expiresAt > :now)", { now })
         .getCount();
@@ -988,11 +1037,11 @@ export class PostService {
       const post = await Post.findOne({ where: { id: postId } });
       if (!post) throw CustomError.notFound("Post no encontrado");
 
-      // Toggle: si está bloqueado -> PUBLICADO; si no, BLOQUEADO
-      const wasBlocked = post.statusPost === StatusPost.BLOQUEADO;
+      // Toggle: si está bloqueado -> PUBLISHED; si no, FLAGGED
+      const wasBlocked = post.statusPost === StatusPost.FLAGGED;
       post.statusPost = wasBlocked
-        ? StatusPost.PUBLICADO
-        : StatusPost.BLOQUEADO;
+        ? StatusPost.PUBLISHED
+        : StatusPost.FLAGGED;
 
       await post.save();
 
@@ -1011,7 +1060,7 @@ export class PostService {
     if (!post) throw CustomError.notFound("Post no encontrado");
 
     post.statusPost = status;
-    if (status === StatusPost.ELIMINADO) {
+    if (status === StatusPost.DELETED) {
       post.deletedAt = new Date();
     } else {
       post.deletedAt = null!;
@@ -1039,7 +1088,7 @@ export class PostService {
       // Buscar posts ELIMINADO con deletedAt <= cutoff
       const posts = await Post.find({
         where: {
-          statusPost: StatusPost.ELIMINADO,
+          statusPost: StatusPost.DELETED,
           deletedAt: LessThan(cutoff),
         },
       });
@@ -1087,11 +1136,11 @@ export class PostService {
       const result = await Post.createQueryBuilder()
         .update(Post)
         .set({
-          statusPost: StatusPost.ELIMINADO,
+          statusPost: StatusPost.DELETED,
           expiresAt: null as any,
           deletedAt: now
         })
-        .where("statusPost = :status", { status: StatusPost.PUBLICADO })
+        .where("statusPost = :status", { status: StatusPost.PUBLISHED })
         .andWhere("isPaid = :isPaid", { isPaid: false })
         .andWhere("expiresAt <= :now", { now })
         .execute();

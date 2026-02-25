@@ -27,12 +27,14 @@ import { DashboardRoutes } from "./dashboard/dashboard.routes";
 import { WalletRoutes as WalletAdminRoutes } from "./controller/walletController/wallet.routes";
 import { AdvertisingRoutes } from "./advertising/advertising.routes";
 import { UploadRoutes } from "./upload/upload.routes";
+import { ModerationRoutes } from "./controller/moderation/moderation.routes";
 
 import { GlobalSettingsRoutes } from "./controller/globalSettings/global-settings.routes";
 
 
 import { ReportRoutes } from "./controller/report/report.routes";
 import { FinancialRoutes } from "./controller/financial/financial.routes";
+import { AdminReportRoutes } from "./reports/routes";
 
 export class AppRoutes {
   //cuando hay metodoos estaticos no necesitams instanciar
@@ -103,6 +105,12 @@ export class AppRoutes {
 
     // 🧾 NUEVA RUTA: Financial Module
     router.use("/api/financial", FinancialRoutes.routes);
+
+    // 🛡️ NUEVA RUTA: Moderation Module
+    router.use("/api/moderation", ModerationRoutes.routes);
+
+    // 🚩 NUEVA RUTA: Admin Reports (Aggregated)
+    router.use("/api/admin/reports", AdminReportRoutes.routes);
 
     return router;
 

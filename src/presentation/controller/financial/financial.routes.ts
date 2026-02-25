@@ -17,14 +17,20 @@ export class FinancialRoutes {
         router.post('/summary', [AuthAdminMiddleware.protect], controller.getSummary);
         router.post('/shops', [AuthAdminMiddleware.protect], controller.getShopReconciliation);
         router.post('/drivers', [AuthAdminMiddleware.protect], controller.getDriverReconciliation);
-        router.post('/shop-details', [AuthAdminMiddleware.protect], controller.getShopDetails);
+        router.post('/shop-details', [AuthAdminMiddleware.protect], controller.getShopClosingDetails);
         router.post('/close-shop-day', [AuthAdminMiddleware.protect], controller.closeShopDay);
-        router.post('/upload-shop-receipt', [AuthAdminMiddleware.protect, uploadSingleFile('file')], controller.uploadShopClosingReceipt);
+        router.post('/upload-shop-receipt', [AuthAdminMiddleware.protect, uploadSingleFile('file')], controller.uploadShopReceipt);
+
+        // New Route
+        router.get('/movimientos-motorizados', [AuthAdminMiddleware.protect], controller.getMovimientosMotorizados);
 
         // Daily Closing
         router.post('/upload-statement', [AuthAdminMiddleware.protect, uploadSingleFile('file')], controller.uploadBankStatement);
         router.get('/day-status', AuthAdminMiddleware.protect, controller.getDayStatus);
         router.post('/close-day', AuthAdminMiddleware.protect, controller.closeDay);
+
+        // Internal Pending Closings
+        router.get('/pending-closings', AuthAdminMiddleware.protect, controller.getPendingShopClosings);
 
         // Detailed Revenue (Auditable)
         router.get('/revenue-details', AuthAdminMiddleware.protect, controller.getAppRevenueDetails);

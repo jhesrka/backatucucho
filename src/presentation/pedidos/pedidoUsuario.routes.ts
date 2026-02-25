@@ -4,6 +4,7 @@ import { AuthMiddleware } from "../../middlewares/auth.middleware";
 import { uploadSingleFile } from "../../config";
 import { PedidoUsuarioService } from "../services/pedidosServices/pedidoUsuario.service";
 import { PedidoUsuarioController } from "./pedidoUsuario.controller";
+import { AppStatusMiddleware } from "../middlewares/checkOpenApp.middleware";
 
 export class PedidoUsuarioRoutes {
   static get routes(): Router {
@@ -21,6 +22,7 @@ export class PedidoUsuarioRoutes {
     router.post(
       "/",
       AuthMiddleware.protect,
+      AppStatusMiddleware.validate,
       pedidoUsuarioController.crearPedido
     );
 
