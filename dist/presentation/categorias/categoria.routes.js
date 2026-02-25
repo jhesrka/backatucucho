@@ -6,6 +6,7 @@ const categoria_service_1 = require("../services/categoria.service");
 const categoria_controller_1 = require("./categoria.controller");
 const auth_middleware_1 = require("../../middlewares/auth.middleware");
 const auth_admin_middleware_1 = require("../../middlewares/auth-admin.middleware");
+const updoad_files_adapter_1 = require("../../config/updoad-files.adapter");
 class CategoriaRoutes {
     static get routes() {
         const router = (0, express_1.Router)();
@@ -13,9 +14,9 @@ class CategoriaRoutes {
         const categoriaController = new categoria_controller_1.CategoriaController(categoriaService);
         // ====================== ADMIN ======================
         // Crear categoría
-        router.post("/", auth_admin_middleware_1.AuthAdminMiddleware.protect, categoriaController.createCategoria);
+        router.post("/", [auth_admin_middleware_1.AuthAdminMiddleware.protect, (0, updoad_files_adapter_1.uploadSingleFile)("imagen")], categoriaController.createCategoria);
         // Actualizar categoría
-        router.patch("/:id", auth_admin_middleware_1.AuthAdminMiddleware.protect, categoriaController.updateCategoria);
+        router.patch("/:id", [auth_admin_middleware_1.AuthAdminMiddleware.protect, (0, updoad_files_adapter_1.uploadSingleFile)("imagen")], categoriaController.updateCategoria);
         // Eliminar categoría
         router.delete("/:id", auth_admin_middleware_1.AuthAdminMiddleware.protect, categoriaController.deleteCategoria);
         router.get("/", auth_admin_middleware_1.AuthAdminMiddleware.protect, categoriaController.getAllCategorias);

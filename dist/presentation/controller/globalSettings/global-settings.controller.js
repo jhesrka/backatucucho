@@ -17,6 +17,22 @@ class GlobalSettingsController {
                 .then(data => res.json(data))
                 .catch(error => res.status(500).json({ error: "Internal Server Error" }));
         };
+        this.closeApp = (req, res) => {
+            this.service.closeApp()
+                .then(data => res.json(data))
+                .catch(error => {
+                console.error("Error closing app:", error);
+                res.status(500).json({ error: "Internal Server Error" });
+            });
+        };
+        this.enableAuto = (req, res) => {
+            this.service.enableAutoMode()
+                .then(data => res.json(data))
+                .catch(error => {
+                console.error("Error enabling auto mode:", error);
+                res.status(500).json({ error: "Internal Server Error" });
+            });
+        };
     }
 }
 exports.GlobalSettingsController = GlobalSettingsController;

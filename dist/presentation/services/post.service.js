@@ -18,6 +18,7 @@ const upload_files_cloud_adapter_1 = require("../../config/upload-files-cloud-ad
 const data_1 = require("../../data");
 const domain_1 = require("../../domain");
 const uuid_1 = require("uuid");
+const content_moderation_1 = require("../../config/content-moderation");
 class PostService {
     constructor(userService, subscriptionService, freePostTrackerService, globalSettingsService) {
         this.userService = userService;
@@ -34,7 +35,7 @@ class PostService {
                 // 1. Consulta base con condiciones de expiración
                 const query = data_1.Post.createQueryBuilder("post")
                     .leftJoinAndSelect("post.user", "user")
-                    .where("post.statusPost = :status", { status: data_1.StatusPost.PUBLICADO })
+                    .where("post.statusPost = :status", { status: data_1.StatusPost.PUBLISHED })
                     .andWhere("(post.isPaid = true OR (post.expiresAt IS NULL OR post.expiresAt > :now))", { now })
                     .orderBy("post.createdAt", "DESC")
                     .skip(skip)
@@ -42,13 +43,15 @@ class PostService {
                 const [posts, total] = yield query.getManyAndCount();
                 // Filtrar los posts pagados cuyo autor no tiene suscripción activa
                 const filteredPosts = yield Promise.all(posts.map((post) => __awaiter(this, void 0, void 0, function* () {
+                    if (!post.user)
+                        return null; // Post huérfano
                     if (post.isPaid) {
                         const hasSubscription = yield this.subscriptionService.hasActiveSubscription(post.user.id);
                         return hasSubscription ? post : null;
                     }
                     return post; // Los gratuitos se mantienen
                 })));
-                // Limpiar nulos (posts eliminados)
+                // Limpiar nulos (posts eliminados o inviables)
                 const validPosts = filteredPosts.filter((p) => p !== null);
                 // 2. Procesar posts expirados en segundo plano
                 this.processExpiredPosts().catch((error) => {
@@ -57,40 +60,47 @@ class PostService {
                 // 3. Procesamiento optimizado de imágenes + CHECK LIKES
                 const formattedPosts = yield Promise.all(validPosts.map((post) => __awaiter(this, void 0, void 0, function* () {
                     var _a, _b, _c;
-                    const [imgs, userImage, isLiked] = yield Promise.all([
-                        Promise.all(((_a = post.imgpost) !== null && _a !== void 0 ? _a : []).map((img) => upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
-                            bucketName: config_1.envs.AWS_BUCKET_NAME,
-                            key: img,
-                        }))),
-                        ((_b = post.user) === null || _b === void 0 ? void 0 : _b.photoperfil)
-                            ? upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
+                    try {
+                        const [imgs, userImage, isLiked] = yield Promise.all([
+                            Promise.all(((_a = post.imgpost) !== null && _a !== void 0 ? _a : []).map((img) => upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
                                 bucketName: config_1.envs.AWS_BUCKET_NAME,
-                                key: post.user.photoperfil,
-                            })
-                            : null,
-                        userId
-                            ? data_1.Like.findOne({
-                                where: { post: { id: post.id }, user: { id: userId } },
-                            }).then((like) => !!like)
-                            : Promise.resolve(false),
-                    ]);
-                    return Object.assign(Object.assign({}, post), { imgpost: imgs, user: {
-                            id: post.user.id,
-                            name: post.user.name,
-                            surname: post.user.surname,
-                            whatsapp: post.user.whatsapp,
-                            photoperfil: userImage,
-                        }, totalLikes: (_c = post.likesCount) !== null && _c !== void 0 ? _c : 0, isLiked });
+                                key: img,
+                            }))),
+                            ((_b = post.user) === null || _b === void 0 ? void 0 : _b.photoperfil)
+                                ? upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
+                                    bucketName: config_1.envs.AWS_BUCKET_NAME,
+                                    key: post.user.photoperfil,
+                                })
+                                : Promise.resolve(null),
+                            userId
+                                ? data_1.Like.findOne({
+                                    where: { post: { id: post.id }, user: { id: userId } },
+                                }).then((like) => !!like)
+                                : Promise.resolve(false),
+                        ]);
+                        return Object.assign(Object.assign({}, post), { imgpost: imgs, user: {
+                                id: post.user.id,
+                                name: post.user.name,
+                                surname: post.user.surname,
+                                whatsapp: post.user.whatsapp,
+                                photoperfil: userImage,
+                            }, totalLikes: (_c = post.likesCount) !== null && _c !== void 0 ? _c : 0, isLiked });
+                    }
+                    catch (error) {
+                        console.error(`Error processing post ${post.id}:`, error);
+                        return null;
+                    }
                 })));
                 return {
                     total,
                     totalPages: Math.ceil(total / limit),
                     currentPage: page,
-                    posts: formattedPosts,
+                    posts: formattedPosts.filter(p => p !== null),
                 };
             }
             catch (error) {
-                throw domain_1.CustomError.internalServer("Error al obtener posts paginados");
+                console.error("Critical error in findAllPostPaginated:", error);
+                throw domain_1.CustomError.internalServer("Error al obtener posts paginados. Detalle: " + error.message);
             }
         });
     }
@@ -100,7 +110,7 @@ class PostService {
             const now = new Date();
             // Buscar posts públicos gratuitos que hayan expirado
             const expiredPosts = yield data_1.Post.createQueryBuilder("post")
-                .where("post.statusPost = :status", { status: data_1.StatusPost.PUBLICADO })
+                .where("post.statusPost = :status", { status: data_1.StatusPost.PUBLISHED })
                 .andWhere("post.isPaid = false")
                 .andWhere("post.expiresAt <= :now", { now })
                 .getMany();
@@ -108,7 +118,7 @@ class PostService {
                 // Actualizar todos los posts expirados en una sola operación
                 yield data_1.Post.createQueryBuilder()
                     .update()
-                    .set({ statusPost: data_1.StatusPost.ELIMINADO })
+                    .set({ statusPost: data_1.StatusPost.DELETED })
                     .whereInIds(expiredPosts.map((p) => p.id))
                     .execute();
                 // Emitir eventos de socket para cada post eliminado
@@ -124,50 +134,66 @@ class PostService {
     searchPost(searchTerm, userId) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const posts = yield data_1.Post.find({
-                    where: [
-                        { title: (0, typeorm_1.ILike)(`%${searchTerm}%`) },
-                        { subtitle: (0, typeorm_1.ILike)(`%${searchTerm}%`) },
-                        { user: { name: (0, typeorm_1.ILike)(`%${searchTerm}%`) } },
-                        { user: { surname: (0, typeorm_1.ILike)(`%${searchTerm}%`) } },
-                    ],
-                    relations: ["user"],
-                    select: {
-                        user: {
-                            id: true,
-                            name: true,
-                            surname: true,
-                            photoperfil: true,
-                            whatsapp: true,
-                        },
-                    },
-                    order: { createdAt: "DESC" },
-                });
-                // Resolviendo imágenes + LIKES
-                const resolvedPosts = yield Promise.all(posts.map((post) => __awaiter(this, void 0, void 0, function* () {
-                    var _a;
-                    const [resolvedImgs, userImage, isLiked] = yield Promise.all([
-                        Promise.all(((_a = post.imgpost) !== null && _a !== void 0 ? _a : []).map((img) => __awaiter(this, void 0, void 0, function* () {
-                            return yield upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
+                const now = new Date();
+                // 1. Consulta con los MISMOS filtros que findAllPostPaginated:
+                //    - Solo PUBLISHED
+                //    - Posts pagados o gratuitos no expirados
+                const query = data_1.Post.createQueryBuilder("post")
+                    .leftJoinAndSelect("post.user", "user")
+                    .where("post.statusPost = :status", { status: data_1.StatusPost.PUBLISHED })
+                    .andWhere("(post.isPaid = true OR (post.expiresAt IS NULL OR post.expiresAt > :now))", { now })
+                    .andWhere("(LOWER(post.title) LIKE LOWER(:term) OR LOWER(post.subtitle) LIKE LOWER(:term) OR LOWER(user.name) LIKE LOWER(:term) OR LOWER(user.surname) LIKE LOWER(:term))", { term: `%${searchTerm}%` })
+                    .orderBy("post.createdAt", "DESC");
+                const posts = yield query.getMany();
+                // 2. Filtrar posts pagados sin suscripción activa + posts huérfanos
+                const filteredPosts = yield Promise.all(posts.map((post) => __awaiter(this, void 0, void 0, function* () {
+                    if (!post.user)
+                        return null; // Post huérfano
+                    if (post.isPaid) {
+                        const hasSubscription = yield this.subscriptionService.hasActiveSubscription(post.user.id);
+                        return hasSubscription ? post : null;
+                    }
+                    return post; // Gratuitos se mantienen
+                })));
+                const validPosts = filteredPosts.filter((p) => p !== null);
+                // 3. Resolviendo imágenes + LIKES (mismo formato que el feed)
+                const resolvedPosts = yield Promise.all(validPosts.map((post) => __awaiter(this, void 0, void 0, function* () {
+                    var _a, _b, _c;
+                    try {
+                        const [resolvedImgs, userImage, isLiked] = yield Promise.all([
+                            Promise.all(((_a = post.imgpost) !== null && _a !== void 0 ? _a : []).map((img) => upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
                                 bucketName: config_1.envs.AWS_BUCKET_NAME,
                                 key: img,
-                            });
-                        }))),
-                        upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
-                            bucketName: config_1.envs.AWS_BUCKET_NAME,
-                            key: post.user.photoperfil,
-                        }),
-                        userId
-                            ? data_1.Like.findOne({
-                                where: { post: { id: post.id }, user: { id: userId } },
-                            }).then((like) => !!like)
-                            : Promise.resolve(false),
-                    ]);
-                    return Object.assign(Object.assign({}, post), { imgpost: resolvedImgs, user: Object.assign(Object.assign({}, post.user), { photoperfil: userImage }), isLiked });
+                            }))),
+                            ((_b = post.user) === null || _b === void 0 ? void 0 : _b.photoperfil)
+                                ? upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
+                                    bucketName: config_1.envs.AWS_BUCKET_NAME,
+                                    key: post.user.photoperfil,
+                                })
+                                : Promise.resolve(null),
+                            userId
+                                ? data_1.Like.findOne({
+                                    where: { post: { id: post.id }, user: { id: userId } },
+                                }).then((like) => !!like)
+                                : Promise.resolve(false),
+                        ]);
+                        return Object.assign(Object.assign({}, post), { imgpost: resolvedImgs, user: {
+                                id: post.user.id,
+                                name: post.user.name,
+                                surname: post.user.surname,
+                                whatsapp: post.user.whatsapp,
+                                photoperfil: userImage,
+                            }, totalLikes: (_c = post.likesCount) !== null && _c !== void 0 ? _c : 0, isLiked });
+                    }
+                    catch (error) {
+                        console.error(`Error processing search post ${post.id}:`, error);
+                        return null;
+                    }
                 })));
-                return resolvedPosts;
+                return resolvedPosts.filter((p) => p !== null);
             }
             catch (error) {
+                console.error("Error en searchPost:", error);
                 throw domain_1.CustomError.internalServer("Error buscando los posts");
             }
         });
@@ -267,11 +293,18 @@ class PostService {
                         key,
                     }))));
                 }
+                // 4.5. Validar contenido (Moderación automática)
+                if ((0, content_moderation_1.containsForbiddenWords)(postData.title) ||
+                    (0, content_moderation_1.containsForbiddenWords)(postData.subtitle) ||
+                    (0, content_moderation_1.containsForbiddenWords)(postData.content)) {
+                    throw domain_1.CustomError.badRequest("Tu contenido contiene texto no permitido. Corrígelo para continuar.");
+                }
                 // 5. Crear y guardar el post
                 const post = new data_1.Post();
                 post.title = postData.title.toLowerCase().trim();
                 post.subtitle = postData.subtitle.toLowerCase().trim();
                 post.content = postData.content.trim();
+                post.statusPost = data_1.StatusPost.PUBLISHED;
                 post.user = user;
                 post.isPaid = postData.isPaid || false;
                 post.imgpost = keys;
@@ -343,7 +376,7 @@ class PostService {
                 // 1. Buscar posts gratuitos expirados (ELIMINADOS o con expiresAt pasado)
                 const expiredPosts = yield data_1.Post.find({
                     where: [
-                        { statusPost: data_1.StatusPost.ELIMINADO }, // Posts ya marcados como eliminados
+                        { statusPost: data_1.StatusPost.DELETED }, // Posts ya marcados como eliminados
                         {
                             isPaid: false,
                             expiresAt: (0, typeorm_1.LessThan)(new Date()), // Posts gratuitos que ya expiraron
@@ -520,14 +553,14 @@ class PostService {
                 throw domain_1.CustomError.notFound("Post no encontrado");
             if (post.user.id !== userId)
                 throw domain_1.CustomError.forbiden("No autorizado para eliminar este post");
-            return post.statusPost === data_1.StatusPost.ELIMINADO
+            return post.statusPost === data_1.StatusPost.DELETED
                 ? yield this.hardDeletePost(post)
                 : yield this.softDeletePost(post);
         });
     }
     softDeletePost(post) {
         return __awaiter(this, void 0, void 0, function* () {
-            post.statusPost = data_1.StatusPost.ELIMINADO;
+            post.statusPost = data_1.StatusPost.DELETED;
             post.deletedAt = new Date();
             yield post.save();
             (0, socket_1.getIO)().emit("postChanged", {
@@ -575,8 +608,8 @@ class PostService {
     getAdminStats() {
         return __awaiter(this, void 0, void 0, function* () {
             const totalPosts = yield data_1.Post.count({ withDeleted: true });
-            const activePosts = yield data_1.Post.count({ where: { statusPost: data_1.StatusPost.PUBLICADO } });
-            const deletedPosts = yield data_1.Post.count({ where: { statusPost: data_1.StatusPost.ELIMINADO }, withDeleted: true });
+            const activePosts = yield data_1.Post.count({ where: { statusPost: data_1.StatusPost.PUBLISHED } });
+            const deletedPosts = yield data_1.Post.count({ where: { statusPost: data_1.StatusPost.DELETED }, withDeleted: true });
             const paidPosts = yield data_1.Post.count({ where: { isPaid: true }, withDeleted: true });
             const freePosts = yield data_1.Post.count({ where: { isPaid: false }, withDeleted: true });
             const thirtyDaysAgo = new Date();
@@ -600,7 +633,7 @@ class PostService {
                 thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
                 const postsToPurge = yield data_1.Post.createQueryBuilder("post")
                     .withDeleted()
-                    .where("post.statusPost = :status", { status: data_1.StatusPost.ELIMINADO })
+                    .where("post.statusPost = :status", { status: data_1.StatusPost.DELETED })
                     .andWhere("post.deletedAt <= :threshold", { threshold: thirtyDaysAgo })
                     .getMany();
                 if (postsToPurge.length === 0)
@@ -671,7 +704,7 @@ class PostService {
                 const paidPosts = yield data_1.Post.createQueryBuilder("post")
                     .leftJoin("post.user", "user")
                     .select(["post.id", "user.id"])
-                    .where("post.statusPost = :status", { status: data_1.StatusPost.PUBLICADO })
+                    .where("post.statusPost = :status", { status: data_1.StatusPost.PUBLISHED })
                     .andWhere("post.isPaid = :isPaid", { isPaid: true })
                     .getMany();
                 if (paidPosts.length === 0)
@@ -703,7 +736,7 @@ class PostService {
                 const posts = yield data_1.Post.createQueryBuilder("post")
                     .leftJoinAndSelect("post.user", "user")
                     .select(["post.id", "user.id"])
-                    .where("post.statusPost = :status", { status: data_1.StatusPost.PUBLICADO })
+                    .where("post.statusPost = :status", { status: data_1.StatusPost.PUBLISHED })
                     .andWhere("post.isPaid = :isPaid", { isPaid: true })
                     .andWhere("post.createdAt >= :since", { since })
                     .getMany();
@@ -733,7 +766,7 @@ class PostService {
             try {
                 const now = new Date();
                 const total = yield data_1.Post.createQueryBuilder("post")
-                    .where("post.statusPost = :status", { status: data_1.StatusPost.PUBLICADO })
+                    .where("post.statusPost = :status", { status: data_1.StatusPost.PUBLISHED })
                     .andWhere("post.isPaid = :isPaid", { isPaid: false })
                     .andWhere("(post.expiresAt IS NULL OR post.expiresAt > :now)", { now })
                     .getCount();
@@ -821,11 +854,11 @@ class PostService {
                 const post = yield data_1.Post.findOne({ where: { id: postId } });
                 if (!post)
                     throw domain_1.CustomError.notFound("Post no encontrado");
-                // Toggle: si está bloqueado -> PUBLICADO; si no, BLOQUEADO
-                const wasBlocked = post.statusPost === data_1.StatusPost.BLOQUEADO;
+                // Toggle: si está bloqueado -> PUBLISHED; si no, FLAGGED
+                const wasBlocked = post.statusPost === data_1.StatusPost.FLAGGED;
                 post.statusPost = wasBlocked
-                    ? data_1.StatusPost.PUBLICADO
-                    : data_1.StatusPost.BLOQUEADO;
+                    ? data_1.StatusPost.PUBLISHED
+                    : data_1.StatusPost.FLAGGED;
                 yield post.save();
                 return {
                     message: wasBlocked ? "Post desbloqueado" : "Post bloqueado",
@@ -844,7 +877,7 @@ class PostService {
             if (!post)
                 throw domain_1.CustomError.notFound("Post no encontrado");
             post.statusPost = status;
-            if (status === data_1.StatusPost.ELIMINADO) {
+            if (status === data_1.StatusPost.DELETED) {
                 post.deletedAt = new Date();
             }
             else {
@@ -873,7 +906,7 @@ class PostService {
                 // Buscar posts ELIMINADO con deletedAt <= cutoff
                 const posts = yield data_1.Post.find({
                     where: {
-                        statusPost: data_1.StatusPost.ELIMINADO,
+                        statusPost: data_1.StatusPost.DELETED,
                         deletedAt: (0, typeorm_1.LessThan)(cutoff),
                     },
                 });
@@ -913,11 +946,11 @@ class PostService {
                 const result = yield data_1.Post.createQueryBuilder()
                     .update(data_1.Post)
                     .set({
-                    statusPost: data_1.StatusPost.ELIMINADO,
+                    statusPost: data_1.StatusPost.DELETED,
                     expiresAt: null,
                     deletedAt: now
                 })
-                    .where("statusPost = :status", { status: data_1.StatusPost.PUBLICADO })
+                    .where("statusPost = :status", { status: data_1.StatusPost.PUBLISHED })
                     .andWhere("isPaid = :isPaid", { isPaid: false })
                     .andWhere("expiresAt <= :now", { now })
                     .execute();

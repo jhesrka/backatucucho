@@ -886,12 +886,12 @@ class UserService {
                     : "";
                 const postCounts = {
                     total: user.posts.length,
-                    published: user.posts.filter((p) => p.statusPost === data_1.StatusPost.PUBLICADO).length,
-                    hidden: user.posts.filter((p) => p.statusPost === data_1.StatusPost.OCULTO)
+                    published: user.posts.filter((p) => p.statusPost === data_1.StatusPost.PUBLISHED).length,
+                    hidden: user.posts.filter((p) => p.statusPost === data_1.StatusPost.HIDDEN)
                         .length,
-                    deleted: user.posts.filter((p) => p.statusPost === data_1.StatusPost.ELIMINADO)
+                    deleted: user.posts.filter((p) => p.statusPost === data_1.StatusPost.DELETED)
                         .length,
-                    banned: user.posts.filter((p) => p.statusPost === data_1.StatusPost.BLOQUEADO)
+                    banned: user.posts.filter((p) => p.statusPost === data_1.StatusPost.FLAGGED)
                         .length,
                 };
                 const storieCounts = {
@@ -899,7 +899,7 @@ class UserService {
                     published: user.stories.filter((s) => s.statusStorie === data_1.StatusStorie.PUBLISHED).length,
                     hidden: user.stories.filter((s) => s.statusStorie === data_1.StatusStorie.HIDDEN).length,
                     deleted: user.stories.filter((s) => s.statusStorie === data_1.StatusStorie.DELETED).length,
-                    banned: user.stories.filter((s) => s.statusStorie === data_1.StatusStorie.BANNED).length,
+                    banned: user.stories.filter((s) => s.statusStorie === data_1.StatusStorie.FLAGGED).length,
                 };
                 const negocioCounts = {
                     total: user.negocios.length,

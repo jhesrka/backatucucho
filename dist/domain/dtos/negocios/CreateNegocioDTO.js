@@ -4,7 +4,7 @@ exports.CreateNegocioDTO = void 0;
 const config_1 = require("../../../config");
 const data_1 = require("../../../data");
 class CreateNegocioDTO {
-    constructor(nombre, descripcion, categoriaId, userId, modeloMonetizacion, latitud, longitud, banco, tipoCuenta, numeroCuenta, titularCuenta, direccionTexto, valorSuscripcion = 0, diaPago = 1) {
+    constructor(nombre, descripcion, categoriaId, userId, modeloMonetizacion, latitud, longitud, banco, tipoCuenta, numeroCuenta, titularCuenta, direccionTexto, valorSuscripcion = 0, diaPago = 1, orden = 0) {
         this.nombre = nombre;
         this.descripcion = descripcion;
         this.categoriaId = categoriaId;
@@ -19,9 +19,10 @@ class CreateNegocioDTO {
         this.direccionTexto = direccionTexto;
         this.valorSuscripcion = valorSuscripcion;
         this.diaPago = diaPago;
+        this.orden = orden;
     }
     static create(obj) {
-        const { nombre, descripcion, categoriaId, userId, modeloMonetizacion, latitud, longitud, direccionTexto, banco, tipoCuenta, numeroCuenta, titularCuenta, valorSuscripcion, diaPago } = obj;
+        const { nombre, descripcion, categoriaId, userId, modeloMonetizacion, latitud, longitud, direccionTexto, banco, tipoCuenta, numeroCuenta, titularCuenta, valorSuscripcion, diaPago, orden } = obj;
         if (!nombre || typeof nombre !== "string" || nombre.trim().length < 3) {
             return ["El nombre del negocio debe tener al menos 3 caracteres"];
         }
@@ -71,13 +72,19 @@ class CreateNegocioDTO {
                 return ["El día de pago debe ser entre 1 y 31"];
             }
         }
+        if (orden !== undefined) {
+            const ord = Number(orden);
+            if (isNaN(ord)) {
+                return ["El orden debe ser un número"];
+            }
+        }
         // opcional, pero si viene validamos tamaño
         const dirTxt = typeof direccionTexto === "string" && direccionTexto.trim().length > 0
             ? direccionTexto.trim().slice(0, 200)
             : undefined;
         return [
             undefined,
-            new CreateNegocioDTO(nombre.trim(), descripcion.trim(), categoriaId, userId, modeloMonetizacion, lat, lng, banco.trim(), tipoCuenta.trim(), numeroCuenta.trim(), titularCuenta.trim(), dirTxt, valorSuscripcion !== undefined ? Number(valorSuscripcion) : 0, diaPago !== undefined ? Number(diaPago) : 1),
+            new CreateNegocioDTO(nombre.trim(), descripcion.trim(), categoriaId, userId, modeloMonetizacion, lat, lng, banco.trim(), tipoCuenta.trim(), numeroCuenta.trim(), titularCuenta.trim(), dirTxt, valorSuscripcion !== undefined ? Number(valorSuscripcion) : 0, diaPago !== undefined ? Number(diaPago) : 1, orden !== undefined ? Number(orden) : 0),
         ];
     }
 }

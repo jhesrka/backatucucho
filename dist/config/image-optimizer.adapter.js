@@ -23,10 +23,10 @@ var ImageSize;
     ImageSize["ORIGINAL"] = "original";
 })(ImageSize || (exports.ImageSize = ImageSize = {}));
 const SIZE_CONFIG = {
-    [ImageSize.THUMBNAIL]: { width: 200, height: 200, quality: 80 },
+    [ImageSize.THUMBNAIL]: { width: 300, height: 300, quality: 80 }, // Max 300x300, preserve aspect ratio
     [ImageSize.CARD]: { width: 600, quality: 80 },
-    [ImageSize.LARGE]: { width: 1080, height: 1080, quality: 85 }, // Square crop as per UI (1080x1080)
-    [ImageSize.RECEIPT]: { width: 1280, quality: 85 }, // Maintain aspect ratio, max width 1280
+    [ImageSize.LARGE]: { width: 1920, height: 1920, quality: 85 }, // Max 1920x1920, preserve aspect ratio
+    [ImageSize.RECEIPT]: { width: 1280, quality: 85 },
     [ImageSize.ORIGINAL]: { quality: 90 }
 };
 class ImageOptimizer {
@@ -34,18 +34,12 @@ class ImageOptimizer {
         return __awaiter(this, arguments, void 0, function* (buffer, size = ImageSize.ORIGINAL) {
             const config = SIZE_CONFIG[size];
             let pipeline = (0, sharp_1.default)(buffer);
-            if (config.width && config.height) {
-                // Para thumbnails y Large (Productos), forzamos cuadrado centrado (Relación 1:1)
-                pipeline = pipeline.resize(config.width, config.height, {
-                    fit: 'cover',
-                    position: 'center'
-                });
-            }
-            else if (config.width || config.height) {
-                // Redimensionar manteniendo proporción (solo si es más grande que el destino)
+            if (config.width || config.height) {
+                // Updated logic: ALWAYS preserve aspect ratio (fit: 'inside')
+                // This prevents 1:1 forced cropping.
                 pipeline = pipeline.resize({
                     width: config.width,
-                    height: config.height,
+                    height: config.height, // If both provided, it fits INSIDE the box
                     withoutEnlargement: true,
                     fit: 'inside'
                 });

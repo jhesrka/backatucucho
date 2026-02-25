@@ -16,14 +16,24 @@ exports.startPedidoMotoCron = void 0;
 const node_cron_1 = __importDefault(require("node-cron"));
 const pedidoMoto_service_1 = require("../presentation/services/pedidosServices/pedidoMoto.service");
 const startPedidoMotoCron = () => {
+    let isRunning = false;
     node_cron_1.default.schedule("*/3 * * * * *", () => __awaiter(void 0, void 0, void 0, function* () {
-        console.log("CRON EJECUTADO:", new Date());
+        if (isRunning) {
+            console.log("⚠️ Cron de asignación omitido: Ejecución anterior en progreso.");
+            return;
+        }
+        isRunning = true;
+        const ecuadorTime = new Date().toLocaleString("es-EC", { timeZone: "America/Guayaquil" });
+        console.log("CRON EJECUTADO:", ecuadorTime);
         try {
             yield pedidoMoto_service_1.PedidoMotoService.asignarPedidosAutomaticamente();
             console.log("➡️ ASIGNACIÓN EJECUTADA");
         }
         catch (error) {
             console.error("❌ ERROR EN CRON:", error);
+        }
+        finally {
+            isRunning = false;
         }
     }));
 };

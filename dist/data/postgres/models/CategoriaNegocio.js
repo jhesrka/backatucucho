@@ -59,6 +59,22 @@ __decorate([
     __metadata("design:type", Boolean)
 ], CategoriaNegocio.prototype, "soloComision", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: "boolean", default: false }),
+    __metadata("design:type", Boolean)
+], CategoriaNegocio.prototype, "modeloBloqueado", void 0);
+__decorate([
+    (0, typeorm_1.Column)({
+        type: "varchar",
+        nullable: true,
+        default: null,
+    }),
+    __metadata("design:type", Object)
+], CategoriaNegocio.prototype, "modeloMonetizacionDefault", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "int", default: 0 }),
+    __metadata("design:type", Number)
+], CategoriaNegocio.prototype, "orden", void 0);
+__decorate([
     (0, typeorm_1.CreateDateColumn)({ type: "timestamp" }),
     __metadata("design:type", Date)
 ], CategoriaNegocio.prototype, "created_at", void 0);

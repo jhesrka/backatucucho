@@ -101,6 +101,7 @@ class NegocioAdminService {
     // ========================= CREATE =========================
     createNegocioAdmin(dto, img) {
         return __awaiter(this, void 0, void 0, function* () {
+            var _a;
             const categoria = yield data_1.CategoriaNegocio.findOneBy({ id: dto.categoriaId });
             if (!categoria)
                 throw domain_1.CustomError.notFound("Categoría no encontrada");
@@ -126,8 +127,16 @@ class NegocioAdminService {
                 usuario,
                 imagenNegocio: key,
                 modeloMonetizacion: dto.modeloMonetizacion,
+                latitud: dto.latitud,
+                longitud: dto.longitud,
+                direccionTexto: dto.direccionTexto,
+                banco: dto.banco,
+                tipoCuenta: dto.tipoCuenta,
+                numeroCuenta: dto.numeroCuenta,
+                titularCuenta: dto.titularCuenta,
                 valorSuscripcion: dto.valorSuscripcion,
                 diaPago: dto.diaPago,
+                orden: (_a = dto.orden) !== null && _a !== void 0 ? _a : 0, // Nuevo campo, default 0
             });
             const saved = yield negocio.save();
             return saved;
@@ -203,6 +212,9 @@ class NegocioAdminService {
             }
             if (dto.diaPago !== undefined) {
                 negocio.diaPago = dto.diaPago;
+            }
+            if (dto.orden !== undefined) {
+                negocio.orden = dto.orden;
             }
             // ========================= ACTUALIZAR STATUS =========================
             if (dto.statusNegocio) {
@@ -301,6 +313,7 @@ class NegocioAdminService {
                 fechaFinSuscripcion: saved.fechaFinSuscripcion,
                 fechaUltimoCobro: saved.fechaUltimoCobro,
                 intentosCobro: saved.intentosCobro,
+                orden: saved.orden,
             };
         });
     }
@@ -463,6 +476,7 @@ class NegocioAdminService {
                     diaPago: negocio.diaPago,
                     fechaUltimoCobro: negocio.fechaUltimoCobro,
                     intentosCobro: negocio.intentosCobro,
+                    orden: negocio.orden,
                     fechaInicioSuscripcion: negocio.fechaInicioSuscripcion,
                     fechaFinSuscripcion: negocio.fechaFinSuscripcion,
                     direccion: negocio.direccionTexto,

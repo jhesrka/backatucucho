@@ -42,3 +42,6 @@ __exportStar(require("./postgres/models/Campaign"), exports);
 __exportStar(require("./postgres/models/CampaignLog"), exports);
 __exportStar(require("./postgres/models/financial/FinancialClosing"), exports);
 __exportStar(require("./postgres/models/report.model"), exports);
+__exportStar(require("./postgres/models/ModerationLog"), exports);
+__exportStar(require("./postgres/models/PostReport"), exports);
+__exportStar(require("./postgres/models/StorieReport"), exports);

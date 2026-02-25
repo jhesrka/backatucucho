@@ -29,6 +29,10 @@ class PedidoAdminService {
                 where.cliente = { id: clienteId };
             if (desde && hasta)
                 where.createdAt = (0, typeorm_1.Between)(desde, hasta);
+            // Search logic for UUID or short ID
+            if (search) {
+                where.id = (0, typeorm_1.ILike)(`%${search}%`);
+            }
             const [pedidos, total] = yield data_1.Pedido.findAndCount({
                 where,
                 take: limit,
@@ -70,22 +74,26 @@ class PedidoAdminService {
                 throw domain_1.CustomError.notFound("Pedido no encontrado");
             const motorizado = yield data_1.UserMotorizado.findOneBy({ id: dto.motorizadoId });
             if (!motorizado)
-                throw domain_1.CustomError.notFound("Motorizado no encontrado");
+                throw domain_1.CustomError.notFound("El motorizado ya no existe en el sistema");
+            // 1. Validar que el motorizado esté apto (ACTIVO y DISPONIBLE)
             if (motorizado.estadoCuenta !== "ACTIVO") {
-                throw domain_1.CustomError.badRequest("Solo se pueden asignar motorizados con estado ACTIVO");
+                throw domain_1.CustomError.badRequest("El motorizado ya no está activo administrativamente");
             }
-            if (pedido.estado === data_1.EstadoPedido.PREPARANDO) {
-                // Primera asignación: asignar motorizado y cambiar estado a EN_CAMINO
+            if (motorizado.estadoTrabajo !== "DISPONIBLE") {
+                throw domain_1.CustomError.badRequest(`El motorizado ya no está disponible (Estado actual: ${motorizado.estadoTrabajo})`);
+            }
+            // 2. Validar que el pedido siga en un estado asignable
+            if (pedido.estado !== data_1.EstadoPedido.PREPARANDO_NO_ASIGNADO && pedido.estado !== data_1.EstadoPedido.PREPARANDO && pedido.estado !== data_1.EstadoPedido.EN_CAMINO) {
+                throw domain_1.CustomError.badRequest(`El pedido ya cambió de estado o fue asignado por otro administrador (Estado actual: ${pedido.estado})`);
+            }
+            if (pedido.estado === data_1.EstadoPedido.PREPARANDO_NO_ASIGNADO || pedido.estado === data_1.EstadoPedido.PREPARANDO) {
+                // Asignación inicial
                 pedido.motorizado = motorizado;
-                pedido.estado = data_1.EstadoPedido.EN_CAMINO;
+                pedido.estado = data_1.EstadoPedido.PREPARANDO; // Pasa a PREPARANDO al tener motorizado
             }
             else if (pedido.estado === data_1.EstadoPedido.EN_CAMINO) {
-                // Reasignación permitida solo si ya está en EN_CAMINO
+                // Reasignación
                 pedido.motorizado = motorizado;
-                // El estado no cambia
-            }
-            else {
-                throw domain_1.CustomError.badRequest("Solo se puede asignar o reasignar motorizado si el pedido está en estado PREPARANDO o EN_CAMINO");
             }
             yield pedido.save();
             return pedido;

@@ -10,6 +10,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PostController = void 0;
+const data_1 = require("../../data");
 const domain_1 = require("../../domain");
 class PostController {
     constructor(postService) {
@@ -241,7 +242,7 @@ class PostController {
                     return res.status(400).json({ message: "ID de post inválido" });
                 }
                 const { message, status } = yield this.postService.blockPostAdmin(id);
-                const action = status === "BLOQUEADO" ? "block" : "unblock";
+                const action = status === data_1.StatusPost.FLAGGED ? "block" : "unblock";
                 return res.status(200).json({
                     success: true,
                     action, // "block" | "unblock"

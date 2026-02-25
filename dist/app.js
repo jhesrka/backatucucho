@@ -19,6 +19,8 @@ const pedidoMoto_cron_1 = require("./cron/pedidoMoto.cron");
 const subscription_cron_1 = require("./cron/subscription.cron");
 const post_expiration_cron_1 = require("./cron/post-expiration.cron");
 const pedidoPurge_cron_1 = require("./cron/pedidoPurge.cron");
+const report_purge_cron_1 = require("./cron/report-purge.cron");
+const global_schedule_cron_1 = require("./cron/global-schedule.cron");
 function main() {
     return __awaiter(this, void 0, void 0, function* () {
         const postgres = new data_1.PostgresDatabase({
@@ -38,6 +40,9 @@ function main() {
         (0, subscription_cron_1.startSubscriptionCron)();
         (0, post_expiration_cron_1.startPostExpirationCron)();
         (0, pedidoPurge_cron_1.startOrderPurgeCron)();
+        (0, pedidoPurge_cron_1.startOrderPurgeCron)();
+        (0, report_purge_cron_1.startReportPurgeCron)();
+        (0, global_schedule_cron_1.startGlobalScheduleCron)();
         yield server.start();
     });
 }

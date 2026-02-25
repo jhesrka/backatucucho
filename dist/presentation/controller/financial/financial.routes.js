@@ -13,14 +13,20 @@ class FinancialRoutes {
         const controller = new financial_controller_1.FinancialController(service);
         // Using POST for date ranges in body to avoid query string complexity, though GET with query params is standard.
         // User requested structure is implied to be simple.
-        router.post('/summary', controller.getSummary);
-        router.post('/shops', controller.getShopReconciliation);
-        router.post('/drivers', controller.getDriverReconciliation);
-        router.post('/shop-details', controller.getShopDetails);
+        router.post('/summary', [middlewares_1.AuthAdminMiddleware.protect], controller.getSummary);
+        router.post('/shops', [middlewares_1.AuthAdminMiddleware.protect], controller.getShopReconciliation);
+        router.post('/drivers', [middlewares_1.AuthAdminMiddleware.protect], controller.getDriverReconciliation);
+        router.post('/shop-details', [middlewares_1.AuthAdminMiddleware.protect], controller.getShopClosingDetails);
+        router.post('/close-shop-day', [middlewares_1.AuthAdminMiddleware.protect], controller.closeShopDay);
+        router.post('/upload-shop-receipt', [middlewares_1.AuthAdminMiddleware.protect, (0, config_1.uploadSingleFile)('file')], controller.uploadShopReceipt);
+        // New Route
+        router.get('/movimientos-motorizados', [middlewares_1.AuthAdminMiddleware.protect], controller.getMovimientosMotorizados);
         // Daily Closing
         router.post('/upload-statement', [middlewares_1.AuthAdminMiddleware.protect, (0, config_1.uploadSingleFile)('file')], controller.uploadBankStatement);
         router.get('/day-status', middlewares_1.AuthAdminMiddleware.protect, controller.getDayStatus);
         router.post('/close-day', middlewares_1.AuthAdminMiddleware.protect, controller.closeDay);
+        // Internal Pending Closings
+        router.get('/pending-closings', middlewares_1.AuthAdminMiddleware.protect, controller.getPendingShopClosings);
         // Detailed Revenue (Auditable)
         router.get('/revenue-details', middlewares_1.AuthAdminMiddleware.protect, controller.getAppRevenueDetails);
         return router;

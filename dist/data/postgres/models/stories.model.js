@@ -15,9 +15,9 @@ const user_model_1 = require("./user.model"); // Importar la entidad User
 var StatusStorie;
 (function (StatusStorie) {
     StatusStorie["PUBLISHED"] = "PUBLISHED";
+    StatusStorie["FLAGGED"] = "FLAGGED";
     StatusStorie["HIDDEN"] = "HIDDEN";
     StatusStorie["DELETED"] = "DELETED";
-    StatusStorie["BANNED"] = "BANNED";
 })(StatusStorie || (exports.StatusStorie = StatusStorie = {}));
 let Storie = class Storie extends typeorm_1.BaseEntity {
 };

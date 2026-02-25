@@ -29,6 +29,7 @@ var ModeloMonetizacion;
 (function (ModeloMonetizacion) {
     ModeloMonetizacion["SUSCRIPCION"] = "SUSCRIPCION";
     ModeloMonetizacion["COMISION_SUSCRIPCION"] = "COMISION_SUSCRIPCION";
+    ModeloMonetizacion["COMISION"] = "COMISION";
 })(ModeloMonetizacion || (exports.ModeloMonetizacion = ModeloMonetizacion = {}));
 var EstadoNegocio;
 (function (EstadoNegocio) {
@@ -90,6 +91,10 @@ __decorate([
     (0, typeorm_1.Column)({ type: "int", default: 1 }),
     __metadata("design:type", Number)
 ], Negocio.prototype, "diaPago", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "int", default: 0 }),
+    __metadata("design:type", Number)
+], Negocio.prototype, "orden", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: "timestamp", nullable: true }),
     __metadata("design:type", Object)

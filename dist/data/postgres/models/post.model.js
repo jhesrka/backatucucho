@@ -14,10 +14,10 @@ const typeorm_1 = require("typeorm");
 const index_1 = require("../../index");
 var StatusPost;
 (function (StatusPost) {
-    StatusPost["PUBLICADO"] = "PUBLICADO";
-    StatusPost["OCULTO"] = "OCULTO";
-    StatusPost["ELIMINADO"] = "ELIMINADO";
-    StatusPost["BLOQUEADO"] = "BLOQUEADO";
+    StatusPost["PUBLISHED"] = "PUBLISHED";
+    StatusPost["FLAGGED"] = "FLAGGED";
+    StatusPost["HIDDEN"] = "HIDDEN";
+    StatusPost["DELETED"] = "DELETED";
 })(StatusPost || (exports.StatusPost = StatusPost = {}));
 let Post = class Post extends typeorm_1.BaseEntity {
 };
@@ -73,7 +73,7 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)("enum", {
         enum: StatusPost,
-        default: StatusPost.PUBLICADO,
+        default: StatusPost.PUBLISHED,
     }),
     __metadata("design:type", String)
 ], Post.prototype, "statusPost", void 0);

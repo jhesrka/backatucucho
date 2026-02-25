@@ -6,6 +6,7 @@ const auth_middleware_1 = require("../../middlewares/auth.middleware");
 const config_1 = require("../../config");
 const pedidoUsuario_service_1 = require("../services/pedidosServices/pedidoUsuario.service");
 const pedidoUsuario_controller_1 = require("./pedidoUsuario.controller");
+const checkOpenApp_middleware_1 = require("../middlewares/checkOpenApp.middleware");
 class PedidoUsuarioRoutes {
     static get routes() {
         const router = (0, express_1.Router)();
@@ -15,7 +16,7 @@ class PedidoUsuarioRoutes {
         // ⚠️ Este endpoint NO requiere autenticación
         router.post("/calcular-envio", pedidoUsuarioController.calcularEnvio);
         // ===================== CREAR PEDIDO =====================
-        router.post("/", auth_middleware_1.AuthMiddleware.protect, pedidoUsuarioController.crearPedido);
+        router.post("/", auth_middleware_1.AuthMiddleware.protect, checkOpenApp_middleware_1.AppStatusMiddleware.validate, pedidoUsuarioController.crearPedido);
         // ===================== SUBIR COMPROBANTE DE PAGO =====================
         router.post("/upload-comprobante", auth_middleware_1.AuthMiddleware.protect, (0, config_1.uploadSingleFile)("comprobante"), pedidoUsuarioController.subirComprobante);
         // ===================== OBTENER PEDIDOS DE UN CLIENTE =====================

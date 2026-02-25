@@ -67,7 +67,11 @@ class NegocioService {
             const usuario = yield data_1.User.findOneBy({ id: dto.userId });
             if (!usuario)
                 throw domain_1.CustomError.notFound("Usuario no encontrado");
-            if (categoria.soloComision && dto.modeloMonetizacion !== data_1.ModeloMonetizacion.COMISION_SUSCRIPCION) {
+            let modelo = dto.modeloMonetizacion;
+            if (categoria.modeloBloqueado && categoria.modeloMonetizacionDefault) {
+                modelo = categoria.modeloMonetizacionDefault;
+            }
+            else if (categoria.soloComision && dto.modeloMonetizacion !== data_1.ModeloMonetizacion.COMISION_SUSCRIPCION) {
                 throw domain_1.CustomError.badRequest(`La categoría '${categoria.nombre}' solo permite el modelo COMISION + SUSCRIPCION`);
             }
             const nombreExistente = yield data_1.Negocio.findOneBy({ nombre: dto.nombre });
@@ -100,7 +104,7 @@ class NegocioService {
                     contentType: img.mimetype,
                 });
             }
-            const modelo = dto.modeloMonetizacion;
+            // Eliminamos la linea "const modelo = dto.modeloMonetizacion;" porque ya definimos 'modelo' arriba.
             // ⬇️ ⬇️ GUARDAMOS lat/long (y opcional direccionTexto si creas la columna)
             const negocio = data_1.Negocio.create({
                 nombre: dto.nombre.trim(),
@@ -168,8 +172,11 @@ class NegocioService {
                     statusNegocio: data_1.StatusNegocio.ACTIVO,
                     estadoNegocio: data_1.EstadoNegocio.ABIERTO, // 🔥 Nuevo filtro
                 },
+                order: {
+                    orden: "ASC", // Primero por orden configurado
+                    created_at: "DESC", // Luego lo más nuevo
+                },
                 relations: ["categoria"],
-                // order: { nombre: "ASC" }, // Ya no necesario si vamos a barajar
             });
             const negociosConUrl = yield Promise.all(negocios.map((negocio) => __awaiter(this, void 0, void 0, function* () {
                 let imagenUrl = null;
@@ -304,11 +311,12 @@ class NegocioService {
             if (!config_1.regularExp.uuid.test(userId)) {
                 throw domain_1.CustomError.badRequest("ID de usuario inválido");
             }
-            const negocios = yield data_1.Negocio.find({
-                where: { usuario: { id: userId } },
-                relations: ["categoria"],
-                order: { created_at: "DESC" },
-            });
+            const negocios = yield data_1.Negocio.createQueryBuilder("negocio")
+                .leftJoinAndSelect("negocio.categoria", "categoria")
+                .loadRelationCountAndMap("negocio.productosCount", "negocio.productos")
+                .where("negocio.usuarioId = :userId", { userId })
+                .orderBy("negocio.created_at", "DESC")
+                .getMany();
             const negociosConImagen = yield Promise.all(negocios.map((negocio) => __awaiter(this, void 0, void 0, function* () {
                 let imagenUrl = null;
                 try {
@@ -335,6 +343,7 @@ class NegocioService {
                     tipoCuenta: negocio.tipoCuenta,
                     numeroCuenta: negocio.numeroCuenta,
                     titularCuenta: negocio.titularCuenta,
+                    productosCount: negocio.productosCount || 0,
                     imagenUrl,
                     categoria: {
                         id: negocio.categoria.id,
@@ -373,13 +382,25 @@ class NegocioService {
                 if (!categoria)
                     throw domain_1.CustomError.notFound("Categoría no encontrada");
                 negocio.categoria = categoria;
-                if (data.modeloMonetizacion &&
+                if (categoria.modeloBloqueado && categoria.modeloMonetizacionDefault) {
+                    negocio.modeloMonetizacion = categoria.modeloMonetizacionDefault;
+                }
+                else if (data.modeloMonetizacion &&
                     categoria.soloComision &&
                     data.modeloMonetizacion !== data_1.ModeloMonetizacion.COMISION_SUSCRIPCION) {
                     throw domain_1.CustomError.badRequest("Esta categoría solo permite el modelo COMISION + SUSCRIPCION");
                 }
+                else if (data.modeloMonetizacion) {
+                    // Si no está bloqueado y enviaron modelo, lo actualizamos (respetando la nueva categoría)
+                    negocio.modeloMonetizacion = data.modeloMonetizacion;
+                }
             }
-            if (data.modeloMonetizacion) {
+            if (data.modeloMonetizacion && !data.categoriaId) {
+                if (negocio.categoria.modeloBloqueado) {
+                    // Si está bloqueado y tratamos de cambiarlo sin cambiar categoría, rechazamos o ignoramos.
+                    // Mejor rechazar para feedback claro.
+                    throw domain_1.CustomError.badRequest("La categoría actual bloquea el cambio de modelo de monetización");
+                }
                 if (negocio.categoria.soloComision &&
                     data.modeloMonetizacion !== data_1.ModeloMonetizacion.COMISION_SUSCRIPCION) {
                     throw domain_1.CustomError.badRequest("Esta categoría solo permite el modelo COMISION + SUSCRIPCION");

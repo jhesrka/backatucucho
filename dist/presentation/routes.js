@@ -26,9 +26,11 @@ const dashboard_routes_1 = require("./dashboard/dashboard.routes");
 const wallet_routes_2 = require("./controller/walletController/wallet.routes");
 const advertising_routes_1 = require("./advertising/advertising.routes");
 const upload_routes_1 = require("./upload/upload.routes");
+const moderation_routes_1 = require("./controller/moderation/moderation.routes");
 const global_settings_routes_1 = require("./controller/globalSettings/global-settings.routes");
 const report_routes_1 = require("./controller/report/report.routes");
 const financial_routes_1 = require("./controller/financial/financial.routes");
+const routes_2 = require("./reports/routes");
 class AppRoutes {
     //cuando hay metodoos estaticos no necesitams instanciar
     static get routes() {
@@ -78,6 +80,10 @@ class AppRoutes {
         router.use("/api/upload", upload_routes_1.UploadRoutes.routes);
         // 🧾 NUEVA RUTA: Financial Module
         router.use("/api/financial", financial_routes_1.FinancialRoutes.routes);
+        // 🛡️ NUEVA RUTA: Moderation Module
+        router.use("/api/moderation", moderation_routes_1.ModerationRoutes.routes);
+        // 🚩 NUEVA RUTA: Admin Reports (Aggregated)
+        router.use("/api/admin/reports", routes_2.AdminReportRoutes.routes);
         return router;
     }
 }

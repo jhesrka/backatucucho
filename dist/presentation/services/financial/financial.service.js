@@ -310,6 +310,9 @@ class FinancialService {
             let totalComisionProductos = 0;
             let totalComisionDomicilios = 0;
             let totalPagoMotorizadosArr = 0;
+            // NEW: Financial Reconciliation Accumulators
+            let totalDepositoEfectivo = 0; // Cash Orders (Total + Delivery)
+            let totalDepositoTransferencia = 0; // Transfer Orders (Delivery + Product Commission)
             for (const order of orders) {
                 // 1. PRODUCT COMMISSION
                 // Try new field first (User requirement: Only new orders fill these)
@@ -343,6 +346,18 @@ class FinancialService {
                     pagoMoto = Number(order.ganancia_motorizado || 0);
                 }
                 totalPagoMotorizadosArr += pagoMoto;
+                // 4. DEPOSIT CALCULATIONS (New Requirement)
+                if (order.metodoPago === data_1.MetodoPago.EFECTIVO) {
+                    // Depósito App (Efectivo) = TOTAL PEDIDO + COSTO DOMICILIO
+                    // The driver collects this sum physically.
+                    totalDepositoEfectivo += (Number(order.total || 0) + Number(order.costoEnvio || 0));
+                }
+                else if (order.metodoPago === data_1.MetodoPago.TRANSFERENCIA) {
+                    // Depósito App (Transferencia) = Costo domicilio + comisiones app
+                    // User Rule: "Sumar: Costo domicilio + comisiones app" (excluding shop price)
+                    // Note: comProd is the "comisión app".
+                    totalDepositoTransferencia += (Number(order.costoEnvio || 0) + comProd);
+                }
             }
             const totalIngresosApp = totalSubsUser + totalSubsBiz + totalStories + totalComisionProductos + totalComisionDomicilios;
             // 3. PASIVOS (DEUDAS) - HISTORICAL VS LIVE LOGIC
@@ -383,6 +398,10 @@ class FinancialService {
                         comisionDomicilio: totalComisionDomicilios
                     }
                 },
+                deposits: {
+                    cash: totalDepositoEfectivo,
+                    transferApp: totalDepositoTransferencia
+                },
                 liabilities: {
                     usuarios: totalSaldoUsuarios,
                     motorizados: totalPorPagarMotorizados,
@@ -398,7 +417,7 @@ class FinancialService {
         });
     }
     // ===================================
-    // 🏪 SHOP RECONCILIATION
+    // 🏪 SHOP RECONCILIATION (CUADRE POR LOCAL)
     // ===================================
     getShopReconciliation(startDate, endDate) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -406,82 +425,247 @@ class FinancialService {
             start.setUTCHours(5, 0, 0, 0);
             const end = new Date(endDate);
             end.setUTCHours(28, 59, 59, 999);
-            // Get all ENTREGADO orders in period
+            const dateStr = new Date(endDate).toISOString().split('T')[0];
+            // 1. Get all businesses
+            const businesses = yield data_1.Negocio.find();
+            const results = [];
+            for (const biz of businesses) {
+                // 2. Check for frozen snapshot
+                let snapshot = yield data_1.BalanceNegocio.findOne({
+                    where: {
+                        negocio: { id: biz.id },
+                        fecha: dateStr
+                    },
+                    relations: ["closedBy"]
+                });
+                if (snapshot && snapshot.isClosed) {
+                    // Return Frozen Data
+                    results.push({
+                        id: biz.id,
+                        name: biz.nombre,
+                        totalVentas: Number(snapshot.totalVendido),
+                        transferencias: Number(snapshot.totalTransferencia),
+                        efectivo: Number(snapshot.totalEfectivo),
+                        comisiones: Number(snapshot.totalComisionApp),
+                        saldo_neto: Number(snapshot.balanceFinal),
+                        estado: snapshot.balanceFinal > 0 ? "DEBE_PAGAR" : (snapshot.balanceFinal < 0 ? "A_FAVOR_LOCAL" : "CUADRADO"),
+                        isClosed: true,
+                        comprobanteUrl: snapshot.comprobanteUrl,
+                        closedBy: snapshot.closedBy || null
+                    });
+                    continue;
+                }
+                // 3. Live Calculation for unclosed/non-existent days
+                const orders = yield data_1.Pedido.find({
+                    where: {
+                        negocio: { id: biz.id },
+                        estado: data_1.EstadoPedido.ENTREGADO,
+                        updatedAt: (0, typeorm_1.Between)(start, end)
+                    }
+                });
+                let totalVentas = 0;
+                let totalTransfer = 0;
+                let totalEfectivo = 0;
+                let totalComisionApp = 0; // (prod + env)
+                let owedToApp = 0; // On Transfers
+                let owedToShop = 0; // On Cash
+                for (const order of orders) {
+                    const total = Number(order.total);
+                    const comProd = Number(order.total_comision_productos || 0);
+                    const comEnvio = Number(order.costoEnvio || 0);
+                    // precioApp is what shop should get for products
+                    const precioApp = Number(order.total_precio_app || (total - comProd - comEnvio));
+                    totalVentas += total;
+                    totalComisionApp += (comProd + comEnvio);
+                    if (order.metodoPago === data_1.MetodoPago.TRANSFERENCIA) {
+                        totalTransfer += total;
+                        // Local has 100%. Local owes App: comProd + comEnvio.
+                        owedToApp += (comProd + comEnvio);
+                    }
+                    else {
+                        totalEfectivo += total;
+                        // App (Driver) has 100%. App owes Local: precioApp.
+                        owedToShop += precioApp;
+                    }
+                }
+                const balanceFinal = Number((owedToApp - owedToShop).toFixed(2));
+                results.push({
+                    id: biz.id,
+                    name: biz.nombre,
+                    totalVentas: Number(totalVentas.toFixed(2)),
+                    transferencias: Number(totalTransfer.toFixed(2)),
+                    efectivo: Number(totalEfectivo.toFixed(2)),
+                    comisiones: Number(totalComisionApp.toFixed(2)),
+                    saldo_neto: balanceFinal,
+                    estado: balanceFinal > 0 ? "DEBE_PAGAR" : (balanceFinal < 0 ? "A_FAVOR_LOCAL" : "CUADRADO"),
+                    isClosed: (snapshot === null || snapshot === void 0 ? void 0 : snapshot.isClosed) || false,
+                    closedBy: (snapshot === null || snapshot === void 0 ? void 0 : snapshot.closedBy) || null,
+                    comprobanteUrl: (snapshot === null || snapshot === void 0 ? void 0 : snapshot.comprobanteUrl) || null
+                });
+            }
+            // Sign URLs
+            const resultsWithSignedUrls = yield Promise.all(results.map((r) => __awaiter(this, void 0, void 0, function* () {
+                return (Object.assign(Object.assign({}, r), { comprobanteUrl: yield this.signUrlIfNeeded(r.comprobanteUrl) }));
+            })));
+            return resultsWithSignedUrls;
+        });
+    }
+    getShopClosingDetails(shopId, date) {
+        return __awaiter(this, void 0, void 0, function* () {
+            var _a, _b;
+            const start = new Date(date);
+            start.setUTCHours(5, 0, 0, 0);
+            const end = new Date(date);
+            end.setUTCHours(28, 59, 59, 999);
+            const biz = yield data_1.Negocio.findOne({ where: { id: shopId } });
+            if (!biz)
+                throw domain_1.CustomError.notFound("Negocio no encontrado");
             const orders = yield data_1.Pedido.find({
                 where: {
+                    negocio: { id: shopId },
                     estado: data_1.EstadoPedido.ENTREGADO,
                     updatedAt: (0, typeorm_1.Between)(start, end)
                 },
-                relations: ["negocio", "productos"]
+                relations: ["cliente"]
             });
-            // Group by Shop
-            const shopMap = new Map();
-            for (const order of orders) {
-                if (!order.negocio)
-                    continue;
-                const shopId = order.negocio.id;
-                if (!shopMap.has(shopId)) {
-                    shopMap.set(shopId, {
-                        id: shopId,
-                        name: order.negocio.nombre,
-                        totalVentas: 0,
-                        transferencias: 0, // Entregado via Transferencia (App holds funds)
-                        efectivo: 0, // Entregado via Efectivo (Shop/Driver holds funds)
-                        comisiones: 0, // Total Commissions (App Revenue)
-                        neto: 0 // Logic placeholder
-                    });
-                }
-                const data = shopMap.get(shopId);
-                const total = Number(order.total);
-                // Let's stick to: ComisionProd + (DeliveryComm?)
-                // Usually Delivery Commission is paid by Driver. BUT if Shop uses own delivery?
-                // Assuming Standard: Shop pays Product Commission.
-                // Fix: User says "Debe el local = (comisiones producto + domicilio + motorizado)"
-                // Use ALL app commissions from this order.
-                let comApp = Number(order.total_comision_productos || 0) + Number(order.comision_moto_app || 0);
-                // Legacy Fallback
-                if (comApp === 0) {
-                    comApp = Number(order.comisionTotal || 0) + (Number(order.costoEnvio) * 0.2);
-                }
-                data.totalVentas += total;
-                data.comisiones += comApp;
-                if (order.metodoPago === data_1.MetodoPago.TRANSFERENCIA) {
-                    // App holds money
-                    data.transferencias += total;
+            const transfers = [];
+            const cash = [];
+            for (const o of orders) {
+                const comProd = Number(o.total_comision_productos || 0);
+                const comEnvio = Number(o.costoEnvio || 0);
+                const precioApp = Number(o.total_precio_app || (Number(o.total) - comProd - comEnvio));
+                const detail = {
+                    id: o.id,
+                    date: o.updatedAt,
+                    client: `${((_a = o.cliente) === null || _a === void 0 ? void 0 : _a.name) || ''} ${((_b = o.cliente) === null || _b === void 0 ? void 0 : _b.surname) || ''}`,
+                    total: Number(o.total),
+                    breakdown: {
+                        totalProducts: Number(o.total_precio_venta_publico || (Number(o.total) - comEnvio)),
+                        comisionProd: comProd,
+                        precioApp: precioApp,
+                        totalEnvio: comEnvio,
+                        gananciaMoto: Number(o.ganancia_motorizado || 0),
+                        comisionAppEnvio: Number(o.comision_app_domicilio || 0)
+                    }
+                };
+                if (o.metodoPago === data_1.MetodoPago.TRANSFERENCIA) {
+                    transfers.push(detail);
                 }
                 else {
-                    // Shop/Driver holds money
-                    data.efectivo += total;
+                    cash.push(detail);
                 }
             }
-            // Final Calculation per Shop
-            // Saldo = Commissions - Transfers_Held_By_App
-            // Interpretation:
-            // Shop owes App (Commissions).
-            // App owes Shop (Transfers_Held).
-            // Net = Commissions - Transfers.
-            // If Net > 0: Shop owes App.
-            // If Net < 0: App owes Shop.
-            const result = Array.from(shopMap.values()).map(shop => {
-                const saldo = shop.comisiones - shop.transferencias;
-                return Object.assign(Object.assign({}, shop), { saldo_neto: Number(saldo.toFixed(2)), estado: saldo > 0 ? "DEBE_PAGAR" : (saldo < 0 ? "A_FAVOR_LOCAL" : "CUADRADO"), 
-                    // Formatting for UI
-                    totalVentas: Number(shop.totalVentas.toFixed(2)), transferencias: Number(shop.transferencias.toFixed(2)), efectivo: Number(shop.efectivo.toFixed(2)), comisiones: Number(shop.comisiones.toFixed(2)) });
+            const dateStr = date.toISOString().split('T')[0];
+            const closure = yield data_1.BalanceNegocio.findOne({
+                where: { negocio: { id: shopId }, fecha: dateStr },
+                relations: ["closedBy"]
             });
-            return result;
+            return {
+                shop: biz.nombre,
+                date: dateStr,
+                isClosed: (closure === null || closure === void 0 ? void 0 : closure.isClosed) || false,
+                comprobanteUrl: yield this.signUrlIfNeeded((closure === null || closure === void 0 ? void 0 : closure.comprobanteUrl) || null),
+                closedBy: (closure === null || closure === void 0 ? void 0 : closure.closedBy) || null,
+                columns: {
+                    transferencias: {
+                        orders: transfers,
+                        total: transfers.reduce((acc, cur) => acc + cur.total, 0),
+                        owedToApp: transfers.reduce((acc, cur) => acc + (cur.breakdown.comisionProd + cur.breakdown.totalEnvio), 0)
+                    },
+                    efectivo: {
+                        orders: cash,
+                        total: cash.reduce((acc, cur) => acc + cur.total, 0),
+                        owedToShop: cash.reduce((acc, cur) => acc + cur.breakdown.precioApp, 0)
+                    }
+                }
+            };
+        });
+    }
+    closeShopDay(shopId, date, admin, comprobanteUrl) {
+        return __awaiter(this, void 0, void 0, function* () {
+            // 1. Time check: Only past days
+            const todayStr = new Date().toISOString().split('T')[0];
+            const dateStr = date.toISOString().split('T')[0];
+            if (dateStr === todayStr) {
+                throw domain_1.CustomError.badRequest("No se puede cerrar el día actual. Solo fechas anteriores.");
+            }
+            const existing = yield data_1.BalanceNegocio.findOne({
+                where: { negocio: { id: shopId }, fecha: dateStr }
+            });
+            if (existing && existing.isClosed)
+                throw domain_1.CustomError.badRequest("Este día ya está cerrado.");
+            // Fetch data to verify balance
+            const summary = yield this.getShopReconciliation(date, date);
+            const bizData = summary.find(s => s.id === shopId);
+            if (!bizData)
+                throw domain_1.CustomError.notFound("No hay datos para esta fecha.");
+            // 2. Receipt requirement check
+            if (bizData.saldo_neto !== 0 && !comprobanteUrl) {
+                const payer = bizData.saldo_neto < 0 ? "APP" : "LOCAL";
+                throw domain_1.CustomError.badRequest(`Se requiere el comprobante de depósito (${payer} paga) para cerrar el día.`);
+            }
+            // Case A (App pays Local) or Case C (Squared)
+            const record = existing || new data_1.BalanceNegocio();
+            record.fecha = dateStr;
+            record.negocio = { id: shopId };
+            record.totalVendido = bizData.totalVentas;
+            record.totalComisionApp = bizData.comisiones;
+            record.totalEfectivo = bizData.efectivo;
+            record.totalTransferencia = bizData.transferencias;
+            record.balanceFinal = bizData.saldo_neto;
+            record.isClosed = true;
+            record.closedBy = admin;
+            record.comprobanteUrl = comprobanteUrl || record.comprobanteUrl;
+            record.estado = (bizData.saldo_neto === 0 || record.comprobanteUrl) ? data_1.EstadoBalance.LIQUIDADO : data_1.EstadoBalance.PENDIENTE;
+            yield record.save();
+            return { success: true, message: "Día cerrado correctamente", data: record };
+        });
+    }
+    signUrlIfNeeded(keyOrUrl) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (!keyOrUrl)
+                return null;
+            if (typeof keyOrUrl !== 'string')
+                return keyOrUrl;
+            if (keyOrUrl.startsWith('http'))
+                return keyOrUrl;
+            try {
+                return yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
+                    bucketName: config_1.envs.AWS_BUCKET_NAME,
+                    key: keyOrUrl
+                });
+            }
+            catch (error) {
+                console.error("Error signing URL:", error);
+                return keyOrUrl;
+            }
+        });
+    }
+    uploadShopClosingReceipt(shopId, date, file) {
+        return __awaiter(this, void 0, void 0, function* () {
+            // Just upload, don't check for snapshot or close day.
+            try {
+                const key = yield upload_files_cloud_adapter_1.UploadFilesCloud.uploadSingleFile({
+                    bucketName: config_1.envs.AWS_BUCKET_NAME,
+                    key: `financial/shop-closings/${shopId}-${date}-${Date.now()}.png`,
+                    body: file.buffer,
+                    contentType: file.mimetype,
+                    isReceipt: true
+                });
+                const url = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
+                    bucketName: config_1.envs.AWS_BUCKET_NAME,
+                    key
+                });
+                return { success: true, url, key };
+            }
+            catch (error) {
+                throw domain_1.CustomError.internalServer("Error subiendo comprobante");
+            }
         });
     }
     // Helper for Summary
     calculateShopBalances(start, end) {
         return __awaiter(this, void 0, void 0, function* () {
-            // Reuse getShopReconciliation logic but need to pass raw dates as getShopRec adjusts them again?
-            // Wait, getShopReconciliation expects RAW dates and adjusts them.
-            // If I call it with 'startDate' (raw), it adjusts. Good.
-            // CAUTION: calculateShopBalances is called from getFinancialSummary which ALREADY adjusted 'start' and 'end' ??
-            // In getFinancialSummary I have:
-            // const start = adjusted;
-            // this.calculateShopBalances(startDate, endDate); <-- Passing original RAW dates.
-            // So this is correct. I am passing raw dates to helper.
             const shops = yield this.getShopReconciliation(start, end);
             let totalPagar = 0; // App owes Shop (Saldo < 0)
             let totalCobrar = 0; // Shop owes App (Saldo > 0)
@@ -492,26 +676,6 @@ class FinancialService {
                     totalCobrar += s.saldo_neto;
             });
             return { totalPorPagarTiendas: totalPagar, totalPorCobrarTiendas: totalCobrar };
-        });
-    }
-    // ===================================
-    // 📈 DRILLDOWN (Orders per Shop)
-    // ===================================
-    getShopDetails(shopId, startDate, endDate) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const start = new Date(startDate);
-            start.setUTCHours(5, 0, 0, 0);
-            const end = new Date(endDate);
-            end.setUTCHours(28, 59, 59, 999);
-            return data_1.Pedido.find({
-                where: {
-                    negocio: { id: shopId },
-                    estado: data_1.EstadoPedido.ENTREGADO,
-                    updatedAt: (0, typeorm_1.Between)(start, end)
-                },
-                relations: ["cliente", "productos", "motorizado"],
-                order: { updatedAt: "DESC" }
-            });
         });
     }
     // ===================================
@@ -603,54 +767,176 @@ class FinancialService {
             // 1. Check if already closed
             const existing = yield FinancialClosing_1.FinancialClosing.findOne({ where: { closingDate: dateStr } });
             if (existing)
-                throw domain_1.CustomError.conflict(`El día ${dateStr} ya está cerrado.`);
-            // 2. Calculate Totals (Snapshot)
-            // Ensure accurate range for that specific day
-            const start = new Date(dateStr);
-            start.setHours(0, 0, 0, 0); // Local time consideration? Backend is UTC usually.
-            // Assuming dateStr is YYYY-MM-DD, new Date(dateStr) is UTC 00:00.
-            // But getFinancialSummary logic used setHours override which works on local server time unless UTC is forced.
-            // Let's reuse getFinancialSummary logic logic for dates:
-            // Adjust for Ecuador (UTC-5) if strict, but consistency is key.
-            // We will use the SAME summary function to get the values to freeze.
-            // Important: getFinancialSummary adjusts 'end' to X:59:59.
-            // We need to pass the date object correctly.
-            // If 'date' input is "2026-02-03" (Date object), let's ensure it's treated as the start.
-            const summary = yield this.getFinancialSummary(start, start);
-            // 2.1 Critical: Check for PENDING or IN_REVIEW transactions
-            // 2.1 Critical: Check for PENDING transactions in Ecuador Time
-            const startEcuador = new Date(dateStr);
-            startEcuador.setUTCHours(5, 0, 0, 0);
-            const endEcuador = new Date(dateStr);
-            endEcuador.setUTCHours(28, 59, 59, 999);
-            const pendingTransactions = yield data_1.RechargeRequest.find({
-                where: {
-                    status: (0, typeorm_1.In)([data_1.StatusRecarga.PENDIENTE]),
-                    created_at: (0, typeorm_1.Between)(startEcuador, endEcuador)
-                },
-                take: 3
-            });
-            if (pendingTransactions.length > 0) {
-                const ids = pendingTransactions.map(t => `#${t.id.slice(0, 8)}`).join(", ");
-                throw domain_1.CustomError.badRequest(`No se puede cerrar el día: Existen ${pendingTransactions.length} transacciones pendientes de aprobación (${ids}).`);
+                throw domain_1.CustomError.badRequest("El día ya está cerrado, no se puede sobrescribir.");
+            // 2. Validate S3 URL
+            if (!statementUrl.includes(config_1.envs.AWS_BUCKET_NAME)) {
+                // throw CustomError.badRequest("URL de archivo inválida"); 
+                // Warning: Maybe user pasted external link? Let's allow but maybe warn log.
             }
-            // 3. Create Record
+            // 3. Snapshot Data (Freeze)
+            // We reuse master summary logic for the snapshot
+            const summary = yield this.getFinancialSummary(date, date);
+            // 4. Save
             const closing = new FinancialClosing_1.FinancialClosing();
             closing.closingDate = dateStr;
-            closing.totalIncome = summary.appRevenue.total;
-            closing.totalExpenses = 0;
-            // 📸 SAVE SNAPSHOTS
-            closing.totalUserBalance = summary.liabilities.usuarios;
-            closing.totalMotorizadoDebt = summary.liabilities.motorizados;
-            closing.totalRechargesCount = summary.bank.countRecargas;
-            closing.backupFileUrl = statementUrl;
             closing.closedBy = adminUser;
+            closing.backupFileUrl = statementUrl;
+            // Save Snapshot Values
+            if (summary) {
+                closing.totalRechargesCount = summary.bank.countRecargas; // Map count
+                closing.totalIncome = summary.appRevenue.total; // Map to available field
+                closing.totalExpenses = 0; // Or calculate if needed
+                closing.totalUserBalance = summary.liabilities.usuarios;
+                closing.totalMotorizadoDebt = summary.liabilities.motorizados;
+                // No snapshotData field in entity
+            }
             yield closing.save();
-            return {
-                success: true,
-                message: `Día ${dateStr} cerrado correctamente.`,
-                data: closing
+            return { success: true, message: "Día cerrado exitosamente" };
+        });
+    }
+    // ===================================
+    // 🚨 PENDING CLOSINGS (GLOBAL)
+    // ===================================
+    getPendingShopClosings() {
+        return __awaiter(this, void 0, void 0, function* () {
+            // Strategy:
+            // 1. Get all orders from last 60 days (reasonable window) grouped by Shop + Date
+            // 2. Get all BalanceNegocio entries from last 60 days
+            // 3. Diff: Any (Shop+Date) with orders but NO (BalanceNegocio.isClosed=true) is pending
+            // 4. Also include any BalanceNegocio.isClosed=false (explicitly pending)
+            const lookbackDays = 60;
+            const limitDate = new Date();
+            limitDate.setDate(limitDate.getDate() - lookbackDays);
+            limitDate.setHours(0, 0, 0, 0);
+            // A. Aggregate Orders: "Days with activity"
+            // Note: Using raw query builder on Pedido repository
+            const activeDays = yield data_1.Pedido.createQueryBuilder("p")
+                .select("DATE(p.updatedAt)", "date")
+                .addSelect("p.negocioId", "shopId")
+                .addSelect("SUM(p.total)", "total")
+                .where("p.updatedAt >= :limit", { limit: limitDate })
+                .andWhere("p.estado = :status", { status: data_1.EstadoPedido.ENTREGADO })
+                .groupBy("DATE(p.updatedAt), p.negocioId")
+                .getRawMany();
+            // B. Get Closed Days
+            const closedDays = yield data_1.BalanceNegocio.find({
+                where: {
+                    fecha: (0, typeorm_1.MoreThanOrEqual)(limitDate.toISOString().split('T')[0])
+                },
+                relations: ["negocio"]
+            });
+            // Map closed days for fast lookup: "shopId|dateString"
+            const closedMap = new Set();
+            closedDays.forEach(b => {
+                // If record exists and isClosed, it's done.
+                // If record exists and NOT closed (PENDIENTE), it's definitely pending, but handled by logic below (it won't be in closedMap)
+                if (b.isClosed) {
+                    closedMap.add(`${b.negocio.id}|${b.fecha}`);
+                }
+            });
+            let pending = [];
+            // C. Filter
+            const uniqueActiveDays = new Map(); // Avoid duplicates if query returns multiple rows per group (shouldn't with group by)
+            // Enrich Shop Names Map
+            const shopIds = [...new Set(activeDays.map(d => d.shopId))];
+            let shopMap = new Map();
+            if (shopIds.length > 0) {
+                const shops = yield data_1.Negocio.find({ where: { id: (0, typeorm_1.In)(shopIds) }, select: ["id", "nombre"] });
+                shopMap = new Map(shops.map(s => [s.id, s.nombre]));
+            }
+            for (const day of activeDays) {
+                // day.date type depends on driver, usually Date object or string
+                let dateStr = day.date;
+                if (day.date instanceof Date)
+                    dateStr = day.date.toISOString().split('T')[0];
+                else if (typeof day.date === 'string' && day.date.includes('T'))
+                    dateStr = day.date.split('T')[0];
+                const key = `${day.shopId}|${dateStr}`;
+                // Skip today
+                const todayStr = new Date().toISOString().split('T')[0];
+                if (dateStr === todayStr)
+                    continue;
+                if (!closedMap.has(key)) {
+                    pending.push({
+                        shopId: day.shopId,
+                        shopName: shopMap.get(day.shopId) || 'Desconocido',
+                        date: dateStr,
+                        total: Number(day.total),
+                        status: 'PENDIENTE'
+                    });
+                }
+            }
+            // Filter out items with total 0 just in case
+            pending = pending.filter(p => p.total > 0);
+            // Sort by Date Desc
+            return pending.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        });
+    }
+    // ===================================
+    // 🏍️ DRIVER MOVEMENTS (MOVIMIENTOS MOTORIZADOS)
+    // ===================================
+    getMovimientosMotorizados(startDate, endDate) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const start = new Date(startDate);
+            start.setUTCHours(5, 0, 0, 0); // Start of day Ecuador
+            const end = new Date(endDate);
+            end.setUTCHours(28, 59, 59, 999); // End of day Ecuador
+            const orders = yield data_1.Pedido.find({
+                where: {
+                    estado: data_1.EstadoPedido.ENTREGADO, // Ensure enum match
+                    updatedAt: (0, typeorm_1.Between)(start, end)
+                },
+                relations: ["motorizado"],
+                order: { updatedAt: "DESC" }
+            });
+            console.log(`[DEBUG] getMovimientosMotorizados found ${orders.length} orders for range ${start.toISOString()} - ${end.toISOString()}`);
+            let totalDeuda = 0;
+            const movimientos = [];
+            for (const order of orders) {
+                const moto = order.motorizado;
+                let motorizadoName = 'Motorizado No Encontrado';
+                if (moto) {
+                    motorizadoName = `${moto.nombre || moto.name || ''} ${moto.apellido || moto.surname || ''}`.trim();
+                }
+                // Calculate Driver Gain (Without App Commission)
+                let gananciaMoto = 0;
+                // 1. Try direct field (NEWEST)
+                gananciaMoto = Number(order.pago_motorizado || 0);
+                // 2. Try legacy field
+                if (gananciaMoto === 0) {
+                    gananciaMoto = Number(order.ganancia_motorizado || 0);
+                }
+                // 3. Fallback calculation
+                if (gananciaMoto === 0) {
+                    let comisionApp = Number(order.comision_moto_app || order.comision_app_domicilio || 0);
+                    if (comisionApp === 0)
+                        comisionApp = Number(order.costoEnvio || 0) * 0.20;
+                    gananciaMoto = Number(order.costoEnvio || 0) - comisionApp;
+                }
+                console.log(`[DEBUG] Order #${order.id.slice(0, 5)} | Moto: ${motorizadoName} | Gain: ${gananciaMoto}`);
+                // Format Time (Ecuador UTC-5)
+                const dateObj = new Date(order.updatedAt);
+                const ecuadorTime = new Date(dateObj.getTime() - (5 * 60 * 60 * 1000));
+                const fechaStr = ecuadorTime.toISOString().split('T')[0];
+                const horaStr = ecuadorTime.toISOString().split('T')[1].substring(0, 5); // HH:mm
+                const movObj = {
+                    motorizado: motorizadoName,
+                    pedidoId: order.id,
+                    shortId: `#${order.id.slice(0, 5)}`,
+                    valor: Number(gananciaMoto.toFixed(2)),
+                    fecha: fechaStr,
+                    hora: horaStr,
+                    fullDate: order.updatedAt
+                };
+                movimientos.push(movObj);
+                totalDeuda += gananciaMoto;
+            }
+            const result = {
+                totalDeuda: Number(totalDeuda.toFixed(2)),
+                movimientos: movimientos
             };
+            console.log("[DEBUG] Final Result to Return:", JSON.stringify(result, null, 2));
+            return result;
         });
     }
 }

@@ -21,6 +21,7 @@ var Status;
     Status["INACTIVE"] = "INACTIVE";
     Status["DELETED"] = "DELETED";
     Status["BANNED"] = "BANNED";
+    Status["SUSPENDED"] = "SUSPENDED";
 })(Status || (exports.Status = Status = {}));
 var UserRole;
 (function (UserRole) {
@@ -122,6 +123,14 @@ __decorate([
     (0, typeorm_1.Column)("int", { default: 0 }),
     __metadata("design:type", Number)
 ], User.prototype, "resetTokenVersion", void 0);
+__decorate([
+    (0, typeorm_1.Column)("int", { default: 0 }),
+    __metadata("design:type", Number)
+], User.prototype, "warnings_count", void 0);
+__decorate([
+    (0, typeorm_1.Column)("timestamp", { nullable: true }),
+    __metadata("design:type", Date)
+], User.prototype, "suspension_until", void 0);
 __decorate([
     (0, typeorm_1.Column)("boolean", { default: false }),
     __metadata("design:type", Boolean)

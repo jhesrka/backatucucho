@@ -27,6 +27,30 @@ __decorate([
     __metadata("design:type", Number)
 ], GlobalSettings.prototype, "rechargeRetentionDays", void 0);
 __decorate([
+    (0, typeorm_1.Column)("int", { default: 30 }),
+    __metadata("design:type", Number)
+], GlobalSettings.prototype, "reportsRetentionDays", void 0);
+__decorate([
+    (0, typeorm_1.Column)("time", { default: "08:00:00" }),
+    __metadata("design:type", String)
+], GlobalSettings.prototype, "hora_apertura", void 0);
+__decorate([
+    (0, typeorm_1.Column)("time", { default: "22:00:00" }),
+    __metadata("design:type", String)
+], GlobalSettings.prototype, "hora_cierre", void 0);
+__decorate([
+    (0, typeorm_1.Column)("varchar", { length: 10, default: "CLOSED" }),
+    __metadata("design:type", String)
+], GlobalSettings.prototype, "app_status", void 0);
+__decorate([
+    (0, typeorm_1.Column)("varchar", { length: 10, default: "AUTO" }),
+    __metadata("design:type", String)
+], GlobalSettings.prototype, "modo_operacion", void 0);
+__decorate([
+    (0, typeorm_1.Column)("timestamp", { nullable: true }),
+    __metadata("design:type", Date)
+], GlobalSettings.prototype, "ultimo_cambio_automatico", void 0);
+__decorate([
     (0, typeorm_1.Column)("varchar", { length: 60, nullable: true }),
     __metadata("design:type", String)
 ], GlobalSettings.prototype, "masterPin", void 0);

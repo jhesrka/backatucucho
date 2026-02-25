@@ -5,7 +5,7 @@ exports.UpdateNegocioDTO = void 0;
 const config_1 = require("../../../config");
 const data_1 = require("../../../data");
 class UpdateNegocioDTO {
-    constructor(nombre, descripcion, categoriaId, statusNegocio, modeloMonetizacion, latitud, longitud, direccionTexto, valorSuscripcion, diaPago, masterPin) {
+    constructor(nombre, descripcion, categoriaId, statusNegocio, modeloMonetizacion, latitud, longitud, direccionTexto, valorSuscripcion, diaPago, masterPin, orden) {
         this.nombre = nombre;
         this.descripcion = descripcion;
         this.categoriaId = categoriaId;
@@ -17,9 +17,10 @@ class UpdateNegocioDTO {
         this.valorSuscripcion = valorSuscripcion;
         this.diaPago = diaPago;
         this.masterPin = masterPin;
+        this.orden = orden;
     }
     static create(obj) {
-        const { nombre, descripcion, categoriaId, statusNegocio, modeloMonetizacion, latitud, longitud, direccionTexto, valorSuscripcion, diaPago, } = obj;
+        const { nombre, descripcion, categoriaId, statusNegocio, modeloMonetizacion, latitud, longitud, direccionTexto, valorSuscripcion, diaPago, orden } = obj;
         // Validaciones opcionales
         if (nombre !== undefined && (typeof nombre !== "string" || nombre.trim().length < 3)) {
             return ["El nombre del negocio debe tener al menos 3 caracteres"];
@@ -61,12 +62,18 @@ class UpdateNegocioDTO {
                 return ["El día de pago debe ser entre 1 y 31"];
             }
         }
+        if (orden !== undefined) {
+            const ord = Number(orden);
+            if (isNaN(ord)) {
+                return ["El orden debe ser un número"];
+            }
+        }
         const dirTxt = typeof direccionTexto === "string" && direccionTexto.trim().length > 0
             ? direccionTexto.trim().slice(0, 200)
             : undefined;
         return [
             undefined,
-            new UpdateNegocioDTO(nombre === null || nombre === void 0 ? void 0 : nombre.trim(), descripcion === null || descripcion === void 0 ? void 0 : descripcion.trim(), categoriaId, statusNegocio, modeloMonetizacion, latitud !== undefined ? Number(latitud) : undefined, longitud !== undefined ? Number(longitud) : undefined, dirTxt, valorSuscripcion !== undefined ? Number(valorSuscripcion) : undefined, diaPago !== undefined ? Number(diaPago) : undefined, obj.masterPin),
+            new UpdateNegocioDTO(nombre === null || nombre === void 0 ? void 0 : nombre.trim(), descripcion === null || descripcion === void 0 ? void 0 : descripcion.trim(), categoriaId, statusNegocio, modeloMonetizacion, latitud !== undefined ? Number(latitud) : undefined, longitud !== undefined ? Number(longitud) : undefined, dirTxt, valorSuscripcion !== undefined ? Number(valorSuscripcion) : undefined, diaPago !== undefined ? Number(diaPago) : undefined, obj.masterPin, orden !== undefined ? Number(orden) : undefined),
         ];
     }
 }

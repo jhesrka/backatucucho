@@ -12,6 +12,9 @@ class GlobalSettingsRoutes {
         const controller = new global_settings_controller_1.GlobalSettingsController(service);
         router.get("/", controller.getSettings);
         router.patch("/", middlewares_1.AuthAdminMiddleware.protect, controller.updateSettings);
+        // Control Manual de la App
+        router.put("/app/cerrar", middlewares_1.AuthAdminMiddleware.protect, controller.closeApp);
+        router.put("/app/activar-auto", middlewares_1.AuthAdminMiddleware.protect, controller.enableAuto);
         return router;
     }
 }

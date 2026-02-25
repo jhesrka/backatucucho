@@ -12,11 +12,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.BalanceNegocio = exports.EstadoBalance = void 0;
 const typeorm_1 = require("typeorm");
 const Negocio_1 = require("./Negocio");
+const useradmin_model_1 = require("./useradmin.model");
 var EstadoBalance;
 (function (EstadoBalance) {
     EstadoBalance["PENDIENTE"] = "PENDIENTE";
     EstadoBalance["PAGADO"] = "PAGADO";
-    EstadoBalance["LIQUIDADO"] = "LIQUIDADO"; // Confirmado y cerrado
+    EstadoBalance["LIQUIDADO"] = "LIQUIDADO";
 })(EstadoBalance || (exports.EstadoBalance = EstadoBalance = {}));
 let BalanceNegocio = class BalanceNegocio extends typeorm_1.BaseEntity {
 };
@@ -27,7 +28,7 @@ __decorate([
 ], BalanceNegocio.prototype, "id", void 0);
 __decorate([
     (0, typeorm_1.Column)("date"),
-    __metadata("design:type", Date)
+    __metadata("design:type", String)
 ], BalanceNegocio.prototype, "fecha", void 0);
 __decorate([
     (0, typeorm_1.Column)("decimal", { precision: 10, scale: 2, default: 0 }),
@@ -41,6 +42,10 @@ __decorate([
     (0, typeorm_1.Column)("decimal", { precision: 10, scale: 2, default: 0 }),
     __metadata("design:type", Number)
 ], BalanceNegocio.prototype, "totalDelivery", void 0);
+__decorate([
+    (0, typeorm_1.Column)("decimal", { precision: 10, scale: 2, default: 0 }),
+    __metadata("design:type", Number)
+], BalanceNegocio.prototype, "totalComisionApp", void 0);
 __decorate([
     (0, typeorm_1.Column)("decimal", { precision: 10, scale: 2, default: 0 }),
     __metadata("design:type", Number)
@@ -65,6 +70,14 @@ __decorate([
     (0, typeorm_1.Column)("text", { nullable: true }),
     __metadata("design:type", String)
 ], BalanceNegocio.prototype, "comprobanteUrl", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "boolean", default: false }),
+    __metadata("design:type", Boolean)
+], BalanceNegocio.prototype, "isClosed", void 0);
+__decorate([
+    (0, typeorm_1.ManyToOne)(() => useradmin_model_1.Useradmin, { nullable: true }),
+    __metadata("design:type", useradmin_model_1.Useradmin)
+], BalanceNegocio.prototype, "closedBy", void 0);
 __decorate([
     (0, typeorm_1.ManyToOne)(() => Negocio_1.Negocio, (negocio) => negocio.balances),
     __metadata("design:type", Negocio_1.Negocio)

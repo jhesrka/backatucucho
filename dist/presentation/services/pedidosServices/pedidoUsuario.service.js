@@ -38,7 +38,6 @@ class PedidoUsuarioService {
     crearPedido(dto) {
         return __awaiter(this, void 0, void 0, function* () {
             var _a, _b, _c;
-            console.log("🚀 [DEBUG] Creating Pedido:", dto); // Debug log
             // ... (validation logic identical to original)
             const { clienteId, negocioId, productos, ubicacionCliente, metodoPago, montoVuelto, comprobantePagoUrl, } = dto;
             const cliente = yield data_1.User.findOneBy({ id: clienteId });

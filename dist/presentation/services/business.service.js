@@ -104,7 +104,8 @@ class BusinessService {
                 return {
                     id: n.id,
                     nombre: n.nombre,
-                    imagenNegocio: img,
+                    imagenNegocio: img, // Legacy support
+                    imagenUrl: img, // New standard
                     statusNegocio: n.statusNegocio,
                     modeloMonetizacion: n.modeloMonetizacion
                 };
@@ -126,14 +127,13 @@ class BusinessService {
     }
     getMyBusinesses(userId) {
         return __awaiter(this, void 0, void 0, function* () {
-            const user = yield data_1.User.findOne({
-                where: { id: userId },
-                relations: ["negocios"],
+            // Consultar Negocios directamente para evitar problemas con la hidratación de la relación en User
+            const negocios = yield data_1.Negocio.find({
+                where: { usuario: { id: userId } },
+                order: { created_at: "DESC" }
             });
-            if (!user)
-                throw domain_1.CustomError.notFound("Usuario no encontrado");
             // Mapear respuesta
-            const negociosWithImages = yield Promise.all(user.negocios.map((n) => __awaiter(this, void 0, void 0, function* () {
+            const negociosWithImages = yield Promise.all(negocios.map((n) => __awaiter(this, void 0, void 0, function* () {
                 let img = "";
                 if (n.imagenNegocio) {
                     try {
@@ -150,7 +150,8 @@ class BusinessService {
                     id: n.id,
                     nombre: n.nombre,
                     descripcion: n.descripcion,
-                    imagenNegocio: img,
+                    imagenNegocio: img, // Legacy support
+                    imagenUrl: img, // New standard
                     statusNegocio: n.statusNegocio,
                     modeloMonetizacion: n.modeloMonetizacion
                 };
@@ -370,12 +371,13 @@ class BusinessService {
             if (!balanceSnapshot) {
                 balanceSnapshot = new BalanceNegocio();
                 balanceSnapshot.negocio = { id: businessId };
-                balanceSnapshot.fecha = startOfDay;
+                balanceSnapshot.fecha = startOfDay.toISOString().split('T')[0];
             }
             if (balanceSnapshot.estado !== EstadoBalance.LIQUIDADO) {
                 balanceSnapshot.totalVendido = totalVendido;
                 balanceSnapshot.totalComision = totalComision;
                 balanceSnapshot.totalDelivery = totalDelivery;
+                balanceSnapshot.totalComisionApp = totalComision + totalDelivery;
                 balanceSnapshot.totalEfectivo = totalEfectivo;
                 balanceSnapshot.totalTransferencia = totalTransferencia;
                 balanceSnapshot.balanceFinal = balanceFinal;

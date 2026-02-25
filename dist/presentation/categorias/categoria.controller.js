@@ -20,8 +20,14 @@ class CategoriaController {
             const [error, dto] = CreateCategoriaDTO_1.CreateCategoriaDTO.create(req.body);
             if (error)
                 return res.status(422).json({ message: error });
+            if (!req.file) {
+                return res.status(422).json({ message: "La imagen de la categoría es obligatoria" });
+            }
+            const { masterPin } = req.body;
+            if (!masterPin)
+                return res.status(400).json({ message: "Master PIN es requerido" });
             this.categoriaService
-                .createCategoria(dto)
+                .createCategoria(dto, req.file, masterPin)
                 .then((categoria) => res.status(201).json(categoria))
                 .catch((error) => this.handleError(error, res));
         };
@@ -46,16 +52,22 @@ class CategoriaController {
             const [error, dto] = UpdateCategoriaDTO_1.UpdateCategoriaDTO.create(req.body);
             if (error)
                 return res.status(422).json({ message: error });
+            const { masterPin } = req.body;
+            if (!masterPin)
+                return res.status(400).json({ message: "Master PIN es requerido" });
             this.categoriaService
-                .updateCategoria(id, dto)
+                .updateCategoria(id, dto, req.file, masterPin)
                 .then((categoria) => res.status(200).json(categoria))
                 .catch((error) => this.handleError(error, res));
         };
         // Eliminar categoría
         this.deleteCategoria = (req, res) => {
             const id = req.params.id;
+            const { masterPin } = req.body;
+            if (!masterPin)
+                return res.status(400).json({ message: "Master PIN es requerido" });
             this.categoriaService
-                .deleteCategoria(id)
+                .deleteCategoria(id, masterPin)
                 .then(() => res.status(204).send())
                 .catch((error) => this.handleError(error, res));
         };

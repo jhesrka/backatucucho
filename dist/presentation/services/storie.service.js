@@ -18,6 +18,7 @@ const socket_1 = require("../../config/socket");
 const domain_1 = require("../../domain");
 const typeorm_1 = require("typeorm");
 const uuid_1 = require("uuid");
+const content_moderation_1 = require("../../config/content-moderation");
 class StorieService {
     constructor(userService, walletService, priceService) {
         this.userService = userService;
@@ -54,11 +55,16 @@ class StorieService {
             catch (_a) {
                 throw domain_1.CustomError.internalServer("Error subiendo la imagen de la historia");
             }
+            // Validar contenido (Moderación automática)
+            if ((0, content_moderation_1.containsForbiddenWords)(storieData.description)) {
+                throw domain_1.CustomError.badRequest("Tu contenido contiene texto no permitido. Corrígelo para continuar.");
+            }
             // Crear la historia
             const storie = new data_1.Storie();
             storie.description = storieData.description.trim();
             storie.imgstorie = key;
             storie.user = user;
+            storie.statusStorie = data_1.StatusStorie.PUBLISHED;
             storie.expires_at = (0, date_fns_1.addDays)(new Date(), storieData.dias);
             storie.showWhatsapp = storieData.showWhatsapp;
             // Guardar snapshot de precios
@@ -104,25 +110,32 @@ class StorieService {
                 // 2️⃣ Convertir imágenes a URLs públicas
                 const storiesWithUrls = yield Promise.all(stories.map((story) => __awaiter(this, void 0, void 0, function* () {
                     var _a;
-                    const imgstorieUrl = story.imgstorie
-                        ? yield upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
-                            bucketName: config_1.envs.AWS_BUCKET_NAME,
-                            key: story.imgstorie,
-                        })
-                        : null;
-                    const photoperfilUrl = ((_a = story.user) === null || _a === void 0 ? void 0 : _a.photoperfil)
-                        ? yield upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
-                            bucketName: config_1.envs.AWS_BUCKET_NAME,
-                            key: story.user.photoperfil,
-                        })
-                        : null;
-                    return Object.assign(Object.assign({}, story), { imgstorie: imgstorieUrl, user: Object.assign(Object.assign({}, story.user), { photoperfil: photoperfilUrl }) });
+                    try {
+                        const imgstorieUrl = story.imgstorie
+                            ? yield upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
+                                bucketName: config_1.envs.AWS_BUCKET_NAME,
+                                key: story.imgstorie,
+                            })
+                            : null;
+                        const photoperfilUrl = ((_a = story.user) === null || _a === void 0 ? void 0 : _a.photoperfil)
+                            ? yield upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
+                                bucketName: config_1.envs.AWS_BUCKET_NAME,
+                                key: story.user.photoperfil,
+                            })
+                            : null;
+                        return Object.assign(Object.assign({}, story), { imgstorie: imgstorieUrl, user: Object.assign(Object.assign({}, story.user), { photoperfil: photoperfilUrl }) });
+                    }
+                    catch (error) {
+                        console.error(`Error processing story ${story.id}:`, error);
+                        return null;
+                    }
                 })));
-                // 3️⃣ Procesar stories expiradas en segundo plano
+                // 3️⃣ Filtrar historias con errores y procesar expiradas en segundo plano
+                const validStories = storiesWithUrls.filter((s) => s !== null);
                 this.processExpiredStories().catch((error) => {
                     console.error("Error procesando stories expiradas:", error);
                 });
-                return storiesWithUrls;
+                return validStories;
             }
             catch (error) {
                 throw domain_1.CustomError.internalServer("Error obteniendo datos de stories");
@@ -313,10 +326,10 @@ class StorieService {
                 const story = yield data_1.Storie.findOne({ where: { id: storieId } });
                 if (!story)
                     throw domain_1.CustomError.notFound("Story no encontrada");
-                const wasBanned = story.statusStorie === data_1.StatusStorie.BANNED;
+                const wasBanned = story.statusStorie === data_1.StatusStorie.FLAGGED;
                 story.statusStorie = wasBanned
                     ? data_1.StatusStorie.PUBLISHED
-                    : data_1.StatusStorie.BANNED;
+                    : data_1.StatusStorie.FLAGGED;
                 yield story.save();
                 (0, socket_1.getIO)().emit("storieChanged", {
                     action: wasBanned ? "unban" : "ban",
@@ -464,7 +477,7 @@ class StorieService {
                 const totalStories = yield data_1.Storie.count({ withDeleted: true });
                 // By Status
                 const published = yield data_1.Storie.count({ where: { statusStorie: data_1.StatusStorie.PUBLISHED } });
-                const blocked = yield data_1.Storie.count({ where: { statusStorie: data_1.StatusStorie.BANNED } });
+                const blocked = yield data_1.Storie.count({ where: { statusStorie: data_1.StatusStorie.FLAGGED } });
                 const hidden = yield data_1.Storie.count({ where: { statusStorie: data_1.StatusStorie.HIDDEN } });
                 // Soft Deleted
                 const deleted = yield data_1.Storie.count({
@@ -583,7 +596,7 @@ class StorieService {
                             deletedAt: (0, typeorm_1.LessThan)(cutoff),
                         },
                         {
-                            statusStorie: data_1.StatusStorie.BANNED,
+                            statusStorie: data_1.StatusStorie.FLAGGED,
                             createdAt: (0, typeorm_1.LessThan)(cutoff),
                         }
                     ],
