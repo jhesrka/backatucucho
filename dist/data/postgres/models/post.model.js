@@ -17,7 +17,6 @@ var StatusPost;
     StatusPost["PUBLISHED"] = "PUBLISHED";
     StatusPost["FLAGGED"] = "FLAGGED";
     StatusPost["HIDDEN"] = "HIDDEN";
-    StatusPost["DELETED"] = "DELETED";
 })(StatusPost || (exports.StatusPost = StatusPost = {}));
 let Post = class Post extends typeorm_1.BaseEntity {
 };
@@ -66,10 +65,6 @@ __decorate([
     (0, typeorm_1.Column)({ type: "timestamp", nullable: true }),
     __metadata("design:type", Date)
 ], Post.prototype, "expiresAt", void 0);
-__decorate([
-    (0, typeorm_1.Column)({ type: "timestamp", nullable: true }),
-    __metadata("design:type", Date)
-], Post.prototype, "deletedAt", void 0);
 __decorate([
     (0, typeorm_1.Column)("enum", {
         enum: StatusPost,

@@ -322,25 +322,7 @@ export class PostController {
       .catch(err => this.handleError(err, res));
   }
 
-  // ADMINISTRADOR - Purgar posts ELIMINADO (>3 días) y sus imágenes
-  // DELETE /api/post/admin/purge-deleted
-  purgeDeletedPostsOlderThan3Days = async (_req: Request, res: Response) => {
-    try {
-      const { deletedCount } =
-        await this.postService.purgeDeletedPostsOlderThan3Days();
 
-      return res.status(200).json({
-        success: true,
-        deletedCount,
-      });
-    } catch (error) {
-      console.error(
-        "💥 Error en controlador purgeDeletedPostsOlderThan3Days:",
-        error
-      );
-      return this.handleError(error, res);
-    }
-  };
   // ==========================================
   // 🛡️ ADMIN DASHBOARD METHODS
   // ==========================================
@@ -367,9 +349,5 @@ export class PostController {
       .catch(error => this.handleError(error, res));
   }
 
-  purgeOldDeletedPosts = (_req: Request, res: Response) => {
-    this.postService.purgeOldDeletedPosts()
-      .then(data => res.status(200).json(data))
-      .catch(error => this.handleError(error, res));
-  }
+
 }

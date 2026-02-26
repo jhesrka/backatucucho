@@ -24,8 +24,8 @@ class CreateRechargeRequestDTO {
         }
         // Validación estricta solo si NO requiere revisión manual
         if (!isManualReview) {
-            if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
-                return ["El monto debe ser un número positivo"];
+            if (amount === undefined || isNaN(Number(amount)) || Number(amount) < 0) {
+                return ["El monto debe ser un número válido (mayor o igual a 0)"];
             }
             if (!bank_name ||
                 typeof bank_name !== "string" ||

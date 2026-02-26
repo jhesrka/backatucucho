@@ -42,7 +42,7 @@ __decorate([
     __metadata("design:type", Object)
 ], RechargeRequest.prototype, "bank_name", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: "timestamp", nullable: true }),
+    (0, typeorm_1.Column)({ type: "timestamptz", nullable: true }),
     __metadata("design:type", Object)
 ], RechargeRequest.prototype, "transaction_date", void 0);
 __decorate([
@@ -80,11 +80,11 @@ __decorate([
     __metadata("design:type", String)
 ], RechargeRequest.prototype, "admin_comment", void 0);
 __decorate([
-    (0, typeorm_1.CreateDateColumn)({ type: "timestamp" }),
+    (0, typeorm_1.CreateDateColumn)({ type: "timestamptz" }),
     __metadata("design:type", Date)
 ], RechargeRequest.prototype, "created_at", void 0);
 __decorate([
-    (0, typeorm_1.Column)("timestamp", { nullable: true }),
+    (0, typeorm_1.Column)("timestamptz", { nullable: true }),
     __metadata("design:type", Date)
 ], RechargeRequest.prototype, "resolved_at", void 0);
 exports.RechargeRequest = RechargeRequest = __decorate([

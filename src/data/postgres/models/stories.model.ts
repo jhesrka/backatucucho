@@ -28,15 +28,15 @@ export class Storie extends BaseEntity {
   })
   imgstorie: string;
 
-  @Column("timestamp", {
+  @Column("timestamptz", {
     default: () => "CURRENT_TIMESTAMP",
   })
   createdAt: Date;
-  @Column("timestamp", {
+  @Column("timestamptz", {
     default: () => "CURRENT_TIMESTAMP",
   })
   expires_at: Date;
-  @Column({ type: "timestamp", nullable: true })
+  @Column({ type: "timestamptz", nullable: true })
   deletedAt: Date; //
 
   // ==============================

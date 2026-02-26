@@ -111,6 +111,23 @@ export class PostgresDatabase {
         ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "termsUpdatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
         ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "reportsRetentionDays" INT DEFAULT 30;
 
+        -- Forzar timestamptz para resolver el error desfase horas
+        ALTER TABLE "post" ALTER COLUMN "createdAt" TYPE timestamptz USING "createdAt" AT TIME ZONE 'America/Guayaquil';
+        ALTER TABLE "storie" ALTER COLUMN "createdAt" TYPE timestamptz USING "createdAt" AT TIME ZONE 'America/Guayaquil';
+        ALTER TABLE "storie" ALTER COLUMN "expires_at" TYPE timestamptz USING "expires_at" AT TIME ZONE 'America/Guayaquil';
+        ALTER TABLE "storie" ALTER COLUMN "deletedAt" TYPE timestamptz USING "deletedAt" AT TIME ZONE 'America/Guayaquil';
+        
+        -- Recargas de saldo
+        ALTER TABLE "recharge_requests" ALTER COLUMN "created_at" TYPE timestamptz USING "created_at" AT TIME ZONE 'America/Guayaquil';
+        ALTER TABLE "recharge_requests" ALTER COLUMN "transaction_date" TYPE timestamptz USING "transaction_date" AT TIME ZONE 'America/Guayaquil';
+        ALTER TABLE "recharge_requests" ALTER COLUMN "resolved_at" TYPE timestamptz USING "resolved_at" AT TIME ZONE 'America/Guayaquil';
+
+        -- Suscripciones
+        ALTER TABLE "subscription" ALTER COLUMN "startDate" TYPE timestamptz USING "startDate" AT TIME ZONE 'America/Guayaquil';
+        ALTER TABLE "subscription" ALTER COLUMN "endDate" TYPE timestamptz USING "endDate" AT TIME ZONE 'America/Guayaquil';
+        ALTER TABLE "subscription" ALTER COLUMN "createdAt" TYPE timestamptz USING "createdAt" AT TIME ZONE 'America/Guayaquil';
+        ALTER TABLE "subscription" ALTER COLUMN "updatedAt" TYPE timestamptz USING "updatedAt" AT TIME ZONE 'America/Guayaquil';
+
         -- Migración para Versionado de Términos y Privacidad
         ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "acceptedTermsVersion" VARCHAR(20) DEFAULT NULL;
         ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "acceptedTermsAt" TIMESTAMP DEFAULT NULL;

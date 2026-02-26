@@ -19,6 +19,7 @@ const data_1 = require("../../data");
 const domain_1 = require("../../domain");
 const uuid_1 = require("uuid");
 const content_moderation_1 = require("../../config/content-moderation");
+const PostReport_1 = require("../../data/postgres/models/PostReport");
 class PostService {
     constructor(userService, subscriptionService, freePostTrackerService, globalSettingsService) {
         this.userService = userService;
@@ -115,19 +116,9 @@ class PostService {
                 .andWhere("post.expiresAt <= :now", { now })
                 .getMany();
             if (expiredPosts.length > 0) {
-                // Actualizar todos los posts expirados en una sola operación
-                yield data_1.Post.createQueryBuilder()
-                    .update()
-                    .set({ statusPost: data_1.StatusPost.DELETED })
-                    .whereInIds(expiredPosts.map((p) => p.id))
-                    .execute();
-                // Emitir eventos de socket para cada post eliminado
-                expiredPosts.forEach((post) => {
-                    (0, socket_1.getIO)().emit("postChanged", {
-                        action: "delete",
-                        postId: post.id,
-                    });
-                });
+                for (const post of expiredPosts) {
+                    yield this.hardDeletePost(post);
+                }
             }
         });
     }
@@ -370,53 +361,6 @@ class PostService {
             }
         });
     }
-    deleteExpiredPosts() {
-        return __awaiter(this, void 0, void 0, function* () {
-            try {
-                // 1. Buscar posts gratuitos expirados (ELIMINADOS o con expiresAt pasado)
-                const expiredPosts = yield data_1.Post.find({
-                    where: [
-                        { statusPost: data_1.StatusPost.DELETED }, // Posts ya marcados como eliminados
-                        {
-                            isPaid: false,
-                            expiresAt: (0, typeorm_1.LessThan)(new Date()), // Posts gratuitos que ya expiraron
-                        },
-                    ],
-                    relations: ["user"], // Opcional: si necesitas info del usuario
-                });
-                if (expiredPosts.length === 0) {
-                    return { deletedCount: 0 };
-                }
-                let deletedCount = 0;
-                // 2. Procesar cada post para borrado permanente
-                for (const post of expiredPosts) {
-                    try {
-                        // 2.1. Eliminar imágenes de AWS si existen
-                        if (post.imgpost && post.imgpost.length > 0) {
-                            yield Promise.all(post.imgpost.map((key) => upload_files_cloud_adapter_1.UploadFilesCloud.deleteFile({
-                                bucketName: config_1.envs.AWS_BUCKET_NAME,
-                                key: key,
-                            }).catch((error) => console.error(`Error al borrar imagen ${key}:`, error))));
-                        }
-                        // 2.2. Borrar el post de la base de datos (hard delete)
-                        yield data_1.Post.remove(post);
-                        deletedCount++;
-                    }
-                    catch (postError) {
-                        console.error(`Error procesando post ${post.id}:`, postError);
-                        continue; // Continuar con el siguiente post si falla uno
-                    }
-                }
-                // 3. Emitir evento para actualizar clients (opcional)
-                (0, socket_1.getIO)().emit("postsCleaned", { count: deletedCount });
-                return { deletedCount };
-            }
-            catch (error) {
-                console.error("Error en deleteExpiredPosts:", error);
-                throw domain_1.CustomError.internalServer("Error al limpiar posts expirados");
-            }
-        });
-    }
     getPostsByUser(userId_1) {
         return __awaiter(this, arguments, void 0, function* (userId, page = 1) {
             try {
@@ -490,8 +434,7 @@ class PostService {
                     relations: ["user", "user.subscriptions"],
                     order: { createdAt: "DESC" },
                     take: limit,
-                    skip: skip,
-                    withDeleted: true // Include soft deleted logic if implemented with @DeleteDateColumn
+                    skip: skip
                 });
                 // Process images
                 const formattedPosts = yield Promise.all(posts.map((post) => __awaiter(this, void 0, void 0, function* () {
@@ -553,33 +496,44 @@ class PostService {
                 throw domain_1.CustomError.notFound("Post no encontrado");
             if (post.user.id !== userId)
                 throw domain_1.CustomError.forbiden("No autorizado para eliminar este post");
-            return post.statusPost === data_1.StatusPost.DELETED
-                ? yield this.hardDeletePost(post)
-                : yield this.softDeletePost(post);
-        });
-    }
-    softDeletePost(post) {
-        return __awaiter(this, void 0, void 0, function* () {
-            post.statusPost = data_1.StatusPost.DELETED;
-            post.deletedAt = new Date();
-            yield post.save();
-            (0, socket_1.getIO)().emit("postChanged", {
-                action: "delete",
-                postId: post.id,
-            });
-            return { message: "Post marcado como eliminado" };
+            return yield this.hardDeletePost(post);
         });
     }
     hardDeletePost(post) {
         return __awaiter(this, void 0, void 0, function* () {
             var _a;
+            // 1. Eliminar imágenes de S3 primero
             if (((_a = post.imgpost) === null || _a === void 0 ? void 0 : _a.length) > 0) {
-                yield Promise.all(post.imgpost.map((key) => upload_files_cloud_adapter_1.UploadFilesCloud.deleteFile({
-                    bucketName: config_1.envs.AWS_BUCKET_NAME,
-                    key: key,
-                })));
+                for (const key of post.imgpost) {
+                    try {
+                        yield upload_files_cloud_adapter_1.UploadFilesCloud.deleteFile({
+                            bucketName: config_1.envs.AWS_BUCKET_NAME,
+                            key: key,
+                        });
+                    }
+                    catch (e) {
+                        console.error(`Error deleting post image ${key}:`, e);
+                        throw domain_1.CustomError.internalServer("Error al eliminar las imágenes del almacenamiento S3. Operación abortada para evitar inconsistencias.");
+                    }
+                }
             }
-            yield data_1.Post.remove(post);
+            // 2. Eliminar relaciones (likes, reportes)
+            try {
+                yield data_1.Like.delete({ post: { id: post.id } });
+                yield PostReport_1.PostReport.delete({ post: { id: post.id } });
+            }
+            catch (e) {
+                console.error("Error deleting post relations", e);
+                throw domain_1.CustomError.internalServer("Error al eliminar interacciones. Operación abortada.");
+            }
+            // 3. Eliminar definitivamente el post de la BD
+            try {
+                yield data_1.Post.remove(post);
+            }
+            catch (e) {
+                console.error("Error deleting post from DB", e);
+                throw domain_1.CustomError.internalServer("Error al eliminar el post de la base de datos.");
+            }
             (0, socket_1.getIO)().emit("postChanged", {
                 action: "hardDelete",
                 postId: post.id,
@@ -607,18 +561,16 @@ class PostService {
     // ==========================================
     getAdminStats() {
         return __awaiter(this, void 0, void 0, function* () {
-            const totalPosts = yield data_1.Post.count({ withDeleted: true });
+            const totalPosts = yield data_1.Post.count();
             const activePosts = yield data_1.Post.count({ where: { statusPost: data_1.StatusPost.PUBLISHED } });
-            const deletedPosts = yield data_1.Post.count({ where: { statusPost: data_1.StatusPost.DELETED }, withDeleted: true });
-            const paidPosts = yield data_1.Post.count({ where: { isPaid: true }, withDeleted: true });
-            const freePosts = yield data_1.Post.count({ where: { isPaid: false }, withDeleted: true });
+            const paidPosts = yield data_1.Post.count({ where: { isPaid: true } });
+            const freePosts = yield data_1.Post.count({ where: { isPaid: false } });
             const thirtyDaysAgo = new Date();
             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-            const last30Days = yield data_1.Post.count({ where: { createdAt: (0, typeorm_1.MoreThan)(thirtyDaysAgo) }, withDeleted: true });
+            const last30Days = yield data_1.Post.count({ where: { createdAt: (0, typeorm_1.MoreThan)(thirtyDaysAgo) } });
             return {
                 totalPosts,
                 activePosts,
-                deletedPosts,
                 paidPosts,
                 freePosts,
                 last30Days,
@@ -626,37 +578,11 @@ class PostService {
             };
         });
     }
-    purgeOldDeletedPosts() {
-        return __awaiter(this, void 0, void 0, function* () {
-            try {
-                const thirtyDaysAgo = new Date();
-                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-                const postsToPurge = yield data_1.Post.createQueryBuilder("post")
-                    .withDeleted()
-                    .where("post.statusPost = :status", { status: data_1.StatusPost.DELETED })
-                    .andWhere("post.deletedAt <= :threshold", { threshold: thirtyDaysAgo })
-                    .getMany();
-                if (postsToPurge.length === 0)
-                    return { deletedCount: 0 };
-                let deletedCount = 0;
-                for (const post of postsToPurge) {
-                    yield this.hardDeletePost(post);
-                    deletedCount++;
-                }
-                return { deletedCount };
-            }
-            catch (error) {
-                console.error("Purge Error", error);
-                throw domain_1.CustomError.internalServer("Error purging posts");
-            }
-        });
-    }
     getAdminPosts(filters_1) {
         return __awaiter(this, arguments, void 0, function* (filters, page = 1, limit = 20) {
             const { id, status, type, startDate, endDate } = filters;
             const query = data_1.Post.createQueryBuilder("post")
                 .leftJoinAndSelect("post.user", "user")
-                .withDeleted()
                 .orderBy("post.createdAt", "DESC")
                 .skip((page - 1) * limit)
                 .take(limit);
@@ -877,12 +803,6 @@ class PostService {
             if (!post)
                 throw domain_1.CustomError.notFound("Post no encontrado");
             post.statusPost = status;
-            if (status === data_1.StatusPost.DELETED) {
-                post.deletedAt = new Date();
-            }
-            else {
-                post.deletedAt = null;
-            }
             yield post.save();
             (0, socket_1.getIO)().emit("postChanged", { action: "update", postId: post.id });
             return { message: `Estado cambiado a ${status}`, status: post.statusPost };
@@ -897,64 +817,23 @@ class PostService {
             return yield this.hardDeletePost(post);
         });
     }
-    // ADMINISTRADOR - Borrar permanentemente posts ELIMINADO (> 3 días) y sus imágenes
-    purgeDeletedPostsOlderThan3Days() {
-        return __awaiter(this, void 0, void 0, function* () {
-            var _a;
-            try {
-                const cutoff = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
-                // Buscar posts ELIMINADO con deletedAt <= cutoff
-                const posts = yield data_1.Post.find({
-                    where: {
-                        statusPost: data_1.StatusPost.DELETED,
-                        deletedAt: (0, typeorm_1.LessThan)(cutoff),
-                    },
-                });
-                if (posts.length === 0) {
-                    return { deletedCount: 0 };
-                }
-                let deletedCount = 0;
-                for (const post of posts) {
-                    try {
-                        // 1) Borrar imágenes en AWS (si existen)
-                        if ((_a = post.imgpost) === null || _a === void 0 ? void 0 : _a.length) {
-                            yield Promise.all(post.imgpost.map((key) => upload_files_cloud_adapter_1.UploadFilesCloud.deleteFile({
-                                bucketName: config_1.envs.AWS_BUCKET_NAME,
-                                key,
-                            }).catch(() => undefined) // tolerante a fallos
-                            ));
-                        }
-                        // 2) Borrado permanente en BD
-                        yield data_1.Post.remove(post);
-                        deletedCount++;
-                    }
-                    catch (_b) {
-                        continue; // si falla un post, sigue con el siguiente
-                    }
-                }
-                return { deletedCount };
-            }
-            catch (_c) {
-                throw domain_1.CustomError.internalServer("Error al purgar posts eliminados mayores a 3 días");
-            }
-        });
-    }
     expirePosts() {
         return __awaiter(this, void 0, void 0, function* () {
             const now = new Date();
             try {
-                const result = yield data_1.Post.createQueryBuilder()
-                    .update(data_1.Post)
-                    .set({
-                    statusPost: data_1.StatusPost.DELETED,
-                    expiresAt: null,
-                    deletedAt: now
-                })
-                    .where("statusPost = :status", { status: data_1.StatusPost.PUBLISHED })
-                    .andWhere("isPaid = :isPaid", { isPaid: false })
-                    .andWhere("expiresAt <= :now", { now })
-                    .execute();
-                return result.affected || 0;
+                const expiredPosts = yield data_1.Post.createQueryBuilder("post")
+                    .where("post.statusPost = :status", { status: data_1.StatusPost.PUBLISHED })
+                    .andWhere("post.isPaid = false")
+                    .andWhere("post.expiresAt <= :now", { now })
+                    .getMany();
+                if (expiredPosts.length === 0)
+                    return 0;
+                let deletedCount = 0;
+                for (const post of expiredPosts) {
+                    yield this.hardDeletePost(post);
+                    deletedCount++;
+                }
+                return deletedCount;
             }
             catch (error) {
                 console.error("Error al expirar posts:", error);

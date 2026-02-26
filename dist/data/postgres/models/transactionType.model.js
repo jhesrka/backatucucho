@@ -96,11 +96,11 @@ __decorate([
     __metadata("design:type", Object)
 ], Transaction.prototype, "daysBought", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'timestamp', nullable: true }),
+    (0, typeorm_1.Column)({ type: 'timestamptz', nullable: true }),
     __metadata("design:type", Object)
 ], Transaction.prototype, "prevEndDate", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'timestamp', nullable: true }),
+    (0, typeorm_1.Column)({ type: 'timestamptz', nullable: true }),
     __metadata("design:type", Object)
 ], Transaction.prototype, "newEndDate", void 0);
 __decorate([
@@ -108,7 +108,7 @@ __decorate([
     __metadata("design:type", Object)
 ], Transaction.prototype, "receipt_image", void 0);
 __decorate([
-    (0, typeorm_1.CreateDateColumn)(),
+    (0, typeorm_1.CreateDateColumn)({ type: 'timestamptz' }),
     __metadata("design:type", Date)
 ], Transaction.prototype, "created_at", void 0);
 exports.Transaction = Transaction = __decorate([

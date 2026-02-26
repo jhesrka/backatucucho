@@ -41,6 +41,9 @@ exports.AppDataSource = new typeorm_1.DataSource({
     database: config_1.envs.DB_DATABASE,
     synchronize: false, // SIEMPRE FALSE EN MIGRACIONES
     logging: false,
+    extra: {
+        options: '-c timezone=UTC', // Fuerza UTC en cada sesión de PostgreSQL
+    },
     entities: [
         user_model_1.User, post_model_1.Post, useradmin_model_1.Useradmin, stories_model_1.Storie, like_model_1.Like, wallet_model_1.Wallet, rechargeStatus_model_1.RechargeRequest, subscriptionStatus_model_1.Subscription,
         freePostTracker_model_1.FreePostTracker, transactionType_model_1.Transaction, CategoriaNegocio_1.CategoriaNegocio, Negocio_1.Negocio, Producto_1.Producto, TipoProducto_1.TipoProducto,

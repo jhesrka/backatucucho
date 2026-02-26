@@ -168,8 +168,64 @@ export class StorieService {
     }
   }
 
-  // 🔁 Método para manejar stories expiradas
-  private async processExpiredStories() {
+  async findOneStorie(id: string) {
+    if (!id || !uuidValidate(id)) {
+      throw CustomError.badRequest("ID de story inválido");
+    }
+
+    const story = await Storie.findOne({
+      where: {
+        id,
+        statusStorie: StatusStorie.PUBLISHED,
+      },
+      relations: ["user"],
+      select: {
+        user: {
+          id: true,
+          name: true,
+          surname: true,
+          photoperfil: true,
+          whatsapp: true,
+        },
+      },
+    });
+
+    if (!story) throw CustomError.notFound("Story no encontrada");
+
+    // Verificar si ha expirado
+    const now = new Date();
+    if (new Date(story.expires_at) <= now) {
+      throw CustomError.notFound("Esta historia ha expirado");
+    }
+
+    // Resolver URLs
+    const [imgUrl, userImgUrl] = await Promise.all([
+      story.imgstorie
+        ? await UploadFilesCloud.getOptimizedUrls({
+          bucketName: envs.AWS_BUCKET_NAME,
+          key: story.imgstorie,
+        })
+        : null,
+      story.user?.photoperfil
+        ? await UploadFilesCloud.getOptimizedUrls({
+          bucketName: envs.AWS_BUCKET_NAME,
+          key: story.user.photoperfil,
+        })
+        : null,
+    ]);
+
+    return {
+      ...story,
+      imgstorie: imgUrl,
+      user: {
+        ...story.user,
+        photoperfil: userImgUrl,
+      },
+    };
+  }
+
+  // 🔁 Método público para manejar stories expiradas (cron y on-read)
+  public async processExpiredStories(): Promise<number> {
     const now = new Date();
 
     // Buscar stories que hayan expirado y aún estén publicadas
@@ -182,16 +238,40 @@ export class StorieService {
     });
 
     if (expiredStories.length > 0) {
+      let expiredCount = 0;
       await Promise.all(
         expiredStories.map(async (story) => {
-          // Aquí aplicamos la misma lógica soft/hard delete
-          await this.deleteStorie(story.id, story.user.id);
+          try {
+            // 1. Eliminar imagen en S3 primero
+            if (story.imgstorie) {
+              await UploadFilesCloud.deleteFile({
+                bucketName: envs.AWS_BUCKET_NAME,
+                key: story.imgstorie,
+              }).catch(err => {
+                console.warn(`[Stories] Error no bloqueante eliminando imagen S3 (${story.imgstorie}):`, err);
+              });
+            }
+
+            // 2. Si hay éxito o se silenció el S3, eliminar de Base de Datos totalmente
+            await Storie.remove(story);
+            expiredCount++;
+
+            // 3. Avisar al frontend que la historia desapareció de su grid
+            getIO().emit("storieChanged", {
+              action: "hardDelete",
+              storieId: story.id,
+            });
+          } catch (error) {
+            console.error(`[Stories] Error crítico en Hard Delete DB (${story.id}):`, error);
+          }
         })
       );
+      return expiredCount;
     }
+    return 0;
   }
 
-  // 🔹 Método de eliminar story (soft/hard) similar a tus posts
+  // 🔹 Método de eliminar story definitivo (hard delete forzado)
   async deleteStorie(id: string, userId: string): Promise<{ message: string }> {
     const story = await Storie.findOne({
       where: { id },
@@ -202,9 +282,7 @@ export class StorieService {
     if (story.user.id !== userId)
       throw CustomError.forbiden("No autorizado para eliminar esta story");
 
-    return story.statusStorie === StatusStorie.DELETED
-      ? await this.hardDeleteStorie(story)
-      : await this.softDeleteStorie(story);
+    return await this.hardDeleteStorie(story);
   }
 
   private async softDeleteStorie(story: Storie): Promise<{ message: string }> {
@@ -237,15 +315,16 @@ export class StorieService {
 
     return { message: "Story eliminada permanentemente" };
   }
-  async getStoriesByUser(userId: string) {
+  async getStoriesByUser(userId: string, page: number = 1, limit: number = 10) {
     if (!userId) {
       throw CustomError.badRequest("ID de usuario no proporcionado");
     }
 
     try {
       const now = new Date();
+      const skip = (page - 1) * limit;
 
-      const stories = await Storie.find({
+      const [stories, total] = await Storie.findAndCount({
         where: {
           statusStorie: StatusStorie.PUBLISHED,
           expires_at: MoreThan(now),
@@ -262,6 +341,8 @@ export class StorieService {
           },
         },
         order: { createdAt: "DESC" },
+        take: limit,
+        skip: skip,
       });
 
       const storiesWithUrls = await Promise.all(
@@ -291,8 +372,17 @@ export class StorieService {
         })
       );
 
-      return storiesWithUrls.filter((story) => story.imgstorie !== null);
-    } catch {
+      const validStories = storiesWithUrls.filter(
+        (story) => story.imgstorie !== null
+      );
+
+      return {
+        stories: validStories,
+        total,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page,
+      };
+    } catch (error) {
       throw CustomError.internalServer(
         "Error obteniendo historias del usuario"
       );

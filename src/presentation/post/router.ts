@@ -58,11 +58,7 @@ export class PostRoutes {
       postController.getAdminStats
     );
 
-    router.delete(
-      "/admin/purge/old",
-      AuthAdminMiddleware.protect,
-      postController.purgeOldDeletedPosts
-    );
+
 
     // Totales de posts pagados activos
     router.get(
@@ -108,12 +104,7 @@ export class PostRoutes {
       AuthAdminMiddleware.protect,
       postController.blockPostAdmin
     );
-    // Purgar posts ELIMINADO (> 3 días) + borrar imágenes en AWS
-    router.delete(
-      "/admin/purge-deleted",
-      AuthAdminMiddleware.protect,
-      postController.purgeDeletedPostsOlderThan3Days
-    );
+
 
     // NUEVO: Admin Purge Individual
     router.delete(

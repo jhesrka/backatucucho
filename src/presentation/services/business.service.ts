@@ -3,12 +3,10 @@ import {
     Status,
     User,
 } from "../../data";
-import {
-    CustomError,
-    LoginUserDTO,
-} from "../../domain";
+import { CustomError, LoginUserDTO } from "../../domain";
 import { encriptAdapter, envs, JwtAdapter } from "../../config";
 import { UploadFilesCloud } from "../../config/upload-files-cloud-adapter";
+import { getIO } from "../../config/socket";
 
 export class BusinessService {
     constructor() { }
@@ -258,12 +256,19 @@ export class BusinessService {
             if (!motivoCancelacion) throw CustomError.badRequest("Se requiere un motivo para cancelar");
             order.estado = EstadoPedido.CANCELADO;
             order.motivoCancelacion = motivoCancelacion;
-            // TODO: Notificar al usuario (Socket/Push)
         } else {
             throw CustomError.badRequest("Estado no permitido para el negocio");
         }
 
         await order.save();
+
+        // Disparar socket en tiempo real al cliente
+        getIO().emit("pedido_actualizado", {
+            pedidoId: order.id,
+            estado: order.estado,
+            timestamp: new Date().toISOString()
+        });
+
         return order;
     }
 

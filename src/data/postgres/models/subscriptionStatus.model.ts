@@ -31,10 +31,10 @@ export class Subscription extends BaseEntity {
   @ManyToOne(() => User, (user) => user.subscriptions, { onDelete: "CASCADE" })
   user: User;
 
-  @Column({ type: "timestamp" })
+  @Column({ type: "timestamptz" })
   startDate: Date;
 
-  @Column({ type: "timestamp", nullable: true })
+  @Column({ type: "timestamptz", nullable: true })
   endDate: Date | null; // Añade el tipo union con null
 
   @Column({
@@ -60,10 +60,10 @@ export class Subscription extends BaseEntity {
   @Column({ type: "varchar", nullable: true })
   transactionId: string; // ID de la transacción en el gateway de pago
 
-  @CreateDateColumn()
+  @CreateDateColumn({ type: "timestamptz" })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ type: "timestamptz" })
   updatedAt: Date;
 
   // Método para verificar si la suscripción está activa

@@ -970,8 +970,7 @@ export class UserService {
         ).length,
         hidden: user.posts.filter((p) => p.statusPost === StatusPost.HIDDEN)
           .length,
-        deleted: user.posts.filter((p) => p.statusPost === StatusPost.DELETED)
-          .length,
+        deleted: 0,
         banned: user.posts.filter((p) => p.statusPost === StatusPost.FLAGGED)
           .length,
       };

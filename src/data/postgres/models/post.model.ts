@@ -13,7 +13,6 @@ export enum StatusPost {
   PUBLISHED = "PUBLISHED",
   FLAGGED = "FLAGGED",
   HIDDEN = "HIDDEN",
-  DELETED = "DELETED",
 }
 
 @Entity()
@@ -47,14 +46,11 @@ export class Post extends BaseEntity {
   @Column({ default: true })
   isPaid: boolean; // true = pago, false = gratis
 
-  @CreateDateColumn({ type: 'timestamp' }) // <-- Esto soluciona el problema
+  @CreateDateColumn({ type: 'timestamptz' }) // <-- Ahora sí es timestamp real UTC
   createdAt: Date;
 
   @Column({ type: "timestamp", nullable: true })
   expiresAt: Date; // Fecha de expiración (solo para posts gratis)
-
-  @Column({ type: "timestamp", nullable: true })
-  deletedAt: Date; // Para soft delete
 
   @Column("enum", {
     enum: StatusPost,

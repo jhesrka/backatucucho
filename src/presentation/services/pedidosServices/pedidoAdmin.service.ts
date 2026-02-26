@@ -7,6 +7,7 @@ import {
   ProductoPedido,
 } from "../../../data";
 import { GlobalSettings } from "../../../data/postgres/models/global-settings.model";
+import { getIO } from "../../../config/socket";
 import {
   AsignarMotorizadoDTO,
   CustomError,
@@ -79,6 +80,13 @@ export class PedidoAdminService {
 
     pedido.estado = dto.nuevoEstado;
     await pedido.save();
+
+    getIO().emit("pedido_actualizado", {
+      pedidoId: pedido.id,
+      estado: pedido.estado,
+      timestamp: new Date().toISOString(),
+    });
+
     return pedido;
   }
 
@@ -113,6 +121,13 @@ export class PedidoAdminService {
     }
 
     await pedido.save();
+
+    getIO().emit("pedido_actualizado", {
+      pedidoId: pedido.id,
+      estado: pedido.estado,
+      timestamp: new Date().toISOString(),
+    });
+
     return pedido;
   }
 
@@ -188,6 +203,12 @@ export class PedidoAdminService {
 
     pedido.estado = nuevoEstado;
     await pedido.save();
+
+    getIO().emit("pedido_actualizado", {
+      pedidoId: pedido.id,
+      estado: pedido.estado,
+      timestamp: new Date().toISOString(),
+    });
 
     return pedido;
   }

@@ -11,6 +11,7 @@ import { startPostExpirationCron } from "./cron/post-expiration.cron";
 import { startOrderPurgeCron } from "./cron/pedidoPurge.cron";
 import { startReportPurgeCron } from "./cron/report-purge.cron";
 import { startGlobalScheduleCron } from "./cron/global-schedule.cron";
+import { startStorieExpirationCron } from "./cron/storie-expiration.cron";
 async function main() {
   const postgres = new PostgresDatabase({
     username: envs.DB_USERNAME,
@@ -34,6 +35,7 @@ async function main() {
   startOrderPurgeCron();
   startReportPurgeCron();
   startGlobalScheduleCron();
+  startStorieExpirationCron();
 
   await server.start();
 }

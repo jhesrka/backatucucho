@@ -298,7 +298,15 @@ export class AdminReportService {
 
             if (action === 'HIDE') post.statusPost = StatusPost.FLAGGED; // or HIDDEN
             if (action === 'RESTORE') post.statusPost = StatusPost.PUBLISHED;
-            if (action === 'DELETE') post.statusPost = StatusPost.DELETED;
+            if (action === 'DELETE') {
+                if (post.imgpost?.length) {
+                    for (const key of post.imgpost) {
+                        await UploadFilesCloud.deleteFile({ bucketName: envs.AWS_BUCKET_NAME, key }).catch(() => { });
+                    }
+                }
+                await Post.remove(post);
+                return { message: "Post eliminado permanentemente" };
+            }
 
             await post.save();
         } else {
@@ -349,13 +357,7 @@ export class AdminReportService {
         const resolvedReports = await PostReport.count({ where: { status: ReportStatus.RESOLVED } }) +
             await StorieReport.count({ where: { status: ReportStatus.RESOLVED } });
 
-        // Deleted Content (Content that was reported and is now DELETED)
-        const deletedPosts = await Post.createQueryBuilder('p')
-            .innerJoin('post_report', 'r', 'r."postId" = p.id')
-            .withDeleted()
-            .where('p."statusPost" = :s', { s: StatusPost.DELETED })
-            .distinct(true)
-            .getCount();
+        const deletedPosts = 0;
 
         const deletedStories = await Storie.createQueryBuilder('s')
             .innerJoin('storie_report', 'r', 'r."storieId" = s.id')

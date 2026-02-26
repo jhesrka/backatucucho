@@ -9,6 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+process.env.TZ = 'UTC'; // Forzar Node.js a operar siempre en UTC
 require("reflect-metadata"); // esto si bien instalamos depues siempre debe ir primero
 const config_1 = require("./config");
 const data_1 = require("./data");
