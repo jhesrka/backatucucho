@@ -29,12 +29,12 @@ export class StorieRoutes {
     const storieController = new StorieController(storieService);
 
     router.get("/", AuthMiddleware.protect, storieController.findAllStorie);
-    router.get("/:id", storieController.findOneStorie);
     router.get(
       "/user",
       AuthMiddleware.protect,
       storieController.getStoriesByUser
     );
+    router.get("/:id", storieController.findOneStorie);
     router.post(
       "/",
       AuthMiddleware.protect,
