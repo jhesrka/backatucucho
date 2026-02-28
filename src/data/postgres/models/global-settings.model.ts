@@ -71,6 +71,12 @@ export class GlobalSettings extends BaseEntity {
     @Column("timestamp", { default: () => "CURRENT_TIMESTAMP" })
     termsUpdatedAt: Date;
 
+    @Column("int", { default: 60000 })
+    timeoutRondaMs: number;
+
+    @Column("int", { default: 4 })
+    maxRondasAsignacion: number;
+
     @UpdateDateColumn()
     updatedAt: Date;
 }

@@ -98,6 +98,19 @@ export class PedidoMotoRoutes {
       pedidoMotoController.obtenerEstado
     );
 
+    // ===================== TABLERO OPERATIVO =====================
+    router.get(
+      "/tablero-operativo",
+      AuthMotorizadoMiddleware.protect,
+      pedidoMotoController.obtenerTableroOperativo
+    );
+
+    router.post(
+      "/aceptar-espera",
+      AuthMotorizadoMiddleware.protect,
+      pedidoMotoController.aceptarPedidoEnEspera
+    );
+
     return router;
   }
 }

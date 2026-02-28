@@ -74,6 +74,9 @@ export class GlobalSettingsService {
         if (data.subscriptionBasicPromoPrice !== undefined) settings.subscriptionBasicPromoPrice = data.subscriptionBasicPromoPrice;
         if (data.subscriptionBasicDurationDays !== undefined) settings.subscriptionBasicDurationDays = data.subscriptionBasicDurationDays;
 
+        if (data.timeoutRondaMs !== undefined) settings.timeoutRondaMs = data.timeoutRondaMs;
+        if (data.maxRondasAsignacion !== undefined) settings.maxRondasAsignacion = data.maxRondasAsignacion;
+
         await settings.save();
         return settings;
     }

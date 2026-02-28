@@ -39,6 +39,11 @@ export class UserMotorizadoRoutes {
       AuthMotorizadoMiddleware.protect,
       motorizadoController.getMotorizadoMe
     );
+    router.post(
+      "/me/change-password",
+      AuthMotorizadoMiddleware.protect,
+      motorizadoController.cambiarPasswordSelf
+    );
 
     // 🔄 Gestión de Pedidos (Admin)
     router.patch("/orders/:pedidoId/status", motorizadoController.changeOrderStatus);

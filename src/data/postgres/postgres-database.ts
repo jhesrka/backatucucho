@@ -86,9 +86,8 @@ export class PostgresDatabase {
       ssl: {
         rejectUnauthorized: false,
       },
-      extra: {
-        options: "-c timezone=America/Guayaquil",
-      },
+      // Eliminamos el forzado de timezone de sesión para que el driver pg
+      // maneje todo en UTC de forma nativa y TypeORM no se confunda.
     });
   }
 
@@ -111,22 +110,23 @@ export class PostgresDatabase {
         ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "termsUpdatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
         ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "reportsRetentionDays" INT DEFAULT 30;
 
-        -- Forzar timestamptz para resolver el error desfase horas
-        ALTER TABLE "post" ALTER COLUMN "createdAt" TYPE timestamptz USING "createdAt" AT TIME ZONE 'America/Guayaquil';
-        ALTER TABLE "storie" ALTER COLUMN "createdAt" TYPE timestamptz USING "createdAt" AT TIME ZONE 'America/Guayaquil';
-        ALTER TABLE "storie" ALTER COLUMN "expires_at" TYPE timestamptz USING "expires_at" AT TIME ZONE 'America/Guayaquil';
-        ALTER TABLE "storie" ALTER COLUMN "deletedAt" TYPE timestamptz USING "deletedAt" AT TIME ZONE 'America/Guayaquil';
+        -- Garantizar timestamptz para evitar desajustes
+        ALTER TABLE "post" ALTER COLUMN "createdAt" TYPE timestamptz;
+        ALTER TABLE "post" ALTER COLUMN "expiresAt" TYPE timestamptz;
+        ALTER TABLE "storie" ALTER COLUMN "createdAt" TYPE timestamptz;
+        ALTER TABLE "storie" ALTER COLUMN "expires_at" TYPE timestamptz;
+        ALTER TABLE "storie" ALTER COLUMN "deletedAt" TYPE timestamptz;
         
         -- Recargas de saldo
-        ALTER TABLE "recharge_requests" ALTER COLUMN "created_at" TYPE timestamptz USING "created_at" AT TIME ZONE 'America/Guayaquil';
-        ALTER TABLE "recharge_requests" ALTER COLUMN "transaction_date" TYPE timestamptz USING "transaction_date" AT TIME ZONE 'America/Guayaquil';
-        ALTER TABLE "recharge_requests" ALTER COLUMN "resolved_at" TYPE timestamptz USING "resolved_at" AT TIME ZONE 'America/Guayaquil';
+        ALTER TABLE "recharge_requests" ALTER COLUMN "created_at" TYPE timestamptz;
+        ALTER TABLE "recharge_requests" ALTER COLUMN "transaction_date" TYPE timestamptz;
+        ALTER TABLE "recharge_requests" ALTER COLUMN "resolved_at" TYPE timestamptz;
 
         -- Suscripciones
-        ALTER TABLE "subscription" ALTER COLUMN "startDate" TYPE timestamptz USING "startDate" AT TIME ZONE 'America/Guayaquil';
-        ALTER TABLE "subscription" ALTER COLUMN "endDate" TYPE timestamptz USING "endDate" AT TIME ZONE 'America/Guayaquil';
-        ALTER TABLE "subscription" ALTER COLUMN "createdAt" TYPE timestamptz USING "createdAt" AT TIME ZONE 'America/Guayaquil';
-        ALTER TABLE "subscription" ALTER COLUMN "updatedAt" TYPE timestamptz USING "updatedAt" AT TIME ZONE 'America/Guayaquil';
+        ALTER TABLE "subscription" ALTER COLUMN "startDate" TYPE timestamptz;
+        ALTER TABLE "subscription" ALTER COLUMN "endDate" TYPE timestamptz;
+        ALTER TABLE "subscription" ALTER COLUMN "createdAt" TYPE timestamptz;
+        ALTER TABLE "subscription" ALTER COLUMN "updatedAt" TYPE timestamptz;
 
         -- Migración para Versionado de Términos y Privacidad
         ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "acceptedTermsVersion" VARCHAR(20) DEFAULT NULL;
@@ -170,6 +170,12 @@ export class PostgresDatabase {
         ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "total_comision_productos" DECIMAL(10,2) DEFAULT 0;
         ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "pago_motorizado" DECIMAL(10,2) DEFAULT 0;
         ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "comision_moto_app" DECIMAL(10,2) DEFAULT 0;
+        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "noAssignedSince" TIMESTAMPTZ DEFAULT NULL;
+        ALTER TABLE "pedido" ALTER COLUMN "noAssignedSince" TYPE TIMESTAMPTZ;
+        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "motorizadosExcluidos" TEXT DEFAULT '';
+
+        ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "timeoutRondaMs" INT DEFAULT 60000;
+        ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "maxRondasAsignacion" INT DEFAULT 4;
 
         ALTER TABLE "producto" ADD COLUMN IF NOT EXISTS "precio_venta" DECIMAL(10,2) DEFAULT 0;
         ALTER TABLE "producto" ADD COLUMN IF NOT EXISTS "precio_app" DECIMAL(10,2) DEFAULT 0;

@@ -201,6 +201,21 @@ export class MotorizadoController {
       .catch((error) => this.handleError(error, res));
   };
 
+  cambiarPasswordSelf = (req: Request, res: Response) => {
+    const motorizadoId = req.body.sessionMotorizado?.id;
+    if (!motorizadoId) return res.status(401).json({ message: "No autenticado" });
+
+    const { passwordActual, nuevaPassword } = req.body;
+    if (!passwordActual || !nuevaPassword) {
+      return res.status(400).json({ message: "Todos los campos son obligatorios" });
+    }
+
+    this.motorizadoService
+      .cambiarPasswordSelf(motorizadoId, passwordActual, nuevaPassword)
+      .then((data) => res.json(data))
+      .catch((error) => this.handleError(error, res));
+  };
+
   // 💰 Obtener estadísticas de billetera y saldo
   getWalletStats = (req: Request, res: Response) => {
     const { id } = req.params;

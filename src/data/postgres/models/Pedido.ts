@@ -8,6 +8,8 @@ import {
   UpdateDateColumn,
   BaseEntity,
   JoinColumn, // Added import
+  BeforeUpdate,
+  BeforeInsert
 } from "typeorm";
 import { User } from "./user.model";
 import { Negocio } from "./Negocio";
@@ -163,6 +165,24 @@ export class Pedido extends BaseEntity {
   @Column({ type: "int", default: 0 })
   intentosEnRonda: number;
 
+  @Column({ type: "timestamptz", nullable: true })
+  noAssignedSince: Date | null;
+
   @Column({ type: "varchar", nullable: true })
   motivoCancelacion: string | null;
+
+  @Column("simple-array", { default: "" })
+  motorizadosExcluidos: string[];
+
+  @BeforeInsert()
+  @BeforeUpdate()
+  updateNoAssignedSince() {
+    if (this.estado === EstadoPedido.PREPARANDO_NO_ASIGNADO) {
+      if (!this.noAssignedSince) {
+        this.noAssignedSince = new Date();
+      }
+    } else {
+      this.noAssignedSince = null;
+    }
+  }
 }

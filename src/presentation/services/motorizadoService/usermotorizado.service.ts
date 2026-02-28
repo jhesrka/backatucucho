@@ -536,6 +536,20 @@ export class UserMotorizadoService {
     return { message: "Contraseña actualizada correctamente" };
   }
 
+  // ✅ Cambiar contraseña por el propio motorizado (verificando la actual)
+  async cambiarPasswordSelf(id: string, passwordActual: string, nuevaPassword: string) {
+    const motorizado = await UserMotorizado.findOneBy({ id });
+    if (!motorizado) throw CustomError.notFound("Motorizado no encontrado");
+
+    const validPassword = encriptAdapter.compare(passwordActual, motorizado.password);
+    if (!validPassword) throw CustomError.badRequest("La contraseña actual es incorrecta");
+
+    motorizado.password = encriptAdapter.hash(nuevaPassword);
+    await motorizado.save();
+
+    return { message: "Contraseña actualizada con éxito" };
+  }
+
   // ✅ Historial de transacciones de billetera (Admin)
   async getTransactions(motorizadoId: string, page: number = 1, limit: number = 20) {
     const skip = (page - 1) * limit;

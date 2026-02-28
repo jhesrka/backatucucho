@@ -5,6 +5,7 @@ import {
   UserMotorizado,
   Negocio,
   ProductoPedido,
+  EstadoTrabajoMotorizado,
 } from "../../../data";
 import { GlobalSettings } from "../../../data/postgres/models/global-settings.model";
 import { getIO } from "../../../config/socket";
@@ -14,6 +15,7 @@ import {
   UpdateEstadoPedidoDTO,
 } from "../../../domain";
 import { Between, ILike, LessThan } from "typeorm";
+import { PedidoMotoService } from "./pedidoMoto.service";
 
 export class PedidoAdminService {
   // ✅ 1. Obtener todos los pedidos con filtros
@@ -90,54 +92,92 @@ export class PedidoAdminService {
     return pedido;
   }
 
-  // ✅ 4. Asignar motorizado
+  /**
+   * ✅ 4. Asignar motorizado (MANUAL ADMIN)
+   * Usa transacciones para asegurar compatibilidad con el algoritmo automático
+   */
   async asignarMotorizado(dto: AsignarMotorizadoDTO) {
-    const pedido = await Pedido.findOneBy({ id: dto.pedidoId });
-    if (!pedido) throw CustomError.notFound("Pedido no encontrado");
+    return await Pedido.getRepository().manager.transaction(async (manager) => {
+      // 1. Bloquear pedido para evitar conflicto con el Cron
+      const pedido = await manager.findOne(Pedido, {
+        where: { id: dto.pedidoId },
+        lock: { mode: "pessimistic_write" }
+      });
+      if (!pedido) throw CustomError.notFound("Pedido no encontrado");
 
-    const motorizado = await UserMotorizado.findOneBy({ id: dto.motorizadoId });
-    if (!motorizado) throw CustomError.notFound("El motorizado ya no existe en el sistema");
+      const motorizado = await manager.findOne(UserMotorizado, {
+        where: { id: dto.motorizadoId },
+        lock: { mode: "pessimistic_write" }
+      });
+      if (!motorizado) throw CustomError.notFound("El motorizado ya no existe");
 
-    // 1. Validar que el motorizado esté apto (ACTIVO y DISPONIBLE)
-    if (motorizado.estadoCuenta !== "ACTIVO") {
-      throw CustomError.badRequest("El motorizado ya no está activo administrativamente");
-    }
-    if (motorizado.estadoTrabajo !== "DISPONIBLE") {
-      throw CustomError.badRequest(`El motorizado ya no está disponible (Estado actual: ${motorizado.estadoTrabajo})`);
-    }
+      // 2. Validar aptitud del motorizado
+      if (motorizado.estadoCuenta !== "ACTIVO") {
+        throw CustomError.badRequest("El motorizado no está activo administrativamente");
+      }
 
-    // 2. Validar que el pedido siga en un estado asignable
-    if (pedido.estado !== EstadoPedido.PREPARANDO_NO_ASIGNADO && pedido.estado !== EstadoPedido.PREPARANDO && pedido.estado !== EstadoPedido.EN_CAMINO) {
-      throw CustomError.badRequest(`El pedido ya cambió de estado o fue asignado por otro administrador (Estado actual: ${pedido.estado})`);
-    }
+      // En asignación manual permitimos reasignar aunque no esté estrictamente "DISPONIBLE" 
+      // si el admin así lo decide (por ejemplo, si se quedó atascado en EN_EVALUACION)
+      const estadosPermitidos = [
+        EstadoTrabajoMotorizado.DISPONIBLE,
+        EstadoTrabajoMotorizado.EN_EVALUACION,
+        EstadoTrabajoMotorizado.NO_TRABAJANDO // El admin puede forzarlo
+      ];
 
-    if (pedido.estado === EstadoPedido.PREPARANDO_NO_ASIGNADO || pedido.estado === EstadoPedido.PREPARANDO) {
-      // Asignación inicial
+      if (motorizado.estadoTrabajo === EstadoTrabajoMotorizado.ENTREGANDO) {
+        throw CustomError.badRequest("El motorizado ya tiene un pedido en camino/entrega");
+      }
+
+      // 3. Validar estado del pedido
+      const estadosAsignables = [
+        EstadoPedido.PREPARANDO,
+        EstadoPedido.PREPARANDO_NO_ASIGNADO,
+        EstadoPedido.EN_CAMINO // Reasignación
+      ];
+
+      if (!estadosAsignables.includes(pedido.estado)) {
+        throw CustomError.badRequest(`El pedido no es asignable en su estado actual: ${pedido.estado}`);
+      }
+
+      // 4. Ejecutar Asignación
       pedido.motorizado = motorizado;
-      pedido.estado = EstadoPedido.PREPARANDO; // Pasa a PREPARANDO al tener motorizado
-    } else if (pedido.estado === EstadoPedido.EN_CAMINO) {
-      // Reasignación
-      pedido.motorizado = motorizado;
-    }
 
-    await pedido.save();
+      if (pedido.estado === EstadoPedido.PREPARANDO || pedido.estado === EstadoPedido.PREPARANDO_NO_ASIGNADO) {
+        pedido.estado = EstadoPedido.PREPARANDO_ASIGNADO;
+      }
 
-    getIO().emit("pedido_actualizado", {
-      pedidoId: pedido.id,
-      estado: pedido.estado,
-      timestamp: new Date().toISOString(),
+      // Limpiar campos de ronda para que el algoritmo automático no lo toque más
+      PedidoMotoService.limpiarCamposRonda(pedido);
+
+      await manager.save(pedido);
+
+      // Actualizar estado del motorizado
+      motorizado.estadoTrabajo = EstadoTrabajoMotorizado.ENTREGANDO;
+      await manager.save(motorizado);
+
+      // Notificar a las partes
+      getIO().emit("pedido_actualizado", {
+        pedidoId: pedido.id,
+        estado: pedido.estado,
+        motorizadoId: motorizado.id,
+        timestamp: new Date().toISOString(),
+      });
+
+      // Notificar específicamente al motorizado
+      getIO().to(motorizado.id).emit("nueva_asignacion_manual", {
+        pedidoId: pedido.id,
+        mensaje: "Un administrador te ha asignado un pedido directamente."
+      });
+
+      return pedido;
     });
-
-    return pedido;
   }
 
-  // ✅ 5. Eliminar pedidos finalizados antiguos (más de 7 días)
   // ✅ 5. Eliminar pedidos finalizados antiguos (Configurable)
   async purgeOldOrders() {
-    // 1. Obtener días de retención desde configuración
     let settings = await GlobalSettings.findOne({ where: {} });
     if (!settings) {
-      settings = new GlobalSettings(); // Default 20 days
+      settings = new GlobalSettings();
       await settings.save();
     }
 
@@ -145,7 +185,6 @@ export class PedidoAdminService {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
 
-    // 2. Buscar pedidos ANTIGUOS que estén ENTREGADOS o CANCELADOS
     const pedidos = await Pedido.find({
       where: [
         {
@@ -161,7 +200,6 @@ export class PedidoAdminService {
 
     if (pedidos.length === 0) return { deletedCount: 0 };
 
-    // 3. Eliminar (Hard Delete)
     const deleted = await Pedido.remove(pedidos);
     return { deletedCount: deleted.length };
   }
@@ -196,9 +234,8 @@ export class PedidoAdminService {
       throw CustomError.forbiden("No tienes permiso para modificar este pedido");
     }
 
-    // Opcional: validar que el estado actual sea EN_CAMINO (o cualquier estado válido antes de entregado/cancelado)
     if (pedido.estado !== EstadoPedido.EN_CAMINO) {
-      throw CustomError.badRequest("El pedido no está en estado EN_CAMINO, no puede ser actualizado por el motorizado");
+      throw CustomError.badRequest("El pedido no está en estado EN_CAMINO");
     }
 
     pedido.estado = nuevoEstado;

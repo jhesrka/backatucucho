@@ -49,7 +49,7 @@ export class Post extends BaseEntity {
   @CreateDateColumn({ type: 'timestamptz' }) // <-- Ahora sí es timestamp real UTC
   createdAt: Date;
 
-  @Column({ type: "timestamp", nullable: true })
+  @Column({ type: "timestamptz", nullable: true })
   expiresAt: Date; // Fecha de expiración (solo para posts gratis)
 
   @Column("enum", {

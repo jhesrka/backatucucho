@@ -7,6 +7,7 @@ import {
   TransaccionMotorizado,
   TipoTransaccion,
   EstadoTransaccion,
+  GlobalSettings,
 } from "../../../data";
 
 import { getIO } from "../../../config/socket";
@@ -14,23 +15,45 @@ import { CustomError } from "../../../domain";
 import { IsNull, Brackets } from "typeorm";
 
 export class PedidoMotoService {
-  private static readonly TIMEOUT_RONDA_MS = 60_000; // 1 min (castigo SOLO en rechazar)
-  private static readonly MAX_RONDAS = 4;
+  private static settings: GlobalSettings | null = null;
+
+  private static async getSettings(): Promise<GlobalSettings> {
+    if (this.settings) return this.settings;
+    let s = await GlobalSettings.findOne({ where: {} });
+    if (!s) {
+      s = new GlobalSettings();
+      await s.save();
+    }
+    this.settings = s;
+    return s;
+  }
+
+  public static async getTimeout(): Promise<number> {
+    const s = await this.getSettings();
+    return s.timeoutRondaMs || 60_000;
+  }
+
+  private static async getMaxRondas(): Promise<number> {
+    const s = await this.getSettings();
+    return s.maxRondasAsignacion || 4;
+  }
 
   // ============================================================
   // 🧠 HELPERS
   // ============================================================
 
-  private static isRondaExpirada(pedido: Pedido): boolean {
+  private static async isRondaExpirada(pedido: Pedido): Promise<boolean> {
     if (!pedido.fechaInicioRonda) return false;
+    const timeout = await this.getTimeout();
     return (
-      Date.now() - pedido.fechaInicioRonda.getTime() >= this.TIMEOUT_RONDA_MS
+      Date.now() - pedido.fechaInicioRonda.getTime() >= timeout
     );
   }
 
-  private static limpiarCamposRonda(pedido: Pedido): void {
+  public static limpiarCamposRonda(pedido: Pedido): void {
     pedido.motorizadoEnEvaluacion = null;
     pedido.fechaInicioRonda = null;
+    pedido.asignacionBloqueada = false;
   }
 
   private static async obtenerPedidoOrFail(
@@ -51,19 +74,15 @@ export class PedidoMotoService {
   }
 
   /**
-   * ✅ Elegibilidad profesional (sin ONLINE/OFFLINE):
-   * - Cuenta ACTIVA
-   * - Trabajo DISPONIBLE
-   * - Quiere trabajar = true (switch)
-   * - No está castigado (noDisponibleHasta null o ya venció)
+   * ✅ Elegibilidad profesional:
    * - FIFO por fechaHoraDisponible ASC
    */
-  private static async obtenerMotorizadosElegibles(): Promise<
+  private static async obtenerMotorizadosElegibles(excluidos: string[] = []): Promise<
     UserMotorizado[]
   > {
     const now = new Date();
 
-    return UserMotorizado.createQueryBuilder("m")
+    const query = UserMotorizado.createQueryBuilder("m")
       .where("m.estadoCuenta = :estadoCuenta", {
         estadoCuenta: EstadoCuentaMotorizado.ACTIVO,
       })
@@ -78,14 +97,19 @@ export class PedidoMotoService {
             { now }
           );
         })
-      )
-      .orderBy("m.fechaHoraDisponible", "ASC")
-      .getMany();
+      );
+
+    // Filtrar excluidos si existen
+    if (excluidos && excluidos.length > 0 && (excluidos.length > 1 || (excluidos[0] !== "" && excluidos[0] !== null))) {
+      query.andWhere("m.id NOT IN (:...excluidos)", { excluidos });
+    }
+
+    return query.orderBy("m.fechaHoraDisponible", "ASC").getMany();
   }
 
   /**
    * Ajusta el estado del motorizado cuando queda libre (sin pedido activo),
-   * respetando el switch y el castigo persistente.
+   * mandándolo al final de la cola FIFO.
    */
   private static async normalizarEstadoLibreMotorizado(moto: UserMotorizado) {
     const now = new Date();
@@ -99,30 +123,29 @@ export class PedidoMotoService {
       moto.estadoTrabajo = EstadoTrabajoMotorizado.NO_TRABAJANDO;
     }
 
-    moto.fechaHoraDisponible = now; // lo manda al final de la cola FIFO
+    moto.fechaHoraDisponible = now;
     await moto.save();
   }
 
-  // ============================================================
-  // 🧩 REPARADOR DE PEDIDOS CONGELADOS
-  // ============================================================
+  /**
+   * Detecta pedidos que quedaron "atascados" (en evaluación pero sin motorizado real o asignación colgada)
+   */
   private static async rescatarPedidosCongelados() {
-    const pedidos = await Pedido.find({
+    const timeout = await this.getTimeout();
+    const cutoff = new Date(Date.now() - timeout * 2); // Un margen de seguridad adicional
+
+    const pedidosCongelados = await Pedido.find({
       where: {
         estado: EstadoPedido.PREPARANDO,
-        motorizadoEnEvaluacion: IsNull(),
-        asignacionBloqueada: false,
-      },
+        asignacionBloqueada: true,
+        updatedAt: LessThan(cutoff) as any // Cast for old TypeORM versions if needed
+      }
     });
 
-    for (const pedido of pedidos) {
-      if (!pedido.fechaInicioRonda) {
-        pedido.fechaInicioRonda = new Date();
-        pedido.rondaAsignacion = pedido.rondaAsignacion || 1;
-        await pedido.save();
-      }
-
-      await this.procesarPedido(pedido);
+    for (const pedido of pedidosCongelados) {
+      console.log(`[RESCATE] Liberando pedido ${pedido.id} por inactividad prolongada`);
+      this.limpiarCamposRonda(pedido);
+      await pedido.save();
     }
   }
 
@@ -130,92 +153,125 @@ export class PedidoMotoService {
   // 🟢 ASIGNACIÓN AUTOMÁTICA (LLAMADO POR EL CRON)
   // ============================================================
   static async asignarPedidosAutomaticamente() {
+    // 1. Mantenimiento preventivo
     await this.rescatarPedidosCongelados();
 
+    // 2. Obtener pedidos prioritarios (Batch de 20 para evitar saturación)
+    /**
+     * Prioridad:
+     * 1. Pedidos que ya están en evaluación (revisar expiración)
+     * 2. Pedidos en PREPARANDO sin asignar (más antiguos primero)
+     */
     const pedidos = await Pedido.find({
       where: { estado: EstadoPedido.PREPARANDO },
-      order: { createdAt: "ASC" },
+      order: {
+        // Priorizamos pedidos que tienen motorizadoEnEvaluacion para resolver sus timeouts rápido
+        motorizadoEnEvaluacion: "DESC", // Los null van al final en Postgres si usamos NULLS LAST, pero TypeORM sorting es más simple
+        createdAt: "ASC"
+      },
       relations: ["negocio", "cliente"],
+      take: 20
     });
 
     for (const pedido of pedidos) {
       if (pedido.asignacionBloqueada) continue;
-      // Si está en evaluación → revisar expiración
+
       if (pedido.motorizadoEnEvaluacion) {
-        if (!this.isRondaExpirada(pedido)) continue;
+        if (!await this.isRondaExpirada(pedido)) continue;
 
         const continuar = await this.finalizarRondaTimeout(pedido);
         if (!continuar) continue;
       }
 
-      await this.procesarPedido(pedido);
+      // Intentar procesar asignación
+      await this.procesarPedido(pedido.id);
     }
   }
 
   // ============================================================
   // 🟡 PROCESAR PEDIDO → ASIGNAR A SIGUIENTE MOTORIZADO ELEGIBLE
   // ============================================================
-  private static async procesarPedido(pedido: Pedido) {
-    if (pedido.estado !== EstadoPedido.PREPARANDO) return;
+  private static async procesarPedido(pedidoId: string) {
+    await Pedido.getRepository().manager.transaction(async (manager) => {
+      // 1. Bloqueamos la fila del pedido de forma limpia (sin relaciones para evitar error de Postgres con LEFT JOIN)
+      const pedido = await manager.findOne(Pedido, {
+        where: { id: pedidoId, estado: EstadoPedido.PREPARANDO },
+        lock: { mode: "pessimistic_write" },
+      });
 
-    pedido.asignacionBloqueada = true;
-    await pedido.save();
+      // Validaciones post-lock
+      if (!pedido || pedido.motorizadoEnEvaluacion || pedido.asignacionBloqueada) return;
 
-    try {
-      const disponibles = await this.obtenerMotorizadosElegibles();
-      if (!disponibles.length) return;
+      // Cargamos relaciones después del bloqueo si las necesitamos para las notificaciones
+      const pedidoRelaciones = await manager.findOne(Pedido, {
+        where: { id: pedidoId },
+        relations: ["negocio", "cliente"]
+      });
+
+      const disponibles = await this.obtenerMotorizadosElegibles(pedido.motorizadosExcluidos);
+
+      if (!disponibles.length) {
+        // No hay motorizados. Si el pedido lleva mucho tiempo sin asignarse, el admin ya lo verá en su tablero operativo.
+        // Podríamos disparar un evento aquí para alertas críticas si fuera necesario.
+        return;
+      }
 
       const moto = disponibles[0];
 
-      // Marca al motorizado en evaluación (no debe recibir otro pedido)
-      moto.estadoTrabajo = EstadoTrabajoMotorizado.EN_EVALUACION;
-      await moto.save();
-
-      // Marca el pedido en evaluación
+      // Bloquear asignación
+      pedido.asignacionBloqueada = true;
       pedido.motorizadoEnEvaluacion = moto.id;
       pedido.fechaInicioRonda = new Date();
       pedido.rondaAsignacion = pedido.rondaAsignacion || 1;
-      await pedido.save();
+      await manager.save(pedido);
 
-      // Notificación al motorizado
+      // Bloquear motorizado
+      moto.estadoTrabajo = EstadoTrabajoMotorizado.EN_EVALUACION;
+      await manager.save(moto);
+
+      const timeout = await this.getTimeout();
       getIO()
         .to(moto.id)
         .emit("pedido_para_ti", {
           pedidoId: pedido.id,
-          negocioId: pedido.negocio?.id || null,
+          negocioId: pedidoRelaciones?.negocio?.id || null,
           total: pedido.total,
-          expiresAt: Date.now() + this.TIMEOUT_RONDA_MS,
+          expiresAt: Date.now() + timeout,
+          duration: timeout,
         });
-    } finally {
-      // Siempre liberar el lock
+
+      getIO().emit("pedido_actualizado", {
+        pedidoId: pedido.id,
+        estado: pedido.estado,
+        motorizadoEnEvaluacion: pedido.motorizadoEnEvaluacion,
+      });
+
+      // Liberar lock lógico
       pedido.asignacionBloqueada = false;
-      await pedido.save();
-    }
+      await manager.save(pedido);
+    });
   }
 
   // ============================================================
-  // 🔥 TIMEOUT DE RONDA (SIN CASTIGO, PERO MOVER AL FINAL)
+  // 🔥 TIMEOUT DE RONDA (MOVER AL FINAL DE LA COLA)
   // ============================================================
   private static async finalizarRondaTimeout(pedido: Pedido): Promise<boolean> {
     const motoIdPrevio = pedido.motorizadoEnEvaluacion;
 
-    // Si dejó expirar: el motorizado vuelve a "libre" según su intención (switch) y castigo vigente si existiera
     if (motoIdPrevio) {
       const moto = await UserMotorizado.findOneBy({ id: motoIdPrevio });
-      if (
-        moto &&
-        moto.estadoTrabajo === EstadoTrabajoMotorizado.EN_EVALUACION
-      ) {
+      if (moto && moto.estadoTrabajo === EstadoTrabajoMotorizado.EN_EVALUACION) {
         await this.normalizarEstadoLibreMotorizado(moto);
       }
     }
 
     const rondaActual = pedido.rondaAsignacion || 1;
+    const maxRondas = await this.getMaxRondas();
 
-    // Si ya completó todas las rondas → NO ASIGNADO (admin lo asigna manualmente)
-    if (rondaActual >= this.MAX_RONDAS) {
+    if (rondaActual >= maxRondas) {
       pedido.estado = EstadoPedido.PREPARANDO_NO_ASIGNADO;
       this.limpiarCamposRonda(pedido);
+      pedido.noAssignedSince = new Date(); // Marca de tiempo para el tablero del admin
       await pedido.save();
 
       getIO().emit("pedido_actualizado", {
@@ -226,31 +282,16 @@ export class PedidoMotoService {
       return false;
     }
 
-    // Siguiente ronda
     pedido.rondaAsignacion = rondaActual + 1;
     this.limpiarCamposRonda(pedido);
     await pedido.save();
 
+    getIO().emit("pedido_actualizado", {
+      pedidoId: pedido.id,
+      estado: pedido.estado,
+    });
+
     return true;
-  }
-
-  // ============================================================
-  // ❌ RECHAZAR → CASTIGO PERSISTENTE (SIN setTimeout)
-  // ============================================================
-  private static async bloquearPrevio(id: string | null) {
-    if (!id) return;
-
-    const moto = await UserMotorizado.findOneBy({ id });
-    if (!moto) return;
-
-    // Castigo persistente:
-    // - Lo sacas de la cola (NO_TRABAJANDO)
-    // - Le apagas el "quiero trabajar" (para evitar que vuelva solo por switch)
-    // - Guardas hasta cuándo dura el castigo
-    moto.estadoTrabajo = EstadoTrabajoMotorizado.NO_TRABAJANDO;
-    moto.quiereTrabajar = false;
-    moto.noDisponibleHasta = new Date(Date.now() + this.TIMEOUT_RONDA_MS);
-    await moto.save();
   }
 
   // ============================================================
@@ -265,7 +306,6 @@ export class PedidoMotoService {
 
     const moto = await this.obtenerMotorizadoOrFail(motorizadoId);
 
-    // (Opcional pero recomendado) Si ya no está en evaluación, algo raro pasó
     if (moto.estadoTrabajo !== EstadoTrabajoMotorizado.EN_EVALUACION) {
       throw CustomError.badRequest("Estado inválido para aceptar");
     }
@@ -297,14 +337,19 @@ export class PedidoMotoService {
       throw CustomError.badRequest("No puedes rechazar este pedido");
     }
 
-    // CASTIGO AQUÍ (persistente)
-    await this.bloquearPrevio(motorizadoId);
+    // Castigo: Solo mandarlo al final de la cola
+    const moto = await UserMotorizado.findOneBy({ id: motorizadoId });
+    if (moto) {
+      await this.normalizarEstadoLibreMotorizado(moto);
+    }
 
     const rondaActual = pedido.rondaAsignacion || 1;
+    const maxRondas = await this.getMaxRondas();
 
-    if (rondaActual >= this.MAX_RONDAS) {
+    if (rondaActual >= maxRondas) {
       pedido.estado = EstadoPedido.PREPARANDO_NO_ASIGNADO;
       this.limpiarCamposRonda(pedido);
+      pedido.noAssignedSince = new Date();
       await pedido.save();
 
       getIO().emit("pedido_actualizado", {
@@ -315,17 +360,26 @@ export class PedidoMotoService {
       return pedido;
     }
 
+    // Excluir a este motorizado de este pedido específico
+    if (!pedido.motorizadosExcluidos) {
+      pedido.motorizadosExcluidos = [];
+    }
+    if (!pedido.motorizadosExcluidos.includes(motorizadoId)) {
+      pedido.motorizadosExcluidos.push(motorizadoId);
+    }
+
     pedido.rondaAsignacion = rondaActual + 1;
     this.limpiarCamposRonda(pedido);
     await pedido.save();
 
-    await this.procesarPedido(pedido);
+    // Reintentar asignación inmediatamente con otro motorizado
+    setImmediate(async () => {
+      try { await this.procesarPedido(pedido.id); } catch (e) { }
+    });
+
     return pedido;
   }
 
-  // ============================================================
-  // 🚚 MARCAR EN CAMINO
-  // ============================================================
   static async marcarEnCamino(pedidoId: string, motorizadoId: string) {
     const pedido = await this.obtenerPedidoOrFail(pedidoId, ["motorizado"]);
 
@@ -344,9 +398,6 @@ export class PedidoMotoService {
     return pedido;
   }
 
-  // ============================================================
-  // 🏁 ENTREGAR
-  // ============================================================
   static async entregarPedido(pedidoId: string, motorizadoId: string) {
     const pedido = await this.obtenerPedidoOrFail(pedidoId, ["motorizado"]);
     const moto = await this.obtenerMotorizadoOrFail(motorizadoId);
@@ -358,9 +409,6 @@ export class PedidoMotoService {
     pedido.estado = EstadoPedido.ENTREGADO;
     await pedido.save();
 
-    // ===========================
-    // 💰 USAR GANANCIA PERSISTIDA (Snapshot en el pedido)
-    // ===========================
     const gananciaMoto = Number(pedido.ganancia_motorizado || (pedido.costoEnvio * 0.8).toFixed(2));
     const saldoAnterior = Number(moto.saldo);
     const saldoNuevo = saldoAnterior + gananciaMoto;
@@ -379,8 +427,6 @@ export class PedidoMotoService {
     await tx.save();
 
     await moto.save();
-
-    // Al terminar, el estado depende del switch y del castigo persistente
     await this.normalizarEstadoLibreMotorizado(moto);
 
     getIO().emit("pedido_actualizado", {
@@ -398,7 +444,6 @@ export class PedidoMotoService {
     const moto = await UserMotorizado.findOneBy({ id: motorizadoId });
     if (!moto) throw CustomError.notFound("Motorizado no encontrado");
 
-    // 🔒 Estados críticos NO se pueden cambiar
     if (
       moto.estadoTrabajo === EstadoTrabajoMotorizado.ENTREGANDO ||
       moto.estadoTrabajo === EstadoTrabajoMotorizado.EN_EVALUACION
@@ -410,7 +455,6 @@ export class PedidoMotoService {
 
     moto.quiereTrabajar = quiereTrabajar;
 
-    // 🔁 Ajustar estado operativo
     if (quiereTrabajar) {
       moto.estadoTrabajo = EstadoTrabajoMotorizado.DISPONIBLE;
       moto.fechaHoraDisponible = new Date();
@@ -426,9 +470,6 @@ export class PedidoMotoService {
     };
   }
 
-  // ============================================================
-  // 🚫 CANCELAR (MOTORIZADO)
-  // ============================================================
   static async cancelarPedido(
     pedidoId: string,
     motorizadoId: string,
@@ -447,9 +488,11 @@ export class PedidoMotoService {
 
     pedido.estado = EstadoPedido.CANCELADO;
     pedido.motivoCancelacion = motivo;
+    pedido.ganancia_motorizado = 0;
+    pedido.comision_app_domicilio = 0;
+    pedido.costoEnvio = 0;
     await pedido.save();
 
-    // Liberar motorizado
     await this.normalizarEstadoLibreMotorizado(moto);
 
     getIO().emit("pedido_actualizado", {
@@ -486,51 +529,67 @@ export class PedidoMotoService {
     };
   }
 
-  // ============================================================
-  // 📜 HISTORIAL DE PEDIDOS
-  // ============================================================
   static async obtenerHistorial(
     motorizadoId: string,
-    fechaInicio?: string,
-    fechaFin?: string
+    fecha?: string,
+    page: number = 1,
+    limit: number = 10
   ) {
     const query = Pedido.createQueryBuilder("pedido")
       .leftJoinAndSelect("pedido.negocio", "negocio")
       .leftJoinAndSelect("pedido.cliente", "cliente")
-      .leftJoinAndSelect("pedido.productos", "productos") // opcional, si queremos ver productos
-      .leftJoinAndSelect("productos.producto", "productoRef")
       .where("pedido.motorizadoId = :motorizadoId", { motorizadoId })
       .andWhere("pedido.estado IN (:...estados)", {
         estados: [EstadoPedido.ENTREGADO, EstadoPedido.CANCELADO],
-      })
-      .orderBy("pedido.createdAt", "DESC");
-
-    if (fechaInicio) {
-      query.andWhere("pedido.createdAt >= :fechaInicio", {
-        fechaInicio: new Date(fechaInicio),
       });
+
+    if (fecha) {
+      const start = new Date(`${fecha}T00:00:00-05:00`);
+      const end = new Date(`${fecha}T23:59:59.999-05:00`);
+      query.andWhere("pedido.updatedAt BETWEEN :start AND :end", { start, end });
     }
 
-    if (fechaFin) {
-      // Ajustar fin del día para fechaFin
-      const fin = new Date(fechaFin);
-      fin.setHours(23, 59, 59, 999);
-      query.andWhere("pedido.createdAt <= :fechaFin", { fechaFin: fin });
+    query.orderBy("pedido.updatedAt", "DESC");
+
+    const [pedidos, totalItems] = await query
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
+
+    const dailyEarningsQuery = Pedido.createQueryBuilder("pedido")
+      .where("pedido.motorizadoId = :motorizadoId", { motorizadoId })
+      .andWhere("pedido.estado = :estado", { estado: EstadoPedido.ENTREGADO });
+
+    if (fecha) {
+      const start = new Date(`${fecha}T00:00:00-05:00`);
+      const end = new Date(`${fecha}T23:59:59.999-05:00`);
+      dailyEarningsQuery.andWhere("pedido.updatedAt BETWEEN :start AND :end", { start, end });
     }
 
-    const pedidos = await query.getMany();
+    const dailyEarningsResult = await dailyEarningsQuery
+      .select("SUM(pedido.ganancia_motorizado)", "total")
+      .getRawOne();
 
-    // Enriquecer con cálculo de ganancia visual persistida
-    return pedidos.map((p) => ({
-      ...p,
-      gananciaEstimada: Number(p.ganancia_motorizado || (p.costoEnvio * 0.8)).toFixed(2),
-      comisionApp: Number(p.comision_app_domicilio || (p.costoEnvio * 0.2)).toFixed(2),
-    }));
+    const gananciaDelDia = Number(dailyEarningsResult?.total || 0).toFixed(2);
+
+    const pedidosMapped = pedidos.map((p) => {
+      const isCancelled = p.estado === EstadoPedido.CANCELADO;
+      return {
+        ...p,
+        gananciaEstimada: isCancelled ? "0.00" : Number(p.ganancia_motorizado || (p.costoEnvio * 0.8)).toFixed(2),
+        comisionApp: isCancelled ? "0.00" : Number(p.comision_app_domicilio || (p.costoEnvio * 0.2)).toFixed(2),
+        costoEnvio: isCancelled ? "0.00" : Number(p.costoEnvio).toFixed(2),
+      };
+    });
+
+    return {
+      pedidos: pedidosMapped,
+      totalPages: Math.ceil(totalItems / limit),
+      totalItems,
+      gananciaDelDia,
+    };
   }
 
-  // ============================================================
-  // 💰 BILLETERA
-  // ============================================================
   static async obtenerBilletera(motorizadoId: string) {
     const moto = await UserMotorizado.findOneBy({ id: motorizadoId });
     if (!moto) throw CustomError.notFound("Motorizado no encontrado");
@@ -539,10 +598,9 @@ export class PedidoMotoService {
       where: { motorizado: { id: motorizadoId } },
       relations: ["pedido", "pedido.cliente"],
       order: { createdAt: "DESC" },
-      take: 50, // Últimas 50
+      take: 50,
     });
 
-    // Calcular stats
     const totalIngresos = await TransaccionMotorizado.sum("monto", {
       motorizado: { id: motorizadoId },
       tipo: TipoTransaccion.GANANCIA_ENVIO
@@ -586,9 +644,6 @@ export class PedidoMotoService {
     };
   }
 
-  // ============================================================
-  // 🏦 DATOS BANCARIOS
-  // ============================================================
   static async guardarDatosBancarios(
     motorizadoId: string,
     data: {
@@ -612,9 +667,6 @@ export class PedidoMotoService {
     return { message: "Datos actualizados" };
   }
 
-  // ============================================================
-  // 💸 SOLICITAR RETIRO
-  // ============================================================
   static async solicitarRetiro(motorizadoId: string, monto: number) {
     if (monto < 5) {
       throw CustomError.badRequest("El monto mínimo de retiro es $5.00");
@@ -623,7 +675,6 @@ export class PedidoMotoService {
     const moto = await UserMotorizado.findOneBy({ id: motorizadoId });
     if (!moto) throw CustomError.notFound("Motorizado no encontrado");
 
-    // Validar saldo suficiente (Saldo Actual - Retiros Pendientes)
     const saldoActual = Number(moto.saldo);
 
     const pendingWithdrawals = await TransaccionMotorizado.sum("monto", {
@@ -643,10 +694,6 @@ export class PedidoMotoService {
       );
     }
 
-    // NO Descontar saldo aquí (se descuenta al aprobar)
-    // const saldoNuevo = saldoActual - monto;
-    // moto.saldo = saldoNuevo;
-
     const tx = new TransaccionMotorizado();
     tx.motorizado = moto;
     tx.tipo = TipoTransaccion.RETIRO;
@@ -654,7 +701,7 @@ export class PedidoMotoService {
     tx.descripcion = `Solicitud de Retiro`;
     tx.estado = EstadoTransaccion.PENDIENTE;
     tx.saldoAnterior = saldoActual;
-    tx.saldoNuevo = saldoActual; // Se mantiene igual
+    tx.saldoNuevo = saldoActual;
     tx.detalles = JSON.stringify({
       banco: moto.bancoNombre,
       cuenta: moto.bancoNumeroCuenta,
@@ -664,8 +711,67 @@ export class PedidoMotoService {
     });
 
     await tx.save();
-    // await moto.save(); // No actualizamos saldo
-
     return tx;
   }
+
+  static async obtenerTableroOperativo() {
+    const proximosASalirCount = await Pedido.count({
+      where: { estado: EstadoPedido.ACEPTADO }
+    });
+
+    const asignandoseCount = await Pedido.createQueryBuilder("p")
+      .where("p.estado = :estado", { estado: EstadoPedido.PREPARANDO })
+      .andWhere("p.motorizadoEnEvaluacion IS NULL")
+      .getCount();
+
+    const pedidosEsperando = await Pedido.find({
+      where: { estado: EstadoPedido.PREPARANDO_NO_ASIGNADO },
+      order: { noAssignedSince: "ASC" },
+      relations: ["negocio"]
+    });
+
+    return {
+      conteos: {
+        proximosASalir: proximosASalirCount,
+        asignandose: asignandoseCount,
+        esperandoMotorizado: pedidosEsperando.length
+      },
+      pedidosEsperando: pedidosEsperando.map(p => ({
+        id: p.id,
+        negocioNombre: p.negocio?.nombre || "Negocio",
+        noAssignedSince: p.noAssignedSince,
+        total: p.total
+      }))
+    };
+  }
+
+  static async aceptarPedidoEnEspera(pedidoId: string, motorizadoId: string) {
+    const pedido = await this.obtenerPedidoOrFail(pedidoId);
+    const moto = await this.obtenerMotorizadoOrFail(motorizadoId);
+
+    if (pedido.estado !== EstadoPedido.PREPARANDO_NO_ASIGNADO) {
+      throw CustomError.badRequest("Este pedido ya no está disponible para aceptación manual");
+    }
+
+    if (moto.estadoTrabajo !== EstadoTrabajoMotorizado.DISPONIBLE) {
+      throw CustomError.badRequest("No estás disponible para aceptar pedidos");
+    }
+
+    pedido.estado = EstadoPedido.PREPARANDO_ASIGNADO;
+    pedido.motorizado = moto;
+    this.limpiarCamposRonda(pedido);
+    await pedido.save();
+
+    moto.estadoTrabajo = EstadoTrabajoMotorizado.ENTREGANDO;
+    await moto.save();
+
+    getIO().emit("pedido_actualizado", {
+      pedidoId,
+      estado: pedido.estado,
+      motorizadoId,
+    });
+
+    return pedido;
+  }
 }
+import { LessThan } from "typeorm";

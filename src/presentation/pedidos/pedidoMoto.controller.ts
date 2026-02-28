@@ -143,7 +143,7 @@ export class PedidoMotoController {
   obtenerHistorial = async (req: Request, res: Response) => {
     try {
       const motorizadoId = req.body.sessionMotorizado?.id;
-      const { fechaInicio, fechaFin } = req.query;
+      const { fecha, page, limit } = req.query;
 
       if (!motorizadoId) {
         return res.status(401).json({ message: "Motorizado no autenticado" });
@@ -151,8 +151,9 @@ export class PedidoMotoController {
 
       const historial = await PedidoMotoService.obtenerHistorial(
         motorizadoId,
-        fechaInicio as string,
-        fechaFin as string
+        fecha as string,
+        page ? Number(page) : 1,
+        limit ? Number(limit) : 10
       );
 
       return res.json(historial);
@@ -251,14 +252,16 @@ export class PedidoMotoController {
         await pedido.save();
       }
 
-      const expiresAt = pedido.fechaInicioRonda.getTime() + 60_000; // 1 minuto
+      const timeout = await PedidoMotoService.getTimeout();
+      const expiresAt = pedido.fechaInicioRonda.getTime() + timeout;
 
       return res.json({
         pedidoId: pedido.id,
         total: pedido.total,
         negocioId: pedido.negocio?.id || null,
         expiresAt,
-        costoEnvio: pedido.costoEnvio, // Ensure this is sent if needed
+        duration: timeout,
+        costoEnvio: pedido.costoEnvio,
       });
     } catch (error) {
       return this.handleError(error, res);
@@ -322,6 +325,31 @@ export class PedidoMotoController {
       );
 
       return res.json(estado);
+    } catch (error) {
+      return this.handleError(error, res);
+    }
+  };
+
+  obtenerTableroOperativo = async (req: Request, res: Response) => {
+    try {
+      // Nota: Esta información es pública para motorizados disponibles
+      const result = await PedidoMotoService.obtenerTableroOperativo();
+      return res.json(result);
+    } catch (error) {
+      return this.handleError(error, res);
+    }
+  };
+
+  aceptarPedidoEnEspera = async (req: Request, res: Response) => {
+    try {
+      const { pedidoId } = req.body;
+      const motorizadoId = req.body.sessionMotorizado?.id;
+
+      if (!pedidoId) return res.status(400).json({ message: "Falta el pedidoId" });
+      if (!motorizadoId) return res.status(401).json({ message: "No autenticado" });
+
+      const pedido = await PedidoMotoService.aceptarPedidoEnEspera(pedidoId, motorizadoId);
+      return res.json(pedido);
     } catch (error) {
       return this.handleError(error, res);
     }
