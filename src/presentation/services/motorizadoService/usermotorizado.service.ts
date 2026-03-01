@@ -16,6 +16,8 @@ import {
   EstadoTransaccion,
 } from "../../../data";
 import { JwtAdapterMotorizado, encriptAdapter, envs } from "../../../config";
+import { getIO } from "../../../config/socket";
+import { PedidoMotoService } from "../pedidosServices/pedidoMoto.service";
 import { In, Between, Brackets } from "typeorm";
 
 export class UserMotorizadoService {
@@ -462,14 +464,39 @@ export class UserMotorizadoService {
       quiereTrabajar: motorizado.quiereTrabajar
     });
 
-    // Lógica de Consistencia y Reglas de Negocio
-    // 1. Si está DISPONIBLE, obligatoriamente quiere trabajar.
-    if (motorizado.estadoTrabajo === EstadoTrabajoMotorizado.DISPONIBLE) {
-      motorizado.quiereTrabajar = true;
+    // 🔒 Limitaciones de Seguridad: El admin no puede asignar estados automáticos
+    if (
+      (data as any).estadoTrabajo === EstadoTrabajoMotorizado.EN_EVALUACION ||
+      (data as any).estadoTrabajo === EstadoTrabajoMotorizado.ENTREGANDO
+    ) {
+      throw CustomError.badRequest("⛔ SEGURIDAD: Los estados 'EN_EVALUACION' y 'ENTREGANDO' son automáticos y no pueden ser asignados manualmente por un administrador.");
     }
-    // 2. Si NO quiere trabajar, no puede estar DISPONIBLE.
-    if (motorizado.quiereTrabajar === false && motorizado.estadoTrabajo === EstadoTrabajoMotorizado.DISPONIBLE) {
-      motorizado.estadoTrabajo = EstadoTrabajoMotorizado.NO_TRABAJANDO;
+
+    // 🔄 Sincronización Atómica (Evitar Zombis)
+    // Si el admin fuerza DISPONIBLE o NO_TRABAJANDO, liberamos cualquier pedido atrapado
+    if (
+      motorizado.estadoTrabajo === EstadoTrabajoMotorizado.DISPONIBLE ||
+      motorizado.estadoTrabajo === EstadoTrabajoMotorizado.NO_TRABAJANDO
+    ) {
+      const pedidoAtrapado = await Pedido.findOne({
+        where: {
+          motorizadoEnEvaluacion: motorizado.id,
+          estado: EstadoPedido.PREPARANDO
+        }
+      });
+
+      if (pedidoAtrapado) {
+        console.log(`[Sync] Liberando pedido ${pedidoAtrapado.id} del motorizado ${motorizado.id} (Manual Admin)`);
+        PedidoMotoService.limpiarCamposRonda(pedidoAtrapado);
+        await pedidoAtrapado.save();
+
+        // Notificar a todos para que el tablero se actualice
+        getIO().emit("pedido_actualizado", {
+          pedidoId: pedidoAtrapado.id,
+          estado: pedidoAtrapado.estado,
+          motorizadoEnEvaluacion: null
+        });
+      }
     }
 
     console.log("Saving Motorizado (Normalized):", {
@@ -479,6 +506,12 @@ export class UserMotorizadoService {
 
     try {
       const actualizado = await motorizado.save();
+
+      // 📡 Notificar al motorizado afectado para que su app refresque estado
+      getIO().to(motorizado.id).emit("motorizado_estado_actualizado", {
+        estadoTrabajo: actualizado.estadoTrabajo,
+        quiereTrabajar: actualizado.quiereTrabajar
+      });
       return {
         id: actualizado.id,
         name: actualizado.name,
