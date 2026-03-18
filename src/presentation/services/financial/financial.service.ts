@@ -21,6 +21,7 @@ import { Useradmin } from "../../../data/postgres/models/useradmin.model";
 import { UploadFilesCloud } from "../../../config/upload-files-cloud-adapter";
 import { envs } from "../../../config";
 import { CustomError } from "../../../domain";
+import { DateUtils } from "../../../utils/date-utils";
 
 export class FinancialService {
 
@@ -32,9 +33,9 @@ export class FinancialService {
     // ===================================
     async getAppRevenueDetails(date: Date, type: string, page: number = 1, limit: number = 20) {
         const start = new Date(date);
-        start.setUTCHours(5, 0, 0, 0);
+        start.setHours(0, 0, 0, 0);
         const end = new Date(date);
-        end.setUTCHours(28, 59, 59, 999);
+        end.setHours(23, 59, 59, 999);
         const skip = (page - 1) * limit;
 
         let data = [];
@@ -273,13 +274,13 @@ export class FinancialService {
         // Fix: Ensure endDate covers the entire day in Ecuador Time (UTC-5)
         // Matches logic in RechargeRequestService.filterByDateRangePaginated
         const start = new Date(startDate);
-        start.setUTCHours(5, 0, 0, 0);
+        start.setHours(0, 0, 0, 0);
 
         const end = new Date(endDate);
-        end.setUTCHours(28, 59, 59, 999); // 04:59 AM next day UTC
+        end.setHours(23, 59, 59, 999);
 
         // 🔍 CHECK FOR HISTORICAL CLOSING SNAPSHOT
-        const dateStr = new Date(endDate).toISOString().split('T')[0];
+        const dateStr = DateUtils.toLocalDateString(endDate);
         const closingSnapshot = await FinancialClosing.findOne({ where: { closingDate: dateStr } });
 
         // 1. RECARGAS (DINERO REAL EN BANCO)
@@ -321,10 +322,10 @@ export class FinancialService {
         const totalStories = Math.abs(Number(storiesIncome.total || 0));
 
         // D. Orders (Commissions)
-        // We look at ENTREGADO orders in the period
+        // We look at ENTREGADO and CANCELADO orders in the period
         const orders = await Pedido.find({
             where: {
-                estado: EstadoPedido.ENTREGADO,
+                estado: In([EstadoPedido.ENTREGADO, EstadoPedido.CANCELADO]),
                 updatedAt: Between(start, end)
             },
             relations: ["productos"]
@@ -339,12 +340,12 @@ export class FinancialService {
         let totalDepositoTransferencia = 0; // Transfer Orders (Delivery + Product Commission)
 
         for (const order of orders) {
+            const isCanceled = order.estado === EstadoPedido.CANCELADO;
+
             // 1. PRODUCT COMMISSION
-            // Try new field first (User requirement: Only new orders fill these)
             let comProd = Number(order.total_comision_productos || 0);
 
-            // Fallback to legacy fields if new field is 0
-            if (comProd === 0) {
+            if (comProd === 0 && !isCanceled) { // Only fallback for ENTREGADO
                 comProd = Number(order.ganancia_app_producto || 0);
                 if (comProd === 0 && order.comisionTotal > 0) {
                     comProd = Number(order.comisionTotal) - Number(order.comision_app_domicilio || 0);
@@ -353,39 +354,40 @@ export class FinancialService {
                     comProd = order.productos.reduce((acc, p) => acc + (Number(p.comision_producto) * p.cantidad), 0);
                 }
             }
-            totalComisionProductos += comProd;
 
             // 2. DELIVERY COMMISSION (App Gain)
-            // Try new field first
             let comDom = Number(order.comision_moto_app || 0);
-
-            // Fallback to legacy
-            if (comDom === 0) {
+            if (comDom === 0 && !isCanceled) {
                 comDom = Number(order.comision_app_domicilio || 0);
                 if (comDom === 0) {
-                    comDom = (Number(order.costoEnvio || 0) * 0.20); // Legacy 20%
+                    comDom = (Number(order.costoEnvio || 0) * 0.20); 
                 }
             }
-            totalComisionDomicilios += comDom;
 
-            // 3. MOTORIZADO PAYMENT (App Expense / Driver Income)
-            // Try new field first
+            // 3. MOTORIZADO PAYMENT 
             let pagoMoto = Number(order.pago_motorizado || 0);
-            if (pagoMoto === 0) {
+            if (pagoMoto === 0 && !isCanceled) {
                 pagoMoto = Number(order.ganancia_motorizado || 0);
             }
-            totalPagoMotorizadosArr += pagoMoto;
 
-            // 4. DEPOSIT CALCULATIONS (New Requirement)
-            if (order.metodoPago === MetodoPago.EFECTIVO) {
-                // Depósito App (Efectivo) = TOTAL PEDIDO + COSTO DOMICILIO
-                // The driver collects this sum physically.
-                totalDepositoEfectivo += (Number(order.total || 0) + Number(order.costoEnvio || 0));
-            } else if (order.metodoPago === MetodoPago.TRANSFERENCIA) {
-                // Depósito App (Transferencia) = Costo domicilio + comisiones app
-                // User Rule: "Sumar: Costo domicilio + comisiones app" (excluding shop price)
-                // Note: comProd is the "comisión app".
-                totalDepositoTransferencia += (Number(order.costoEnvio || 0) + comProd);
+            // --- ACCUMULATE ---
+            if (isCanceled) {
+                if (order.metodoPago === MetodoPago.TRANSFERENCIA) {
+                    // Local has 100%, App must recover it.
+                    totalDepositoTransferencia += Number(order.total || 0);
+                }
+                // Efvo canceled doesn't affect these totals
+            } else {
+                // ENTREGADO
+                totalComisionProductos += comProd;
+                totalComisionDomicilios += comDom;
+                totalPagoMotorizadosArr += pagoMoto;
+
+                if (order.metodoPago === MetodoPago.EFECTIVO) {
+                    totalDepositoEfectivo += (Number(order.total || 0) + Number(order.costoEnvio || 0));
+                } else if (order.metodoPago === MetodoPago.TRANSFERENCIA) {
+                    totalDepositoTransferencia += (Number(order.costoEnvio || 0) + comProd);
+                }
             }
         }
 
@@ -457,11 +459,11 @@ export class FinancialService {
     // ===================================
     async getShopReconciliation(startDate: Date, endDate: Date) {
         const start = new Date(startDate);
-        start.setUTCHours(5, 0, 0, 0);
+        start.setHours(0, 0, 0, 0);
         const end = new Date(endDate);
-        end.setUTCHours(28, 59, 59, 999);
+        end.setHours(23, 59, 59, 999);
 
-        const dateStr = new Date(endDate).toISOString().split('T')[0];
+        const dateStr = DateUtils.toLocalDateString(endDate);
 
         // 1. Get all businesses
         const businesses = await Negocio.find();
@@ -499,7 +501,7 @@ export class FinancialService {
             const orders = await Pedido.find({
                 where: {
                     negocio: { id: biz.id },
-                    estado: EstadoPedido.ENTREGADO,
+                    estado: In([EstadoPedido.ENTREGADO, EstadoPedido.CANCELADO]),
                     updatedAt: Between(start, end)
                 }
             });
@@ -518,17 +520,29 @@ export class FinancialService {
                 // precioApp is what shop should get for products
                 const precioApp = Number(order.total_precio_app || (total - comProd - comEnvio));
 
-                totalVentas += total;
-                totalComisionApp += (comProd + comEnvio);
-
-                if (order.metodoPago === MetodoPago.TRANSFERENCIA) {
-                    totalTransfer += total;
-                    // Local has 100%. Local owes App: comProd + comEnvio.
-                    owedToApp += (comProd + comEnvio);
+                if (order.estado === EstadoPedido.CANCELADO) {
+                    if (order.metodoPago === MetodoPago.TRANSFERENCIA) {
+                        // User Rule: If canceled transfer, local has the money and owes 100% to App (App returns it to client)
+                        totalTransfer += total;
+                        owedToApp += total;
+                    } else {
+                        // If Efvo canceled, just show it for visibility but it doesn't affect balances
+                        totalEfectivo += total;
+                    }
                 } else {
-                    totalEfectivo += total;
-                    // App (Driver) has 100%. App owes Local: precioApp.
-                    owedToShop += precioApp;
+                    // ENTREGADO
+                    totalVentas += total;
+                    totalComisionApp += (comProd + comEnvio);
+
+                    if (order.metodoPago === MetodoPago.TRANSFERENCIA) {
+                        totalTransfer += total;
+                        // Local has 100%. Local owes App: comProd + comEnvio.
+                        owedToApp += (comProd + comEnvio);
+                    } else {
+                        totalEfectivo += total;
+                        // App (Driver) has 100%. App owes Local: precioApp.
+                        owedToShop += precioApp;
+                    }
                 }
             }
 
@@ -560,9 +574,9 @@ export class FinancialService {
 
     async getShopClosingDetails(shopId: string, date: Date) {
         const start = new Date(date);
-        start.setUTCHours(5, 0, 0, 0);
+        start.setHours(0, 0, 0, 0);
         const end = new Date(date);
-        end.setUTCHours(28, 59, 59, 999);
+        end.setHours(23, 59, 59, 999);
 
         const biz = await Negocio.findOne({ where: { id: shopId } });
         if (!biz) throw CustomError.notFound("Negocio no encontrado");
@@ -570,7 +584,7 @@ export class FinancialService {
         const orders = await Pedido.find({
             where: {
                 negocio: { id: shopId },
-                estado: EstadoPedido.ENTREGADO,
+                estado: In([EstadoPedido.ENTREGADO, EstadoPedido.CANCELADO]),
                 updatedAt: Between(start, end)
             },
             relations: ["cliente"]
@@ -580,22 +594,53 @@ export class FinancialService {
         const cash = [];
 
         for (const o of orders) {
-            const comProd = Number(o.total_comision_productos || 0);
-            const comEnvio = Number(o.costoEnvio || 0);
-            const precioApp = Number(o.total_precio_app || (Number(o.total) - comProd - comEnvio));
+            const isCanceled = o.estado === EstadoPedido.CANCELADO;
+            let comProd = Number(o.total_comision_productos || 0);
+            let comEnvio = Number(o.costoEnvio || 0);
+            let precioApp = Number(o.total_precio_app || (Number(o.total) - comProd - comEnvio));
+
+            // Adjust values for specialized canceled logic
+            if (isCanceled) {
+                if (o.metodoPago === MetodoPago.TRANSFERENCIA) {
+                    // Canceled Transfer: Shop holds 100%, owes 100% to App
+                    comProd = Number(o.total); // Set as full debt to app inside comProd for list calc
+                    comEnvio = 0;
+                    precioApp = 0;
+                } else {
+                    // Canceled Cash: Nothing owed
+                    comProd = 0;
+                    comEnvio = 0;
+                    precioApp = 0;
+                }
+            }
+
+            let resolvedComprobante = o.comprobantePagoUrl;
+            if (resolvedComprobante && !resolvedComprobante.startsWith('http')) {
+                try {
+                    resolvedComprobante = await UploadFilesCloud.getFile({
+                        bucketName: envs.AWS_BUCKET_NAME,
+                        key: resolvedComprobante
+                    });
+                } catch (e) {
+                    console.error("Error signing receipt for shop breakdown:", e);
+                }
+            }
 
             const detail = {
                 id: o.id,
                 date: o.updatedAt,
                 client: `${o.cliente?.name || ''} ${o.cliente?.surname || ''}`,
                 total: Number(o.total),
+                estado: o.estado,
+                isCanceled,
+                comprobanteUrl: resolvedComprobante,
                 breakdown: {
-                    totalProducts: Number(o.total_precio_venta_publico || (Number(o.total) - comEnvio)),
+                    totalProducts: isCanceled ? 0 : Number(o.total_precio_venta_publico || (Number(o.total) - comEnvio)),
                     comisionProd: comProd,
                     precioApp: precioApp,
                     totalEnvio: comEnvio,
-                    gananciaMoto: Number(o.ganancia_motorizado || 0),
-                    comisionAppEnvio: Number(o.comision_app_domicilio || 0)
+                    gananciaMoto: isCanceled ? 0 : Number(o.ganancia_motorizado || 0),
+                    comisionAppEnvio: isCanceled ? 0 : Number(o.comision_app_domicilio || 0)
                 }
             };
 
@@ -606,7 +651,7 @@ export class FinancialService {
             }
         }
 
-        const dateStr = date.toISOString().split('T')[0];
+        const dateStr = DateUtils.toLocalDateString(date);
         const closure = await BalanceNegocio.findOne({
             where: { negocio: { id: shopId }, fecha: dateStr },
             relations: ["closedBy"]
@@ -635,8 +680,8 @@ export class FinancialService {
 
     async closeShopDay(shopId: string, date: Date, admin: Useradmin, comprobanteUrl?: string) {
         // 1. Time check: Only past days
-        const todayStr = new Date().toISOString().split('T')[0];
-        const dateStr = date.toISOString().split('T')[0];
+        const todayStr = DateUtils.toLocalDateString(new Date());
+        const dateStr = DateUtils.toLocalDateString(date);
 
         if (dateStr === todayStr) {
             throw CustomError.badRequest("No se puede cerrar el día actual. Solo fechas anteriores.");
@@ -734,10 +779,10 @@ export class FinancialService {
     // ===================================
     async getDriverReconciliation(startDate: Date, endDate: Date) {
         const start = new Date(startDate);
-        start.setUTCHours(5, 0, 0, 0);
+        start.setHours(0, 0, 0, 0);
 
         const end = new Date(endDate);
-        end.setUTCHours(28, 59, 59, 999);
+        end.setHours(23, 59, 59, 999);
         // Only show active drivers or those with activity
         const drivers = await UserMotorizado.find();
 
@@ -946,10 +991,10 @@ export class FinancialService {
     // ===================================
     public async getMovimientosMotorizados(startDate: Date, endDate: Date) {
         const start = new Date(startDate);
-        start.setUTCHours(5, 0, 0, 0); // Start of day Ecuador
+        start.setHours(0, 0, 0, 0); // Start of day Ecuador
 
         const end = new Date(endDate);
-        end.setUTCHours(28, 59, 59, 999); // End of day Ecuador
+        end.setHours(23, 59, 59, 999); // End of day Ecuador
 
         const orders = await Pedido.find({
             where: {
@@ -960,7 +1005,6 @@ export class FinancialService {
             order: { updatedAt: "DESC" }
         });
 
-        console.log(`[DEBUG] getMovimientosMotorizados found ${orders.length} orders for range ${start.toISOString()} - ${end.toISOString()}`);
 
         let totalDeuda = 0;
         const movimientos: any[] = [];
@@ -991,13 +1035,11 @@ export class FinancialService {
                 gananciaMoto = Number(order.costoEnvio || 0) - comisionApp;
             }
 
-            console.log(`[DEBUG] Order #${order.id.slice(0, 5)} | Moto: ${motorizadoName} | Gain: ${gananciaMoto}`);
 
-            // Format Time (Ecuador UTC-5)
+            // Format Time (Ecuador America/Guayaquil)
             const dateObj = new Date(order.updatedAt);
-            const ecuadorTime = new Date(dateObj.getTime() - (5 * 60 * 60 * 1000));
-            const fechaStr = ecuadorTime.toISOString().split('T')[0];
-            const horaStr = ecuadorTime.toISOString().split('T')[1].substring(0, 5); // HH:mm
+            const fechaStr = dateObj.toLocaleDateString("en-CA"); // YYYY-MM-DD
+            const horaStr = dateObj.toLocaleTimeString("es-EC", { hour: '2-digit', minute: '2-digit', hour12: false }); // HH:mm
 
             const movObj = {
                 motorizado: motorizadoName,
@@ -1017,8 +1059,6 @@ export class FinancialService {
             totalDeuda: Number(totalDeuda.toFixed(2)),
             movimientos: movimientos
         };
-
-        console.log("[DEBUG] Final Result to Return:", JSON.stringify(result, null, 2));
 
         return result;
     }

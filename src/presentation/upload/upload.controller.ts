@@ -24,14 +24,17 @@ export class UploadController {
                 contentType: req.file.mimetype,
             });
 
-            // Construct public URL directly
-            const url = `https://${envs.AWS_BUCKET_NAME}.s3.${envs.AWS_REGION}.amazonaws.com/${uploadedKey}`;
+            // Get signed URL for the response
+            const signedUrl = await UploadFilesCloud.getFile({
+                bucketName: envs.AWS_BUCKET_NAME,
+                key: uploadedKey
+            });
 
             return res.status(200).json({
                 success: true,
-                url: url,
+                url: signedUrl,
                 key: uploadedKey,
-                secure_url: url // For compatibility with frontend expectation
+                secure_url: signedUrl // For compatibility with frontend expectation
             });
 
         } catch (error) {

@@ -47,6 +47,19 @@ export class PedidoUsuarioRoutes {
       pedidoUsuarioController.eliminarPedidoCliente
     );
 
+    router.post(
+      "/ya-voy",
+      AuthMiddleware.protect,
+      pedidoUsuarioController.notificarYaVoy
+    );
+
+    router.post(
+      "/calificar",
+      AuthMiddleware.protect,
+      pedidoUsuarioController.calificarPedido
+    );
+
+
     return router;
   }
 }

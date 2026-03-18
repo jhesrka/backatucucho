@@ -1,4 +1,6 @@
-process.env.TZ = 'UTC'; // Forzar Node.js a operar siempre en UTC
+import dns from "dns";
+dns.setDefaultResultOrder("ipv4first");
+process.env.TZ = "America/Guayaquil"; // Forzar Node.js a operar siempre en la zona horaria de Ecuador
 import "reflect-metadata"; // esto si bien instalamos depues siempre debe ir primero
 import { envs } from "./config";
 import { PostgresDatabase } from "./data";
@@ -12,6 +14,9 @@ import { startOrderPurgeCron } from "./cron/pedidoPurge.cron";
 import { startReportPurgeCron } from "./cron/report-purge.cron";
 import { startGlobalScheduleCron } from "./cron/global-schedule.cron";
 import { startStorieExpirationCron } from "./cron/storie-expiration.cron";
+import { startPedidoExpirationCron } from "./cron/pedidoAcceptanceExpiration.cron";
+import { startSubscriptionCleanupCron } from "./cron/subscription-cleanup.cron";
+
 async function main() {
   const postgres = new PostgresDatabase({
     username: envs.DB_USERNAME,
@@ -32,10 +37,11 @@ async function main() {
   startSubscriptionCron();
   startPostExpirationCron();
   startOrderPurgeCron();
-  startOrderPurgeCron();
   startReportPurgeCron();
   startGlobalScheduleCron();
   startStorieExpirationCron();
+  startPedidoExpirationCron();
+  startSubscriptionCleanupCron();
 
   await server.start();
 }

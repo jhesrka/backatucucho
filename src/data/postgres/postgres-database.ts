@@ -30,6 +30,9 @@ import { CommissionLog } from "./models/CommissionLog";
 import { PostReport } from "./models/PostReport";
 import { StorieReport } from "./models/StorieReport";
 import { ModerationLog } from "./models/ModerationLog";
+import { WalletMovement } from "./models/wallet-movement.model";
+import { BankAccount } from "./models/BankAccount";
+
 interface Options {
   host: string;
   port: number;
@@ -80,11 +83,19 @@ export class PostgresDatabase {
         CommissionLog,
         PostReport,
         StorieReport,
-        ModerationLog
+        ModerationLog,
+        WalletMovement,
+        BankAccount
       ],
       synchronize: false, // PRODUCCIÓN: SIEMPRE FALSE. Usar migraciones.
       ssl: {
         rejectUnauthorized: false,
+      },
+      // Configuración de pool para mayor estabilidad en Neon
+      extra: {
+        max: 20, // Límite de conexiones para evitar agotar el plan (Neon free tier)
+        idleTimeoutMillis: 30000, // Cerrar conexiones ociosas
+        connectionTimeoutMillis: 10000, // Tiempo máximo de espera para abrir conexión
       },
       // Eliminamos el forzado de timezone de sesión para que el driver pg
       // maneje todo en UTC de forma nativa y TypeORM no se confunda.
@@ -98,9 +109,16 @@ export class PostgresDatabase {
 
       // 1. Core Extensions and structural changes
       await this.datasource.query(`
+        SET timezone = 'UTC';
         CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
         ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "showWhatsApp" BOOLEAN DEFAULT true;
         ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "showLikes" BOOLEAN DEFAULT true;
+        ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "contentType" VARCHAR DEFAULT 'image';
+        ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "videoUrl" VARCHAR DEFAULT NULL;
+        ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "videoPlatform" VARCHAR DEFAULT NULL;
+        ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "videoId" VARCHAR DEFAULT NULL;
+        ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "videoEmbedUrl" VARCHAR DEFAULT NULL;
+        ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "videoOriginalUrl" VARCHAR DEFAULT NULL;
         
         ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "subscriptionBasicPrice" DECIMAL(10,2) DEFAULT 5.00;
         ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "subscriptionBasicPromoPrice" DECIMAL(10,2);
@@ -172,10 +190,20 @@ export class PostgresDatabase {
         ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "comision_moto_app" DECIMAL(10,2) DEFAULT 0;
         ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "noAssignedSince" TIMESTAMPTZ DEFAULT NULL;
         ALTER TABLE "pedido" ALTER COLUMN "noAssignedSince" TYPE TIMESTAMPTZ;
+        ALTER TABLE "pedido" ALTER COLUMN "createdAt" TYPE timestamptz;
+        ALTER TABLE "pedido" ALTER COLUMN "updatedAt" TYPE timestamptz;
         ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "motorizadosExcluidos" TEXT DEFAULT '';
+        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "transferenciaCanceladaConfirmada" BOOLEAN DEFAULT NULL;
 
         ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "timeoutRondaMs" INT DEFAULT 60000;
         ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "maxRondasAsignacion" INT DEFAULT 4;
+        ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "max_wait_time_acceptance" INT DEFAULT 10;
+        ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "cleanupSubscriptionContentDays" INT DEFAULT 60;
+        
+        ALTER TABLE "transaccion_motorizado" ADD COLUMN IF NOT EXISTS "reintegrado" BOOLEAN DEFAULT false;
+        ALTER TABLE "transaccion_motorizado" ADD COLUMN IF NOT EXISTS "updated_at" TIMESTAMPTZ DEFAULT NOW();
+        
+        ALTER TABLE "wallet_movements" ADD COLUMN IF NOT EXISTS "reference_id" VARCHAR(255) DEFAULT NULL;
 
         ALTER TABLE "producto" ADD COLUMN IF NOT EXISTS "precio_venta" DECIMAL(10,2) DEFAULT 0;
         ALTER TABLE "producto" ADD COLUMN IF NOT EXISTS "precio_app" DECIMAL(10,2) DEFAULT 0;
@@ -280,8 +308,34 @@ export class PostgresDatabase {
         ALTER TABLE "post_report" ADD COLUMN IF NOT EXISTS "status" VARCHAR DEFAULT 'PENDING';
         ALTER TABLE "storie_report" ADD COLUMN IF NOT EXISTS "status" VARCHAR DEFAULT 'PENDING';
 
+        CREATE TABLE IF NOT EXISTS "wallet_movements" (
+          "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+          "motorized_id" uuid NOT NULL,
+          "type" varchar NOT NULL,
+          "amount" decimal(10,2) NOT NULL,
+          "balance_after" decimal(10,2) NOT NULL DEFAULT 0,
+          "status" varchar NOT NULL DEFAULT 'COMPLETADO',
+          "description" varchar,
+          "order_id" uuid,
+          "admin_id" uuid,
+          "created_at" TIMESTAMP NOT NULL DEFAULT now(),
+          CONSTRAINT "PK_wallet_movements" PRIMARY KEY ("id")
+        );
+
+        -- Add balance_after if table exists but column is missing
+        ALTER TABLE "wallet_movements" ADD COLUMN IF NOT EXISTS "balance_after" decimal(10,2) DEFAULT 0;
+
         DO $$ 
         BEGIN 
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_wallet_movements_motorizado') THEN
+                ALTER TABLE "wallet_movements" ADD CONSTRAINT "FK_wallet_movements_motorizado" FOREIGN KEY ("motorized_id") REFERENCES "user_motorizado"("id") ON DELETE CASCADE;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_wallet_movements_pedido') THEN
+                ALTER TABLE "wallet_movements" ADD CONSTRAINT "FK_wallet_movements_pedido" FOREIGN KEY ("order_id") REFERENCES "pedido"("id") ON DELETE SET NULL;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_wallet_movements_admin') THEN
+                ALTER TABLE "wallet_movements" ADD CONSTRAINT "FK_wallet_movements_admin" FOREIGN KEY ("admin_id") REFERENCES "useradmin"("id") ON DELETE SET NULL;
+            END IF;
             IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_moderation_log_user') THEN
                 ALTER TABLE "moderation_log" ADD CONSTRAINT "FK_moderation_log_user" FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE SET NULL;
             END IF;
@@ -304,6 +358,45 @@ export class PostgresDatabase {
                 ALTER TABLE "storie_report" ADD CONSTRAINT "FK_storie_report_storie" FOREIGN KEY ("storieId") REFERENCES "storie"("id") ON DELETE CASCADE;
             END IF;
         END $$;
+
+        -- 👇 TABLA: Bank Accounts (Actualizada)
+        CREATE TABLE IF NOT EXISTS "bank_accounts" (
+          "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+          "bank_name" varchar(100) NOT NULL,
+          "account_type" varchar(50) NOT NULL,
+          "account_number" varchar(50) NOT NULL,
+          "account_holder" varchar(100) NOT NULL,
+          "qr_image_url" text,
+          "is_active" boolean DEFAULT true,
+          "order" int DEFAULT 0,
+          "created_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
+          "updated_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
+          CONSTRAINT "PK_bank_accounts" PRIMARY KEY ("id")
+        );
+
+        -- Migraciones seguras para compatibilidad
+        DO $$ 
+        BEGIN 
+          BEGIN ALTER TABLE "bank_accounts" RENAME COLUMN "bankName" TO "bank_name"; EXCEPTION WHEN undefined_column THEN END;
+          BEGIN ALTER TABLE "bank_accounts" RENAME COLUMN "accountType" TO "account_type"; EXCEPTION WHEN undefined_column THEN END;
+          BEGIN ALTER TABLE "bank_accounts" RENAME COLUMN "accountNumber" TO "account_number"; EXCEPTION WHEN undefined_column THEN END;
+          BEGIN ALTER TABLE "bank_accounts" RENAME COLUMN "accountHolder" TO "account_holder"; EXCEPTION WHEN undefined_column THEN END;
+          BEGIN ALTER TABLE "bank_accounts" RENAME COLUMN "qrCodeUrl" TO "qr_image_url"; EXCEPTION WHEN undefined_column THEN END;
+          BEGIN ALTER TABLE "bank_accounts" RENAME COLUMN "qr_code_url" TO "qr_image_url"; EXCEPTION WHEN undefined_column THEN END;
+          BEGIN ALTER TABLE "bank_accounts" RENAME COLUMN "isActive" TO "is_active"; EXCEPTION WHEN undefined_column THEN END;
+          BEGIN ALTER TABLE "bank_accounts" RENAME COLUMN "createdAt" TO "created_at"; EXCEPTION WHEN undefined_column THEN END;
+          BEGIN ALTER TABLE "bank_accounts" RENAME COLUMN "updatedAt" TO "updated_at"; EXCEPTION WHEN undefined_column THEN END;
+        END $$;
+
+        -- 👇 SISTEMA DE CALIFICACIONES
+        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "ratingNegocio" DECIMAL(2,1) DEFAULT NULL;
+        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "ratingMotorizado" DECIMAL(2,1) DEFAULT NULL;
+
+        ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "ratingPromedio" DECIMAL(2,1) DEFAULT 0.0;
+        ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "totalResenas" INT DEFAULT 0;
+
+        ALTER TABLE "user_motorizado" ADD COLUMN IF NOT EXISTS "ratingPromedio" DECIMAL(2,1) DEFAULT 0.0;
+        ALTER TABLE "user_motorizado" ADD COLUMN IF NOT EXISTS "totalResenas" INT DEFAULT 0;
       `);
 
       // 2. Enum Additions (Individual calls to ensure they commit)

@@ -35,6 +35,7 @@ import { GlobalSettingsRoutes } from "./controller/globalSettings/global-setting
 import { ReportRoutes } from "./controller/report/report.routes";
 import { FinancialRoutes } from "./controller/financial/financial.routes";
 import { AdminReportRoutes } from "./reports/routes";
+import { BankAccountRoutes } from "./bank-account/bank-account.routes";
 
 export class AppRoutes {
   //cuando hay metodoos estaticos no necesitams instanciar
@@ -111,6 +112,9 @@ export class AppRoutes {
 
     // 🚩 NUEVA RUTA: Admin Reports (Aggregated)
     router.use("/api/admin/reports", AdminReportRoutes.routes);
+
+    // 🏦 NUEVA RUTA: Bank Accounts
+    router.use("/api/bank-accounts", BankAccountRoutes.routes);
 
     return router;
 

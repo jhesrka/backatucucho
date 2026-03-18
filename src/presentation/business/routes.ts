@@ -2,6 +2,7 @@ import { Router } from "express";
 import { BusinessController } from "./controller";
 import { BusinessService } from "../services/business.service";
 import { AuthMiddleware } from "../../middlewares/auth.middleware";
+import { uploadSingleFile } from "../../config";
 
 export class BusinessRoutes {
     static get routes(): Router {
@@ -17,11 +18,16 @@ export class BusinessRoutes {
         // Gestión de Pedidos
         router.get("/:businessId/orders", [AuthMiddleware.protect], controller.getOrders);
         router.patch("/:businessId/orders/:orderId/status", [AuthMiddleware.protect], controller.updateOrderStatus);
+        router.post("/:businessId/orders/:orderId/verify-pickup", [AuthMiddleware.protect], controller.verifyPickupCode);
+        router.patch("/:businessId/orders/:orderId/confirm-transfer-cancellation", [AuthMiddleware.protect], controller.confirmTransferCancellation);
+
 
 
         // Reportes Financieros
         router.get("/:businessId/finance", [AuthMiddleware.protect], controller.getFinance);
-        router.post("/:businessId/finance/payment", [AuthMiddleware.protect], controller.registerPayment);
+        router.get("/:businessId/unclosed-days", [AuthMiddleware.protect], controller.getUnclosedDays);
+        router.post("/:businessId/finance/payment", [AuthMiddleware.protect, uploadSingleFile('file')], controller.registerPayment);
+        router.post("/:businessId/finance/close-day", [AuthMiddleware.protect], controller.closeDay);
 
         return router;
     }

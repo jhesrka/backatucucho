@@ -407,9 +407,8 @@ export class WalletService {
         });
 
         // Parse Date Intervals (Adjusted for Ecuador UTC-5)
-        // dateStr is YYYY-MM-DD
-        const start = new Date(`${dateStr}T00:00:00-05:00`);
-        const end = new Date(`${dateStr}T23:59:59.999-05:00`);
+        const { DateUtils } = await import("../../../utils/date-utils");
+        const { start, end } = DateUtils.getDayRange(dateStr);
 
         // 2. INGRESOS: Recargas Aprobadas
         const recharges = await RechargeRequest.find({

@@ -2,6 +2,8 @@ import { Wallet, WalletStatus, Transaction, TransactionReason, TransactionOrigin
 import { CustomError } from "../../domain";
 import { CreateWalletDTO } from "../../domain/dtos/wallet/CreateWallet.dto";
 import { UserService } from "./usuario/user.service";
+import { UploadFilesCloud } from "../../config/upload-files-cloud-adapter";
+import { envs } from "../../config";
 
 export class WalletService {
   constructor(private readonly userService: UserService) { }
@@ -158,19 +160,56 @@ export class WalletService {
     }
 
     if (startDate && endDate) {
-      // Ajustar fechas para incluir todo el día final
-      const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999);
-      query.andWhere("transaction.created_at BETWEEN :startDate AND :endDate", {
-        startDate,
-        endDate: end.toISOString(),
-      });
+      let start: Date;
+      let end: Date;
+
+      // Intentamos parsear como ISO primero. Si falla o es solo fecha, ajustamos.
+      const isShortDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
+
+      if (isShortDate(startDate)) {
+        const [y, m, d] = startDate.split('-').map(Number);
+        // 05:00 UTC = 00:00 Ecuador
+        start = new Date(Date.UTC(y, m - 1, d, 5, 0, 0));
+      } else {
+        start = new Date(startDate);
+      }
+
+      if (isShortDate(endDate)) {
+        const [y, m, d] = endDate.split('-').map(Number);
+        // 04:59:59 UTC del día siguiente = 23:59:59 Ecuador (mismo día al final)
+        end = new Date(Date.UTC(y, m - 1, d + 1, 4, 59, 59, 999));
+      } else {
+        end = new Date(endDate);
+      }
+
+      // Validar que sean fechas válidas antes de aplicar al query
+      if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+        query.andWhere("transaction.created_at BETWEEN :startDate AND :endDate", {
+          startDate: start.toISOString(),
+          endDate: end.toISOString(),
+        });
+      }
     }
 
     const [transactions, total] = await query.getManyAndCount();
 
+    const transactionsSigned = await Promise.all(transactions.map(async (tx) => {
+      if (tx.receipt_image && !tx.receipt_image.startsWith('http')) {
+        try {
+          const signedUrl = await UploadFilesCloud.getFile({
+            bucketName: envs.AWS_BUCKET_NAME,
+            key: tx.receipt_image
+          });
+          tx.receipt_image = signedUrl;
+        } catch (error) {
+          console.error(`Error signing receipt for transaction ${tx.id}`, error);
+        }
+      }
+      return tx;
+    }));
+
     return {
-      data: transactions,
+      data: transactionsSigned,
       pagination: {
         currentPage: Number(page),
         totalPages: Math.ceil(total / limit),

@@ -19,6 +19,8 @@ export class GlobalSettingsService {
             settings.hora_cierre = "22:00:00";
             settings.app_status = "CLOSED";
             settings.modo_operacion = "AUTO";
+            settings.max_wait_time_acceptance = 10;
+            settings.cleanupSubscriptionContentDays = 60;
             await settings.save();
         }
         return settings;
@@ -76,6 +78,8 @@ export class GlobalSettingsService {
 
         if (data.timeoutRondaMs !== undefined) settings.timeoutRondaMs = data.timeoutRondaMs;
         if (data.maxRondasAsignacion !== undefined) settings.maxRondasAsignacion = data.maxRondasAsignacion;
+        if (data.max_wait_time_acceptance !== undefined) settings.max_wait_time_acceptance = Number(data.max_wait_time_acceptance);
+        if (data.cleanupSubscriptionContentDays !== undefined) settings.cleanupSubscriptionContentDays = Number(data.cleanupSubscriptionContentDays);
 
         await settings.save();
         return settings;

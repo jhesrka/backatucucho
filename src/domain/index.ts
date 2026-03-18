@@ -47,3 +47,4 @@ export { AsignarMotorizadoDTO } from "./dtos/administrador/userMotorizado/Asigna
 export { UpdateEstadoPedidoDTO } from "./dtos/pedidos/UpdateEstadoPedidoDTO";
 export { CreatePedidoDTO } from "./dtos/pedidos/CreatePedidoDTO";
 export { ProductoPedidoInput } from "./dtos/pedidos/ProductoPedidoInput";
+export { CalificarPedidoDTO } from "./dtos/pedidos/CalificarPedidoDTO";

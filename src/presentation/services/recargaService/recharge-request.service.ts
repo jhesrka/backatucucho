@@ -126,12 +126,16 @@ export class RechargeRequestService {
           transaction.status = 'PENDING';
           transaction.observation = `Solicitud de Recarga - Banco: ${recharge.bank_name}`;
           transaction.reference = savedRecharge.id; // Vinculamos con la solicitud
-          transaction.receipt_image = savedRecharge.receipt_image; // Guardamos el key de la imagen
+          transaction.receipt_image = key; // IMPORTANTE: Usar 'key' (string), no el objeto 'url'
 
           transaction.previousBalance = Number(wallet.balance);
           transaction.resultingBalance = Number(wallet.balance); // Sin cambios aún
 
-          await transaction.save();
+          try {
+            await transaction.save();
+          } catch (error) {
+            console.error("Error al guardar transacción de recarga:", error);
+          }
         }
       }
 
@@ -292,10 +296,10 @@ export class RechargeRequestService {
   ) {
     // Ajustar las fechas para reflejar correctamente el rango en UTC-5 (Ecuador)
     const start = new Date(startDate);
-    start.setUTCHours(5, 0, 0, 0); // 00:00 en Ecuador es 05:00 UTC
+    start.setHours(0, 0, 0, 0);
 
     const end = new Date(endDate);
-    end.setUTCHours(28, 59, 59, 999); // 23:59 en Ecuador es 04:59 UTC del día siguiente
+    end.setHours(23, 59, 59, 999);
 
     const [userRequests, total] = await RechargeRequest.findAndCount({
       where: {
@@ -531,10 +535,10 @@ export class RechargeRequestService {
 
     // Ajustar las fechas para reflejar correctamente el rango en UTC-5 (Ecuador)
     const start = new Date(startDate);
-    start.setUTCHours(5, 0, 0, 0); // 00:00 en Ecuador es 05:00 UTC
+    start.setHours(0, 0, 0, 0);
 
     const end = new Date(endDate);
-    end.setUTCHours(28, 59, 59, 999); // 23:59 en Ecuador es 04:59 UTC del día siguiente
+    end.setHours(23, 59, 59, 999);
 
     const [allRequests, total] = await RechargeRequest.findAndCount({
       relations: ["user"],
@@ -714,10 +718,10 @@ export class RechargeRequestService {
   //6
   async exportToCSVByDate(startDate: Date, endDate: Date) {
     const start = new Date(startDate);
-    start.setUTCHours(5, 0, 0, 0); // 00:00 hora Ecuador (UTC-5)
+    start.setHours(0, 0, 0, 0);
 
     const end = new Date(endDate);
-    end.setUTCHours(28, 59, 59, 999); // 23:59 hora Ecuador (UTC-5) => 04:59 UTC del día siguiente
+    end.setHours(23, 59, 59, 999);
 
     const allRequests = await RechargeRequest.find({
       relations: ["user"],

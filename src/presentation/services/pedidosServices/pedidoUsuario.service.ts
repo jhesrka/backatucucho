@@ -1,6 +1,8 @@
 import { addDays } from "date-fns";
 import { In } from "typeorm";
+import moment from "moment-timezone";
 import { getIO } from "../../../config/socket";
+
 import {
   Pedido,
   ProductoPedido,
@@ -9,11 +11,13 @@ import {
   EstadoPedido,
   PriceSettings,
   Producto,
+  UserMotorizado,
 } from "../../../data";
 import {
   CreatePedidoDTO,
   CustomError,
   UpdateEstadoPedidoDTO,
+  CalificarPedidoDTO,
 } from "../../../domain";
 import { UploadFilesCloud } from "../../../config/upload-files-cloud-adapter";
 import { envs } from "../../../config/env";
@@ -180,6 +184,7 @@ export class PedidoUsuarioService {
 
     const nuevo = await pedido.save();
 
+    console.log(`🔔 [Socket] Emitiendo nuevo pedido a sala: ${negocio.id} (ID Pedido: ${nuevo.id})`);
     getIO().to(negocio.id).emit("nuevo_pedido", {
       id: nuevo.id,
       estado: nuevo.estado,
@@ -236,18 +241,32 @@ export class PedidoUsuarioService {
     }
 
     if (filters.startDate) {
-      query.andWhere("pedido.createdAt >= :startDate", { startDate: filters.startDate });
+      const start = moment.tz(filters.startDate, "America/Guayaquil").startOf('day').toDate();
+      query.andWhere("pedido.createdAt >= :startDate", { startDate: start });
     }
 
     if (filters.endDate) {
-      const end = new Date(filters.endDate);
-      end.setHours(23, 59, 59, 999);
+      const end = moment.tz(filters.endDate, "America/Guayaquil").endOf('day').toDate();
       query.andWhere("pedido.createdAt <= :endDate", { endDate: end });
     }
 
     const [pedidos, total] = await query.getManyAndCount();
 
     const pedidosMapeados = await Promise.all(pedidos.map(async (p) => {
+      // Self-healing: Generar códigos si faltan
+      let changed = false;
+      if (p.estado === EstadoPedido.PREPARANDO_ASIGNADO && !p.pickup_code) {
+        p.pickup_code = Math.floor(1000 + Math.random() * 9000).toString();
+        p.pickup_verified = false;
+        changed = true;
+      }
+      if (p.estado === EstadoPedido.EN_CAMINO && !p.delivery_code) {
+        p.delivery_code = Math.floor(1000 + Math.random() * 9000).toString();
+        p.delivery_verified = false;
+        changed = true;
+      }
+      if (changed) await p.save();
+
       let solvedUrl = p.comprobantePagoUrl;
       if (p.comprobantePagoUrl && !p.comprobantePagoUrl.startsWith('http')) {
         solvedUrl = await UploadFilesCloud.getFile({
@@ -262,6 +281,12 @@ export class PedidoUsuarioService {
         total: p.total,
         costoEnvio: p.costoEnvio,
         motivoCancelacion: p.motivoCancelacion,
+        delivery_code: p.delivery_code,
+        delivery_verified: p.delivery_verified,
+        pickup_code: p.pickup_code,
+        pickup_verified: p.pickup_verified,
+        arrival_time: p.arrival_time,
+        createdAt: p.createdAt,
 
         negocio: {
           id: p.negocio.id,
@@ -315,7 +340,13 @@ export class PedidoUsuarioService {
     if (pedido.estado !== EstadoPedido.PENDIENTE)
       throw CustomError.badRequest("Solo puede eliminar pedidos pendientes");
 
+    const negocioId = pedido.negocio?.id || (await Pedido.findOne({where:{id:pedidoId}, relations:['negocio']}))?.negocio?.id;
+
     await Pedido.remove(pedido);
+
+    if (negocioId) {
+        getIO().to(negocioId).emit("pedido_cancelado", { pedidoId });
+    }
 
 
 
@@ -357,4 +388,92 @@ export class PedidoUsuarioService {
 
     return { url, key: uploadedKey };
   }
+
+  async notificarYaVoy(pedidoId: string, clienteId: string) {
+    const pedido = await Pedido.findOne({
+      where: { id: pedidoId, cliente: { id: clienteId } },
+      relations: ["motorizado", "cliente"]
+    });
+
+    if (!pedido) throw CustomError.notFound("Pedido no encontrado");
+    if (!pedido.motorizado) throw CustomError.badRequest("No hay un motorizado asignado aún");
+
+    // Notificar al motorizado
+    getIO().to(pedido.motorizado.id).emit("cliente_ya_va", {
+      pedidoId: pedido.id,
+      mensaje: "El cliente ya está saliendo",
+    });
+
+    return { message: "Notificación enviada al motorizado" };
+  }
+
+  async calificarPedido(dto: CalificarPedidoDTO) {
+    const pedido = await Pedido.findOne({
+      where: { id: dto.pedidoId },
+      relations: ["negocio", "motorizado"]
+    });
+
+    if (!pedido) throw CustomError.notFound("Pedido no encontrado");
+    if (pedido.estado !== EstadoPedido.ENTREGADO) throw CustomError.badRequest("Solo puedes calificar pedidos entregados");
+
+    const response: { message: string, ratedNegocio: boolean, ratedMotorizado: boolean } = {
+      message: "Calificación procesada",
+      ratedNegocio: false,
+      ratedMotorizado: false
+    };
+
+    // --- Calificar Negocio ---
+    if (dto.ratingNegocio !== undefined) {
+      if (pedido.ratingNegocio && Number(pedido.ratingNegocio) > 0) {
+        throw CustomError.badRequest("Este pedido ya ha calificado al restaurante");
+      }
+
+      pedido.ratingNegocio = dto.ratingNegocio;
+      
+      if (pedido.negocio) {
+        const negocio = await Negocio.findOneBy({ id: pedido.negocio.id });
+        if (negocio) {
+          const totalActual = Number(negocio.totalResenas) || 0;
+          const promedioActual = Number(negocio.ratingPromedio) || 0;
+          
+          const nuevoTotal = totalActual + 1;
+          const nuevoPromedio = (promedioActual * totalActual + dto.ratingNegocio) / nuevoTotal;
+          
+          negocio.totalResenas = nuevoTotal;
+          negocio.ratingPromedio = Number(nuevoPromedio.toFixed(1));
+          await negocio.save();
+          response.ratedNegocio = true;
+        }
+      }
+    }
+
+    // --- Calificar Motorizado ---
+    if (dto.ratingMotorizado !== undefined) {
+      if (pedido.ratingMotorizado && Number(pedido.ratingMotorizado) > 0) {
+        throw CustomError.badRequest("Este pedido ya ha calificado al motorizado");
+      }
+
+      pedido.ratingMotorizado = dto.ratingMotorizado;
+
+      if (pedido.motorizado) {
+        const moto = await UserMotorizado.findOneBy({ id: pedido.motorizado.id });
+        if (moto) {
+          const totalActual = Number(moto.totalResenas) || 0;
+          const promedioActual = Number(moto.ratingPromedio) || 0;
+          
+          const nuevoTotal = totalActual + 1;
+          const nuevoPromedio = (promedioActual * totalActual + dto.ratingMotorizado) / nuevoTotal;
+          
+          moto.totalResenas = nuevoTotal;
+          moto.ratingPromedio = Number(nuevoPromedio.toFixed(1));
+          await moto.save();
+          response.ratedMotorizado = true;
+        }
+      }
+    }
+
+    await pedido.save();
+    return response;
+  }
 }
+

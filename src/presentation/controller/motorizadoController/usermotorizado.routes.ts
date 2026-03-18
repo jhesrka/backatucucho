@@ -48,20 +48,19 @@ export class UserMotorizadoRoutes {
     // 🔄 Gestión de Pedidos (Admin)
     router.patch("/orders/:pedidoId/status", motorizadoController.changeOrderStatus);
 
+    // Billetera & Finanzas (Globales primero para evitar interferencia con :id)
+    router.get("/wallet/global-stats", AuthAdminMiddleware.protect, motorizadoController.getGlobalWalletStats);
+    router.get("/wallet/global-withdrawals", AuthAdminMiddleware.protect, motorizadoController.getAllGlobalWithdrawals);
+    router.get("/wallet/withdrawals-stats-today", AuthAdminMiddleware.protect, motorizadoController.getWithdrawalStats);
+    router.get("/wallet/control-data", AuthAdminMiddleware.protect, motorizadoController.getWalletControlData);
+
     router.get("/", motorizadoController.findAllMotorizados);
     router.get("/:id", motorizadoController.findMotorizadoById);
     router.get("/:id/orders", motorizadoController.getOrdersHistory);
     router.patch("/:id", motorizadoController.updateMotorizado);
-
     router.patch("/toggle-active/:id", motorizadoController.toggleActivo);
-
     router.patch("/change-password/:id", motorizadoController.cambiarPassword);
-
     router.get("/:id/stats/monthly", motorizadoController.getMonthlyPerformance);
-
-    // Billetera & Finanzas
-    router.get("/wallet/global-stats", AuthAdminMiddleware.protect, motorizadoController.getGlobalWalletStats);
-    router.get("/wallet/global-withdrawals", AuthAdminMiddleware.protect, motorizadoController.getAllGlobalWithdrawals);
 
     router.get("/:id/wallet/stats", AuthAdminMiddleware.protect, motorizadoController.getWalletStats);
     router.get("/:id/wallet/transactions", AuthAdminMiddleware.protect, motorizadoController.getTransactions);

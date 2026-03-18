@@ -19598,3 +19598,576 @@
   "line": "3722",
   "routine": "errorMissingColumn"
 }
+2026-03-11T15:41:48.444Z - CONTROLLER ERROR: QueryFailedError: column Pedido.pickup_code does not exist
+{
+  "query": "SELECT \"Pedido\".\"id\" AS \"Pedido_id\", \"Pedido\".\"estado\" AS \"Pedido_estado\", \"Pedido\".\"metodoPago\" AS \"Pedido_metodoPago\", \"Pedido\".\"total\" AS \"Pedido_total\", \"Pedido\".\"montoVuelto\" AS \"Pedido_montoVuelto\", \"Pedido\".\"comprobantePagoUrl\" AS \"Pedido_comprobantePagoUrl\", \"Pedido\".\"comisionTotal\" AS \"Pedido_comisionTotal\", \"Pedido\".\"totalNegocio\" AS \"Pedido_totalNegocio\", \"Pedido\".\"costoEnvio\" AS \"Pedido_costoEnvio\", \"Pedido\".\"porcentaje_motorizado_aplicado\" AS \"Pedido_porcentaje_motorizado_aplicado\", \"Pedido\".\"porcentaje_app_aplicado\" AS \"Pedido_porcentaje_app_aplicado\", \"Pedido\".\"ganancia_motorizado\" AS \"Pedido_ganancia_motorizado\", \"Pedido\".\"comision_app_domicilio\" AS \"Pedido_comision_app_domicilio\", \"Pedido\".\"ganancia_app_producto\" AS \"Pedido_ganancia_app_producto\", \"Pedido\".\"total_precio_venta_publico\" AS \"Pedido_total_precio_venta_publico\", \"Pedido\".\"total_precio_app\" AS \"Pedido_total_precio_app\", \"Pedido\".\"total_comision_productos\" AS \"Pedido_total_comision_productos\", \"Pedido\".\"pago_motorizado\" AS \"Pedido_pago_motorizado\", \"Pedido\".\"comision_moto_app\" AS \"Pedido_comision_moto_app\", \"Pedido\".\"createdAt\" AS \"Pedido_createdAt\", \"Pedido\".\"updatedAt\" AS \"Pedido_updatedAt\", \"Pedido\".\"distanciaKm\" AS \"Pedido_distanciaKm\", \"Pedido\".\"latCliente\" AS \"Pedido_latCliente\", \"Pedido\".\"lngCliente\" AS \"Pedido_lngCliente\", \"Pedido\".\"direccionTexto\" AS \"Pedido_direccionTexto\", \"Pedido\".\"rondaAsignacion\" AS \"Pedido_rondaAsignacion\", \"Pedido\".\"fechaInicioRonda\" AS \"Pedido_fechaInicioRonda\", \"Pedido\".\"motorizadoEnEvaluacion\" AS \"Pedido_motorizadoEnEvaluacion\", \"Pedido\".\"asignacionBloqueada\" AS \"Pedido_asignacionBloqueada\", \"Pedido\".\"intentosEnRonda\" AS \"Pedido_intentosEnRonda\", \"Pedido\".\"noAssignedSince\" AS \"Pedido_noAssignedSince\", \"Pedido\".\"motivoCancelacion\" AS \"Pedido_motivoCancelacion\", \"Pedido\".\"motorizadosExcluidos\" AS \"Pedido_motorizadosExcluidos\", \"Pedido\".\"pickup_code\" AS \"Pedido_pickup_code\", \"Pedido\".\"pickup_verified\" AS \"Pedido_pickup_verified\", \"Pedido\".\"delivery_code\" AS \"Pedido_delivery_code\", \"Pedido\".\"delivery_verified\" AS \"Pedido_delivery_verified\", \"Pedido\".\"arrival_time\" AS \"Pedido_arrival_time\", \"Pedido\".\"clienteId\" AS \"Pedido_clienteId\", \"Pedido\".\"negocioId\" AS \"Pedido_negocioId\", \"Pedido\".\"motorizadoId\" AS \"Pedido_motorizadoId\", \"Pedido__Pedido_productos\".\"id\" AS \"Pedido__Pedido_productos_id\", \"Pedido__Pedido_productos\".\"cantidad\" AS \"Pedido__Pedido_productos_cantidad\", \"Pedido__Pedido_productos\".\"subtotal\" AS \"Pedido__Pedido_productos_subtotal\", \"Pedido__Pedido_productos\".\"precio_venta\" AS \"Pedido__Pedido_productos_precio_venta\", \"Pedido__Pedido_productos\".\"precio_app\" AS \"Pedido__Pedido_productos_precio_app\", \"Pedido__Pedido_productos\".\"comision_producto\" AS \"Pedido__Pedido_productos_comision_producto\", \"Pedido__Pedido_productos\".\"pedidoId\" AS \"Pedido__Pedido_productos_pedidoId\", \"Pedido__Pedido_productos\".\"productoId\" AS \"Pedido__Pedido_productos_productoId\" FROM \"pedido\" \"Pedido\" LEFT JOIN \"producto_pedido\" \"Pedido__Pedido_productos\" ON \"Pedido__Pedido_productos\".\"pedidoId\"=\"Pedido\".\"id\" WHERE ((\"Pedido\".\"estado\" = $1) AND (\"Pedido\".\"updatedAt\" BETWEEN $2 AND $3))",
+  "parameters": [
+    "ENTREGADO",
+    "2026-03-11T10:00:00.000Z",
+    "2026-03-12T09:59:59.999Z"
+  ],
+  "driverError": {
+    "length": 118,
+    "name": "error",
+    "severity": "ERROR",
+    "code": "42703",
+    "position": "1870",
+    "file": "parse_relation.c",
+    "line": "3722",
+    "routine": "errorMissingColumn"
+  },
+  "length": 118,
+  "severity": "ERROR",
+  "code": "42703",
+  "position": "1870",
+  "file": "parse_relation.c",
+  "line": "3722",
+  "routine": "errorMissingColumn"
+}
+2026-03-11T15:41:48.648Z - CONTROLLER ERROR: Error: Error al obtener dashboard operativo
+{}
+2026-03-11T15:42:48.396Z - CONTROLLER ERROR: QueryFailedError: column Pedido.pickup_code does not exist
+{
+  "query": "SELECT \"Pedido\".\"id\" AS \"Pedido_id\", \"Pedido\".\"estado\" AS \"Pedido_estado\", \"Pedido\".\"metodoPago\" AS \"Pedido_metodoPago\", \"Pedido\".\"total\" AS \"Pedido_total\", \"Pedido\".\"montoVuelto\" AS \"Pedido_montoVuelto\", \"Pedido\".\"comprobantePagoUrl\" AS \"Pedido_comprobantePagoUrl\", \"Pedido\".\"comisionTotal\" AS \"Pedido_comisionTotal\", \"Pedido\".\"totalNegocio\" AS \"Pedido_totalNegocio\", \"Pedido\".\"costoEnvio\" AS \"Pedido_costoEnvio\", \"Pedido\".\"porcentaje_motorizado_aplicado\" AS \"Pedido_porcentaje_motorizado_aplicado\", \"Pedido\".\"porcentaje_app_aplicado\" AS \"Pedido_porcentaje_app_aplicado\", \"Pedido\".\"ganancia_motorizado\" AS \"Pedido_ganancia_motorizado\", \"Pedido\".\"comision_app_domicilio\" AS \"Pedido_comision_app_domicilio\", \"Pedido\".\"ganancia_app_producto\" AS \"Pedido_ganancia_app_producto\", \"Pedido\".\"total_precio_venta_publico\" AS \"Pedido_total_precio_venta_publico\", \"Pedido\".\"total_precio_app\" AS \"Pedido_total_precio_app\", \"Pedido\".\"total_comision_productos\" AS \"Pedido_total_comision_productos\", \"Pedido\".\"pago_motorizado\" AS \"Pedido_pago_motorizado\", \"Pedido\".\"comision_moto_app\" AS \"Pedido_comision_moto_app\", \"Pedido\".\"createdAt\" AS \"Pedido_createdAt\", \"Pedido\".\"updatedAt\" AS \"Pedido_updatedAt\", \"Pedido\".\"distanciaKm\" AS \"Pedido_distanciaKm\", \"Pedido\".\"latCliente\" AS \"Pedido_latCliente\", \"Pedido\".\"lngCliente\" AS \"Pedido_lngCliente\", \"Pedido\".\"direccionTexto\" AS \"Pedido_direccionTexto\", \"Pedido\".\"rondaAsignacion\" AS \"Pedido_rondaAsignacion\", \"Pedido\".\"fechaInicioRonda\" AS \"Pedido_fechaInicioRonda\", \"Pedido\".\"motorizadoEnEvaluacion\" AS \"Pedido_motorizadoEnEvaluacion\", \"Pedido\".\"asignacionBloqueada\" AS \"Pedido_asignacionBloqueada\", \"Pedido\".\"intentosEnRonda\" AS \"Pedido_intentosEnRonda\", \"Pedido\".\"noAssignedSince\" AS \"Pedido_noAssignedSince\", \"Pedido\".\"motivoCancelacion\" AS \"Pedido_motivoCancelacion\", \"Pedido\".\"motorizadosExcluidos\" AS \"Pedido_motorizadosExcluidos\", \"Pedido\".\"pickup_code\" AS \"Pedido_pickup_code\", \"Pedido\".\"pickup_verified\" AS \"Pedido_pickup_verified\", \"Pedido\".\"delivery_code\" AS \"Pedido_delivery_code\", \"Pedido\".\"delivery_verified\" AS \"Pedido_delivery_verified\", \"Pedido\".\"arrival_time\" AS \"Pedido_arrival_time\", \"Pedido\".\"clienteId\" AS \"Pedido_clienteId\", \"Pedido\".\"negocioId\" AS \"Pedido_negocioId\", \"Pedido\".\"motorizadoId\" AS \"Pedido_motorizadoId\", \"Pedido__Pedido_productos\".\"id\" AS \"Pedido__Pedido_productos_id\", \"Pedido__Pedido_productos\".\"cantidad\" AS \"Pedido__Pedido_productos_cantidad\", \"Pedido__Pedido_productos\".\"subtotal\" AS \"Pedido__Pedido_productos_subtotal\", \"Pedido__Pedido_productos\".\"precio_venta\" AS \"Pedido__Pedido_productos_precio_venta\", \"Pedido__Pedido_productos\".\"precio_app\" AS \"Pedido__Pedido_productos_precio_app\", \"Pedido__Pedido_productos\".\"comision_producto\" AS \"Pedido__Pedido_productos_comision_producto\", \"Pedido__Pedido_productos\".\"pedidoId\" AS \"Pedido__Pedido_productos_pedidoId\", \"Pedido__Pedido_productos\".\"productoId\" AS \"Pedido__Pedido_productos_productoId\" FROM \"pedido\" \"Pedido\" LEFT JOIN \"producto_pedido\" \"Pedido__Pedido_productos\" ON \"Pedido__Pedido_productos\".\"pedidoId\"=\"Pedido\".\"id\" WHERE ((\"Pedido\".\"estado\" = $1) AND (\"Pedido\".\"updatedAt\" BETWEEN $2 AND $3))",
+  "parameters": [
+    "ENTREGADO",
+    "2026-03-11T10:00:00.000Z",
+    "2026-03-12T09:59:59.999Z"
+  ],
+  "driverError": {
+    "length": 118,
+    "name": "error",
+    "severity": "ERROR",
+    "code": "42703",
+    "position": "1870",
+    "file": "parse_relation.c",
+    "line": "3722",
+    "routine": "errorMissingColumn"
+  },
+  "length": 118,
+  "severity": "ERROR",
+  "code": "42703",
+  "position": "1870",
+  "file": "parse_relation.c",
+  "line": "3722",
+  "routine": "errorMissingColumn"
+}
+2026-03-11T15:42:48.602Z - CONTROLLER ERROR: Error: Error al obtener dashboard operativo
+{}
+2026-03-11T15:43:48.154Z - CONTROLLER ERROR: QueryFailedError: column Pedido.pickup_code does not exist
+{
+  "query": "SELECT \"Pedido\".\"id\" AS \"Pedido_id\", \"Pedido\".\"estado\" AS \"Pedido_estado\", \"Pedido\".\"metodoPago\" AS \"Pedido_metodoPago\", \"Pedido\".\"total\" AS \"Pedido_total\", \"Pedido\".\"montoVuelto\" AS \"Pedido_montoVuelto\", \"Pedido\".\"comprobantePagoUrl\" AS \"Pedido_comprobantePagoUrl\", \"Pedido\".\"comisionTotal\" AS \"Pedido_comisionTotal\", \"Pedido\".\"totalNegocio\" AS \"Pedido_totalNegocio\", \"Pedido\".\"costoEnvio\" AS \"Pedido_costoEnvio\", \"Pedido\".\"porcentaje_motorizado_aplicado\" AS \"Pedido_porcentaje_motorizado_aplicado\", \"Pedido\".\"porcentaje_app_aplicado\" AS \"Pedido_porcentaje_app_aplicado\", \"Pedido\".\"ganancia_motorizado\" AS \"Pedido_ganancia_motorizado\", \"Pedido\".\"comision_app_domicilio\" AS \"Pedido_comision_app_domicilio\", \"Pedido\".\"ganancia_app_producto\" AS \"Pedido_ganancia_app_producto\", \"Pedido\".\"total_precio_venta_publico\" AS \"Pedido_total_precio_venta_publico\", \"Pedido\".\"total_precio_app\" AS \"Pedido_total_precio_app\", \"Pedido\".\"total_comision_productos\" AS \"Pedido_total_comision_productos\", \"Pedido\".\"pago_motorizado\" AS \"Pedido_pago_motorizado\", \"Pedido\".\"comision_moto_app\" AS \"Pedido_comision_moto_app\", \"Pedido\".\"createdAt\" AS \"Pedido_createdAt\", \"Pedido\".\"updatedAt\" AS \"Pedido_updatedAt\", \"Pedido\".\"distanciaKm\" AS \"Pedido_distanciaKm\", \"Pedido\".\"latCliente\" AS \"Pedido_latCliente\", \"Pedido\".\"lngCliente\" AS \"Pedido_lngCliente\", \"Pedido\".\"direccionTexto\" AS \"Pedido_direccionTexto\", \"Pedido\".\"rondaAsignacion\" AS \"Pedido_rondaAsignacion\", \"Pedido\".\"fechaInicioRonda\" AS \"Pedido_fechaInicioRonda\", \"Pedido\".\"motorizadoEnEvaluacion\" AS \"Pedido_motorizadoEnEvaluacion\", \"Pedido\".\"asignacionBloqueada\" AS \"Pedido_asignacionBloqueada\", \"Pedido\".\"intentosEnRonda\" AS \"Pedido_intentosEnRonda\", \"Pedido\".\"noAssignedSince\" AS \"Pedido_noAssignedSince\", \"Pedido\".\"motivoCancelacion\" AS \"Pedido_motivoCancelacion\", \"Pedido\".\"motorizadosExcluidos\" AS \"Pedido_motorizadosExcluidos\", \"Pedido\".\"pickup_code\" AS \"Pedido_pickup_code\", \"Pedido\".\"pickup_verified\" AS \"Pedido_pickup_verified\", \"Pedido\".\"delivery_code\" AS \"Pedido_delivery_code\", \"Pedido\".\"delivery_verified\" AS \"Pedido_delivery_verified\", \"Pedido\".\"arrival_time\" AS \"Pedido_arrival_time\", \"Pedido\".\"clienteId\" AS \"Pedido_clienteId\", \"Pedido\".\"negocioId\" AS \"Pedido_negocioId\", \"Pedido\".\"motorizadoId\" AS \"Pedido_motorizadoId\", \"Pedido__Pedido_productos\".\"id\" AS \"Pedido__Pedido_productos_id\", \"Pedido__Pedido_productos\".\"cantidad\" AS \"Pedido__Pedido_productos_cantidad\", \"Pedido__Pedido_productos\".\"subtotal\" AS \"Pedido__Pedido_productos_subtotal\", \"Pedido__Pedido_productos\".\"precio_venta\" AS \"Pedido__Pedido_productos_precio_venta\", \"Pedido__Pedido_productos\".\"precio_app\" AS \"Pedido__Pedido_productos_precio_app\", \"Pedido__Pedido_productos\".\"comision_producto\" AS \"Pedido__Pedido_productos_comision_producto\", \"Pedido__Pedido_productos\".\"pedidoId\" AS \"Pedido__Pedido_productos_pedidoId\", \"Pedido__Pedido_productos\".\"productoId\" AS \"Pedido__Pedido_productos_productoId\" FROM \"pedido\" \"Pedido\" LEFT JOIN \"producto_pedido\" \"Pedido__Pedido_productos\" ON \"Pedido__Pedido_productos\".\"pedidoId\"=\"Pedido\".\"id\" WHERE ((\"Pedido\".\"estado\" = $1) AND (\"Pedido\".\"updatedAt\" BETWEEN $2 AND $3))",
+  "parameters": [
+    "ENTREGADO",
+    "2026-03-11T10:00:00.000Z",
+    "2026-03-12T09:59:59.999Z"
+  ],
+  "driverError": {
+    "length": 118,
+    "name": "error",
+    "severity": "ERROR",
+    "code": "42703",
+    "position": "1870",
+    "file": "parse_relation.c",
+    "line": "3722",
+    "routine": "errorMissingColumn"
+  },
+  "length": 118,
+  "severity": "ERROR",
+  "code": "42703",
+  "position": "1870",
+  "file": "parse_relation.c",
+  "line": "3722",
+  "routine": "errorMissingColumn"
+}
+2026-03-11T15:43:49.410Z - CONTROLLER ERROR: Error: Error al obtener dashboard operativo
+{}
+2026-03-11T15:44:47.544Z - CONTROLLER ERROR: QueryFailedError: column Pedido.pickup_code does not exist
+{
+  "query": "SELECT \"Pedido\".\"id\" AS \"Pedido_id\", \"Pedido\".\"estado\" AS \"Pedido_estado\", \"Pedido\".\"metodoPago\" AS \"Pedido_metodoPago\", \"Pedido\".\"total\" AS \"Pedido_total\", \"Pedido\".\"montoVuelto\" AS \"Pedido_montoVuelto\", \"Pedido\".\"comprobantePagoUrl\" AS \"Pedido_comprobantePagoUrl\", \"Pedido\".\"comisionTotal\" AS \"Pedido_comisionTotal\", \"Pedido\".\"totalNegocio\" AS \"Pedido_totalNegocio\", \"Pedido\".\"costoEnvio\" AS \"Pedido_costoEnvio\", \"Pedido\".\"porcentaje_motorizado_aplicado\" AS \"Pedido_porcentaje_motorizado_aplicado\", \"Pedido\".\"porcentaje_app_aplicado\" AS \"Pedido_porcentaje_app_aplicado\", \"Pedido\".\"ganancia_motorizado\" AS \"Pedido_ganancia_motorizado\", \"Pedido\".\"comision_app_domicilio\" AS \"Pedido_comision_app_domicilio\", \"Pedido\".\"ganancia_app_producto\" AS \"Pedido_ganancia_app_producto\", \"Pedido\".\"total_precio_venta_publico\" AS \"Pedido_total_precio_venta_publico\", \"Pedido\".\"total_precio_app\" AS \"Pedido_total_precio_app\", \"Pedido\".\"total_comision_productos\" AS \"Pedido_total_comision_productos\", \"Pedido\".\"pago_motorizado\" AS \"Pedido_pago_motorizado\", \"Pedido\".\"comision_moto_app\" AS \"Pedido_comision_moto_app\", \"Pedido\".\"createdAt\" AS \"Pedido_createdAt\", \"Pedido\".\"updatedAt\" AS \"Pedido_updatedAt\", \"Pedido\".\"distanciaKm\" AS \"Pedido_distanciaKm\", \"Pedido\".\"latCliente\" AS \"Pedido_latCliente\", \"Pedido\".\"lngCliente\" AS \"Pedido_lngCliente\", \"Pedido\".\"direccionTexto\" AS \"Pedido_direccionTexto\", \"Pedido\".\"rondaAsignacion\" AS \"Pedido_rondaAsignacion\", \"Pedido\".\"fechaInicioRonda\" AS \"Pedido_fechaInicioRonda\", \"Pedido\".\"motorizadoEnEvaluacion\" AS \"Pedido_motorizadoEnEvaluacion\", \"Pedido\".\"asignacionBloqueada\" AS \"Pedido_asignacionBloqueada\", \"Pedido\".\"intentosEnRonda\" AS \"Pedido_intentosEnRonda\", \"Pedido\".\"noAssignedSince\" AS \"Pedido_noAssignedSince\", \"Pedido\".\"motivoCancelacion\" AS \"Pedido_motivoCancelacion\", \"Pedido\".\"motorizadosExcluidos\" AS \"Pedido_motorizadosExcluidos\", \"Pedido\".\"pickup_code\" AS \"Pedido_pickup_code\", \"Pedido\".\"pickup_verified\" AS \"Pedido_pickup_verified\", \"Pedido\".\"delivery_code\" AS \"Pedido_delivery_code\", \"Pedido\".\"delivery_verified\" AS \"Pedido_delivery_verified\", \"Pedido\".\"arrival_time\" AS \"Pedido_arrival_time\", \"Pedido\".\"clienteId\" AS \"Pedido_clienteId\", \"Pedido\".\"negocioId\" AS \"Pedido_negocioId\", \"Pedido\".\"motorizadoId\" AS \"Pedido_motorizadoId\", \"Pedido__Pedido_productos\".\"id\" AS \"Pedido__Pedido_productos_id\", \"Pedido__Pedido_productos\".\"cantidad\" AS \"Pedido__Pedido_productos_cantidad\", \"Pedido__Pedido_productos\".\"subtotal\" AS \"Pedido__Pedido_productos_subtotal\", \"Pedido__Pedido_productos\".\"precio_venta\" AS \"Pedido__Pedido_productos_precio_venta\", \"Pedido__Pedido_productos\".\"precio_app\" AS \"Pedido__Pedido_productos_precio_app\", \"Pedido__Pedido_productos\".\"comision_producto\" AS \"Pedido__Pedido_productos_comision_producto\", \"Pedido__Pedido_productos\".\"pedidoId\" AS \"Pedido__Pedido_productos_pedidoId\", \"Pedido__Pedido_productos\".\"productoId\" AS \"Pedido__Pedido_productos_productoId\" FROM \"pedido\" \"Pedido\" LEFT JOIN \"producto_pedido\" \"Pedido__Pedido_productos\" ON \"Pedido__Pedido_productos\".\"pedidoId\"=\"Pedido\".\"id\" WHERE ((\"Pedido\".\"estado\" = $1) AND (\"Pedido\".\"updatedAt\" BETWEEN $2 AND $3))",
+  "parameters": [
+    "ENTREGADO",
+    "2026-03-11T10:00:00.000Z",
+    "2026-03-12T09:59:59.999Z"
+  ],
+  "driverError": {
+    "length": 118,
+    "name": "error",
+    "severity": "ERROR",
+    "code": "42703",
+    "position": "1870",
+    "file": "parse_relation.c",
+    "line": "3722",
+    "routine": "errorMissingColumn"
+  },
+  "length": 118,
+  "severity": "ERROR",
+  "code": "42703",
+  "position": "1870",
+  "file": "parse_relation.c",
+  "line": "3722",
+  "routine": "errorMissingColumn"
+}
+2026-03-11T15:44:49.383Z - CONTROLLER ERROR: Error: Error al obtener dashboard operativo
+{}
+2026-03-11T15:45:47.433Z - CONTROLLER ERROR: QueryFailedError: column Pedido.pickup_code does not exist
+{
+  "query": "SELECT \"Pedido\".\"id\" AS \"Pedido_id\", \"Pedido\".\"estado\" AS \"Pedido_estado\", \"Pedido\".\"metodoPago\" AS \"Pedido_metodoPago\", \"Pedido\".\"total\" AS \"Pedido_total\", \"Pedido\".\"montoVuelto\" AS \"Pedido_montoVuelto\", \"Pedido\".\"comprobantePagoUrl\" AS \"Pedido_comprobantePagoUrl\", \"Pedido\".\"comisionTotal\" AS \"Pedido_comisionTotal\", \"Pedido\".\"totalNegocio\" AS \"Pedido_totalNegocio\", \"Pedido\".\"costoEnvio\" AS \"Pedido_costoEnvio\", \"Pedido\".\"porcentaje_motorizado_aplicado\" AS \"Pedido_porcentaje_motorizado_aplicado\", \"Pedido\".\"porcentaje_app_aplicado\" AS \"Pedido_porcentaje_app_aplicado\", \"Pedido\".\"ganancia_motorizado\" AS \"Pedido_ganancia_motorizado\", \"Pedido\".\"comision_app_domicilio\" AS \"Pedido_comision_app_domicilio\", \"Pedido\".\"ganancia_app_producto\" AS \"Pedido_ganancia_app_producto\", \"Pedido\".\"total_precio_venta_publico\" AS \"Pedido_total_precio_venta_publico\", \"Pedido\".\"total_precio_app\" AS \"Pedido_total_precio_app\", \"Pedido\".\"total_comision_productos\" AS \"Pedido_total_comision_productos\", \"Pedido\".\"pago_motorizado\" AS \"Pedido_pago_motorizado\", \"Pedido\".\"comision_moto_app\" AS \"Pedido_comision_moto_app\", \"Pedido\".\"createdAt\" AS \"Pedido_createdAt\", \"Pedido\".\"updatedAt\" AS \"Pedido_updatedAt\", \"Pedido\".\"distanciaKm\" AS \"Pedido_distanciaKm\", \"Pedido\".\"latCliente\" AS \"Pedido_latCliente\", \"Pedido\".\"lngCliente\" AS \"Pedido_lngCliente\", \"Pedido\".\"direccionTexto\" AS \"Pedido_direccionTexto\", \"Pedido\".\"rondaAsignacion\" AS \"Pedido_rondaAsignacion\", \"Pedido\".\"fechaInicioRonda\" AS \"Pedido_fechaInicioRonda\", \"Pedido\".\"motorizadoEnEvaluacion\" AS \"Pedido_motorizadoEnEvaluacion\", \"Pedido\".\"asignacionBloqueada\" AS \"Pedido_asignacionBloqueada\", \"Pedido\".\"intentosEnRonda\" AS \"Pedido_intentosEnRonda\", \"Pedido\".\"noAssignedSince\" AS \"Pedido_noAssignedSince\", \"Pedido\".\"motivoCancelacion\" AS \"Pedido_motivoCancelacion\", \"Pedido\".\"motorizadosExcluidos\" AS \"Pedido_motorizadosExcluidos\", \"Pedido\".\"pickup_code\" AS \"Pedido_pickup_code\", \"Pedido\".\"pickup_verified\" AS \"Pedido_pickup_verified\", \"Pedido\".\"delivery_code\" AS \"Pedido_delivery_code\", \"Pedido\".\"delivery_verified\" AS \"Pedido_delivery_verified\", \"Pedido\".\"arrival_time\" AS \"Pedido_arrival_time\", \"Pedido\".\"clienteId\" AS \"Pedido_clienteId\", \"Pedido\".\"negocioId\" AS \"Pedido_negocioId\", \"Pedido\".\"motorizadoId\" AS \"Pedido_motorizadoId\", \"Pedido__Pedido_productos\".\"id\" AS \"Pedido__Pedido_productos_id\", \"Pedido__Pedido_productos\".\"cantidad\" AS \"Pedido__Pedido_productos_cantidad\", \"Pedido__Pedido_productos\".\"subtotal\" AS \"Pedido__Pedido_productos_subtotal\", \"Pedido__Pedido_productos\".\"precio_venta\" AS \"Pedido__Pedido_productos_precio_venta\", \"Pedido__Pedido_productos\".\"precio_app\" AS \"Pedido__Pedido_productos_precio_app\", \"Pedido__Pedido_productos\".\"comision_producto\" AS \"Pedido__Pedido_productos_comision_producto\", \"Pedido__Pedido_productos\".\"pedidoId\" AS \"Pedido__Pedido_productos_pedidoId\", \"Pedido__Pedido_productos\".\"productoId\" AS \"Pedido__Pedido_productos_productoId\" FROM \"pedido\" \"Pedido\" LEFT JOIN \"producto_pedido\" \"Pedido__Pedido_productos\" ON \"Pedido__Pedido_productos\".\"pedidoId\"=\"Pedido\".\"id\" WHERE ((\"Pedido\".\"estado\" = $1) AND (\"Pedido\".\"updatedAt\" BETWEEN $2 AND $3))",
+  "parameters": [
+    "ENTREGADO",
+    "2026-03-11T10:00:00.000Z",
+    "2026-03-12T09:59:59.999Z"
+  ],
+  "driverError": {
+    "length": 118,
+    "name": "error",
+    "severity": "ERROR",
+    "code": "42703",
+    "position": "1870",
+    "file": "parse_relation.c",
+    "line": "3722",
+    "routine": "errorMissingColumn"
+  },
+  "length": 118,
+  "severity": "ERROR",
+  "code": "42703",
+  "position": "1870",
+  "file": "parse_relation.c",
+  "line": "3722",
+  "routine": "errorMissingColumn"
+}
+2026-03-11T15:45:48.586Z - CONTROLLER ERROR: Error: Error al obtener dashboard operativo
+{}
+2026-03-11T15:46:47.701Z - CONTROLLER ERROR: QueryFailedError: column Pedido.pickup_code does not exist
+{
+  "query": "SELECT \"Pedido\".\"id\" AS \"Pedido_id\", \"Pedido\".\"estado\" AS \"Pedido_estado\", \"Pedido\".\"metodoPago\" AS \"Pedido_metodoPago\", \"Pedido\".\"total\" AS \"Pedido_total\", \"Pedido\".\"montoVuelto\" AS \"Pedido_montoVuelto\", \"Pedido\".\"comprobantePagoUrl\" AS \"Pedido_comprobantePagoUrl\", \"Pedido\".\"comisionTotal\" AS \"Pedido_comisionTotal\", \"Pedido\".\"totalNegocio\" AS \"Pedido_totalNegocio\", \"Pedido\".\"costoEnvio\" AS \"Pedido_costoEnvio\", \"Pedido\".\"porcentaje_motorizado_aplicado\" AS \"Pedido_porcentaje_motorizado_aplicado\", \"Pedido\".\"porcentaje_app_aplicado\" AS \"Pedido_porcentaje_app_aplicado\", \"Pedido\".\"ganancia_motorizado\" AS \"Pedido_ganancia_motorizado\", \"Pedido\".\"comision_app_domicilio\" AS \"Pedido_comision_app_domicilio\", \"Pedido\".\"ganancia_app_producto\" AS \"Pedido_ganancia_app_producto\", \"Pedido\".\"total_precio_venta_publico\" AS \"Pedido_total_precio_venta_publico\", \"Pedido\".\"total_precio_app\" AS \"Pedido_total_precio_app\", \"Pedido\".\"total_comision_productos\" AS \"Pedido_total_comision_productos\", \"Pedido\".\"pago_motorizado\" AS \"Pedido_pago_motorizado\", \"Pedido\".\"comision_moto_app\" AS \"Pedido_comision_moto_app\", \"Pedido\".\"createdAt\" AS \"Pedido_createdAt\", \"Pedido\".\"updatedAt\" AS \"Pedido_updatedAt\", \"Pedido\".\"distanciaKm\" AS \"Pedido_distanciaKm\", \"Pedido\".\"latCliente\" AS \"Pedido_latCliente\", \"Pedido\".\"lngCliente\" AS \"Pedido_lngCliente\", \"Pedido\".\"direccionTexto\" AS \"Pedido_direccionTexto\", \"Pedido\".\"rondaAsignacion\" AS \"Pedido_rondaAsignacion\", \"Pedido\".\"fechaInicioRonda\" AS \"Pedido_fechaInicioRonda\", \"Pedido\".\"motorizadoEnEvaluacion\" AS \"Pedido_motorizadoEnEvaluacion\", \"Pedido\".\"asignacionBloqueada\" AS \"Pedido_asignacionBloqueada\", \"Pedido\".\"intentosEnRonda\" AS \"Pedido_intentosEnRonda\", \"Pedido\".\"noAssignedSince\" AS \"Pedido_noAssignedSince\", \"Pedido\".\"motivoCancelacion\" AS \"Pedido_motivoCancelacion\", \"Pedido\".\"motorizadosExcluidos\" AS \"Pedido_motorizadosExcluidos\", \"Pedido\".\"pickup_code\" AS \"Pedido_pickup_code\", \"Pedido\".\"pickup_verified\" AS \"Pedido_pickup_verified\", \"Pedido\".\"delivery_code\" AS \"Pedido_delivery_code\", \"Pedido\".\"delivery_verified\" AS \"Pedido_delivery_verified\", \"Pedido\".\"arrival_time\" AS \"Pedido_arrival_time\", \"Pedido\".\"clienteId\" AS \"Pedido_clienteId\", \"Pedido\".\"negocioId\" AS \"Pedido_negocioId\", \"Pedido\".\"motorizadoId\" AS \"Pedido_motorizadoId\", \"Pedido__Pedido_productos\".\"id\" AS \"Pedido__Pedido_productos_id\", \"Pedido__Pedido_productos\".\"cantidad\" AS \"Pedido__Pedido_productos_cantidad\", \"Pedido__Pedido_productos\".\"subtotal\" AS \"Pedido__Pedido_productos_subtotal\", \"Pedido__Pedido_productos\".\"precio_venta\" AS \"Pedido__Pedido_productos_precio_venta\", \"Pedido__Pedido_productos\".\"precio_app\" AS \"Pedido__Pedido_productos_precio_app\", \"Pedido__Pedido_productos\".\"comision_producto\" AS \"Pedido__Pedido_productos_comision_producto\", \"Pedido__Pedido_productos\".\"pedidoId\" AS \"Pedido__Pedido_productos_pedidoId\", \"Pedido__Pedido_productos\".\"productoId\" AS \"Pedido__Pedido_productos_productoId\" FROM \"pedido\" \"Pedido\" LEFT JOIN \"producto_pedido\" \"Pedido__Pedido_productos\" ON \"Pedido__Pedido_productos\".\"pedidoId\"=\"Pedido\".\"id\" WHERE ((\"Pedido\".\"estado\" = $1) AND (\"Pedido\".\"updatedAt\" BETWEEN $2 AND $3))",
+  "parameters": [
+    "ENTREGADO",
+    "2026-03-11T10:00:00.000Z",
+    "2026-03-12T09:59:59.999Z"
+  ],
+  "driverError": {
+    "length": 118,
+    "name": "error",
+    "severity": "ERROR",
+    "code": "42703",
+    "position": "1870",
+    "file": "parse_relation.c",
+    "line": "3722",
+    "routine": "errorMissingColumn"
+  },
+  "length": 118,
+  "severity": "ERROR",
+  "code": "42703",
+  "position": "1870",
+  "file": "parse_relation.c",
+  "line": "3722",
+  "routine": "errorMissingColumn"
+}
+2026-03-11T15:46:48.587Z - CONTROLLER ERROR: Error: Error al obtener dashboard operativo
+{}
+2026-03-11T15:47:48.043Z - CONTROLLER ERROR: QueryFailedError: column Pedido.pickup_code does not exist
+{
+  "query": "SELECT \"Pedido\".\"id\" AS \"Pedido_id\", \"Pedido\".\"estado\" AS \"Pedido_estado\", \"Pedido\".\"metodoPago\" AS \"Pedido_metodoPago\", \"Pedido\".\"total\" AS \"Pedido_total\", \"Pedido\".\"montoVuelto\" AS \"Pedido_montoVuelto\", \"Pedido\".\"comprobantePagoUrl\" AS \"Pedido_comprobantePagoUrl\", \"Pedido\".\"comisionTotal\" AS \"Pedido_comisionTotal\", \"Pedido\".\"totalNegocio\" AS \"Pedido_totalNegocio\", \"Pedido\".\"costoEnvio\" AS \"Pedido_costoEnvio\", \"Pedido\".\"porcentaje_motorizado_aplicado\" AS \"Pedido_porcentaje_motorizado_aplicado\", \"Pedido\".\"porcentaje_app_aplicado\" AS \"Pedido_porcentaje_app_aplicado\", \"Pedido\".\"ganancia_motorizado\" AS \"Pedido_ganancia_motorizado\", \"Pedido\".\"comision_app_domicilio\" AS \"Pedido_comision_app_domicilio\", \"Pedido\".\"ganancia_app_producto\" AS \"Pedido_ganancia_app_producto\", \"Pedido\".\"total_precio_venta_publico\" AS \"Pedido_total_precio_venta_publico\", \"Pedido\".\"total_precio_app\" AS \"Pedido_total_precio_app\", \"Pedido\".\"total_comision_productos\" AS \"Pedido_total_comision_productos\", \"Pedido\".\"pago_motorizado\" AS \"Pedido_pago_motorizado\", \"Pedido\".\"comision_moto_app\" AS \"Pedido_comision_moto_app\", \"Pedido\".\"createdAt\" AS \"Pedido_createdAt\", \"Pedido\".\"updatedAt\" AS \"Pedido_updatedAt\", \"Pedido\".\"distanciaKm\" AS \"Pedido_distanciaKm\", \"Pedido\".\"latCliente\" AS \"Pedido_latCliente\", \"Pedido\".\"lngCliente\" AS \"Pedido_lngCliente\", \"Pedido\".\"direccionTexto\" AS \"Pedido_direccionTexto\", \"Pedido\".\"rondaAsignacion\" AS \"Pedido_rondaAsignacion\", \"Pedido\".\"fechaInicioRonda\" AS \"Pedido_fechaInicioRonda\", \"Pedido\".\"motorizadoEnEvaluacion\" AS \"Pedido_motorizadoEnEvaluacion\", \"Pedido\".\"asignacionBloqueada\" AS \"Pedido_asignacionBloqueada\", \"Pedido\".\"intentosEnRonda\" AS \"Pedido_intentosEnRonda\", \"Pedido\".\"noAssignedSince\" AS \"Pedido_noAssignedSince\", \"Pedido\".\"motivoCancelacion\" AS \"Pedido_motivoCancelacion\", \"Pedido\".\"motorizadosExcluidos\" AS \"Pedido_motorizadosExcluidos\", \"Pedido\".\"pickup_code\" AS \"Pedido_pickup_code\", \"Pedido\".\"pickup_verified\" AS \"Pedido_pickup_verified\", \"Pedido\".\"delivery_code\" AS \"Pedido_delivery_code\", \"Pedido\".\"delivery_verified\" AS \"Pedido_delivery_verified\", \"Pedido\".\"arrival_time\" AS \"Pedido_arrival_time\", \"Pedido\".\"clienteId\" AS \"Pedido_clienteId\", \"Pedido\".\"negocioId\" AS \"Pedido_negocioId\", \"Pedido\".\"motorizadoId\" AS \"Pedido_motorizadoId\", \"Pedido__Pedido_productos\".\"id\" AS \"Pedido__Pedido_productos_id\", \"Pedido__Pedido_productos\".\"cantidad\" AS \"Pedido__Pedido_productos_cantidad\", \"Pedido__Pedido_productos\".\"subtotal\" AS \"Pedido__Pedido_productos_subtotal\", \"Pedido__Pedido_productos\".\"precio_venta\" AS \"Pedido__Pedido_productos_precio_venta\", \"Pedido__Pedido_productos\".\"precio_app\" AS \"Pedido__Pedido_productos_precio_app\", \"Pedido__Pedido_productos\".\"comision_producto\" AS \"Pedido__Pedido_productos_comision_producto\", \"Pedido__Pedido_productos\".\"pedidoId\" AS \"Pedido__Pedido_productos_pedidoId\", \"Pedido__Pedido_productos\".\"productoId\" AS \"Pedido__Pedido_productos_productoId\" FROM \"pedido\" \"Pedido\" LEFT JOIN \"producto_pedido\" \"Pedido__Pedido_productos\" ON \"Pedido__Pedido_productos\".\"pedidoId\"=\"Pedido\".\"id\" WHERE ((\"Pedido\".\"estado\" = $1) AND (\"Pedido\".\"updatedAt\" BETWEEN $2 AND $3))",
+  "parameters": [
+    "ENTREGADO",
+    "2026-03-11T10:00:00.000Z",
+    "2026-03-12T09:59:59.999Z"
+  ],
+  "driverError": {
+    "length": 118,
+    "name": "error",
+    "severity": "ERROR",
+    "code": "42703",
+    "position": "1870",
+    "file": "parse_relation.c",
+    "line": "3722",
+    "routine": "errorMissingColumn"
+  },
+  "length": 118,
+  "severity": "ERROR",
+  "code": "42703",
+  "position": "1870",
+  "file": "parse_relation.c",
+  "line": "3722",
+  "routine": "errorMissingColumn"
+}
+2026-03-11T15:47:50.947Z - CONTROLLER ERROR: Error: Error al obtener dashboard operativo
+{}
+2026-03-11T15:48:47.884Z - CONTROLLER ERROR: QueryFailedError: column Pedido.pickup_code does not exist
+{
+  "query": "SELECT \"Pedido\".\"id\" AS \"Pedido_id\", \"Pedido\".\"estado\" AS \"Pedido_estado\", \"Pedido\".\"metodoPago\" AS \"Pedido_metodoPago\", \"Pedido\".\"total\" AS \"Pedido_total\", \"Pedido\".\"montoVuelto\" AS \"Pedido_montoVuelto\", \"Pedido\".\"comprobantePagoUrl\" AS \"Pedido_comprobantePagoUrl\", \"Pedido\".\"comisionTotal\" AS \"Pedido_comisionTotal\", \"Pedido\".\"totalNegocio\" AS \"Pedido_totalNegocio\", \"Pedido\".\"costoEnvio\" AS \"Pedido_costoEnvio\", \"Pedido\".\"porcentaje_motorizado_aplicado\" AS \"Pedido_porcentaje_motorizado_aplicado\", \"Pedido\".\"porcentaje_app_aplicado\" AS \"Pedido_porcentaje_app_aplicado\", \"Pedido\".\"ganancia_motorizado\" AS \"Pedido_ganancia_motorizado\", \"Pedido\".\"comision_app_domicilio\" AS \"Pedido_comision_app_domicilio\", \"Pedido\".\"ganancia_app_producto\" AS \"Pedido_ganancia_app_producto\", \"Pedido\".\"total_precio_venta_publico\" AS \"Pedido_total_precio_venta_publico\", \"Pedido\".\"total_precio_app\" AS \"Pedido_total_precio_app\", \"Pedido\".\"total_comision_productos\" AS \"Pedido_total_comision_productos\", \"Pedido\".\"pago_motorizado\" AS \"Pedido_pago_motorizado\", \"Pedido\".\"comision_moto_app\" AS \"Pedido_comision_moto_app\", \"Pedido\".\"createdAt\" AS \"Pedido_createdAt\", \"Pedido\".\"updatedAt\" AS \"Pedido_updatedAt\", \"Pedido\".\"distanciaKm\" AS \"Pedido_distanciaKm\", \"Pedido\".\"latCliente\" AS \"Pedido_latCliente\", \"Pedido\".\"lngCliente\" AS \"Pedido_lngCliente\", \"Pedido\".\"direccionTexto\" AS \"Pedido_direccionTexto\", \"Pedido\".\"rondaAsignacion\" AS \"Pedido_rondaAsignacion\", \"Pedido\".\"fechaInicioRonda\" AS \"Pedido_fechaInicioRonda\", \"Pedido\".\"motorizadoEnEvaluacion\" AS \"Pedido_motorizadoEnEvaluacion\", \"Pedido\".\"asignacionBloqueada\" AS \"Pedido_asignacionBloqueada\", \"Pedido\".\"intentosEnRonda\" AS \"Pedido_intentosEnRonda\", \"Pedido\".\"noAssignedSince\" AS \"Pedido_noAssignedSince\", \"Pedido\".\"motivoCancelacion\" AS \"Pedido_motivoCancelacion\", \"Pedido\".\"motorizadosExcluidos\" AS \"Pedido_motorizadosExcluidos\", \"Pedido\".\"pickup_code\" AS \"Pedido_pickup_code\", \"Pedido\".\"pickup_verified\" AS \"Pedido_pickup_verified\", \"Pedido\".\"delivery_code\" AS \"Pedido_delivery_code\", \"Pedido\".\"delivery_verified\" AS \"Pedido_delivery_verified\", \"Pedido\".\"arrival_time\" AS \"Pedido_arrival_time\", \"Pedido\".\"clienteId\" AS \"Pedido_clienteId\", \"Pedido\".\"negocioId\" AS \"Pedido_negocioId\", \"Pedido\".\"motorizadoId\" AS \"Pedido_motorizadoId\", \"Pedido__Pedido_productos\".\"id\" AS \"Pedido__Pedido_productos_id\", \"Pedido__Pedido_productos\".\"cantidad\" AS \"Pedido__Pedido_productos_cantidad\", \"Pedido__Pedido_productos\".\"subtotal\" AS \"Pedido__Pedido_productos_subtotal\", \"Pedido__Pedido_productos\".\"precio_venta\" AS \"Pedido__Pedido_productos_precio_venta\", \"Pedido__Pedido_productos\".\"precio_app\" AS \"Pedido__Pedido_productos_precio_app\", \"Pedido__Pedido_productos\".\"comision_producto\" AS \"Pedido__Pedido_productos_comision_producto\", \"Pedido__Pedido_productos\".\"pedidoId\" AS \"Pedido__Pedido_productos_pedidoId\", \"Pedido__Pedido_productos\".\"productoId\" AS \"Pedido__Pedido_productos_productoId\" FROM \"pedido\" \"Pedido\" LEFT JOIN \"producto_pedido\" \"Pedido__Pedido_productos\" ON \"Pedido__Pedido_productos\".\"pedidoId\"=\"Pedido\".\"id\" WHERE ((\"Pedido\".\"estado\" = $1) AND (\"Pedido\".\"updatedAt\" BETWEEN $2 AND $3))",
+  "parameters": [
+    "ENTREGADO",
+    "2026-03-11T10:00:00.000Z",
+    "2026-03-12T09:59:59.999Z"
+  ],
+  "driverError": {
+    "length": 118,
+    "name": "error",
+    "severity": "ERROR",
+    "code": "42703",
+    "position": "1870",
+    "file": "parse_relation.c",
+    "line": "3722",
+    "routine": "errorMissingColumn"
+  },
+  "length": 118,
+  "severity": "ERROR",
+  "code": "42703",
+  "position": "1870",
+  "file": "parse_relation.c",
+  "line": "3722",
+  "routine": "errorMissingColumn"
+}
+2026-03-11T15:48:49.576Z - CONTROLLER ERROR: Error: Error al obtener dashboard operativo
+{}
+2026-03-11T15:49:48.135Z - CONTROLLER ERROR: QueryFailedError: column Pedido.pickup_code does not exist
+{
+  "query": "SELECT \"Pedido\".\"id\" AS \"Pedido_id\", \"Pedido\".\"estado\" AS \"Pedido_estado\", \"Pedido\".\"metodoPago\" AS \"Pedido_metodoPago\", \"Pedido\".\"total\" AS \"Pedido_total\", \"Pedido\".\"montoVuelto\" AS \"Pedido_montoVuelto\", \"Pedido\".\"comprobantePagoUrl\" AS \"Pedido_comprobantePagoUrl\", \"Pedido\".\"comisionTotal\" AS \"Pedido_comisionTotal\", \"Pedido\".\"totalNegocio\" AS \"Pedido_totalNegocio\", \"Pedido\".\"costoEnvio\" AS \"Pedido_costoEnvio\", \"Pedido\".\"porcentaje_motorizado_aplicado\" AS \"Pedido_porcentaje_motorizado_aplicado\", \"Pedido\".\"porcentaje_app_aplicado\" AS \"Pedido_porcentaje_app_aplicado\", \"Pedido\".\"ganancia_motorizado\" AS \"Pedido_ganancia_motorizado\", \"Pedido\".\"comision_app_domicilio\" AS \"Pedido_comision_app_domicilio\", \"Pedido\".\"ganancia_app_producto\" AS \"Pedido_ganancia_app_producto\", \"Pedido\".\"total_precio_venta_publico\" AS \"Pedido_total_precio_venta_publico\", \"Pedido\".\"total_precio_app\" AS \"Pedido_total_precio_app\", \"Pedido\".\"total_comision_productos\" AS \"Pedido_total_comision_productos\", \"Pedido\".\"pago_motorizado\" AS \"Pedido_pago_motorizado\", \"Pedido\".\"comision_moto_app\" AS \"Pedido_comision_moto_app\", \"Pedido\".\"createdAt\" AS \"Pedido_createdAt\", \"Pedido\".\"updatedAt\" AS \"Pedido_updatedAt\", \"Pedido\".\"distanciaKm\" AS \"Pedido_distanciaKm\", \"Pedido\".\"latCliente\" AS \"Pedido_latCliente\", \"Pedido\".\"lngCliente\" AS \"Pedido_lngCliente\", \"Pedido\".\"direccionTexto\" AS \"Pedido_direccionTexto\", \"Pedido\".\"rondaAsignacion\" AS \"Pedido_rondaAsignacion\", \"Pedido\".\"fechaInicioRonda\" AS \"Pedido_fechaInicioRonda\", \"Pedido\".\"motorizadoEnEvaluacion\" AS \"Pedido_motorizadoEnEvaluacion\", \"Pedido\".\"asignacionBloqueada\" AS \"Pedido_asignacionBloqueada\", \"Pedido\".\"intentosEnRonda\" AS \"Pedido_intentosEnRonda\", \"Pedido\".\"noAssignedSince\" AS \"Pedido_noAssignedSince\", \"Pedido\".\"motivoCancelacion\" AS \"Pedido_motivoCancelacion\", \"Pedido\".\"motorizadosExcluidos\" AS \"Pedido_motorizadosExcluidos\", \"Pedido\".\"pickup_code\" AS \"Pedido_pickup_code\", \"Pedido\".\"pickup_verified\" AS \"Pedido_pickup_verified\", \"Pedido\".\"delivery_code\" AS \"Pedido_delivery_code\", \"Pedido\".\"delivery_verified\" AS \"Pedido_delivery_verified\", \"Pedido\".\"arrival_time\" AS \"Pedido_arrival_time\", \"Pedido\".\"clienteId\" AS \"Pedido_clienteId\", \"Pedido\".\"negocioId\" AS \"Pedido_negocioId\", \"Pedido\".\"motorizadoId\" AS \"Pedido_motorizadoId\", \"Pedido__Pedido_productos\".\"id\" AS \"Pedido__Pedido_productos_id\", \"Pedido__Pedido_productos\".\"cantidad\" AS \"Pedido__Pedido_productos_cantidad\", \"Pedido__Pedido_productos\".\"subtotal\" AS \"Pedido__Pedido_productos_subtotal\", \"Pedido__Pedido_productos\".\"precio_venta\" AS \"Pedido__Pedido_productos_precio_venta\", \"Pedido__Pedido_productos\".\"precio_app\" AS \"Pedido__Pedido_productos_precio_app\", \"Pedido__Pedido_productos\".\"comision_producto\" AS \"Pedido__Pedido_productos_comision_producto\", \"Pedido__Pedido_productos\".\"pedidoId\" AS \"Pedido__Pedido_productos_pedidoId\", \"Pedido__Pedido_productos\".\"productoId\" AS \"Pedido__Pedido_productos_productoId\" FROM \"pedido\" \"Pedido\" LEFT JOIN \"producto_pedido\" \"Pedido__Pedido_productos\" ON \"Pedido__Pedido_productos\".\"pedidoId\"=\"Pedido\".\"id\" WHERE ((\"Pedido\".\"estado\" = $1) AND (\"Pedido\".\"updatedAt\" BETWEEN $2 AND $3))",
+  "parameters": [
+    "ENTREGADO",
+    "2026-03-11T10:00:00.000Z",
+    "2026-03-12T09:59:59.999Z"
+  ],
+  "driverError": {
+    "length": 118,
+    "name": "error",
+    "severity": "ERROR",
+    "code": "42703",
+    "position": "1870",
+    "file": "parse_relation.c",
+    "line": "3722",
+    "routine": "errorMissingColumn"
+  },
+  "length": 118,
+  "severity": "ERROR",
+  "code": "42703",
+  "position": "1870",
+  "file": "parse_relation.c",
+  "line": "3722",
+  "routine": "errorMissingColumn"
+}
+2026-03-11T15:49:49.727Z - CONTROLLER ERROR: Error: Error al obtener dashboard operativo
+{}
+2026-03-11T15:50:38.986Z - CONTROLLER ERROR: QueryFailedError: column Pedido.pickup_code does not exist
+{
+  "query": "SELECT \"Pedido\".\"id\" AS \"Pedido_id\", \"Pedido\".\"estado\" AS \"Pedido_estado\", \"Pedido\".\"metodoPago\" AS \"Pedido_metodoPago\", \"Pedido\".\"total\" AS \"Pedido_total\", \"Pedido\".\"montoVuelto\" AS \"Pedido_montoVuelto\", \"Pedido\".\"comprobantePagoUrl\" AS \"Pedido_comprobantePagoUrl\", \"Pedido\".\"comisionTotal\" AS \"Pedido_comisionTotal\", \"Pedido\".\"totalNegocio\" AS \"Pedido_totalNegocio\", \"Pedido\".\"costoEnvio\" AS \"Pedido_costoEnvio\", \"Pedido\".\"porcentaje_motorizado_aplicado\" AS \"Pedido_porcentaje_motorizado_aplicado\", \"Pedido\".\"porcentaje_app_aplicado\" AS \"Pedido_porcentaje_app_aplicado\", \"Pedido\".\"ganancia_motorizado\" AS \"Pedido_ganancia_motorizado\", \"Pedido\".\"comision_app_domicilio\" AS \"Pedido_comision_app_domicilio\", \"Pedido\".\"ganancia_app_producto\" AS \"Pedido_ganancia_app_producto\", \"Pedido\".\"total_precio_venta_publico\" AS \"Pedido_total_precio_venta_publico\", \"Pedido\".\"total_precio_app\" AS \"Pedido_total_precio_app\", \"Pedido\".\"total_comision_productos\" AS \"Pedido_total_comision_productos\", \"Pedido\".\"pago_motorizado\" AS \"Pedido_pago_motorizado\", \"Pedido\".\"comision_moto_app\" AS \"Pedido_comision_moto_app\", \"Pedido\".\"createdAt\" AS \"Pedido_createdAt\", \"Pedido\".\"updatedAt\" AS \"Pedido_updatedAt\", \"Pedido\".\"distanciaKm\" AS \"Pedido_distanciaKm\", \"Pedido\".\"latCliente\" AS \"Pedido_latCliente\", \"Pedido\".\"lngCliente\" AS \"Pedido_lngCliente\", \"Pedido\".\"direccionTexto\" AS \"Pedido_direccionTexto\", \"Pedido\".\"rondaAsignacion\" AS \"Pedido_rondaAsignacion\", \"Pedido\".\"fechaInicioRonda\" AS \"Pedido_fechaInicioRonda\", \"Pedido\".\"motorizadoEnEvaluacion\" AS \"Pedido_motorizadoEnEvaluacion\", \"Pedido\".\"asignacionBloqueada\" AS \"Pedido_asignacionBloqueada\", \"Pedido\".\"intentosEnRonda\" AS \"Pedido_intentosEnRonda\", \"Pedido\".\"noAssignedSince\" AS \"Pedido_noAssignedSince\", \"Pedido\".\"motivoCancelacion\" AS \"Pedido_motivoCancelacion\", \"Pedido\".\"motorizadosExcluidos\" AS \"Pedido_motorizadosExcluidos\", \"Pedido\".\"pickup_code\" AS \"Pedido_pickup_code\", \"Pedido\".\"pickup_verified\" AS \"Pedido_pickup_verified\", \"Pedido\".\"delivery_code\" AS \"Pedido_delivery_code\", \"Pedido\".\"delivery_verified\" AS \"Pedido_delivery_verified\", \"Pedido\".\"arrival_time\" AS \"Pedido_arrival_time\", \"Pedido\".\"clienteId\" AS \"Pedido_clienteId\", \"Pedido\".\"negocioId\" AS \"Pedido_negocioId\", \"Pedido\".\"motorizadoId\" AS \"Pedido_motorizadoId\", \"Pedido__Pedido_productos\".\"id\" AS \"Pedido__Pedido_productos_id\", \"Pedido__Pedido_productos\".\"cantidad\" AS \"Pedido__Pedido_productos_cantidad\", \"Pedido__Pedido_productos\".\"subtotal\" AS \"Pedido__Pedido_productos_subtotal\", \"Pedido__Pedido_productos\".\"precio_venta\" AS \"Pedido__Pedido_productos_precio_venta\", \"Pedido__Pedido_productos\".\"precio_app\" AS \"Pedido__Pedido_productos_precio_app\", \"Pedido__Pedido_productos\".\"comision_producto\" AS \"Pedido__Pedido_productos_comision_producto\", \"Pedido__Pedido_productos\".\"pedidoId\" AS \"Pedido__Pedido_productos_pedidoId\", \"Pedido__Pedido_productos\".\"productoId\" AS \"Pedido__Pedido_productos_productoId\" FROM \"pedido\" \"Pedido\" LEFT JOIN \"producto_pedido\" \"Pedido__Pedido_productos\" ON \"Pedido__Pedido_productos\".\"pedidoId\"=\"Pedido\".\"id\" WHERE ((\"Pedido\".\"estado\" = $1) AND (\"Pedido\".\"updatedAt\" BETWEEN $2 AND $3))",
+  "parameters": [
+    "ENTREGADO",
+    "2026-03-11T10:00:00.000Z",
+    "2026-03-12T09:59:59.999Z"
+  ],
+  "driverError": {
+    "length": 118,
+    "name": "error",
+    "severity": "ERROR",
+    "code": "42703",
+    "position": "1870",
+    "file": "parse_relation.c",
+    "line": "3722",
+    "routine": "errorMissingColumn"
+  },
+  "length": 118,
+  "severity": "ERROR",
+  "code": "42703",
+  "position": "1870",
+  "file": "parse_relation.c",
+  "line": "3722",
+  "routine": "errorMissingColumn"
+}
+2026-03-11T15:50:39.941Z - CONTROLLER ERROR: Error: Error al obtener dashboard operativo
+{}
+2026-03-11T22:24:47.570Z - CONTROLLER ERROR: QueryFailedError: column Pedido.ratingNegocio does not exist
+{
+  "query": "SELECT \"Pedido\".\"id\" AS \"Pedido_id\", \"Pedido\".\"estado\" AS \"Pedido_estado\", \"Pedido\".\"metodoPago\" AS \"Pedido_metodoPago\", \"Pedido\".\"total\" AS \"Pedido_total\", \"Pedido\".\"montoVuelto\" AS \"Pedido_montoVuelto\", \"Pedido\".\"comprobantePagoUrl\" AS \"Pedido_comprobantePagoUrl\", \"Pedido\".\"comisionTotal\" AS \"Pedido_comisionTotal\", \"Pedido\".\"totalNegocio\" AS \"Pedido_totalNegocio\", \"Pedido\".\"costoEnvio\" AS \"Pedido_costoEnvio\", \"Pedido\".\"porcentaje_motorizado_aplicado\" AS \"Pedido_porcentaje_motorizado_aplicado\", \"Pedido\".\"porcentaje_app_aplicado\" AS \"Pedido_porcentaje_app_aplicado\", \"Pedido\".\"ganancia_motorizado\" AS \"Pedido_ganancia_motorizado\", \"Pedido\".\"comision_app_domicilio\" AS \"Pedido_comision_app_domicilio\", \"Pedido\".\"ganancia_app_producto\" AS \"Pedido_ganancia_app_producto\", \"Pedido\".\"total_precio_venta_publico\" AS \"Pedido_total_precio_venta_publico\", \"Pedido\".\"total_precio_app\" AS \"Pedido_total_precio_app\", \"Pedido\".\"total_comision_productos\" AS \"Pedido_total_comision_productos\", \"Pedido\".\"pago_motorizado\" AS \"Pedido_pago_motorizado\", \"Pedido\".\"comision_moto_app\" AS \"Pedido_comision_moto_app\", \"Pedido\".\"createdAt\" AS \"Pedido_createdAt\", \"Pedido\".\"updatedAt\" AS \"Pedido_updatedAt\", \"Pedido\".\"distanciaKm\" AS \"Pedido_distanciaKm\", \"Pedido\".\"latCliente\" AS \"Pedido_latCliente\", \"Pedido\".\"lngCliente\" AS \"Pedido_lngCliente\", \"Pedido\".\"direccionTexto\" AS \"Pedido_direccionTexto\", \"Pedido\".\"rondaAsignacion\" AS \"Pedido_rondaAsignacion\", \"Pedido\".\"fechaInicioRonda\" AS \"Pedido_fechaInicioRonda\", \"Pedido\".\"motorizadoEnEvaluacion\" AS \"Pedido_motorizadoEnEvaluacion\", \"Pedido\".\"asignacionBloqueada\" AS \"Pedido_asignacionBloqueada\", \"Pedido\".\"intentosEnRonda\" AS \"Pedido_intentosEnRonda\", \"Pedido\".\"noAssignedSince\" AS \"Pedido_noAssignedSince\", \"Pedido\".\"motivoCancelacion\" AS \"Pedido_motivoCancelacion\", \"Pedido\".\"motorizadosExcluidos\" AS \"Pedido_motorizadosExcluidos\", \"Pedido\".\"pickup_code\" AS \"Pedido_pickup_code\", \"Pedido\".\"pickup_verified\" AS \"Pedido_pickup_verified\", \"Pedido\".\"delivery_code\" AS \"Pedido_delivery_code\", \"Pedido\".\"delivery_verified\" AS \"Pedido_delivery_verified\", \"Pedido\".\"arrival_time\" AS \"Pedido_arrival_time\", \"Pedido\".\"ratingNegocio\" AS \"Pedido_ratingNegocio\", \"Pedido\".\"ratingMotorizado\" AS \"Pedido_ratingMotorizado\", \"Pedido\".\"clienteId\" AS \"Pedido_clienteId\", \"Pedido\".\"negocioId\" AS \"Pedido_negocioId\", \"Pedido\".\"motorizadoId\" AS \"Pedido_motorizadoId\", \"Pedido__Pedido_productos\".\"id\" AS \"Pedido__Pedido_productos_id\", \"Pedido__Pedido_productos\".\"cantidad\" AS \"Pedido__Pedido_productos_cantidad\", \"Pedido__Pedido_productos\".\"subtotal\" AS \"Pedido__Pedido_productos_subtotal\", \"Pedido__Pedido_productos\".\"precio_venta\" AS \"Pedido__Pedido_productos_precio_venta\", \"Pedido__Pedido_productos\".\"precio_app\" AS \"Pedido__Pedido_productos_precio_app\", \"Pedido__Pedido_productos\".\"comision_producto\" AS \"Pedido__Pedido_productos_comision_producto\", \"Pedido__Pedido_productos\".\"pedidoId\" AS \"Pedido__Pedido_productos_pedidoId\", \"Pedido__Pedido_productos\".\"productoId\" AS \"Pedido__Pedido_productos_productoId\" FROM \"pedido\" \"Pedido\" LEFT JOIN \"producto_pedido\" \"Pedido__Pedido_productos\" ON \"Pedido__Pedido_productos\".\"pedidoId\"=\"Pedido\".\"id\" WHERE ((\"Pedido\".\"estado\" = $1) AND (\"Pedido\".\"updatedAt\" BETWEEN $2 AND $3))",
+  "parameters": [
+    "ENTREGADO",
+    "2026-03-11T10:00:00.000Z",
+    "2026-03-12T09:59:59.999Z"
+  ],
+  "driverError": {
+    "length": 120,
+    "name": "error",
+    "severity": "ERROR",
+    "code": "42703",
+    "position": "2136",
+    "file": "parse_relation.c",
+    "line": "3722",
+    "routine": "errorMissingColumn"
+  },
+  "length": 120,
+  "severity": "ERROR",
+  "code": "42703",
+  "position": "2136",
+  "file": "parse_relation.c",
+  "line": "3722",
+  "routine": "errorMissingColumn"
+}
+2026-03-11T22:26:48.044Z - CONTROLLER ERROR: QueryFailedError: column Pedido.ratingNegocio does not exist
+{
+  "query": "SELECT \"Pedido\".\"id\" AS \"Pedido_id\", \"Pedido\".\"estado\" AS \"Pedido_estado\", \"Pedido\".\"metodoPago\" AS \"Pedido_metodoPago\", \"Pedido\".\"total\" AS \"Pedido_total\", \"Pedido\".\"montoVuelto\" AS \"Pedido_montoVuelto\", \"Pedido\".\"comprobantePagoUrl\" AS \"Pedido_comprobantePagoUrl\", \"Pedido\".\"comisionTotal\" AS \"Pedido_comisionTotal\", \"Pedido\".\"totalNegocio\" AS \"Pedido_totalNegocio\", \"Pedido\".\"costoEnvio\" AS \"Pedido_costoEnvio\", \"Pedido\".\"porcentaje_motorizado_aplicado\" AS \"Pedido_porcentaje_motorizado_aplicado\", \"Pedido\".\"porcentaje_app_aplicado\" AS \"Pedido_porcentaje_app_aplicado\", \"Pedido\".\"ganancia_motorizado\" AS \"Pedido_ganancia_motorizado\", \"Pedido\".\"comision_app_domicilio\" AS \"Pedido_comision_app_domicilio\", \"Pedido\".\"ganancia_app_producto\" AS \"Pedido_ganancia_app_producto\", \"Pedido\".\"total_precio_venta_publico\" AS \"Pedido_total_precio_venta_publico\", \"Pedido\".\"total_precio_app\" AS \"Pedido_total_precio_app\", \"Pedido\".\"total_comision_productos\" AS \"Pedido_total_comision_productos\", \"Pedido\".\"pago_motorizado\" AS \"Pedido_pago_motorizado\", \"Pedido\".\"comision_moto_app\" AS \"Pedido_comision_moto_app\", \"Pedido\".\"createdAt\" AS \"Pedido_createdAt\", \"Pedido\".\"updatedAt\" AS \"Pedido_updatedAt\", \"Pedido\".\"distanciaKm\" AS \"Pedido_distanciaKm\", \"Pedido\".\"latCliente\" AS \"Pedido_latCliente\", \"Pedido\".\"lngCliente\" AS \"Pedido_lngCliente\", \"Pedido\".\"direccionTexto\" AS \"Pedido_direccionTexto\", \"Pedido\".\"rondaAsignacion\" AS \"Pedido_rondaAsignacion\", \"Pedido\".\"fechaInicioRonda\" AS \"Pedido_fechaInicioRonda\", \"Pedido\".\"motorizadoEnEvaluacion\" AS \"Pedido_motorizadoEnEvaluacion\", \"Pedido\".\"asignacionBloqueada\" AS \"Pedido_asignacionBloqueada\", \"Pedido\".\"intentosEnRonda\" AS \"Pedido_intentosEnRonda\", \"Pedido\".\"noAssignedSince\" AS \"Pedido_noAssignedSince\", \"Pedido\".\"motivoCancelacion\" AS \"Pedido_motivoCancelacion\", \"Pedido\".\"motorizadosExcluidos\" AS \"Pedido_motorizadosExcluidos\", \"Pedido\".\"pickup_code\" AS \"Pedido_pickup_code\", \"Pedido\".\"pickup_verified\" AS \"Pedido_pickup_verified\", \"Pedido\".\"delivery_code\" AS \"Pedido_delivery_code\", \"Pedido\".\"delivery_verified\" AS \"Pedido_delivery_verified\", \"Pedido\".\"arrival_time\" AS \"Pedido_arrival_time\", \"Pedido\".\"ratingNegocio\" AS \"Pedido_ratingNegocio\", \"Pedido\".\"ratingMotorizado\" AS \"Pedido_ratingMotorizado\", \"Pedido\".\"clienteId\" AS \"Pedido_clienteId\", \"Pedido\".\"negocioId\" AS \"Pedido_negocioId\", \"Pedido\".\"motorizadoId\" AS \"Pedido_motorizadoId\", \"Pedido__Pedido_productos\".\"id\" AS \"Pedido__Pedido_productos_id\", \"Pedido__Pedido_productos\".\"cantidad\" AS \"Pedido__Pedido_productos_cantidad\", \"Pedido__Pedido_productos\".\"subtotal\" AS \"Pedido__Pedido_productos_subtotal\", \"Pedido__Pedido_productos\".\"precio_venta\" AS \"Pedido__Pedido_productos_precio_venta\", \"Pedido__Pedido_productos\".\"precio_app\" AS \"Pedido__Pedido_productos_precio_app\", \"Pedido__Pedido_productos\".\"comision_producto\" AS \"Pedido__Pedido_productos_comision_producto\", \"Pedido__Pedido_productos\".\"pedidoId\" AS \"Pedido__Pedido_productos_pedidoId\", \"Pedido__Pedido_productos\".\"productoId\" AS \"Pedido__Pedido_productos_productoId\" FROM \"pedido\" \"Pedido\" LEFT JOIN \"producto_pedido\" \"Pedido__Pedido_productos\" ON \"Pedido__Pedido_productos\".\"pedidoId\"=\"Pedido\".\"id\" WHERE ((\"Pedido\".\"estado\" = $1) AND (\"Pedido\".\"updatedAt\" BETWEEN $2 AND $3))",
+  "parameters": [
+    "ENTREGADO",
+    "2026-03-11T10:00:00.000Z",
+    "2026-03-12T09:59:59.999Z"
+  ],
+  "driverError": {
+    "length": 120,
+    "name": "error",
+    "severity": "ERROR",
+    "code": "42703",
+    "position": "2136",
+    "file": "parse_relation.c",
+    "line": "3722",
+    "routine": "errorMissingColumn"
+  },
+  "length": 120,
+  "severity": "ERROR",
+  "code": "42703",
+  "position": "2136",
+  "file": "parse_relation.c",
+  "line": "3722",
+  "routine": "errorMissingColumn"
+}
+2026-03-11T22:27:42.438Z - CONTROLLER ERROR: QueryFailedError: column Pedido.ratingNegocio does not exist
+{
+  "query": "SELECT \"Pedido\".\"id\" AS \"Pedido_id\", \"Pedido\".\"estado\" AS \"Pedido_estado\", \"Pedido\".\"metodoPago\" AS \"Pedido_metodoPago\", \"Pedido\".\"total\" AS \"Pedido_total\", \"Pedido\".\"montoVuelto\" AS \"Pedido_montoVuelto\", \"Pedido\".\"comprobantePagoUrl\" AS \"Pedido_comprobantePagoUrl\", \"Pedido\".\"comisionTotal\" AS \"Pedido_comisionTotal\", \"Pedido\".\"totalNegocio\" AS \"Pedido_totalNegocio\", \"Pedido\".\"costoEnvio\" AS \"Pedido_costoEnvio\", \"Pedido\".\"porcentaje_motorizado_aplicado\" AS \"Pedido_porcentaje_motorizado_aplicado\", \"Pedido\".\"porcentaje_app_aplicado\" AS \"Pedido_porcentaje_app_aplicado\", \"Pedido\".\"ganancia_motorizado\" AS \"Pedido_ganancia_motorizado\", \"Pedido\".\"comision_app_domicilio\" AS \"Pedido_comision_app_domicilio\", \"Pedido\".\"ganancia_app_producto\" AS \"Pedido_ganancia_app_producto\", \"Pedido\".\"total_precio_venta_publico\" AS \"Pedido_total_precio_venta_publico\", \"Pedido\".\"total_precio_app\" AS \"Pedido_total_precio_app\", \"Pedido\".\"total_comision_productos\" AS \"Pedido_total_comision_productos\", \"Pedido\".\"pago_motorizado\" AS \"Pedido_pago_motorizado\", \"Pedido\".\"comision_moto_app\" AS \"Pedido_comision_moto_app\", \"Pedido\".\"createdAt\" AS \"Pedido_createdAt\", \"Pedido\".\"updatedAt\" AS \"Pedido_updatedAt\", \"Pedido\".\"distanciaKm\" AS \"Pedido_distanciaKm\", \"Pedido\".\"latCliente\" AS \"Pedido_latCliente\", \"Pedido\".\"lngCliente\" AS \"Pedido_lngCliente\", \"Pedido\".\"direccionTexto\" AS \"Pedido_direccionTexto\", \"Pedido\".\"rondaAsignacion\" AS \"Pedido_rondaAsignacion\", \"Pedido\".\"fechaInicioRonda\" AS \"Pedido_fechaInicioRonda\", \"Pedido\".\"motorizadoEnEvaluacion\" AS \"Pedido_motorizadoEnEvaluacion\", \"Pedido\".\"asignacionBloqueada\" AS \"Pedido_asignacionBloqueada\", \"Pedido\".\"intentosEnRonda\" AS \"Pedido_intentosEnRonda\", \"Pedido\".\"noAssignedSince\" AS \"Pedido_noAssignedSince\", \"Pedido\".\"motivoCancelacion\" AS \"Pedido_motivoCancelacion\", \"Pedido\".\"motorizadosExcluidos\" AS \"Pedido_motorizadosExcluidos\", \"Pedido\".\"pickup_code\" AS \"Pedido_pickup_code\", \"Pedido\".\"pickup_verified\" AS \"Pedido_pickup_verified\", \"Pedido\".\"delivery_code\" AS \"Pedido_delivery_code\", \"Pedido\".\"delivery_verified\" AS \"Pedido_delivery_verified\", \"Pedido\".\"arrival_time\" AS \"Pedido_arrival_time\", \"Pedido\".\"ratingNegocio\" AS \"Pedido_ratingNegocio\", \"Pedido\".\"ratingMotorizado\" AS \"Pedido_ratingMotorizado\", \"Pedido\".\"clienteId\" AS \"Pedido_clienteId\", \"Pedido\".\"negocioId\" AS \"Pedido_negocioId\", \"Pedido\".\"motorizadoId\" AS \"Pedido_motorizadoId\", \"Pedido__Pedido_productos\".\"id\" AS \"Pedido__Pedido_productos_id\", \"Pedido__Pedido_productos\".\"cantidad\" AS \"Pedido__Pedido_productos_cantidad\", \"Pedido__Pedido_productos\".\"subtotal\" AS \"Pedido__Pedido_productos_subtotal\", \"Pedido__Pedido_productos\".\"precio_venta\" AS \"Pedido__Pedido_productos_precio_venta\", \"Pedido__Pedido_productos\".\"precio_app\" AS \"Pedido__Pedido_productos_precio_app\", \"Pedido__Pedido_productos\".\"comision_producto\" AS \"Pedido__Pedido_productos_comision_producto\", \"Pedido__Pedido_productos\".\"pedidoId\" AS \"Pedido__Pedido_productos_pedidoId\", \"Pedido__Pedido_productos\".\"productoId\" AS \"Pedido__Pedido_productos_productoId\" FROM \"pedido\" \"Pedido\" LEFT JOIN \"producto_pedido\" \"Pedido__Pedido_productos\" ON \"Pedido__Pedido_productos\".\"pedidoId\"=\"Pedido\".\"id\" WHERE ((\"Pedido\".\"estado\" = $1) AND (\"Pedido\".\"updatedAt\" BETWEEN $2 AND $3))",
+  "parameters": [
+    "ENTREGADO",
+    "2026-03-11T10:00:00.000Z",
+    "2026-03-12T09:59:59.999Z"
+  ],
+  "driverError": {
+    "length": 120,
+    "name": "error",
+    "severity": "ERROR",
+    "code": "42703",
+    "position": "2136",
+    "file": "parse_relation.c",
+    "line": "3722",
+    "routine": "errorMissingColumn"
+  },
+  "length": 120,
+  "severity": "ERROR",
+  "code": "42703",
+  "position": "2136",
+  "file": "parse_relation.c",
+  "line": "3722",
+  "routine": "errorMissingColumn"
+}
+2026-03-11T22:28:42.240Z - CONTROLLER ERROR: QueryFailedError: column Pedido.ratingNegocio does not exist
+{
+  "query": "SELECT \"Pedido\".\"id\" AS \"Pedido_id\", \"Pedido\".\"estado\" AS \"Pedido_estado\", \"Pedido\".\"metodoPago\" AS \"Pedido_metodoPago\", \"Pedido\".\"total\" AS \"Pedido_total\", \"Pedido\".\"montoVuelto\" AS \"Pedido_montoVuelto\", \"Pedido\".\"comprobantePagoUrl\" AS \"Pedido_comprobantePagoUrl\", \"Pedido\".\"comisionTotal\" AS \"Pedido_comisionTotal\", \"Pedido\".\"totalNegocio\" AS \"Pedido_totalNegocio\", \"Pedido\".\"costoEnvio\" AS \"Pedido_costoEnvio\", \"Pedido\".\"porcentaje_motorizado_aplicado\" AS \"Pedido_porcentaje_motorizado_aplicado\", \"Pedido\".\"porcentaje_app_aplicado\" AS \"Pedido_porcentaje_app_aplicado\", \"Pedido\".\"ganancia_motorizado\" AS \"Pedido_ganancia_motorizado\", \"Pedido\".\"comision_app_domicilio\" AS \"Pedido_comision_app_domicilio\", \"Pedido\".\"ganancia_app_producto\" AS \"Pedido_ganancia_app_producto\", \"Pedido\".\"total_precio_venta_publico\" AS \"Pedido_total_precio_venta_publico\", \"Pedido\".\"total_precio_app\" AS \"Pedido_total_precio_app\", \"Pedido\".\"total_comision_productos\" AS \"Pedido_total_comision_productos\", \"Pedido\".\"pago_motorizado\" AS \"Pedido_pago_motorizado\", \"Pedido\".\"comision_moto_app\" AS \"Pedido_comision_moto_app\", \"Pedido\".\"createdAt\" AS \"Pedido_createdAt\", \"Pedido\".\"updatedAt\" AS \"Pedido_updatedAt\", \"Pedido\".\"distanciaKm\" AS \"Pedido_distanciaKm\", \"Pedido\".\"latCliente\" AS \"Pedido_latCliente\", \"Pedido\".\"lngCliente\" AS \"Pedido_lngCliente\", \"Pedido\".\"direccionTexto\" AS \"Pedido_direccionTexto\", \"Pedido\".\"rondaAsignacion\" AS \"Pedido_rondaAsignacion\", \"Pedido\".\"fechaInicioRonda\" AS \"Pedido_fechaInicioRonda\", \"Pedido\".\"motorizadoEnEvaluacion\" AS \"Pedido_motorizadoEnEvaluacion\", \"Pedido\".\"asignacionBloqueada\" AS \"Pedido_asignacionBloqueada\", \"Pedido\".\"intentosEnRonda\" AS \"Pedido_intentosEnRonda\", \"Pedido\".\"noAssignedSince\" AS \"Pedido_noAssignedSince\", \"Pedido\".\"motivoCancelacion\" AS \"Pedido_motivoCancelacion\", \"Pedido\".\"motorizadosExcluidos\" AS \"Pedido_motorizadosExcluidos\", \"Pedido\".\"pickup_code\" AS \"Pedido_pickup_code\", \"Pedido\".\"pickup_verified\" AS \"Pedido_pickup_verified\", \"Pedido\".\"delivery_code\" AS \"Pedido_delivery_code\", \"Pedido\".\"delivery_verified\" AS \"Pedido_delivery_verified\", \"Pedido\".\"arrival_time\" AS \"Pedido_arrival_time\", \"Pedido\".\"ratingNegocio\" AS \"Pedido_ratingNegocio\", \"Pedido\".\"ratingMotorizado\" AS \"Pedido_ratingMotorizado\", \"Pedido\".\"clienteId\" AS \"Pedido_clienteId\", \"Pedido\".\"negocioId\" AS \"Pedido_negocioId\", \"Pedido\".\"motorizadoId\" AS \"Pedido_motorizadoId\", \"Pedido__Pedido_productos\".\"id\" AS \"Pedido__Pedido_productos_id\", \"Pedido__Pedido_productos\".\"cantidad\" AS \"Pedido__Pedido_productos_cantidad\", \"Pedido__Pedido_productos\".\"subtotal\" AS \"Pedido__Pedido_productos_subtotal\", \"Pedido__Pedido_productos\".\"precio_venta\" AS \"Pedido__Pedido_productos_precio_venta\", \"Pedido__Pedido_productos\".\"precio_app\" AS \"Pedido__Pedido_productos_precio_app\", \"Pedido__Pedido_productos\".\"comision_producto\" AS \"Pedido__Pedido_productos_comision_producto\", \"Pedido__Pedido_productos\".\"pedidoId\" AS \"Pedido__Pedido_productos_pedidoId\", \"Pedido__Pedido_productos\".\"productoId\" AS \"Pedido__Pedido_productos_productoId\" FROM \"pedido\" \"Pedido\" LEFT JOIN \"producto_pedido\" \"Pedido__Pedido_productos\" ON \"Pedido__Pedido_productos\".\"pedidoId\"=\"Pedido\".\"id\" WHERE ((\"Pedido\".\"estado\" = $1) AND (\"Pedido\".\"updatedAt\" BETWEEN $2 AND $3))",
+  "parameters": [
+    "ENTREGADO",
+    "2026-03-11T10:00:00.000Z",
+    "2026-03-12T09:59:59.999Z"
+  ],
+  "driverError": {
+    "length": 120,
+    "name": "error",
+    "severity": "ERROR",
+    "code": "42703",
+    "position": "2136",
+    "file": "parse_relation.c",
+    "line": "3722",
+    "routine": "errorMissingColumn"
+  },
+  "length": 120,
+  "severity": "ERROR",
+  "code": "42703",
+  "position": "2136",
+  "file": "parse_relation.c",
+  "line": "3722",
+  "routine": "errorMissingColumn"
+}
+2026-03-11T22:29:42.548Z - CONTROLLER ERROR: QueryFailedError: column Pedido.ratingNegocio does not exist
+{
+  "query": "SELECT \"Pedido\".\"id\" AS \"Pedido_id\", \"Pedido\".\"estado\" AS \"Pedido_estado\", \"Pedido\".\"metodoPago\" AS \"Pedido_metodoPago\", \"Pedido\".\"total\" AS \"Pedido_total\", \"Pedido\".\"montoVuelto\" AS \"Pedido_montoVuelto\", \"Pedido\".\"comprobantePagoUrl\" AS \"Pedido_comprobantePagoUrl\", \"Pedido\".\"comisionTotal\" AS \"Pedido_comisionTotal\", \"Pedido\".\"totalNegocio\" AS \"Pedido_totalNegocio\", \"Pedido\".\"costoEnvio\" AS \"Pedido_costoEnvio\", \"Pedido\".\"porcentaje_motorizado_aplicado\" AS \"Pedido_porcentaje_motorizado_aplicado\", \"Pedido\".\"porcentaje_app_aplicado\" AS \"Pedido_porcentaje_app_aplicado\", \"Pedido\".\"ganancia_motorizado\" AS \"Pedido_ganancia_motorizado\", \"Pedido\".\"comision_app_domicilio\" AS \"Pedido_comision_app_domicilio\", \"Pedido\".\"ganancia_app_producto\" AS \"Pedido_ganancia_app_producto\", \"Pedido\".\"total_precio_venta_publico\" AS \"Pedido_total_precio_venta_publico\", \"Pedido\".\"total_precio_app\" AS \"Pedido_total_precio_app\", \"Pedido\".\"total_comision_productos\" AS \"Pedido_total_comision_productos\", \"Pedido\".\"pago_motorizado\" AS \"Pedido_pago_motorizado\", \"Pedido\".\"comision_moto_app\" AS \"Pedido_comision_moto_app\", \"Pedido\".\"createdAt\" AS \"Pedido_createdAt\", \"Pedido\".\"updatedAt\" AS \"Pedido_updatedAt\", \"Pedido\".\"distanciaKm\" AS \"Pedido_distanciaKm\", \"Pedido\".\"latCliente\" AS \"Pedido_latCliente\", \"Pedido\".\"lngCliente\" AS \"Pedido_lngCliente\", \"Pedido\".\"direccionTexto\" AS \"Pedido_direccionTexto\", \"Pedido\".\"rondaAsignacion\" AS \"Pedido_rondaAsignacion\", \"Pedido\".\"fechaInicioRonda\" AS \"Pedido_fechaInicioRonda\", \"Pedido\".\"motorizadoEnEvaluacion\" AS \"Pedido_motorizadoEnEvaluacion\", \"Pedido\".\"asignacionBloqueada\" AS \"Pedido_asignacionBloqueada\", \"Pedido\".\"intentosEnRonda\" AS \"Pedido_intentosEnRonda\", \"Pedido\".\"noAssignedSince\" AS \"Pedido_noAssignedSince\", \"Pedido\".\"motivoCancelacion\" AS \"Pedido_motivoCancelacion\", \"Pedido\".\"motorizadosExcluidos\" AS \"Pedido_motorizadosExcluidos\", \"Pedido\".\"pickup_code\" AS \"Pedido_pickup_code\", \"Pedido\".\"pickup_verified\" AS \"Pedido_pickup_verified\", \"Pedido\".\"delivery_code\" AS \"Pedido_delivery_code\", \"Pedido\".\"delivery_verified\" AS \"Pedido_delivery_verified\", \"Pedido\".\"arrival_time\" AS \"Pedido_arrival_time\", \"Pedido\".\"ratingNegocio\" AS \"Pedido_ratingNegocio\", \"Pedido\".\"ratingMotorizado\" AS \"Pedido_ratingMotorizado\", \"Pedido\".\"clienteId\" AS \"Pedido_clienteId\", \"Pedido\".\"negocioId\" AS \"Pedido_negocioId\", \"Pedido\".\"motorizadoId\" AS \"Pedido_motorizadoId\", \"Pedido__Pedido_productos\".\"id\" AS \"Pedido__Pedido_productos_id\", \"Pedido__Pedido_productos\".\"cantidad\" AS \"Pedido__Pedido_productos_cantidad\", \"Pedido__Pedido_productos\".\"subtotal\" AS \"Pedido__Pedido_productos_subtotal\", \"Pedido__Pedido_productos\".\"precio_venta\" AS \"Pedido__Pedido_productos_precio_venta\", \"Pedido__Pedido_productos\".\"precio_app\" AS \"Pedido__Pedido_productos_precio_app\", \"Pedido__Pedido_productos\".\"comision_producto\" AS \"Pedido__Pedido_productos_comision_producto\", \"Pedido__Pedido_productos\".\"pedidoId\" AS \"Pedido__Pedido_productos_pedidoId\", \"Pedido__Pedido_productos\".\"productoId\" AS \"Pedido__Pedido_productos_productoId\" FROM \"pedido\" \"Pedido\" LEFT JOIN \"producto_pedido\" \"Pedido__Pedido_productos\" ON \"Pedido__Pedido_productos\".\"pedidoId\"=\"Pedido\".\"id\" WHERE ((\"Pedido\".\"estado\" = $1) AND (\"Pedido\".\"updatedAt\" BETWEEN $2 AND $3))",
+  "parameters": [
+    "ENTREGADO",
+    "2026-03-11T10:00:00.000Z",
+    "2026-03-12T09:59:59.999Z"
+  ],
+  "driverError": {
+    "length": 120,
+    "name": "error",
+    "severity": "ERROR",
+    "code": "42703",
+    "position": "2136",
+    "file": "parse_relation.c",
+    "line": "3722",
+    "routine": "errorMissingColumn"
+  },
+  "length": 120,
+  "severity": "ERROR",
+  "code": "42703",
+  "position": "2136",
+  "file": "parse_relation.c",
+  "line": "3722",
+  "routine": "errorMissingColumn"
+}
+2026-03-11T22:30:42.423Z - CONTROLLER ERROR: QueryFailedError: column Pedido.ratingNegocio does not exist
+{
+  "query": "SELECT \"Pedido\".\"id\" AS \"Pedido_id\", \"Pedido\".\"estado\" AS \"Pedido_estado\", \"Pedido\".\"metodoPago\" AS \"Pedido_metodoPago\", \"Pedido\".\"total\" AS \"Pedido_total\", \"Pedido\".\"montoVuelto\" AS \"Pedido_montoVuelto\", \"Pedido\".\"comprobantePagoUrl\" AS \"Pedido_comprobantePagoUrl\", \"Pedido\".\"comisionTotal\" AS \"Pedido_comisionTotal\", \"Pedido\".\"totalNegocio\" AS \"Pedido_totalNegocio\", \"Pedido\".\"costoEnvio\" AS \"Pedido_costoEnvio\", \"Pedido\".\"porcentaje_motorizado_aplicado\" AS \"Pedido_porcentaje_motorizado_aplicado\", \"Pedido\".\"porcentaje_app_aplicado\" AS \"Pedido_porcentaje_app_aplicado\", \"Pedido\".\"ganancia_motorizado\" AS \"Pedido_ganancia_motorizado\", \"Pedido\".\"comision_app_domicilio\" AS \"Pedido_comision_app_domicilio\", \"Pedido\".\"ganancia_app_producto\" AS \"Pedido_ganancia_app_producto\", \"Pedido\".\"total_precio_venta_publico\" AS \"Pedido_total_precio_venta_publico\", \"Pedido\".\"total_precio_app\" AS \"Pedido_total_precio_app\", \"Pedido\".\"total_comision_productos\" AS \"Pedido_total_comision_productos\", \"Pedido\".\"pago_motorizado\" AS \"Pedido_pago_motorizado\", \"Pedido\".\"comision_moto_app\" AS \"Pedido_comision_moto_app\", \"Pedido\".\"createdAt\" AS \"Pedido_createdAt\", \"Pedido\".\"updatedAt\" AS \"Pedido_updatedAt\", \"Pedido\".\"distanciaKm\" AS \"Pedido_distanciaKm\", \"Pedido\".\"latCliente\" AS \"Pedido_latCliente\", \"Pedido\".\"lngCliente\" AS \"Pedido_lngCliente\", \"Pedido\".\"direccionTexto\" AS \"Pedido_direccionTexto\", \"Pedido\".\"rondaAsignacion\" AS \"Pedido_rondaAsignacion\", \"Pedido\".\"fechaInicioRonda\" AS \"Pedido_fechaInicioRonda\", \"Pedido\".\"motorizadoEnEvaluacion\" AS \"Pedido_motorizadoEnEvaluacion\", \"Pedido\".\"asignacionBloqueada\" AS \"Pedido_asignacionBloqueada\", \"Pedido\".\"intentosEnRonda\" AS \"Pedido_intentosEnRonda\", \"Pedido\".\"noAssignedSince\" AS \"Pedido_noAssignedSince\", \"Pedido\".\"motivoCancelacion\" AS \"Pedido_motivoCancelacion\", \"Pedido\".\"motorizadosExcluidos\" AS \"Pedido_motorizadosExcluidos\", \"Pedido\".\"pickup_code\" AS \"Pedido_pickup_code\", \"Pedido\".\"pickup_verified\" AS \"Pedido_pickup_verified\", \"Pedido\".\"delivery_code\" AS \"Pedido_delivery_code\", \"Pedido\".\"delivery_verified\" AS \"Pedido_delivery_verified\", \"Pedido\".\"arrival_time\" AS \"Pedido_arrival_time\", \"Pedido\".\"ratingNegocio\" AS \"Pedido_ratingNegocio\", \"Pedido\".\"ratingMotorizado\" AS \"Pedido_ratingMotorizado\", \"Pedido\".\"clienteId\" AS \"Pedido_clienteId\", \"Pedido\".\"negocioId\" AS \"Pedido_negocioId\", \"Pedido\".\"motorizadoId\" AS \"Pedido_motorizadoId\", \"Pedido__Pedido_productos\".\"id\" AS \"Pedido__Pedido_productos_id\", \"Pedido__Pedido_productos\".\"cantidad\" AS \"Pedido__Pedido_productos_cantidad\", \"Pedido__Pedido_productos\".\"subtotal\" AS \"Pedido__Pedido_productos_subtotal\", \"Pedido__Pedido_productos\".\"precio_venta\" AS \"Pedido__Pedido_productos_precio_venta\", \"Pedido__Pedido_productos\".\"precio_app\" AS \"Pedido__Pedido_productos_precio_app\", \"Pedido__Pedido_productos\".\"comision_producto\" AS \"Pedido__Pedido_productos_comision_producto\", \"Pedido__Pedido_productos\".\"pedidoId\" AS \"Pedido__Pedido_productos_pedidoId\", \"Pedido__Pedido_productos\".\"productoId\" AS \"Pedido__Pedido_productos_productoId\" FROM \"pedido\" \"Pedido\" LEFT JOIN \"producto_pedido\" \"Pedido__Pedido_productos\" ON \"Pedido__Pedido_productos\".\"pedidoId\"=\"Pedido\".\"id\" WHERE ((\"Pedido\".\"estado\" = $1) AND (\"Pedido\".\"updatedAt\" BETWEEN $2 AND $3))",
+  "parameters": [
+    "ENTREGADO",
+    "2026-03-11T10:00:00.000Z",
+    "2026-03-12T09:59:59.999Z"
+  ],
+  "driverError": {
+    "length": 120,
+    "name": "error",
+    "severity": "ERROR",
+    "code": "42703",
+    "position": "2136",
+    "file": "parse_relation.c",
+    "line": "3722",
+    "routine": "errorMissingColumn"
+  },
+  "length": 120,
+  "severity": "ERROR",
+  "code": "42703",
+  "position": "2136",
+  "file": "parse_relation.c",
+  "line": "3722",
+  "routine": "errorMissingColumn"
+}
+2026-03-11T22:31:47.623Z - CONTROLLER ERROR: QueryFailedError: column Pedido.ratingNegocio does not exist
+{
+  "query": "SELECT \"Pedido\".\"id\" AS \"Pedido_id\", \"Pedido\".\"estado\" AS \"Pedido_estado\", \"Pedido\".\"metodoPago\" AS \"Pedido_metodoPago\", \"Pedido\".\"total\" AS \"Pedido_total\", \"Pedido\".\"montoVuelto\" AS \"Pedido_montoVuelto\", \"Pedido\".\"comprobantePagoUrl\" AS \"Pedido_comprobantePagoUrl\", \"Pedido\".\"comisionTotal\" AS \"Pedido_comisionTotal\", \"Pedido\".\"totalNegocio\" AS \"Pedido_totalNegocio\", \"Pedido\".\"costoEnvio\" AS \"Pedido_costoEnvio\", \"Pedido\".\"porcentaje_motorizado_aplicado\" AS \"Pedido_porcentaje_motorizado_aplicado\", \"Pedido\".\"porcentaje_app_aplicado\" AS \"Pedido_porcentaje_app_aplicado\", \"Pedido\".\"ganancia_motorizado\" AS \"Pedido_ganancia_motorizado\", \"Pedido\".\"comision_app_domicilio\" AS \"Pedido_comision_app_domicilio\", \"Pedido\".\"ganancia_app_producto\" AS \"Pedido_ganancia_app_producto\", \"Pedido\".\"total_precio_venta_publico\" AS \"Pedido_total_precio_venta_publico\", \"Pedido\".\"total_precio_app\" AS \"Pedido_total_precio_app\", \"Pedido\".\"total_comision_productos\" AS \"Pedido_total_comision_productos\", \"Pedido\".\"pago_motorizado\" AS \"Pedido_pago_motorizado\", \"Pedido\".\"comision_moto_app\" AS \"Pedido_comision_moto_app\", \"Pedido\".\"createdAt\" AS \"Pedido_createdAt\", \"Pedido\".\"updatedAt\" AS \"Pedido_updatedAt\", \"Pedido\".\"distanciaKm\" AS \"Pedido_distanciaKm\", \"Pedido\".\"latCliente\" AS \"Pedido_latCliente\", \"Pedido\".\"lngCliente\" AS \"Pedido_lngCliente\", \"Pedido\".\"direccionTexto\" AS \"Pedido_direccionTexto\", \"Pedido\".\"rondaAsignacion\" AS \"Pedido_rondaAsignacion\", \"Pedido\".\"fechaInicioRonda\" AS \"Pedido_fechaInicioRonda\", \"Pedido\".\"motorizadoEnEvaluacion\" AS \"Pedido_motorizadoEnEvaluacion\", \"Pedido\".\"asignacionBloqueada\" AS \"Pedido_asignacionBloqueada\", \"Pedido\".\"intentosEnRonda\" AS \"Pedido_intentosEnRonda\", \"Pedido\".\"noAssignedSince\" AS \"Pedido_noAssignedSince\", \"Pedido\".\"motivoCancelacion\" AS \"Pedido_motivoCancelacion\", \"Pedido\".\"motorizadosExcluidos\" AS \"Pedido_motorizadosExcluidos\", \"Pedido\".\"pickup_code\" AS \"Pedido_pickup_code\", \"Pedido\".\"pickup_verified\" AS \"Pedido_pickup_verified\", \"Pedido\".\"delivery_code\" AS \"Pedido_delivery_code\", \"Pedido\".\"delivery_verified\" AS \"Pedido_delivery_verified\", \"Pedido\".\"arrival_time\" AS \"Pedido_arrival_time\", \"Pedido\".\"ratingNegocio\" AS \"Pedido_ratingNegocio\", \"Pedido\".\"ratingMotorizado\" AS \"Pedido_ratingMotorizado\", \"Pedido\".\"clienteId\" AS \"Pedido_clienteId\", \"Pedido\".\"negocioId\" AS \"Pedido_negocioId\", \"Pedido\".\"motorizadoId\" AS \"Pedido_motorizadoId\", \"Pedido__Pedido_productos\".\"id\" AS \"Pedido__Pedido_productos_id\", \"Pedido__Pedido_productos\".\"cantidad\" AS \"Pedido__Pedido_productos_cantidad\", \"Pedido__Pedido_productos\".\"subtotal\" AS \"Pedido__Pedido_productos_subtotal\", \"Pedido__Pedido_productos\".\"precio_venta\" AS \"Pedido__Pedido_productos_precio_venta\", \"Pedido__Pedido_productos\".\"precio_app\" AS \"Pedido__Pedido_productos_precio_app\", \"Pedido__Pedido_productos\".\"comision_producto\" AS \"Pedido__Pedido_productos_comision_producto\", \"Pedido__Pedido_productos\".\"pedidoId\" AS \"Pedido__Pedido_productos_pedidoId\", \"Pedido__Pedido_productos\".\"productoId\" AS \"Pedido__Pedido_productos_productoId\" FROM \"pedido\" \"Pedido\" LEFT JOIN \"producto_pedido\" \"Pedido__Pedido_productos\" ON \"Pedido__Pedido_productos\".\"pedidoId\"=\"Pedido\".\"id\" WHERE ((\"Pedido\".\"estado\" = $1) AND (\"Pedido\".\"updatedAt\" BETWEEN $2 AND $3))",
+  "parameters": [
+    "ENTREGADO",
+    "2026-03-11T10:00:00.000Z",
+    "2026-03-12T09:59:59.999Z"
+  ],
+  "driverError": {
+    "length": 120,
+    "name": "error",
+    "severity": "ERROR",
+    "code": "42703",
+    "position": "2136",
+    "file": "parse_relation.c",
+    "line": "3722",
+    "routine": "errorMissingColumn"
+  },
+  "length": 120,
+  "severity": "ERROR",
+  "code": "42703",
+  "position": "2136",
+  "file": "parse_relation.c",
+  "line": "3722",
+  "routine": "errorMissingColumn"
+}
+2026-03-14T17:42:19.364Z - CONTROLLER ERROR: QueryFailedError: column Post.contentType does not exist
+{
+  "query": "SELECT DISTINCT \"distinctAlias\".\"Post_id\" AS \"ids_Post_id\", \"distinctAlias\".\"Post_createdAt\" FROM (SELECT \"Post\".\"id\" AS \"Post_id\", \"Post\".\"content\" AS \"Post_content\", \"Post\".\"imgpost\" AS \"Post_imgpost\", \"Post\".\"title\" AS \"Post_title\", \"Post\".\"subtitle\" AS \"Post_subtitle\", \"Post\".\"isPaid\" AS \"Post_isPaid\", \"Post\".\"createdAt\" AS \"Post_createdAt\", \"Post\".\"expiresAt\" AS \"Post_expiresAt\", \"Post\".\"statusPost\" AS \"Post_statusPost\", \"Post\".\"likesCount\" AS \"Post_likesCount\", \"Post\".\"showWhatsApp\" AS \"Post_showWhatsApp\", \"Post\".\"showLikes\" AS \"Post_showLikes\", \"Post\".\"contentType\" AS \"Post_contentType\", \"Post\".\"videoUrl\" AS \"Post_videoUrl\", \"Post\".\"videoPlatform\" AS \"Post_videoPlatform\", \"Post\".\"freePostTrackerId\" AS \"Post_freePostTrackerId\", \"Post\".\"userId\" AS \"Post_userId\", \"Post__Post_user\".\"id\" AS \"Post__Post_user_id\", \"Post__Post_user\".\"googleId\" AS \"Post__Post_user_googleId\", \"Post__Post_user\".\"name\" AS \"Post__Post_user_name\", \"Post__Post_user\".\"surname\" AS \"Post__Post_user_surname\", \"Post__Post_user\".\"email\" AS \"Post__Post_user_email\", \"Post__Post_user\".\"password\" AS \"Post__Post_user_password\", \"Post__Post_user\".\"birthday\" AS \"Post__Post_user_birthday\", \"Post__Post_user\".\"photoperfil\" AS \"Post__Post_user_photoperfil\", \"Post__Post_user\".\"whatsapp\" AS \"Post__Post_user_whatsapp\", \"Post__Post_user\".\"createdAt\" AS \"Post__Post_user_createdAt\", \"Post__Post_user\".\"updated_at\" AS \"Post__Post_user_updated_at\", \"Post__Post_user\".\"rol\" AS \"Post__Post_user_rol\", \"Post__Post_user\".\"status\" AS \"Post__Post_user_status\", \"Post__Post_user\".\"resetTokenVersion\" AS \"Post__Post_user_resetTokenVersion\", \"Post__Post_user\".\"warnings_count\" AS \"Post__Post_user_warnings_count\", \"Post__Post_user\".\"suspension_until\" AS \"Post__Post_user_suspension_until\", \"Post__Post_user\".\"isLoggedIn\" AS \"Post__Post_user_isLoggedIn\", \"Post__Post_user\".\"currentSessionId\" AS \"Post__Post_user_currentSessionId\", \"Post__Post_user\".\"lastLoginIP\" AS \"Post__Post_user_lastLoginIP\", \"Post__Post_user\".\"lastLoginCountry\" AS \"Post__Post_user_lastLoginCountry\", \"Post__Post_user\".\"lastLoginDate\" AS \"Post__Post_user_lastLoginDate\", \"Post__Post_user\".\"lastDeviceInfo\" AS \"Post__Post_user_lastDeviceInfo\", \"Post__Post_user\".\"acceptedTermsVersion\" AS \"Post__Post_user_acceptedTermsVersion\", \"Post__Post_user\".\"acceptedTermsAt\" AS \"Post__Post_user_acceptedTermsAt\", \"Post__Post_user\".\"acceptedPrivacyVersion\" AS \"Post__Post_user_acceptedPrivacyVersion\", \"Post__Post_user\".\"acceptedPrivacyAt\" AS \"Post__Post_user_acceptedPrivacyAt\", \"Post__Post_user\".\"deletedAt\" AS \"Post__Post_user_deletedAt\" FROM \"post\" \"Post\" LEFT JOIN \"user\" \"Post__Post_user\" ON \"Post__Post_user\".\"id\"=\"Post\".\"userId\" AND (\"Post__Post_user\".\"deletedAt\" IS NULL) WHERE ((\"Post\".\"isPaid\" = $1))) \"distinctAlias\" ORDER BY \"distinctAlias\".\"Post_createdAt\" DESC, \"Post_id\" ASC LIMIT 5",
+  "parameters": [
+    true
+  ],
+  "driverError": {
+    "length": 115,
+    "name": "error",
+    "severity": "ERROR",
+    "code": "42703",
+    "position": "559",
+    "file": "parse_relation.c",
+    "line": "3722",
+    "routine": "errorMissingColumn"
+  },
+  "length": 115,
+  "severity": "ERROR",
+  "code": "42703",
+  "position": "559",
+  "file": "parse_relation.c",
+  "line": "3722",
+  "routine": "errorMissingColumn"
+}
+2026-03-14T17:46:20.698Z - CONTROLLER ERROR: QueryFailedError: column Post.contentType does not exist
+{
+  "query": "SELECT DISTINCT \"distinctAlias\".\"Post_id\" AS \"ids_Post_id\", \"distinctAlias\".\"Post_createdAt\" FROM (SELECT \"Post\".\"id\" AS \"Post_id\", \"Post\".\"content\" AS \"Post_content\", \"Post\".\"imgpost\" AS \"Post_imgpost\", \"Post\".\"title\" AS \"Post_title\", \"Post\".\"subtitle\" AS \"Post_subtitle\", \"Post\".\"isPaid\" AS \"Post_isPaid\", \"Post\".\"createdAt\" AS \"Post_createdAt\", \"Post\".\"expiresAt\" AS \"Post_expiresAt\", \"Post\".\"statusPost\" AS \"Post_statusPost\", \"Post\".\"likesCount\" AS \"Post_likesCount\", \"Post\".\"showWhatsApp\" AS \"Post_showWhatsApp\", \"Post\".\"showLikes\" AS \"Post_showLikes\", \"Post\".\"contentType\" AS \"Post_contentType\", \"Post\".\"videoUrl\" AS \"Post_videoUrl\", \"Post\".\"videoPlatform\" AS \"Post_videoPlatform\", \"Post\".\"freePostTrackerId\" AS \"Post_freePostTrackerId\", \"Post\".\"userId\" AS \"Post_userId\", \"Post__Post_user\".\"id\" AS \"Post__Post_user_id\", \"Post__Post_user\".\"googleId\" AS \"Post__Post_user_googleId\", \"Post__Post_user\".\"name\" AS \"Post__Post_user_name\", \"Post__Post_user\".\"surname\" AS \"Post__Post_user_surname\", \"Post__Post_user\".\"email\" AS \"Post__Post_user_email\", \"Post__Post_user\".\"password\" AS \"Post__Post_user_password\", \"Post__Post_user\".\"birthday\" AS \"Post__Post_user_birthday\", \"Post__Post_user\".\"photoperfil\" AS \"Post__Post_user_photoperfil\", \"Post__Post_user\".\"whatsapp\" AS \"Post__Post_user_whatsapp\", \"Post__Post_user\".\"createdAt\" AS \"Post__Post_user_createdAt\", \"Post__Post_user\".\"updated_at\" AS \"Post__Post_user_updated_at\", \"Post__Post_user\".\"rol\" AS \"Post__Post_user_rol\", \"Post__Post_user\".\"status\" AS \"Post__Post_user_status\", \"Post__Post_user\".\"resetTokenVersion\" AS \"Post__Post_user_resetTokenVersion\", \"Post__Post_user\".\"warnings_count\" AS \"Post__Post_user_warnings_count\", \"Post__Post_user\".\"suspension_until\" AS \"Post__Post_user_suspension_until\", \"Post__Post_user\".\"isLoggedIn\" AS \"Post__Post_user_isLoggedIn\", \"Post__Post_user\".\"currentSessionId\" AS \"Post__Post_user_currentSessionId\", \"Post__Post_user\".\"lastLoginIP\" AS \"Post__Post_user_lastLoginIP\", \"Post__Post_user\".\"lastLoginCountry\" AS \"Post__Post_user_lastLoginCountry\", \"Post__Post_user\".\"lastLoginDate\" AS \"Post__Post_user_lastLoginDate\", \"Post__Post_user\".\"lastDeviceInfo\" AS \"Post__Post_user_lastDeviceInfo\", \"Post__Post_user\".\"acceptedTermsVersion\" AS \"Post__Post_user_acceptedTermsVersion\", \"Post__Post_user\".\"acceptedTermsAt\" AS \"Post__Post_user_acceptedTermsAt\", \"Post__Post_user\".\"acceptedPrivacyVersion\" AS \"Post__Post_user_acceptedPrivacyVersion\", \"Post__Post_user\".\"acceptedPrivacyAt\" AS \"Post__Post_user_acceptedPrivacyAt\", \"Post__Post_user\".\"deletedAt\" AS \"Post__Post_user_deletedAt\" FROM \"post\" \"Post\" LEFT JOIN \"user\" \"Post__Post_user\" ON \"Post__Post_user\".\"id\"=\"Post\".\"userId\" AND (\"Post__Post_user\".\"deletedAt\" IS NULL) WHERE ((\"Post\".\"isPaid\" = $1))) \"distinctAlias\" ORDER BY \"distinctAlias\".\"Post_createdAt\" DESC, \"Post_id\" ASC LIMIT 5",
+  "parameters": [
+    true
+  ],
+  "driverError": {
+    "length": 115,
+    "name": "error",
+    "severity": "ERROR",
+    "code": "42703",
+    "position": "559",
+    "file": "parse_relation.c",
+    "line": "3722",
+    "routine": "errorMissingColumn"
+  },
+  "length": 115,
+  "severity": "ERROR",
+  "code": "42703",
+  "position": "559",
+  "file": "parse_relation.c",
+  "line": "3722",
+  "routine": "errorMissingColumn"
+}
+2026-03-14T17:47:19.400Z - CONTROLLER ERROR: QueryFailedError: column Post.contentType does not exist
+{
+  "query": "SELECT DISTINCT \"distinctAlias\".\"Post_id\" AS \"ids_Post_id\", \"distinctAlias\".\"Post_createdAt\" FROM (SELECT \"Post\".\"id\" AS \"Post_id\", \"Post\".\"content\" AS \"Post_content\", \"Post\".\"imgpost\" AS \"Post_imgpost\", \"Post\".\"title\" AS \"Post_title\", \"Post\".\"subtitle\" AS \"Post_subtitle\", \"Post\".\"isPaid\" AS \"Post_isPaid\", \"Post\".\"createdAt\" AS \"Post_createdAt\", \"Post\".\"expiresAt\" AS \"Post_expiresAt\", \"Post\".\"statusPost\" AS \"Post_statusPost\", \"Post\".\"likesCount\" AS \"Post_likesCount\", \"Post\".\"showWhatsApp\" AS \"Post_showWhatsApp\", \"Post\".\"showLikes\" AS \"Post_showLikes\", \"Post\".\"contentType\" AS \"Post_contentType\", \"Post\".\"videoUrl\" AS \"Post_videoUrl\", \"Post\".\"videoPlatform\" AS \"Post_videoPlatform\", \"Post\".\"freePostTrackerId\" AS \"Post_freePostTrackerId\", \"Post\".\"userId\" AS \"Post_userId\", \"Post__Post_user\".\"id\" AS \"Post__Post_user_id\", \"Post__Post_user\".\"googleId\" AS \"Post__Post_user_googleId\", \"Post__Post_user\".\"name\" AS \"Post__Post_user_name\", \"Post__Post_user\".\"surname\" AS \"Post__Post_user_surname\", \"Post__Post_user\".\"email\" AS \"Post__Post_user_email\", \"Post__Post_user\".\"password\" AS \"Post__Post_user_password\", \"Post__Post_user\".\"birthday\" AS \"Post__Post_user_birthday\", \"Post__Post_user\".\"photoperfil\" AS \"Post__Post_user_photoperfil\", \"Post__Post_user\".\"whatsapp\" AS \"Post__Post_user_whatsapp\", \"Post__Post_user\".\"createdAt\" AS \"Post__Post_user_createdAt\", \"Post__Post_user\".\"updated_at\" AS \"Post__Post_user_updated_at\", \"Post__Post_user\".\"rol\" AS \"Post__Post_user_rol\", \"Post__Post_user\".\"status\" AS \"Post__Post_user_status\", \"Post__Post_user\".\"resetTokenVersion\" AS \"Post__Post_user_resetTokenVersion\", \"Post__Post_user\".\"warnings_count\" AS \"Post__Post_user_warnings_count\", \"Post__Post_user\".\"suspension_until\" AS \"Post__Post_user_suspension_until\", \"Post__Post_user\".\"isLoggedIn\" AS \"Post__Post_user_isLoggedIn\", \"Post__Post_user\".\"currentSessionId\" AS \"Post__Post_user_currentSessionId\", \"Post__Post_user\".\"lastLoginIP\" AS \"Post__Post_user_lastLoginIP\", \"Post__Post_user\".\"lastLoginCountry\" AS \"Post__Post_user_lastLoginCountry\", \"Post__Post_user\".\"lastLoginDate\" AS \"Post__Post_user_lastLoginDate\", \"Post__Post_user\".\"lastDeviceInfo\" AS \"Post__Post_user_lastDeviceInfo\", \"Post__Post_user\".\"acceptedTermsVersion\" AS \"Post__Post_user_acceptedTermsVersion\", \"Post__Post_user\".\"acceptedTermsAt\" AS \"Post__Post_user_acceptedTermsAt\", \"Post__Post_user\".\"acceptedPrivacyVersion\" AS \"Post__Post_user_acceptedPrivacyVersion\", \"Post__Post_user\".\"acceptedPrivacyAt\" AS \"Post__Post_user_acceptedPrivacyAt\", \"Post__Post_user\".\"deletedAt\" AS \"Post__Post_user_deletedAt\" FROM \"post\" \"Post\" LEFT JOIN \"user\" \"Post__Post_user\" ON \"Post__Post_user\".\"id\"=\"Post\".\"userId\" AND (\"Post__Post_user\".\"deletedAt\" IS NULL) WHERE ((\"Post\".\"isPaid\" = $1))) \"distinctAlias\" ORDER BY \"distinctAlias\".\"Post_createdAt\" DESC, \"Post_id\" ASC LIMIT 5",
+  "parameters": [
+    true
+  ],
+  "driverError": {
+    "length": 115,
+    "name": "error",
+    "severity": "ERROR",
+    "code": "42703",
+    "position": "559",
+    "file": "parse_relation.c",
+    "line": "3722",
+    "routine": "errorMissingColumn"
+  },
+  "length": 115,
+  "severity": "ERROR",
+  "code": "42703",
+  "position": "559",
+  "file": "parse_relation.c",
+  "line": "3722",
+  "routine": "errorMissingColumn"
+}
+2026-03-14T17:48:20.001Z - CONTROLLER ERROR: QueryFailedError: column Post.contentType does not exist
+{
+  "query": "SELECT DISTINCT \"distinctAlias\".\"Post_id\" AS \"ids_Post_id\", \"distinctAlias\".\"Post_createdAt\" FROM (SELECT \"Post\".\"id\" AS \"Post_id\", \"Post\".\"content\" AS \"Post_content\", \"Post\".\"imgpost\" AS \"Post_imgpost\", \"Post\".\"title\" AS \"Post_title\", \"Post\".\"subtitle\" AS \"Post_subtitle\", \"Post\".\"isPaid\" AS \"Post_isPaid\", \"Post\".\"createdAt\" AS \"Post_createdAt\", \"Post\".\"expiresAt\" AS \"Post_expiresAt\", \"Post\".\"statusPost\" AS \"Post_statusPost\", \"Post\".\"likesCount\" AS \"Post_likesCount\", \"Post\".\"showWhatsApp\" AS \"Post_showWhatsApp\", \"Post\".\"showLikes\" AS \"Post_showLikes\", \"Post\".\"contentType\" AS \"Post_contentType\", \"Post\".\"videoUrl\" AS \"Post_videoUrl\", \"Post\".\"videoPlatform\" AS \"Post_videoPlatform\", \"Post\".\"freePostTrackerId\" AS \"Post_freePostTrackerId\", \"Post\".\"userId\" AS \"Post_userId\", \"Post__Post_user\".\"id\" AS \"Post__Post_user_id\", \"Post__Post_user\".\"googleId\" AS \"Post__Post_user_googleId\", \"Post__Post_user\".\"name\" AS \"Post__Post_user_name\", \"Post__Post_user\".\"surname\" AS \"Post__Post_user_surname\", \"Post__Post_user\".\"email\" AS \"Post__Post_user_email\", \"Post__Post_user\".\"password\" AS \"Post__Post_user_password\", \"Post__Post_user\".\"birthday\" AS \"Post__Post_user_birthday\", \"Post__Post_user\".\"photoperfil\" AS \"Post__Post_user_photoperfil\", \"Post__Post_user\".\"whatsapp\" AS \"Post__Post_user_whatsapp\", \"Post__Post_user\".\"createdAt\" AS \"Post__Post_user_createdAt\", \"Post__Post_user\".\"updated_at\" AS \"Post__Post_user_updated_at\", \"Post__Post_user\".\"rol\" AS \"Post__Post_user_rol\", \"Post__Post_user\".\"status\" AS \"Post__Post_user_status\", \"Post__Post_user\".\"resetTokenVersion\" AS \"Post__Post_user_resetTokenVersion\", \"Post__Post_user\".\"warnings_count\" AS \"Post__Post_user_warnings_count\", \"Post__Post_user\".\"suspension_until\" AS \"Post__Post_user_suspension_until\", \"Post__Post_user\".\"isLoggedIn\" AS \"Post__Post_user_isLoggedIn\", \"Post__Post_user\".\"currentSessionId\" AS \"Post__Post_user_currentSessionId\", \"Post__Post_user\".\"lastLoginIP\" AS \"Post__Post_user_lastLoginIP\", \"Post__Post_user\".\"lastLoginCountry\" AS \"Post__Post_user_lastLoginCountry\", \"Post__Post_user\".\"lastLoginDate\" AS \"Post__Post_user_lastLoginDate\", \"Post__Post_user\".\"lastDeviceInfo\" AS \"Post__Post_user_lastDeviceInfo\", \"Post__Post_user\".\"acceptedTermsVersion\" AS \"Post__Post_user_acceptedTermsVersion\", \"Post__Post_user\".\"acceptedTermsAt\" AS \"Post__Post_user_acceptedTermsAt\", \"Post__Post_user\".\"acceptedPrivacyVersion\" AS \"Post__Post_user_acceptedPrivacyVersion\", \"Post__Post_user\".\"acceptedPrivacyAt\" AS \"Post__Post_user_acceptedPrivacyAt\", \"Post__Post_user\".\"deletedAt\" AS \"Post__Post_user_deletedAt\" FROM \"post\" \"Post\" LEFT JOIN \"user\" \"Post__Post_user\" ON \"Post__Post_user\".\"id\"=\"Post\".\"userId\" AND (\"Post__Post_user\".\"deletedAt\" IS NULL) WHERE ((\"Post\".\"isPaid\" = $1))) \"distinctAlias\" ORDER BY \"distinctAlias\".\"Post_createdAt\" DESC, \"Post_id\" ASC LIMIT 5",
+  "parameters": [
+    true
+  ],
+  "driverError": {
+    "length": 115,
+    "name": "error",
+    "severity": "ERROR",
+    "code": "42703",
+    "position": "559",
+    "file": "parse_relation.c",
+    "line": "3722",
+    "routine": "errorMissingColumn"
+  },
+  "length": 115,
+  "severity": "ERROR",
+  "code": "42703",
+  "position": "559",
+  "file": "parse_relation.c",
+  "line": "3722",
+  "routine": "errorMissingColumn"
+}
+2026-03-17T01:37:22.273Z - CONTROLLER ERROR: Error: Error al obtener dashboard operativo
+{}
+2026-03-17T01:37:22.282Z - CONTROLLER ERROR: QueryFailedError: Connection terminated unexpectedly
+{
+  "query": "SELECT \"Pedido\".\"id\" AS \"Pedido_id\", \"Pedido\".\"estado\" AS \"Pedido_estado\", \"Pedido\".\"metodoPago\" AS \"Pedido_metodoPago\", \"Pedido\".\"total\" AS \"Pedido_total\", \"Pedido\".\"montoVuelto\" AS \"Pedido_montoVuelto\", \"Pedido\".\"comprobantePagoUrl\" AS \"Pedido_comprobantePagoUrl\", \"Pedido\".\"comisionTotal\" AS \"Pedido_comisionTotal\", \"Pedido\".\"totalNegocio\" AS \"Pedido_totalNegocio\", \"Pedido\".\"costoEnvio\" AS \"Pedido_costoEnvio\", \"Pedido\".\"porcentaje_motorizado_aplicado\" AS \"Pedido_porcentaje_motorizado_aplicado\", \"Pedido\".\"porcentaje_app_aplicado\" AS \"Pedido_porcentaje_app_aplicado\", \"Pedido\".\"ganancia_motorizado\" AS \"Pedido_ganancia_motorizado\", \"Pedido\".\"comision_app_domicilio\" AS \"Pedido_comision_app_domicilio\", \"Pedido\".\"ganancia_app_producto\" AS \"Pedido_ganancia_app_producto\", \"Pedido\".\"total_precio_venta_publico\" AS \"Pedido_total_precio_venta_publico\", \"Pedido\".\"total_precio_app\" AS \"Pedido_total_precio_app\", \"Pedido\".\"total_comision_productos\" AS \"Pedido_total_comision_productos\", \"Pedido\".\"pago_motorizado\" AS \"Pedido_pago_motorizado\", \"Pedido\".\"comision_moto_app\" AS \"Pedido_comision_moto_app\", \"Pedido\".\"createdAt\" AS \"Pedido_createdAt\", \"Pedido\".\"updatedAt\" AS \"Pedido_updatedAt\", \"Pedido\".\"distanciaKm\" AS \"Pedido_distanciaKm\", \"Pedido\".\"latCliente\" AS \"Pedido_latCliente\", \"Pedido\".\"lngCliente\" AS \"Pedido_lngCliente\", \"Pedido\".\"direccionTexto\" AS \"Pedido_direccionTexto\", \"Pedido\".\"rondaAsignacion\" AS \"Pedido_rondaAsignacion\", \"Pedido\".\"fechaInicioRonda\" AS \"Pedido_fechaInicioRonda\", \"Pedido\".\"motorizadoEnEvaluacion\" AS \"Pedido_motorizadoEnEvaluacion\", \"Pedido\".\"asignacionBloqueada\" AS \"Pedido_asignacionBloqueada\", \"Pedido\".\"intentosEnRonda\" AS \"Pedido_intentosEnRonda\", \"Pedido\".\"noAssignedSince\" AS \"Pedido_noAssignedSince\", \"Pedido\".\"motivoCancelacion\" AS \"Pedido_motivoCancelacion\", \"Pedido\".\"transferenciaCanceladaConfirmada\" AS \"Pedido_transferenciaCanceladaConfirmada\", \"Pedido\".\"motorizadosExcluidos\" AS \"Pedido_motorizadosExcluidos\", \"Pedido\".\"pickup_code\" AS \"Pedido_pickup_code\", \"Pedido\".\"pickup_verified\" AS \"Pedido_pickup_verified\", \"Pedido\".\"delivery_code\" AS \"Pedido_delivery_code\", \"Pedido\".\"delivery_verified\" AS \"Pedido_delivery_verified\", \"Pedido\".\"arrival_time\" AS \"Pedido_arrival_time\", \"Pedido\".\"ratingNegocio\" AS \"Pedido_ratingNegocio\", \"Pedido\".\"ratingMotorizado\" AS \"Pedido_ratingMotorizado\", \"Pedido\".\"clienteId\" AS \"Pedido_clienteId\", \"Pedido\".\"negocioId\" AS \"Pedido_negocioId\", \"Pedido\".\"motorizadoId\" AS \"Pedido_motorizadoId\" FROM \"pedido\" \"Pedido\" WHERE ((\"Pedido\".\"createdAt\" BETWEEN $1 AND $2))",
+  "parameters": [
+    "2026-03-16T10:00:00.000Z",
+    "2026-03-17T09:59:59.999Z"
+  ],
+  "driverError": {}
+}
+2026-03-18T02:28:34.861Z - CONTROLLER ERROR: AggregateError
+{
+  "code": "ETIMEDOUT"
+}

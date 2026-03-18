@@ -188,6 +188,8 @@ export class NegocioService {
             statusCategoria: negocio.categoria.statusCategoria,
           },
           imagenUrl,
+          ratingPromedio: Number(negocio.ratingPromedio) || 0,
+          totalResenas: Number(negocio.totalResenas) || 0,
         };
       })
     );
@@ -292,6 +294,8 @@ export class NegocioService {
               photoperfil: userProfileUrl,
             },
             imagenUrl,
+            ratingPromedio: Number(negocio.ratingPromedio) || 0,
+            totalResenas: Number(negocio.totalResenas) || 0,
           };
         })
       );
@@ -345,6 +349,8 @@ export class NegocioService {
           numeroCuenta: negocio.numeroCuenta,
           titularCuenta: negocio.titularCuenta,
           productosCount: (negocio as any).productosCount || 0,
+          ratingPromedio: Number(negocio.ratingPromedio) || 0,
+          totalResenas: Number(negocio.totalResenas) || 0,
           imagenUrl,
           categoria: {
             id: negocio.categoria.id,

@@ -90,11 +90,14 @@ export class PedidoMotoController {
   // ======================== Entregar pedido ========================
   entregarPedido = async (req: Request, res: Response) => {
     try {
-      const { pedidoId } = req.body;
+      const { pedidoId, code } = req.body;
       const motorizadoId = req.body.sessionMotorizado?.id;
 
       if (!pedidoId) {
         return res.status(400).json({ message: "Falta el pedidoId" });
+      }
+      if (!code) {
+        return res.status(400).json({ message: "Falta el código de entrega" });
       }
       if (!motorizadoId) {
         return res.status(401).json({ message: "Motorizado no autenticado" });
@@ -102,8 +105,10 @@ export class PedidoMotoController {
 
       const pedido = await PedidoMotoService.entregarPedido(
         pedidoId,
-        motorizadoId
+        motorizadoId,
+        code
       );
+
 
       return res.status(200).json(pedido);
     } catch (error) {
@@ -139,6 +144,31 @@ export class PedidoMotoController {
     }
   };
 
+  // ======================== Marcar LLEGADA ========================
+  marcarLlegada = async (req: Request, res: Response) => {
+    try {
+      const { pedidoId } = req.body;
+      const motorizadoId = req.body.sessionMotorizado?.id;
+
+      if (!pedidoId) {
+        return res.status(400).json({ message: "Falta el pedidoId" });
+      }
+      if (!motorizadoId) {
+        return res.status(401).json({ message: "Motorizado no autenticado" });
+      }
+
+      const result = await PedidoMotoService.marcarLlegada(
+        pedidoId,
+        motorizadoId
+      );
+
+      return res.status(200).json(result);
+    } catch (error) {
+      return this.handleError(error, res);
+    }
+  };
+
+
   // ======================== Historial ========================
   obtenerHistorial = async (req: Request, res: Response) => {
     try {
@@ -149,7 +179,7 @@ export class PedidoMotoController {
         return res.status(401).json({ message: "Motorizado no autenticado" });
       }
 
-      const historial = await PedidoMotoService.obtenerHistorial(
+      const historial = await this.pedidoMotoService.obtenerHistorial(
         motorizadoId,
         fecha as string,
         page ? Number(page) : 1,
@@ -166,12 +196,18 @@ export class PedidoMotoController {
   obtenerBilletera = async (req: Request, res: Response) => {
     try {
       const motorizadoId = req.body.sessionMotorizado?.id;
+      const { fecha, page = 1, limit = 10 } = req.query;
 
       if (!motorizadoId) {
         return res.status(401).json({ message: "Motorizado no autenticado" });
       }
 
-      const billetera = await PedidoMotoService.obtenerBilletera(motorizadoId);
+      const billetera = await this.pedidoMotoService.obtenerBilletera(
+        motorizadoId,
+        fecha as string,
+        Number(page),
+        Number(limit)
+      );
 
       return res.json(billetera);
     } catch (error) {

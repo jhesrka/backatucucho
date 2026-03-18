@@ -14,6 +14,9 @@ export class GlobalSettings extends BaseEntity {
     @Column("int", { default: 30 })
     reportsRetentionDays: number; // Purga de reportes
 
+    @Column("int", { default: 60 })
+    cleanupSubscriptionContentDays: number; // Días para eliminar contenido de suscripciones vencidas
+
     // ==========================================
     // 🕒 HORARIOS Y ESTADO GLOBAL DE LA APP
     // ==========================================
@@ -76,6 +79,12 @@ export class GlobalSettings extends BaseEntity {
 
     @Column("int", { default: 4 })
     maxRondasAsignacion: number;
+
+    @Column("int", { default: 10 })
+    driver_cancel_wait_time: number;
+
+    @Column("int", { default: 10 })
+    max_wait_time_acceptance: number; // Tiempo máximo para aceptar pedidos (minutos)
 
     @UpdateDateColumn()
     updatedAt: Date;

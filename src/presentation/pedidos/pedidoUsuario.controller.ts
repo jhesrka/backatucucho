@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { CreatePedidoDTO, CustomError } from "../../domain";
+import { CreatePedidoDTO, CustomError, CalificarPedidoDTO } from "../../domain";
 import { PedidoUsuarioService } from "../services/pedidosServices/pedidoUsuario.service";
 
 export class PedidoUsuarioController {
@@ -102,4 +102,28 @@ export class PedidoUsuarioController {
       .then((result) => res.status(200).json(result))
       .catch((error) => this.handleError(error, res));
   };
+
+  notificarYaVoy = (req: Request, res: Response) => {
+    const { pedidoId, clienteId } = req.body;
+
+    if (!pedidoId || !clienteId) {
+      return res.status(400).json({ message: "Faltan datos: pedidoId o clienteId" });
+    }
+
+    this.pedidoUsuarioService
+      .notificarYaVoy(pedidoId, clienteId)
+      .then((result) => res.status(200).json(result))
+      .catch((error) => this.handleError(error, res));
+  };
+
+  calificarPedido = (req: Request, res: Response) => {
+    const [err, dto] = CalificarPedidoDTO.create(req.body);
+    if (err) return res.status(400).json({ message: err });
+
+    this.pedidoUsuarioService
+      .calificarPedido(dto!)
+      .then((result) => res.status(200).json(result))
+      .catch((error) => this.handleError(error, res));
+  };
 }
+

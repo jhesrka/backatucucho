@@ -286,6 +286,8 @@ export class ProductoService {
         tipoCuenta: negocio.tipoCuenta,
         numeroCuenta: negocio.numeroCuenta,
         titularCuenta: negocio.titularCuenta,
+        ratingPromedio: Number(negocio.ratingPromedio) || 0,
+        totalResenas: Number(negocio.totalResenas) || 0,
       },
       usuario: {
         id: negocio.usuario.id,

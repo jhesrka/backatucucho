@@ -171,8 +171,32 @@ export class Pedido extends BaseEntity {
   @Column({ type: "varchar", nullable: true })
   motivoCancelacion: string | null;
 
+  @Column({ type: "boolean", nullable: true, default: null })
+  transferenciaCanceladaConfirmada: boolean | null;
+
   @Column("simple-array", { default: "" })
   motorizadosExcluidos: string[];
+
+  @Column({ type: "varchar", nullable: true })
+  pickup_code: string | null;
+
+  @Column({ type: "boolean", default: false })
+  pickup_verified: boolean;
+
+  @Column({ type: "varchar", nullable: true })
+  delivery_code: string | null;
+
+  @Column({ type: "boolean", default: false })
+  delivery_verified: boolean;
+
+  @Column({ type: "timestamp", nullable: true })
+  arrival_time: Date | null;
+
+  @Column("decimal", { precision: 2, scale: 1, nullable: true })
+  ratingNegocio: number | null;
+
+  @Column("decimal", { precision: 2, scale: 1, nullable: true })
+  ratingMotorizado: number | null;
 
   @BeforeInsert()
   @BeforeUpdate()
@@ -186,3 +210,4 @@ export class Pedido extends BaseEntity {
     }
   }
 }
+

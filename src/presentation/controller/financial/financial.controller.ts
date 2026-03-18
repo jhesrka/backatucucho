@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { FinancialService } from '../../services/financial/financial.service';
 import { CustomError } from '../../../domain';
 import { Useradmin } from '../../../data/postgres/models/useradmin.model';
+import { DateUtils } from '../../../utils/date-utils';
 
 export class FinancialController {
     constructor(private readonly financialService: FinancialService) { }
@@ -16,18 +17,17 @@ export class FinancialController {
 
     getSummary = async (req: Request, res: Response) => {
         try {
-            const { startDate, endDate } = req.query; // Changed to query for GET requests consistency
+            const startDate = req.query.startDate || req.body.startDate;
+            const endDate = req.query.endDate || req.body.endDate;
+
             if (!startDate || !endDate) {
-                // Try body fallback if not in query
-                if (req.body.startDate && req.body.endDate) {
-                    const { startDate, endDate } = req.body;
-                    const summary = await this.financialService.getFinancialSummary(new Date(startDate), new Date(endDate));
-                    return res.json(summary);
-                }
                 throw CustomError.badRequest("Fechas requeridas");
             }
 
-            const summary = await this.financialService.getFinancialSummary(new Date(startDate as string), new Date(endDate as string));
+            const summary = await this.financialService.getFinancialSummary(
+                DateUtils.parseLocalDate(startDate as string), 
+                DateUtils.parseLocalDate(endDate as string)
+            );
             res.json(summary);
         } catch (error) {
             this.handleError(error, res);
@@ -36,9 +36,11 @@ export class FinancialController {
 
     getShopReconciliation = async (req: Request, res: Response) => {
         try {
-            const { startDate, endDate } = req.query;
-            const start = startDate ? new Date(startDate as string) : new Date();
-            const end = endDate ? new Date(endDate as string) : new Date();
+            const startDate = req.query.startDate || req.body.startDate;
+            const endDate = req.query.endDate || req.body.endDate;
+
+            const start = startDate ? DateUtils.parseLocalDate(startDate as string) : new Date();
+            const end = endDate ? DateUtils.parseLocalDate(endDate as string) : new Date();
 
             const shops = await this.financialService.getShopReconciliation(start, end);
             res.json(shops);
@@ -55,7 +57,7 @@ export class FinancialController {
 
             if (!startDate || !endDate) throw CustomError.badRequest("Start and End Date required");
 
-            const drivers = await this.financialService.getDriverReconciliation(new Date(startDate as string), new Date(endDate as string));
+            const drivers = await this.financialService.getDriverReconciliation(DateUtils.parseLocalDate(startDate as string), DateUtils.parseLocalDate(endDate as string));
             res.json(drivers);
         } catch (error) {
             this.handleError(error, res);
@@ -69,8 +71,8 @@ export class FinancialController {
             if (!fechaInicio) throw CustomError.badRequest("Fecha inicio requerida");
 
             // If fechaFin is missing, default to fechaInicio (single day)
-            const start = new Date(fechaInicio as string);
-            const end = fechaFin ? new Date(fechaFin as string) : new Date(fechaInicio as string);
+            const start = DateUtils.parseLocalDate(fechaInicio as string);
+            const end = fechaFin ? DateUtils.parseLocalDate(fechaFin as string) : DateUtils.parseLocalDate(fechaInicio as string);
 
             const result = await this.financialService.getMovimientosMotorizados(start, end);
             res.json(result);
@@ -86,7 +88,7 @@ export class FinancialController {
             const date = req.body.date || req.query.date;
 
             if (!shopId || !date) throw CustomError.badRequest("Shop ID and Date required");
-            const details = await this.financialService.getShopClosingDetails(shopId, new Date(date as string));
+            const details = await this.financialService.getShopClosingDetails(shopId, DateUtils.parseLocalDate(date as string));
             res.json(details);
         } catch (error) {
             this.handleError(error, res);
@@ -97,7 +99,7 @@ export class FinancialController {
         try {
             const { shopId, date, sessionAdmin, comprobanteUrl } = req.body;
             if (!shopId || !date) throw CustomError.badRequest("Shop ID and Date required");
-            const result = await this.financialService.closeShopDay(shopId, new Date(date), sessionAdmin as Useradmin, comprobanteUrl);
+            const result = await this.financialService.closeShopDay(shopId, DateUtils.parseLocalDate(date), sessionAdmin as Useradmin, comprobanteUrl);
             res.json(result);
         } catch (error) {
             this.handleError(error, res);
@@ -123,7 +125,7 @@ export class FinancialController {
             if (!date || !type) throw CustomError.badRequest("Date and Type are required");
 
             const result = await this.financialService.getAppRevenueDetails(
-                new Date(date as string),
+                DateUtils.parseLocalDate(date as string),
                 type as string,
                 Number(page),
                 Number(limit)
@@ -148,7 +150,7 @@ export class FinancialController {
         try {
             const { date } = req.query;
             if (!date) throw CustomError.badRequest("Date query param required");
-            const result = await this.financialService.getDayStatus(new Date(date as string));
+            const result = await this.financialService.getDayStatus(DateUtils.parseLocalDate(date as string));
             res.json(result);
         } catch (error) {
             this.handleError(error, res);
@@ -170,7 +172,7 @@ export class FinancialController {
             const { date, statementUrl, sessionAdmin } = req.body; // sessionAdmin via Auth Middleware
             if (!date || !statementUrl) throw CustomError.badRequest("Fecha y URL de archivo requeridos");
 
-            const result = await this.financialService.closeDay(new Date(date), statementUrl, sessionAdmin);
+            const result = await this.financialService.closeDay(DateUtils.parseLocalDate(date), statementUrl, sessionAdmin);
             res.json(result);
         } catch (error) {
             this.handleError(error, res);

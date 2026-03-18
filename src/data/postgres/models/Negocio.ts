@@ -123,6 +123,12 @@ export class Negocio extends BaseEntity {
   @UpdateDateColumn({ type: "timestamptz" })
   updated_at: Date;
 
+  @Column("decimal", { precision: 2, scale: 1, default: 0.0 })
+  ratingPromedio: number;
+
+  @Column("int", { default: 0 })
+  totalResenas: number;
+
   @ManyToOne(() => User, (user) => user.negocios)
   usuario: User;
 

@@ -46,6 +46,14 @@ export class PedidoMotoRoutes {
       pedidoMotoController.cancelarPedido
     );
 
+    // ===================== MARCAR LLEGADA =====================
+    router.post(
+      "/marcar-llegada",
+      AuthMotorizadoMiddleware.protect,
+      pedidoMotoController.marcarLlegada
+    );
+
+
     // ===================== HISTORIAL Y BILLETERA =====================
     router.get(
       "/historial",

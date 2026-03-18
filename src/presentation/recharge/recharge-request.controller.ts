@@ -6,6 +6,7 @@ import {
   RechargeResponseDTO,
 } from "../../domain";
 import { StatusRecarga } from "../../data";
+import { DateUtils } from "../../utils/date-utils";
 export class RechargeRequestController {
   constructor(private readonly rechargeService: RechargeRequestService) { }
 
@@ -130,8 +131,8 @@ export class RechargeRequestController {
     }
 
     try {
-      const start = new Date(startDate as string);
-      const end = new Date(endDate as string);
+      const start = DateUtils.parseLocalDate(startDate as string);
+      const end = DateUtils.parseLocalDate(endDate as string);
 
       if (isNaN(start.getTime()) || isNaN(end.getTime())) {
         return res.status(400).json({ message: "Formato de fecha inválido" });
@@ -221,8 +222,8 @@ export class RechargeRequestController {
     }
 
     try {
-      const start = new Date(startDate as string);
-      const end = new Date(endDate as string);
+      const start = DateUtils.parseLocalDate(startDate as string);
+      const end = DateUtils.parseLocalDate(endDate as string);
 
       // Validación de fechas
       if (isNaN(start.getTime()) || isNaN(end.getTime())) {
@@ -291,8 +292,8 @@ export class RechargeRequestController {
     }
 
     // Convierte a Date y valida formato
-    const start = new Date(startDate as string);
-    const end = new Date(endDate as string);
+    const start = DateUtils.parseLocalDate(startDate as string);
+    const end = DateUtils.parseLocalDate(endDate as string);
 
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
       return res.status(400).json({ message: "Formato de fecha inválido" });

@@ -23,6 +23,7 @@ export * from "./postgres/models/global-settings.model";
 export * from "./postgres/models/CommissionLog";
 export * from "./postgres/models/transactionType.model";
 
+export * from './postgres/models/wallet-movement.model';
 export * from './postgres/models/Campaign';
 export * from './postgres/models/CampaignLog';
 export * from './postgres/models/financial/FinancialClosing';

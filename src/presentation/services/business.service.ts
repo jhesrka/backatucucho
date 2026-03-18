@@ -7,6 +7,7 @@ import { CustomError, LoginUserDTO } from "../../domain";
 import { encriptAdapter, envs, JwtAdapter } from "../../config";
 import { UploadFilesCloud } from "../../config/upload-files-cloud-adapter";
 import { getIO } from "../../config/socket";
+import { PedidoExpirationService } from "./pedidosServices/pedidoExpiration.service";
 
 export class BusinessService {
     constructor() { }
@@ -66,7 +67,7 @@ export class BusinessService {
             });
         }
 
-        // Resolver imagenes de negocios
+        // Resolve imagenes de negocios
         const negociosWithImages = await Promise.all(user.negocios.map(async (n) => {
             let img = "";
             if (n.imagenNegocio) {
@@ -83,7 +84,10 @@ export class BusinessService {
                 imagenNegocio: img, // Legacy support
                 imagenUrl: img,     // New standard
                 statusNegocio: n.statusNegocio,
-                modeloMonetizacion: n.modeloMonetizacion
+                estadoNegocio: n.estadoNegocio,
+                modeloMonetizacion: n.modeloMonetizacion,
+                ratingPromedio: Number(n.ratingPromedio) || 0,
+                totalResenas: Number(n.totalResenas) || 0,
             };
         }));
 
@@ -127,7 +131,10 @@ export class BusinessService {
                 imagenNegocio: img, // Legacy support
                 imagenUrl: img,     // New standard
                 statusNegocio: n.statusNegocio,
-                modeloMonetizacion: n.modeloMonetizacion
+                estadoNegocio: n.estadoNegocio,
+                modeloMonetizacion: n.modeloMonetizacion,
+                ratingPromedio: Number(n.ratingPromedio) || 0,
+                totalResenas: Number(n.totalResenas) || 0,
             };
         }));
 
@@ -138,7 +145,7 @@ export class BusinessService {
     // 📦 GESTIÓN DE PEDIDOS (Business)
     // ==========================================
 
-    async getOrdersByBusiness(businessId: string, status?: string | string[], page: number = 1, limit: number = 10, date?: string) {
+    async getOrdersByBusiness(businessId: string, status: string | string[] = 'PREPARANDO,EN_CAMINO,ENTREGADO,CANCELADO', page: number = 1, limit: number = 15, date?: string, search?: string) {
         // Validar que el negocio exista
         const Negocio = (await import("../../data")).Negocio;
         const negocio = await Negocio.findOne({ where: { id: businessId } });
@@ -155,31 +162,45 @@ export class BusinessService {
             .leftJoinAndSelect("p.motorizado", "m")
             .where("p.negocio = :businessId", { businessId });
 
-        // Normalize status to array (handling arrays, single strings, and comma-separated strings)
-        let statusFilter: string[] = [];
-        if (status) {
-            if (Array.isArray(status)) {
-                statusFilter = status as string[];
-            } else if (typeof status === 'string') {
-                statusFilter = status.split(',');
+        // Search has PRIORITY (Global search by ID)
+        if (search && search.trim() !== "") {
+            qb.andWhere("p.id ILIKE :search", { search: `%${search}%` });
+        } else {
+            // Normalize status to array (handling arrays, single strings, and comma-separated strings)
+            let statusFilter: string[] = [];
+            if (status) {
+                if (Array.isArray(status)) {
+                    statusFilter = status as string[];
+                } else if (typeof status === 'string') {
+                    statusFilter = status.split(',');
+                }
             }
-        }
 
-        if (statusFilter.length > 0) {
-            qb.andWhere("p.estado::text IN (:...statuses)", { statuses: statusFilter });
-        }
+            if (statusFilter.length > 0) {
+                qb.andWhere("p.estado::text IN (:...statuses)", { statuses: statusFilter });
+            }
 
-        // Filter by Date (Ecuador Time UTC-5 awareness)
-        if (date) {
-            // Assuming date comes as YYYY-MM-DD
-            const start = new Date(`${date}T00:00:00-05:00`);
-            const end = new Date(`${date}T23:59:59.999-05:00`);
-            qb.andWhere("p.createdAt BETWEEN :start AND :end", { start, end });
+            // Filter by Date (Ecuador Time UTC-5 awareness)
+            if (date) {
+                const { DateUtils } = await import("../../utils/date-utils");
+                const { start, end } = DateUtils.getDayRange(date);
+                qb.andWhere("p.createdAt BETWEEN :start AND :end", { start, end });
+            }
         }
 
         qb.orderBy("p.createdAt", "DESC")
             .skip((page - 1) * limit)
             .take(limit);
+
+        // Count cancelled orders today (Ecuador Time)
+        const { DateUtils } = await import("../../utils/date-utils");
+        const { start: startToday, end: endToday } = DateUtils.getDayRange(new Date());
+        
+        const cancelledOrdersToday = await Pedido.createQueryBuilder("p")
+            .where("p.negocio = :businessId", { businessId })
+            .andWhere("p.estado = :status", { status: EstadoPedido.CANCELADO })
+            .andWhere("p.createdAt BETWEEN :start AND :end", { start: startToday, end: endToday })
+            .getCount();
 
         try {
             const [orders, total] = await qb.getManyAndCount();
@@ -189,6 +210,31 @@ export class BusinessService {
             const { envs } = await import("../../config/env");
 
             const ordersMapped = await Promise.all(orders.map(async (order) => {
+                // Self-healing
+                let changed = false;
+
+                // 🕵️ AUTO-EXPIRACIÓN LAZY (Si el cron aún no lo ha capturado)
+                if (order.estado === EstadoPedido.PENDIENTE) {
+                    const isExpired = await PedidoExpirationService.isOrderExpired(order);
+                    if (isExpired) {
+                        order.estado = EstadoPedido.CANCELADO;
+                        order.motivoCancelacion = "El tiempo para aceptar el pedido ha expirado";
+                        changed = true;
+                    }
+                }
+
+                if (order.estado === EstadoPedido.PREPARANDO_ASIGNADO && !order.pickup_code) {
+                    order.pickup_code = Math.floor(1000 + Math.random() * 9000).toString();
+                    order.pickup_verified = false;
+                    changed = true;
+                }
+                if (order.estado === EstadoPedido.EN_CAMINO && !order.delivery_code) {
+                    order.delivery_code = Math.floor(1000 + Math.random() * 9000).toString();
+                    order.delivery_verified = false;
+                    changed = true;
+                }
+                if (changed) await order.save();
+
                 if (order.comprobantePagoUrl && !order.comprobantePagoUrl.startsWith('http')) {
                     try {
                         order.comprobantePagoUrl = await UploadFilesCloud.getFile({
@@ -202,11 +248,17 @@ export class BusinessService {
                 return order;
             }));
 
+            // 💰 Añadir Resumen Financiero DIARIO (Para unificar con Finance)
+            const financialSummary = await this.getFinanceSummary(businessId, date);
+
             return {
                 orders: ordersMapped,
                 total,
                 page,
-                totalPages: Math.ceil(total / limit)
+                totalPages: Math.ceil(total / limit),
+                cancelledOrdersToday,
+                financialSummary: financialSummary.detail,
+                financialSnapshot: financialSummary.snapshot 
             };
         } catch (error) {
             console.error("❌ [ERROR] getOrdersByBusiness failed:", error);
@@ -225,6 +277,19 @@ export class BusinessService {
         });
 
         if (!order) throw CustomError.notFound("Pedido no encontrado o no pertenece a este negocio");
+        
+        // Validar si el día ya está cerrado
+        const { DateUtils } = await import("../../utils/date-utils");
+        const { start, end } = DateUtils.getDayRange(order.createdAt);
+        const { BalanceNegocio } = await import("../../data");
+        const { Between } = await import("typeorm");
+        const balance = await BalanceNegocio.findOne({
+            where: {
+                negocio: { id: businessId } as any,
+                fecha: Between(start, end) as any
+            }
+        });
+        if (balance?.isClosed) throw CustomError.badRequest("No se puede modificar un pedido de un día ya cerrado");
 
         // Reglas de negocio: 
         // 1. PENDIENTE -> ACEPTADO
@@ -235,6 +300,27 @@ export class BusinessService {
             if (order.estado !== EstadoPedido.PENDIENTE) {
                 throw CustomError.badRequest("Solo se pueden aceptar pedidos en estado PENDIENTE");
             }
+
+            // Validar expiración antes de aceptar
+            const isExpired = await PedidoExpirationService.isOrderExpired(order);
+            if (isExpired) {
+                order.estado = EstadoPedido.CANCELADO;
+                order.motivoCancelacion = "El tiempo para aceptar el pedido ha expirado";
+                await order.save();
+                
+                // Notificar al cliente via socket
+                const io = getIO();
+                if (order.cliente?.id) {
+                    io.to(order.cliente.id).emit("pedido_actualizado", {
+                        id: order.id,
+                        estado: order.estado,
+                        motivoCancelacion: order.motivoCancelacion
+                    });
+                }
+
+                throw CustomError.badRequest("El tiempo para aceptar este pedido ha expirado y ha sido cancelado automáticamente");
+            }
+
             order.estado = EstadoPedido.ACEPTADO;
         } else if (status === EstadoPedido.PREPARANDO) {
             // Permitir paso directo de PENDIENTE a PREPARANDO por compatibilidad o solo de ACEPTADO? 
@@ -262,12 +348,21 @@ export class BusinessService {
 
         await order.save();
 
-        // Disparar socket en tiempo real al cliente
-        getIO().emit("pedido_actualizado", {
+        // Disparar socket en tiempo real al cliente y negocio
+        const io = getIO();
+        const updateData = {
             pedidoId: order.id,
             estado: order.estado,
             timestamp: new Date().toISOString()
-        });
+        };
+
+        // Emitir al cliente
+        if (order.cliente?.id) {
+            io.to(order.cliente.id).emit("pedido_actualizado", updateData);
+        }
+        
+        // Emitir al negocio
+        io.to(businessId).emit("pedido_actualizado", updateData);
 
         return order;
     }
@@ -279,13 +374,12 @@ export class BusinessService {
     async getFinanceSummary(businessId: string, date?: string) {
         const { Between, FindOperator } = await import("typeorm");
         const { Pedido, MetodoPago, BalanceNegocio, EstadoBalance } = await import("../../data");
+        const { UploadFilesCloud } = await import("../../config/upload-files-cloud-adapter");
+        const { envs } = await import("../../config/env");
 
         // 1. Definir rango de fecha (Día específico)
-        const targetDate = date ? new Date(date) : new Date();
-        const startOfDay = new Date(targetDate);
-        startOfDay.setHours(0, 0, 0, 0);
-        const endOfDay = new Date(targetDate);
-        endOfDay.setHours(23, 59, 59, 999);
+        const { DateUtils } = await import("../../utils/date-utils");
+        const { start: startOfDay, end: endOfDay } = DateUtils.getDayRange(date || new Date());
 
         // 2. Buscar si ya existe un Balance Snapshot para este día
         let balanceSnapshot = await BalanceNegocio.findOne({
@@ -307,7 +401,10 @@ export class BusinessService {
             relations: ["productos", "productos.producto"]
         });
 
-        const validOrders = orders.filter(o => o.estado !== "CANCELADO");
+        // Count cancelled orders today specifically
+        const cancelledOrdersToday = orders.filter(o => o.estado === "CANCELADO").length;
+
+        const validOrders = orders.filter(o => o.estado === "ENTREGADO" || o.estado === "CANCELADO");
 
         let totalVendido = 0; // Productos
         let totalComision = 0;
@@ -330,47 +427,51 @@ export class BusinessService {
         let deudaAppNegocio = 0; // La app tiene el dinero, debe pagar al negocio.
 
         validOrders.forEach(order => {
-            const totalProd = Number(order.total) || 0; // Total productos
-            const delivery = Number(order.costoEnvio) || 0;
-            const comision = Number(order.comisionTotal) || 0;
+            const isCanceled = order.estado === "CANCELADO";
+            
+            // Usamos los mismos campos que el Historial de Pedidos (OrdersHistory.jsx)
+            // para asegurar consistencia total.
+            const costoEnvio = Number(order.costoEnvio || 0);
+            const comisionProductos = Number(order.total_comision_productos || 0);
+            const totalVentaPublico = Number(order.total_precio_venta_publico || 0); // Precio productos sin envío
+            const precioParaNegocio = Number(order.total_precio_app || 0); // Lo que el negocio se queda realmente
 
-            // "Total Pagado" = Productos + Domicilio (User says: "Total pagado ✅ Incluye productos + costo de domicilio")
-            const totalPagado = totalProd + delivery;
+            if (isCanceled) {
+                if (order.metodoPago === MetodoPago.TRANSFERENCIA) {
+                    const isSystemCancelled = order.motivoCancelacion?.includes('nunca aceptó') || order.motivoCancelacion?.includes('expirado');
+                    const isNotRejected = order.transferenciaCanceladaConfirmada !== false;
 
-            totalVendido += totalProd;
-            totalComision += comision;
-            totalDelivery += delivery;
-
-            // Lógica Global: El negocio SIEMPRE debe la comisión a la App
-            deudaNegocioApp += comision;
-
-            if (order.metodoPago === MetodoPago.EFECTIVO) {
-                totalEfectivo += totalPagado;
-
-                // Caso Efectivo:
-                // El dinero (Prod + Del) lo tiene el Motorizado/App.
-                // La App tiene el dinero de los Productos del Negocio.
-                // App debe devolver el valor de los productos al negocio.
-                deudaAppNegocio += totalProd;
-
+                    if (isSystemCancelled && isNotRejected) {
+                        // En cancelado (por sistema), el negocio tiene TODO (Venta + Envío) si el cliente pagó
+                        const totalPagadoPorCliente = totalVentaPublico + costoEnvio;
+                        totalTransferencia += totalPagadoPorCliente;
+                        deudaNegocioApp += totalPagadoPorCliente;
+                    }
+                } else {
+                    totalEfectivo += (totalVentaPublico + costoEnvio);
+                }
             } else {
-                // Caso Transferencia:
-                // El dinero (Prod + Del) entra a la cuenta del Negocio.
-                totalTransferencia += totalPagado;
+                // ENTREGADO
+                totalVendido += totalVentaPublico;
+                totalComision += comisionProductos; 
+                totalDelivery += costoEnvio;
 
-                // El Negocio tiene el dinero del Delivery (que es del Motorizado/App).
-                // Negocio debe pagar el Delivery a la App.
-                deudaNegocioApp += delivery;
+                if (order.metodoPago === MetodoPago.EFECTIVO) {
+                    totalEfectivo += (totalVentaPublico + costoEnvio);
+                    // App recaudó todo (vía motorizado). Debe devolver al local lo que le corresponde (total_precio_app).
+                    deudaAppNegocio += precioParaNegocio;
+                } else {
+                    // Transferencia: Local recaudó todo. Debe devolver a la App (Comisión Productos + Delivery).
+                    totalTransferencia += (totalVentaPublico + costoEnvio);
+                    deudaNegocioApp += (comisionProductos + costoEnvio);
+                }
             }
         });
 
         // Caso 3: Transferencia + Efectivo (Balance Neto)
-        // "Sumar lo que negocio debe a app (deudaNegocioApp) - Restar lo que app debe a negocio (deudaAppNegocio)"
         // Balance Final = deudaNegocioApp - deudaAppNegocio.
-        // Si Positivo: Negocio debe pagar a App.
-        // Si Negativo: App debe pagar a Negocio.
-        // User Example: "Balance Neto... Puede ser: El negocio debe pagar / La app debe pagar".
-
+        // Si Positivo: Negocio debe pagar a App (Debo).
+        // Si Negativo: App debe pagar a Negocio (Me deben).
         const balanceFinal = deudaNegocioApp - deudaAppNegocio;
 
         // Guardar o Actualizar Snapshot
@@ -392,8 +493,93 @@ export class BusinessService {
             await balanceSnapshot.save();
         }
 
+        const ordersMapped = await Promise.all(validOrders.map(async (o) => {
+            const isCanceled = o.estado === "CANCELADO";
+            const totalProd = Number(o.total) || 0;
+            const delivery = Number(o.costoEnvio) || 0;
+            const comision = Number(o.comisionTotal) || 0;
+            
+            let precioParaNegocio = o.total_precio_app ? Number(o.total_precio_app) : (totalProd - comision);
+            let paraLaApp = (totalProd + delivery) - precioParaNegocio;
+
+            if (isCanceled) {
+                if (o.metodoPago === MetodoPago.TRANSFERENCIA) {
+                    precioParaNegocio = 0;
+                    paraLaApp = totalProd + delivery;
+                } else {
+                    // Canceled Cash: No money exchanged via app, so 0 for both
+                    precioParaNegocio = 0;
+                    paraLaApp = 0;
+                }
+            }
+
+            let resolvedComprobante = o.comprobantePagoUrl;
+            if (resolvedComprobante && !resolvedComprobante.startsWith('http')) {
+                try {
+                    resolvedComprobante = await UploadFilesCloud.getFile({
+                        bucketName: envs.AWS_BUCKET_NAME,
+                        key: resolvedComprobante
+                    });
+                } catch (e) {
+                    console.error("Error signing receipt for business breakdown:", e);
+                }
+            }
+
+            return {
+                id: o.id,
+                totalProductos: isCanceled ? 0 : totalProd,
+                totalPagado: totalProd + delivery, // Total paid by customer, regardless of cancellation
+                metodoPago: o.metodoPago,
+                estado: o.estado,
+                isCanceled,
+                comprobanteUrl: resolvedComprobante,
+                comision: isCanceled ? 0 : totalProd - precioParaNegocio,
+                paraElLocal: precioParaNegocio,
+                paraLaApp: paraLaApp,
+                createdAt: o.createdAt
+            };
+        }));
+
+        // Resolvemos el comprobante del snapshot para el frontend SIN afectar la persistencia
+        let signedUrl = balanceSnapshot?.comprobanteUrl;
+        if (signedUrl && !signedUrl.startsWith('http')) {
+            try {
+                signedUrl = await UploadFilesCloud.getFile({
+                    bucketName: envs.AWS_BUCKET_NAME,
+                    key: signedUrl
+                });
+            } catch (e) {
+                console.error("Error signing snapshot receipt:", e);
+            }
+        } else if (signedUrl && signedUrl.includes('amazonaws.com')) {
+            // Reparación de emergencia: si se guardó una URL firmada previa, intentamos extraer la key
+            try {
+                const urlObj = new URL(signedUrl);
+                const pathParts = urlObj.pathname.split('/');
+                // El primer slash e index 0 están vacíos, el resto es el path
+                const extractedKey = pathParts.slice(1).join('/'); 
+                if (extractedKey) {
+                    signedUrl = await UploadFilesCloud.getFile({
+                        bucketName: envs.AWS_BUCKET_NAME,
+                        key: extractedKey
+                    });
+                    // Opcionalmente: arreglar la DB aquí si no está cerrado
+                    if (!balanceSnapshot?.isClosed) {
+                        balanceSnapshot!.comprobanteUrl = extractedKey;
+                        await balanceSnapshot!.save();
+                    }
+                }
+            } catch (err) {
+                console.error("Error reparando URL dañada:", err);
+            }
+        }
+
         return {
-            snapshot: balanceSnapshot, // Contains id, status, balance, etc.
+            balanceEntity: balanceSnapshot, // Entidad real para uso interno (Ej: closeDay)
+            snapshot: {
+                ...balanceSnapshot,
+                comprobanteUrl: signedUrl
+            },
             detail: {
                 totalVendido,
                 totalComision,
@@ -402,68 +588,211 @@ export class BusinessService {
                 totalTransferencia,
                 deudaNegocioApp,
                 deudaAppNegocio,
-                balanceFinal
+                balanceFinal,
+                cancelledOrdersToday
             },
-            orders: validOrders.map(o => ({
-                id: o.id,
-                totalProductos: Number(o.total),
-                totalPagado: Number(o.total) + Number(o.costoEnvio),
-                metodoPago: o.metodoPago,
-                estado: o.estado,
-                comision: Number(o.comisionTotal),
-                createdAt: o.createdAt
-            }))
+            orders: ordersMapped
         };
     }
 
 
 
-    async registerPayment(businessId: string, date: string, file: any) {
+    async registerPayment(businessId: string, date: string, file: any): Promise<any> {
         const { BalanceNegocio, EstadoBalance } = await import("../../data");
         const { Between } = await import("typeorm");
-
-        const targetDate = new Date(date);
-        const startOfDay = new Date(targetDate); startOfDay.setHours(0, 0, 0, 0);
-        const endOfDay = new Date(targetDate); endOfDay.setHours(23, 59, 59, 999);
+        const { DateUtils } = await import("../../utils/date-utils");
+        const { start: startOfDay, end: endOfDay } = DateUtils.getDayRange(date);
 
         let balanceSnapshot = await BalanceNegocio.findOne({
             where: {
-                negocio: { id: businessId },
+                negocio: { id: businessId } as any,
                 fecha: Between(startOfDay, endOfDay) as any
             }
         });
 
         if (!balanceSnapshot) {
-            throw CustomError.badRequest("No existe reporte financiero para esta fecha.");
+            // Si no existe, lo calculamos para asegurar veracidad
+            await this.getFinanceSummary(businessId, date);
+            balanceSnapshot = await BalanceNegocio.findOne({
+                where: {
+                    negocio: { id: businessId } as any,
+                    fecha: Between(startOfDay, endOfDay) as any
+                }
+            });
         }
 
-        // Subir archivo
-        let urlComprobante = "";
+        if (!balanceSnapshot) throw CustomError.badRequest("No se pudo generar el resumen financiero para esta fecha.");
+        if (balanceSnapshot.isClosed) throw CustomError.badRequest("Este día ya está cerrado y no se puede modificar.");
+
+        // Subir archivo (El frontend ya debería enviar la imagen optimizada)
         if (file) {
-            const fileKey = `comprobantes/${Date.now()}_${file.name}`;
-            urlComprobante = await UploadFilesCloud.uploadSingleFile({
+            // Adaptamos según si viene de Multer (buffer/originalname) o de express-fileupload (data/name)
+            const buffer = file.buffer || file.data;
+            const originalName = file.originalname || file.name || 'document.png';
+
+            if (!buffer) throw CustomError.badRequest("El contenido del archivo es inválido.");
+
+            const fileKey = `comprobantes_negocio/${businessId}/${Date.now()}_${originalName}`;
+            const savedKey = await UploadFilesCloud.uploadSingleFile({
                 bucketName: envs.AWS_BUCKET_NAME,
                 key: fileKey,
-                body: file.data,
-                contentType: file.mimetype
+                body: buffer,
+                contentType: file.mimetype,
+                isReceipt: true
             });
-            // Guardamos la URL prefirmada? O la KEY?
-            // El modelo espera string. Guardemos la Key para persistencia a largo plazo, 
-            // pero para mostrarla necesitamos firmarla cada vez.
-            // Por simplicidad en esta demo, guardemos la KEY.
-            // Para verla en frontend, necesitariamos un endpoint que resuelva la URL o firmarla al obtener el balance.
-            // En `loginBusiness` resolvemos las imagenes. Hagamos lo mismo en `getFinanceSummary`?
-            // Mejor: UploadFilesCloud.getFile devuelve URL firmada.
-            // Guardamos KEY en DB.
-            balanceSnapshot.comprobanteUrl = fileKey;
+            balanceSnapshot.comprobanteUrl = savedKey;
+            balanceSnapshot.estado = EstadoBalance.PAGADO;
         }
 
-        balanceSnapshot.estado = EstadoBalance.PAGADO;
-        // User request: "Una vez pagado... marca dia como liquidado"
-        balanceSnapshot.estado = EstadoBalance.LIQUIDADO;
-
         await balanceSnapshot.save();
-
         return balanceSnapshot;
     }
+
+    async closeDay(businessId: string, date: string): Promise<any> {
+        const { BalanceNegocio, Pedido, MetodoPago, EstadoPedido, EstadoBalance } = await import("../../data");
+        const { Between, IsNull } = await import("typeorm");
+        const { DateUtils } = await import("../../utils/date-utils");
+
+        // 1. Validar que no sea el día actual
+        const { start: startOfToday } = DateUtils.getDayRange(new Date());
+        const { start: startOfClosingDay, end: endOfClosingDay } = DateUtils.getDayRange(date);
+
+        if (startOfClosingDay.getTime() === startOfToday.getTime()) {
+            throw CustomError.badRequest("No puedes cerrar el día actual");
+        }
+
+        // 2. Recalcular todo (por seguridad)
+        const summary = await this.getFinanceSummary(businessId, date);
+        const balanceSnapshot = summary.balanceEntity!; // USAMOS LA ENTIDAD REAL
+
+        if (balanceSnapshot.isClosed) {
+            throw CustomError.badRequest("Este día ya está cerrado");
+        }
+
+        // 3. Validar transferencias canceladas (sin confirmar/rechazar)
+        const pendingTransfers = await Pedido.find({
+            where: {
+                negocio: { id: businessId },
+                estado: EstadoPedido.CANCELADO,
+                metodoPago: MetodoPago.TRANSFERENCIA,
+                transferenciaCanceladaConfirmada: IsNull(),
+                createdAt: Between(startOfClosingDay, endOfClosingDay)
+            }
+        });
+
+        if (pendingTransfers.length > 0) {
+            throw CustomError.badRequest("Tienes transferencias canceladas pendientes de validar");
+        }
+
+        // 4. Validar comprobante si balanceFinal > 0 (Negocio DEBE pagar a la app)
+        if (balanceSnapshot.balanceFinal > 0 && !balanceSnapshot.comprobanteUrl) {
+            throw CustomError.badRequest("Debes subir el comprobante de pago");
+        }
+
+        // 5. Cerrar el día
+        balanceSnapshot.isClosed = true;
+        balanceSnapshot.estado = EstadoBalance.LIQUIDADO;
+        await balanceSnapshot.save();
+
+        return {
+            message: "Cierre realizado correctamente",
+            snapshot: balanceSnapshot
+        };
+    }
+
+    async verifyPickupCode(businessId: string, orderId: string, code: string) {
+        const Pedido = (await import("../../data")).Pedido;
+        const order = await Pedido.findOne({
+            where: { id: orderId, negocio: { id: businessId } },
+            relations: ["motorizado"]
+        });
+
+        if (!order) throw CustomError.notFound("Pedido no encontrado o no pertenece a este negocio");
+
+        if (order.pickup_code !== code) {
+            throw CustomError.badRequest("Código incorrecto. Intente nuevamente.");
+        }
+
+        order.pickup_verified = true;
+        await order.save();
+
+        // Disparar socket
+        getIO().emit("pedido_actualizado", {
+            pedidoId: order.id,
+            estado: order.estado,
+            pickup_verified: order.pickup_verified,
+            timestamp: new Date().toISOString()
+        });
+
+        return { message: "Código validado correctamente", pickup_verified: true };
+    }
+
+    async confirmTransferCancellation(businessId: string, orderId: string, confirmed: boolean) {
+        const Pedido = (await import("../../data")).Pedido;
+        const order = await Pedido.findOne({
+            where: { id: orderId, negocio: { id: businessId } }
+        });
+
+        if (!order) throw CustomError.notFound("Pedido no encontrado");
+
+        // Validar si el día ya está cerrado
+        const { DateUtils } = await import("../../utils/date-utils");
+        const { start, end } = DateUtils.getDayRange(order.createdAt);
+        const { BalanceNegocio } = await import("../../data");
+        const { Between } = await import("typeorm");
+        const balance = await BalanceNegocio.findOne({
+            where: {
+                negocio: { id: businessId } as any,
+                fecha: Between(start, end) as any
+            }
+        });
+        if (balance?.isClosed) throw CustomError.badRequest("No se puede modificar un pedido de un día ya cerrado");
+
+        order.transferenciaCanceladaConfirmada = confirmed;
+        await order.save();
+
+        return order;
+    }
+
+    async getUnclosedDays(businessId: string): Promise<string[]> {
+        const { Pedido, BalanceNegocio } = await import("../../data");
+        const { In, LessThan } = await import("typeorm");
+        const { DateUtils } = await import("../../utils/date-utils");
+
+        const today = new Date();
+        const { start: startOfToday } = DateUtils.getDayRange(today);
+
+        // 1. Obtener todos los pedidos del negocio antes de hoy
+        const orders = await Pedido.find({
+            where: {
+                negocio: { id: businessId } as any,
+                createdAt: LessThan(startOfToday)
+            },
+            select: ["createdAt"]
+        });
+
+        if (orders.length === 0) return [];
+
+        // 2. Extraer fechas únicas (YYYY-MM-DD) y ordenar descendente
+        const uniqueDates = Array.from(new Set(
+            orders.map(o => DateUtils.toLocalDateString(o.createdAt))
+        )).sort((a, b) => b.localeCompare(a));
+
+        // 3. Buscar balances ya cerrados para ese negocio en esas fechas
+        const closedBalances = await BalanceNegocio.find({
+            where: {
+                negocio: { id: businessId } as any,
+                isClosed: true,
+                fecha: In(uniqueDates)
+            },
+            select: ["fecha"]
+        });
+
+        const closedDatesSet = new Set(closedBalances.map(b => b.fecha));
+
+        // 4. Filtrar los días que tienen pedidos pero no tienen cierre registrado
+        return uniqueDates.filter(d => !closedDatesSet.has(d));
+    }
 }
+
+

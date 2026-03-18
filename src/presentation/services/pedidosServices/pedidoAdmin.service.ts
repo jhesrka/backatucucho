@@ -14,7 +14,7 @@ import {
   CustomError,
   UpdateEstadoPedidoDTO,
 } from "../../../domain";
-import { Between, ILike, LessThan } from "typeorm";
+import { Between, ILike, LessThan, Raw } from "typeorm";
 import { PedidoMotoService } from "./pedidoMoto.service";
 
 export class PedidoAdminService {
@@ -41,18 +41,19 @@ export class PedidoAdminService {
     offset?: number;
   }) {
     const where: any = {};
+    const hasSearch = !!search && search.trim().length > 0;
 
-    if (estado) where.estado = estado;
-    if (negocioId) where.negocio = { id: negocioId };
-    if (motorizadoId) where.motorizado = { id: motorizadoId };
-    if (clienteId) where.cliente = { id: clienteId };
-    if (desde && hasta) where.createdAt = Between(desde, hasta);
-
-    // Search logic for UUID or short ID
-    if (search) {
-      where.id = ILike(`%${search}%`);
+    if (hasSearch) {
+      // Si hay búsqueda por ID, ignoramos el resto de filtros según requerimiento
+      // Usamos Raw para castear el UUID a TEXT y permitir búsqueda ILIKE sin errores de Postgres
+      where.id = Raw((alias) => `CAST(${alias} AS TEXT) ILIKE :search`, { search: `%${search}%` });
+    } else {
+      if (estado) where.estado = estado;
+      if (negocioId) where.negocio = { id: negocioId };
+      if (motorizadoId) where.motorizado = { id: motorizadoId };
+      if (clienteId) where.cliente = { id: clienteId };
+      if (desde && hasta) where.createdAt = Between(desde, hasta);
     }
-
     const [pedidos, total] = await Pedido.findAndCount({
       where,
       take: limit,
@@ -81,13 +82,33 @@ export class PedidoAdminService {
     if (!pedido) throw CustomError.notFound("Pedido no encontrado");
 
     pedido.estado = dto.nuevoEstado;
+
+    // Generar códigos si faltan al cambiar de estado manualmente
+    if (pedido.estado === EstadoPedido.PREPARANDO_ASIGNADO && !pedido.pickup_code) {
+      pedido.pickup_code = Math.floor(1000 + Math.random() * 9000).toString();
+      pedido.pickup_verified = false;
+    }
+    if (pedido.estado === EstadoPedido.EN_CAMINO && !pedido.delivery_code) {
+      pedido.delivery_code = Math.floor(1000 + Math.random() * 9000).toString();
+      pedido.delivery_verified = false;
+    }
+
     await pedido.save();
 
-    getIO().emit("pedido_actualizado", {
+    const pRel = await Pedido.findOne({ where: { id: pedido.id }, relations: ["cliente", "negocio"] });
+    
+    const io = getIO();
+    const updateData = {
       pedidoId: pedido.id,
       estado: pedido.estado,
       timestamp: new Date().toISOString(),
-    });
+    };
+
+    if (pRel) {
+        io.to(pRel.cliente.id).emit("pedido_actualizado", updateData);
+        io.to(pRel.negocio.id).emit("pedido_actualizado", updateData);
+    }
+    io.emit("pedido_actualizado", updateData);
 
     return pedido;
   }
@@ -144,6 +165,8 @@ export class PedidoAdminService {
 
       if (pedido.estado === EstadoPedido.PREPARANDO || pedido.estado === EstadoPedido.PREPARANDO_NO_ASIGNADO) {
         pedido.estado = EstadoPedido.PREPARANDO_ASIGNADO;
+        pedido.pickup_code = Math.floor(1000 + Math.random() * 9000).toString();
+        pedido.pickup_verified = false;
       }
 
       // Limpiar campos de ronda para que el algoritmo automático no lo toque más
@@ -156,12 +179,27 @@ export class PedidoAdminService {
       await manager.save(motorizado);
 
       // Notificar a las partes
-      getIO().emit("pedido_actualizado", {
+      const io = getIO();
+      const updateData = {
         pedidoId: pedido.id,
         estado: pedido.estado,
         motorizadoId: motorizado.id,
         timestamp: new Date().toISOString(),
+      };
+
+      // Tenemos relaciones en el pedido (cargadas vía manager si fuera necesario, 
+      // pero aquí el pedido viene del transaction)
+      // Necesitamos cargar relaciones para las salas
+      const pRel = await manager.findOne(Pedido, { 
+        where: { id: pedido.id }, 
+        relations: ["cliente", "negocio"] 
       });
+
+      if (pRel) {
+        io.to(pRel.cliente.id).emit("pedido_actualizado", updateData);
+        io.to(pRel.negocio.id).emit("pedido_actualizado", updateData);
+      }
+      io.emit("pedido_actualizado", updateData);
 
       // Notificar específicamente al motorizado
       getIO().to(motorizado.id).emit("nueva_asignacion_manual", {
@@ -241,11 +279,20 @@ export class PedidoAdminService {
     pedido.estado = nuevoEstado;
     await pedido.save();
 
-    getIO().emit("pedido_actualizado", {
+    const pRel = await Pedido.findOne({ where: { id: pedido.id }, relations: ["cliente", "negocio"] });
+
+    const io = getIO();
+    const updateData = {
       pedidoId: pedido.id,
       estado: pedido.estado,
       timestamp: new Date().toISOString(),
-    });
+    };
+
+    if (pRel) {
+      io.to(pRel.cliente.id).emit("pedido_actualizado", updateData);
+      io.to(pRel.negocio.id).emit("pedido_actualizado", updateData);
+    }
+    io.emit("pedido_actualizado", updateData);
 
     return pedido;
   }

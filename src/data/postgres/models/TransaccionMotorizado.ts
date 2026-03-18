@@ -5,6 +5,7 @@ import {
     BaseEntity,
     ManyToOne,
     CreateDateColumn,
+    UpdateDateColumn,
 } from "typeorm";
 import type { UserMotorizado } from "./UserMotorizado";
 import type { Pedido } from "./Pedido";
@@ -19,6 +20,7 @@ export enum EstadoTransaccion {
     COMPLETADA = "COMPLETADA",
     PENDIENTE = "PENDIENTE",
     RECHAZADA = "RECHAZADA",
+    CANCELADA = "CANCELADA",
 }
 
 @Entity()
@@ -44,6 +46,9 @@ export class TransaccionMotorizado extends BaseEntity {
     @CreateDateColumn()
     createdAt: Date;
 
+    @UpdateDateColumn({ name: 'updated_at' })
+    updatedAt: Date;
+
     @Column({ type: "enum", enum: EstadoTransaccion, default: EstadoTransaccion.COMPLETADA })
     estado: EstadoTransaccion;
 
@@ -57,4 +62,7 @@ export class TransaccionMotorizado extends BaseEntity {
     // Almacenar detalles extra (ej: banco al momento del retiro)
     @Column("text", { nullable: true })
     detalles: string | null;
+
+    @Column("boolean", { default: false })
+    reintegrado: boolean;
 }

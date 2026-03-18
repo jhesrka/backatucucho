@@ -20,8 +20,8 @@ export class MotorizadoController {
   };
 
   getAllGlobalWithdrawals = (req: Request, res: Response) => {
-    const { status } = req.query;
-    this.motorizadoService.getAllGlobalWithdrawals(status as string)
+    const { status, date } = req.query;
+    this.motorizadoService.getAllGlobalWithdrawals(status as string, date as string)
       .then(data => res.json(data))
       .catch(error => this.handleError(error, res));
   };
@@ -381,5 +381,18 @@ export class MotorizadoController {
     } catch (err) {
       this.handleError(err, res);
     }
+  };
+
+  // ✅ Estadísticas de retiros hoy (Admin)
+  getWithdrawalStats = async (req: Request, res: Response) => {
+    this.motorizadoService.getWithdrawalStatsToday()
+      .then(data => res.json(data))
+      .catch(error => this.handleError(error, res));
+  };
+
+  getWalletControlData = (req: Request, res: Response) => {
+    this.motorizadoService.getWalletControlData()
+      .then(data => res.json(data))
+      .catch(error => this.handleError(error, res));
   };
 }

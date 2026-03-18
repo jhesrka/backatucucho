@@ -114,6 +114,12 @@ export class UserMotorizado extends BaseEntity {
   @CreateDateColumn({ type: "timestamp" })
   createdAt: Date;
 
+  @Column("decimal", { precision: 2, scale: 1, default: 0.0 })
+  ratingPromedio: number;
+
+  @Column("int", { default: 0 })
+  totalResenas: number;
+
   @Column("int", { default: 0 })
   resetTokenVersion: number;
 

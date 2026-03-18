@@ -8,14 +8,20 @@ import {
   TipoTransaccion,
   EstadoTransaccion,
   GlobalSettings,
+  PriceSettings,
+  WalletMovement,
+  WalletMovementType,
+  WalletMovementStatus,
 } from "../../../data";
+import moment from "moment-timezone";
 
 import { getIO } from "../../../config/socket";
 import { CustomError } from "../../../domain";
-import { IsNull, Brackets } from "typeorm";
+import { IsNull, Brackets, Between } from "typeorm";
 
 export class PedidoMotoService {
   private static settings: GlobalSettings | null = null;
+  private static priceSettings: PriceSettings | null = null;
 
   private static async getSettings(): Promise<GlobalSettings> {
     if (this.settings) return this.settings;
@@ -25,6 +31,17 @@ export class PedidoMotoService {
       await s.save();
     }
     this.settings = s;
+    return s;
+  }
+
+  private static async getPriceSettings(): Promise<PriceSettings> {
+    if (this.priceSettings) return this.priceSettings;
+    let s = await PriceSettings.findOne({ where: {} });
+    if (!s) {
+      s = new PriceSettings();
+      await s.save();
+    }
+    this.priceSettings = s;
     return s;
   }
 
@@ -192,6 +209,8 @@ export class PedidoMotoService {
   // 🟡 PROCESAR PEDIDO → ASIGNAR A SIGUIENTE MOTORIZADO ELEGIBLE
   // ============================================================
   private static async procesarPedido(pedidoId: string) {
+    let notifyData: any = null;
+
     await Pedido.getRepository().manager.transaction(async (manager) => {
       // 1. Bloqueamos la fila del pedido de forma limpia (sin relaciones para evitar error de Postgres con LEFT JOIN)
       const pedido = await manager.findOne(Pedido, {
@@ -210,11 +229,7 @@ export class PedidoMotoService {
 
       const disponibles = await this.obtenerMotorizadosElegibles(pedido.motorizadosExcluidos);
 
-      if (!disponibles.length) {
-        // No hay motorizados. Si el pedido lleva mucho tiempo sin asignarse, el admin ya lo verá en su tablero operativo.
-        // Podríamos disparar un evento aquí para alertas críticas si fuera necesario.
-        return;
-      }
+      if (!disponibles.length) return;
 
       const moto = disponibles[0];
 
@@ -229,27 +244,44 @@ export class PedidoMotoService {
       moto.estadoTrabajo = EstadoTrabajoMotorizado.EN_EVALUACION;
       await manager.save(moto);
 
+      // Liberar lock lógico
+      pedido.asignacionBloqueada = false;
+      await manager.save(pedido);
+
+      // Preparar datos para notificar fuera de la transacción
       const timeout = await this.getTimeout();
-      getIO()
-        .to(moto.id)
-        .emit("pedido_para_ti", {
+      notifyData = {
+        motoId: moto.id,
+        pedidoParaTi: {
           pedidoId: pedido.id,
           negocioId: pedidoRelaciones?.negocio?.id || null,
           total: pedido.total,
           expiresAt: Date.now() + timeout,
           duration: timeout,
-        });
-
-      getIO().emit("pedido_actualizado", {
-        pedidoId: pedido.id,
-        estado: pedido.estado,
-        motorizadoEnEvaluacion: pedido.motorizadoEnEvaluacion,
-      });
-
-      // Liberar lock lógico
-      pedido.asignacionBloqueada = false;
-      await manager.save(pedido);
+        },
+        updateData: {
+          pedidoId: pedido.id,
+          estado: pedido.estado,
+          motorizadoEnEvaluacion: pedido.motorizadoEnEvaluacion,
+        },
+        clienteId: pedidoRelaciones?.cliente.id,
+        negocioId: pedidoRelaciones?.negocio.id
+      };
     });
+
+    // 🚀 NOTIFICAR FUERA DE LA TRANSACCIÓN
+    if (notifyData) {
+      const io = getIO();
+      
+      // Notificar al motorizado
+      io.to(notifyData.motoId).emit("pedido_para_ti", notifyData.pedidoParaTi);
+
+      // Notificar actualizaciones
+      if (notifyData.clienteId) io.to(notifyData.clienteId).emit("pedido_actualizado", notifyData.updateData);
+      if (notifyData.negocioId) io.to(notifyData.negocioId).emit("pedido_actualizado", notifyData.updateData);
+      
+      io.emit("pedido_actualizado", notifyData.updateData);
+    }
   }
 
   // ============================================================
@@ -286,10 +318,19 @@ export class PedidoMotoService {
     this.limpiarCamposRonda(pedido);
     await pedido.save();
 
-    getIO().emit("pedido_actualizado", {
+    const pRel = await Pedido.findOne({ where: { id: pedido.id }, relations: ["cliente", "negocio"] });
+    
+    const io = getIO();
+    const updateData = {
       pedidoId: pedido.id,
       estado: pedido.estado,
-    });
+    };
+
+    if (pRel) {
+        io.to(pRel.cliente.id).emit("pedido_actualizado", updateData);
+        io.to(pRel.negocio.id).emit("pedido_actualizado", updateData);
+    }
+    io.emit("pedido_actualizado", updateData);
 
     return true;
   }
@@ -298,7 +339,7 @@ export class PedidoMotoService {
   // 🟢 ACEPTAR PEDIDO
   // ============================================================
   static async aceptarPedido(pedidoId: string, motorizadoId: string) {
-    const pedido = await this.obtenerPedidoOrFail(pedidoId, ["motorizado"]);
+    const pedido = await this.obtenerPedidoOrFail(pedidoId, ["motorizado", "cliente", "negocio"]);
 
     if (pedido.motorizadoEnEvaluacion !== motorizadoId) {
       throw CustomError.badRequest("No puedes aceptar este pedido");
@@ -312,17 +353,25 @@ export class PedidoMotoService {
 
     pedido.estado = EstadoPedido.PREPARANDO_ASIGNADO;
     pedido.motorizado = moto;
+    pedido.pickup_code = Math.floor(1000 + Math.random() * 9000).toString();
+    pedido.pickup_verified = false;
     this.limpiarCamposRonda(pedido);
     await pedido.save();
 
     moto.estadoTrabajo = EstadoTrabajoMotorizado.ENTREGANDO;
     await moto.save();
 
-    getIO().emit("pedido_actualizado", {
+    const io = getIO();
+    const updateData = {
       pedidoId,
       estado: pedido.estado,
       motorizadoId,
-    });
+      pickup_code: pedido.pickup_code,
+    };
+
+    io.to(pedido.cliente.id).emit("pedido_actualizado", updateData);
+    io.to(pedido.negocio.id).emit("pedido_actualizado", updateData);
+    io.emit("pedido_actualizado", updateData); // BROADCAST for counts
 
     return pedido;
   }
@@ -381,40 +430,70 @@ export class PedidoMotoService {
   }
 
   static async marcarEnCamino(pedidoId: string, motorizadoId: string) {
-    const pedido = await this.obtenerPedidoOrFail(pedidoId, ["motorizado"]);
+    const pedido = await this.obtenerPedidoOrFail(pedidoId, ["motorizado", "cliente", "negocio"]);
 
     if (!pedido.motorizado || pedido.motorizado.id !== motorizadoId) {
       throw CustomError.badRequest("No autorizado");
     }
 
+    if (!pedido.pickup_verified) {
+      throw CustomError.badRequest("No puedes marcar en camino sin antes validar el código con el restaurante");
+    }
+
     pedido.estado = EstadoPedido.EN_CAMINO;
+    pedido.delivery_code = Math.floor(1000 + Math.random() * 9000).toString();
+    pedido.delivery_verified = false;
     await pedido.save();
 
-    getIO().emit("pedido_actualizado", {
+    const io = getIO();
+    const updateData = {
       pedidoId,
       estado: pedido.estado,
-    });
+      delivery_code: pedido.delivery_code,
+    };
+
+    io.to(pedido.cliente.id).emit("pedido_actualizado", updateData);
+    io.to(pedido.negocio.id).emit("pedido_actualizado", updateData);
 
     return pedido;
   }
 
-  static async entregarPedido(pedidoId: string, motorizadoId: string) {
-    const pedido = await this.obtenerPedidoOrFail(pedidoId, ["motorizado"]);
+  static async entregarPedido(pedidoId: string, motorizadoId: string, code: string) {
+    const pedido = await this.obtenerPedidoOrFail(pedidoId, ["motorizado", "cliente", "negocio"]);
     const moto = await this.obtenerMotorizadoOrFail(motorizadoId);
 
     if (!pedido.motorizado || pedido.motorizado.id !== motorizadoId) {
       throw CustomError.badRequest("No autorizado");
     }
 
+    if (pedido.delivery_code !== code) {
+      throw CustomError.badRequest("El código de entrega es incorrecto");
+    }
+
     pedido.estado = EstadoPedido.ENTREGADO;
+    pedido.delivery_verified = true;
     await pedido.save();
 
-    const gananciaMoto = Number(pedido.ganancia_motorizado || (pedido.costoEnvio * 0.8).toFixed(2));
+    const ps = await this.getPriceSettings();
+    const porcentaje = Number(ps.motorizadoPercentage || 80);
+
+    const gananciaMoto = Number(pedido.ganancia_motorizado || (pedido.costoEnvio * (porcentaje / 100)).toFixed(2));
     const saldoAnterior = Number(moto.saldo);
     const saldoNuevo = saldoAnterior + gananciaMoto;
 
     moto.saldo = saldoNuevo;
 
+    const movement = new WalletMovement();
+    movement.motorizado = moto;
+    movement.pedido = pedido;
+    movement.type = WalletMovementType.GANANCIA_ENVIO;
+    movement.amount = gananciaMoto;
+    movement.balanceAfter = saldoNuevo;
+    movement.description = `Ganancia envío #${pedido.id.slice(0, 8)}`;
+    movement.status = WalletMovementStatus.COMPLETADO;
+    await movement.save();
+
+    // Mantener TransaccionMotorizado por compatibilidad con panel admin actual si es necesario
     const tx = new TransaccionMotorizado();
     tx.motorizado = moto;
     tx.pedido = pedido;
@@ -429,10 +508,14 @@ export class PedidoMotoService {
     await moto.save();
     await this.normalizarEstadoLibreMotorizado(moto);
 
-    getIO().emit("pedido_actualizado", {
+    const io = getIO();
+    const updateData = {
       pedidoId,
       estado: pedido.estado,
-    });
+    };
+
+    io.to(pedido.cliente.id).emit("pedido_actualizado", updateData);
+    io.to(pedido.negocio.id).emit("pedido_actualizado", updateData);
 
     return pedido;
   }
@@ -470,12 +553,35 @@ export class PedidoMotoService {
     };
   }
 
+  static async marcarLlegada(pedidoId: string, motorizadoId: string) {
+    const pedido = await this.obtenerPedidoOrFail(pedidoId, ["motorizado", "cliente"]);
+
+    if (!pedido.motorizado || pedido.motorizado.id !== motorizadoId) {
+      throw CustomError.badRequest("No autorizado");
+    }
+
+    if (pedido.estado !== EstadoPedido.EN_CAMINO) {
+      throw CustomError.badRequest("Solo puedes marcar llegada cuando estás en camino");
+    }
+
+    pedido.arrival_time = new Date();
+    await pedido.save();
+
+    // Notificar al cliente (PWA)
+    getIO().to(pedido.cliente.id).emit("tu_pedido_llego", {
+      pedidoId: pedido.id,
+      mensaje: "El motorizado está afuera",
+    });
+
+    return { arrival_time: pedido.arrival_time };
+  }
+
   static async cancelarPedido(
     pedidoId: string,
     motorizadoId: string,
     motivo: string
   ) {
-    const pedido = await this.obtenerPedidoOrFail(pedidoId, ["motorizado"]);
+    const pedido = await this.obtenerPedidoOrFail(pedidoId, ["motorizado", "cliente", "negocio"]);
     const moto = await this.obtenerMotorizadoOrFail(motorizadoId);
 
     if (!pedido.motorizado || pedido.motorizado.id !== motorizadoId) {
@@ -484,6 +590,18 @@ export class PedidoMotoService {
 
     if (pedido.estado !== EstadoPedido.EN_CAMINO) {
       throw CustomError.badRequest("Solo puedes cancelar pedidos cuando ya estás en camino.");
+    }
+
+    // Bloqueo del botón cancelar si ya marcó llegada
+    if (pedido.arrival_time) {
+      const settings = await this.getSettings();
+      const waitTimeMinutes = settings.driver_cancel_wait_time || 10;
+      const now = new Date();
+      const diffMinutes = (now.getTime() - pedido.arrival_time.getTime()) / (1000 * 60);
+
+      if (diffMinutes < waitTimeMinutes) {
+        throw CustomError.badRequest(`Debes esperar el tiempo mínimo (${waitTimeMinutes} min) antes de cancelar`);
+      }
     }
 
     pedido.estado = EstadoPedido.CANCELADO;
@@ -495,16 +613,22 @@ export class PedidoMotoService {
 
     await this.normalizarEstadoLibreMotorizado(moto);
 
-    getIO().emit("pedido_actualizado", {
+    const io = getIO();
+    const updateData = {
       pedidoId,
       estado: pedido.estado,
-    });
+    };
+
+    io.to(pedido.cliente.id).emit("pedido_actualizado", updateData);
+    io.to(pedido.negocio.id).emit("pedido_actualizado", updateData);
+    io.emit("pedido_actualizado", updateData); // Sync for dashboard counts
 
     return pedido;
   }
 
+
   static async obtenerPedidoActivo(motorizadoId: string) {
-    return Pedido.findOne({
+    const pedido = await Pedido.findOne({
       where: [
         {
           motorizado: { id: motorizadoId },
@@ -517,6 +641,21 @@ export class PedidoMotoService {
       ],
       relations: ["negocio", "negocio.usuario", "cliente", "productos", "motorizado"],
     });
+
+    // Autogenerar código si falta (Self-healing)
+    if (pedido) {
+      if (pedido.estado === EstadoPedido.PREPARANDO_ASIGNADO && !pedido.pickup_code) {
+        pedido.pickup_code = Math.floor(1000 + Math.random() * 9000).toString();
+        pedido.pickup_verified = false;
+        await pedido.save();
+      } else if (pedido.estado === EstadoPedido.EN_CAMINO && !pedido.delivery_code) {
+        pedido.delivery_code = Math.floor(1000 + Math.random() * 9000).toString();
+        pedido.delivery_verified = false;
+        await pedido.save();
+      }
+    }
+
+    return pedido;
   }
 
   static async obtenerEstadoMotorizado(motorizadoId: string) {
@@ -526,10 +665,12 @@ export class PedidoMotoService {
     return {
       quiereTrabajar: moto.quiereTrabajar,
       estadoTrabajo: moto.estadoTrabajo,
+      ratingPromedio: Number(moto.ratingPromedio) || 0,
+      totalResenas: Number(moto.totalResenas) || 0,
     };
   }
 
-  static async obtenerHistorial(
+  async obtenerHistorial(
     motorizadoId: string,
     fecha?: string,
     page: number = 1,
@@ -590,43 +731,62 @@ export class PedidoMotoService {
     };
   }
 
-  static async obtenerBilletera(motorizadoId: string) {
+  async obtenerBilletera(motorizadoId: string, fecha?: string, page: number = 1, limit: number = 10) {
     const moto = await UserMotorizado.findOneBy({ id: motorizadoId });
     if (!moto) throw CustomError.notFound("Motorizado no encontrado");
 
-    const transacciones = await TransaccionMotorizado.find({
-      where: { motorizado: { id: motorizadoId } },
-      relations: ["pedido", "pedido.cliente"],
-      order: { createdAt: "DESC" },
-      take: 50,
-    });
+    // 1. FILTRO DE MOVIMIENTOS POR FECHA (Paginado)
+    // Usamos el día especificado o hoy por defecto
+    let queryDate: Date;
+    if (fecha) {
+      // Formato esperado: YYYY-MM-DD
+      const [year, month, day] = fecha.split('-').map(Number);
+      queryDate = new Date(year, month - 1, day);
+    } else {
+      queryDate = new Date();
+    }
 
-    const totalIngresos = await TransaccionMotorizado.sum("monto", {
-      motorizado: { id: motorizadoId },
-      tipo: TipoTransaccion.GANANCIA_ENVIO
-    });
-    const earnings = Number(totalIngresos || 0);
+    const startOfDay = new Date(queryDate.getFullYear(), queryDate.getMonth(), queryDate.getDate(), 0, 0, 0);
+    const endOfDay = new Date(queryDate.getFullYear(), queryDate.getMonth(), queryDate.getDate(), 23, 59, 59, 999);
 
-    const deliveredOrders = await TransaccionMotorizado.count({
+    const skip = (page - 1) * limit;
+
+    const [movements, totalMovements] = await WalletMovement.findAndCount({
       where: {
         motorizado: { id: motorizadoId },
-        tipo: TipoTransaccion.GANANCIA_ENVIO
+        createdAt: Between(startOfDay, endOfDay)
+      },
+      relations: ["pedido", "admin"],
+      order: { createdAt: "DESC" },
+      skip,
+      take: limit,
+    });
+
+    // 2. ENTREGAS TOTALES (HISTÓRICO)
+    const totalEntregas = await Pedido.count({
+      where: {
+        motorizado: { id: motorizadoId },
+        estado: EstadoPedido.ENTREGADO
       }
     });
 
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
+    // 3 & 4. PEDIDOS HOY E INGRESOS HOY
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    const monthlyEarnings = await TransaccionMotorizado.createQueryBuilder("t")
-      .where("t.motorizadoId = :id", { id: motorizadoId })
-      .andWhere("t.tipo = :tipo", { tipo: TipoTransaccion.GANANCIA_ENVIO })
-      .andWhere("t.createdAt >= :start", { start: startOfMonth })
-      .select("SUM(t.monto)", "total")
+    const statsHoy = await Pedido.createQueryBuilder("p")
+      .where("p.motorizadoId = :id", { id: motorizadoId })
+      .andWhere("p.estado = :estado", { estado: EstadoPedido.ENTREGADO })
+      .andWhere("p.updatedAt >= :today", { today: startOfToday })
+      .select("COUNT(p.id)", "count")
+      .addSelect("SUM(p.ganancia_motorizado)", "total")
       .getRawOne();
+
+    const ps = await PedidoMotoService.getPriceSettings();
 
     return {
       saldo: moto.saldo,
+      porcentajeMotorizado: ps.motorizadoPercentage || 80,
       datosBancarios: {
         banco: moto.bancoNombre,
         tipo: moto.bancoTipoCuenta,
@@ -634,12 +794,14 @@ export class PedidoMotoService {
         titular: moto.bancoTitular,
         identificacion: moto.bancoIdentificacion,
       },
-      transacciones,
+      movements,
+      totalMovements,
+      currentPage: page,
+      totalPages: Math.ceil(totalMovements / limit),
       stats: {
-        deliveredOrders,
-        averagePerOrder: deliveredOrders > 0 ? (earnings / deliveredOrders).toFixed(2) : 0,
-        monthlyEarnings: Number(monthlyEarnings?.total || 0),
-        totalIngresos: earnings
+        totalEntregas: Number(totalEntregas || 0),
+        todayOrders: Number(statsHoy?.count || 0),
+        todayEarnings: Number(statsHoy?.total || 0).toFixed(2),
       }
     };
   }
@@ -694,6 +856,11 @@ export class PedidoMotoService {
       );
     }
 
+    // Deducir saldo inmediatamente
+    const saldoNuevo = saldoActual - monto;
+    moto.saldo = saldoNuevo;
+    await moto.save();
+
     const tx = new TransaccionMotorizado();
     tx.motorizado = moto;
     tx.tipo = TipoTransaccion.RETIRO;
@@ -701,7 +868,7 @@ export class PedidoMotoService {
     tx.descripcion = `Solicitud de Retiro`;
     tx.estado = EstadoTransaccion.PENDIENTE;
     tx.saldoAnterior = saldoActual;
-    tx.saldoNuevo = saldoActual;
+    tx.saldoNuevo = saldoNuevo;
     tx.detalles = JSON.stringify({
       banco: moto.bancoNombre,
       cuenta: moto.bancoNumeroCuenta,
@@ -709,8 +876,25 @@ export class PedidoMotoService {
       titular: moto.bancoTitular,
       ci: moto.bancoIdentificacion,
     });
-
     await tx.save();
+
+    const movement = new WalletMovement();
+    movement.motorizado = moto;
+    movement.type = WalletMovementType.RETIRO_SOLICITADO;
+    movement.amount = -monto;
+    movement.balanceAfter = saldoNuevo;
+    movement.description = `Solicitud de Retiro`;
+    movement.referenceId = tx.id; // ID DE REFERENCIA PARA LA UI
+    movement.status = WalletMovementStatus.PENDIENTE;
+    await movement.save();
+
+    // Vincular movementId en la transaccion para reversiones futuras
+    const detalles = JSON.parse(tx.detalles || '{}');
+    detalles.movementId = movement.id;
+    tx.detalles = JSON.stringify(detalles);
+    await tx.save();
+
+    return tx;
     return tx;
   }
 
@@ -724,8 +908,14 @@ export class PedidoMotoService {
       .andWhere("p.motorizadoEnEvaluacion IS NULL")
       .getCount();
 
+    const startOfToday = moment.tz('America/Guayaquil').startOf('day').toDate();
+    const endOfToday = moment.tz('America/Guayaquil').endOf('day').toDate();
+
     const pedidosEsperando = await Pedido.find({
-      where: { estado: EstadoPedido.PREPARANDO_NO_ASIGNADO },
+      where: {
+        estado: EstadoPedido.PREPARANDO_NO_ASIGNADO,
+        createdAt: Between(startOfToday, endOfToday)
+      },
       order: { noAssignedSince: "ASC" },
       relations: ["negocio"]
     });
@@ -746,7 +936,7 @@ export class PedidoMotoService {
   }
 
   static async aceptarPedidoEnEspera(pedidoId: string, motorizadoId: string) {
-    const pedido = await this.obtenerPedidoOrFail(pedidoId);
+    const pedido = await this.obtenerPedidoOrFail(pedidoId, ["cliente", "negocio"]);
     const moto = await this.obtenerMotorizadoOrFail(motorizadoId);
 
     if (pedido.estado !== EstadoPedido.PREPARANDO_NO_ASIGNADO) {
@@ -759,17 +949,25 @@ export class PedidoMotoService {
 
     pedido.estado = EstadoPedido.PREPARANDO_ASIGNADO;
     pedido.motorizado = moto;
+    pedido.pickup_code = Math.floor(1000 + Math.random() * 9000).toString();
+    pedido.pickup_verified = false;
     this.limpiarCamposRonda(pedido);
     await pedido.save();
 
     moto.estadoTrabajo = EstadoTrabajoMotorizado.ENTREGANDO;
     await moto.save();
 
-    getIO().emit("pedido_actualizado", {
+    const io = getIO();
+    const updateData = {
       pedidoId,
       estado: pedido.estado,
       motorizadoId,
-    });
+      pickup_code: pedido.pickup_code,
+    };
+
+    io.to(pedido.cliente.id).emit("pedido_actualizado", updateData);
+    io.to(pedido.negocio.id).emit("pedido_actualizado", updateData);
+    io.emit("pedido_actualizado", updateData);
 
     return pedido;
   }
