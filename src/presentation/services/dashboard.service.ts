@@ -402,7 +402,7 @@ export class DashboardService {
                 .where(`("post"."createdAt" AT TIME ZONE 'America/Guayaquil')::date = ${queryDate}`)
                 .orderBy("post.createdAt", "DESC")
                 .take(10)
-                .select(["post.id", "post.title", "post.createdAt", "post.statusPost", "user.name", "user.surname"])
+                .select(["post.id", "post.title", "post.createdAt", "post.statusPost", "user.name", "user.surname", "user.email"])
                 .getMany();
 
             // 3. Últimas 10 Historias del Día
@@ -411,7 +411,7 @@ export class DashboardService {
                 .where(`("storie"."createdAt" AT TIME ZONE 'America/Guayaquil')::date = ${queryDate}`)
                 .orderBy("storie.createdAt", "DESC")
                 .take(10)
-                .select(["storie.id", "storie.createdAt", "storie.statusStorie", "user.name", "user.surname"])
+                .select(["storie.id", "storie.createdAt", "storie.statusStorie", "user.name", "user.surname", "user.email"])
                 .getMany();
 
             // 4. Estado Global de la App
@@ -470,6 +470,7 @@ export class DashboardService {
                 publicacionesHoy: topPostsToday.map(p => ({
                     id: p.id,
                     usuario: `${p.user?.name || ''} ${p.user?.surname || ''}`.trim() || 'Desconocido',
+                    email: p.user?.email || '',
                     titulo: p.title,
                     hora: new Date(p.createdAt).toLocaleTimeString('es-EC', { timeZone: 'America/Guayaquil', hour: '2-digit', minute: '2-digit' }),
                     estado: p.statusPost
@@ -477,6 +478,7 @@ export class DashboardService {
                 historiasHoy: topStoriesToday.map(s => ({
                     id: s.id,
                     usuario: `${s.user?.name || ''} ${s.user?.surname || ''}`.trim() || 'Desconocido',
+                    email: s.user?.email || '',
                     hora: new Date(s.createdAt).toLocaleTimeString('es-EC', { timeZone: 'America/Guayaquil', hour: '2-digit', minute: '2-digit' }),
                     estado: s.statusStorie
                 })),
