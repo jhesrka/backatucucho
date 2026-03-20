@@ -11,6 +11,7 @@ import { PriceService } from "./priceService/price-service.service";
 import { LessThan, LessThanOrEqual, IsNull, MoreThan, Between, Like } from "typeorm";
 import { validate as uuidValidate } from "uuid";
 import { containsForbiddenWords } from "../../config/content-moderation";
+import { DateUtils } from "../../utils/date-utils";
 
 export class StorieService {
   constructor(
@@ -684,26 +685,27 @@ export class StorieService {
     const where: any = {};
 
     // Filters
-    if (id) where.id = id;
-    if (status) where.statusStorie = status;
-    if (userId) where.user = { id: userId };
+    if (id) {
+      where.id = id;
+    } else {
+      if (status) where.statusStorie = status;
+      if (userId) where.user = { id: userId };
 
-    // Date Range (Creation)
-    if (startDate && endDate) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999);
-      where.createdAt = Between(start, end);
-    } else if (startDate) {
-      const start = new Date(startDate);
-      where.createdAt = MoreThan(start);
-    }
+      // Date Range (Creation)
+      if (startDate && endDate) {
+        const { start, end } = DateUtils.getDayRange(startDate);
+        where.createdAt = Between(start, end);
+      } else if (startDate) {
+        const start = new Date(startDate);
+        where.createdAt = MoreThan(start);
+      }
 
-    // Type (Paid/Free)
-    if (type === 'PAGADO') {
-      where.total_pagado = MoreThan(0);
-    } else if (type === 'GRATIS') {
-      where.total_pagado = 0;
+      // Type (Paid/Free)
+      if (type === 'PAGADO') {
+        where.total_pagado = MoreThan(0);
+      } else if (type === 'GRATIS') {
+        where.total_pagado = 0;
+      }
     }
 
     try {

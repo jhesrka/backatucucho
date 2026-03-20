@@ -1,51 +1,50 @@
 
 export class DateUtils {
     /**
-     * Parses a date string (YYYY-MM-DD or ISO) into a local Date object in America/Guayaquil.
-     * Prevents the -5h offset issue when parsing strings like "2026-03-12" which default to UTC.
+     * Parses a date string (YYYY-MM-DD) and returns a Date object 
+     * representing the START of that day in Ecuador (America/Guayaquil, UTC-5),
+     * expressed in UTC time.
+     * Example: "2026-03-19" -> 2026-03-19 05:00:00 UTC
      */
     static parseLocalDate(dateInput: string | Date): Date {
         if (dateInput instanceof Date) return new Date(dateInput);
         
-        // If it's a simple YYYY-MM-DD string
         if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
             const [year, month, day] = dateInput.split('-').map(Number);
-            // new Date(year, monthIndex, day) uses local time
-            return new Date(year, month - 1, day);
+            // 00:00 in Ecuador is 05:00 in UTC
+            return new Date(Date.UTC(year, month - 1, day, 5, 0, 0, 0));
         }
-        
-        // Fallback for other strings
-        const date = new Date(dateInput);
-        
-        // If the date is valid and appears to be UTC midnight but we are in Ecuador (TZ -5)
-        // we might want to check the parsing logic. 
-        // But the split logic above covers 90% of our cases.
-        
-        return date;
+        return new Date(dateInput);
     }
 
     /**
-     * Returns start and end of day in local time.
+     * Returns start and end of day in UTC that corresponds to the 
+     * full 24 hours of that day in Ecuador.
+     * Example: "2026-03-19" 
+     * -> start: 2026-03-19 05:00:00 UTC
+     * -> end:   2026-03-20 04:59:59.999 UTC
      */
     static getDayRange(dateInput: string | Date) {
-        const date = this.parseLocalDate(dateInput);
+        const start = this.parseLocalDate(dateInput);
         
-        const start = new Date(date);
-        start.setHours(0, 0, 0, 0);
-        
-        const end = new Date(date);
-        end.setHours(23, 59, 59, 999);
+        const end = new Date(start.getTime());
+        end.setUTCHours(end.getUTCHours() + 23);
+        end.setUTCMinutes(59);
+        end.setUTCSeconds(59);
+        end.setUTCMilliseconds(999);
         
         return { start, end };
     }
 
     /**
-     * Returns a YYYY-MM-DD string according to local time.
+     * Returns a YYYY-MM-DD string according to America/Guayaquil time.
      */
     static toLocalDateString(date: Date): string {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
+        return new Intl.DateTimeFormat("en-CA", {
+            timeZone: "America/Guayaquil",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+        }).format(date);
     }
 }

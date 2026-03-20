@@ -12,6 +12,7 @@ import { validate as uuidValidate } from "uuid";
 import { containsForbiddenWords } from "../../config/content-moderation";
 import { Status as UserStatus } from "../../data/postgres/models/user.model";
 import { PostReport } from "../../data/postgres/models/PostReport";
+import { DateUtils } from "../../utils/date-utils";
 
 import { GlobalSettingsService } from "./globalSettings/global-settings.service";
 
@@ -710,18 +711,18 @@ export class PostService {
 
     if (id) {
       query.andWhere("post.id = :id", { id });
-    }
-    if (status) {
-      query.andWhere("post.statusPost = :status", { status });
-    }
-    if (type) {
-      const isPaid = type === 'PAGADO';
-      query.andWhere("post.isPaid = :isPaid", { isPaid });
-    }
-    if (startDate && endDate) {
-      const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999);
-      query.andWhere("post.createdAt BETWEEN :start AND :end", { start: startDate, end });
+    } else {
+      if (status) {
+        query.andWhere("post.statusPost = :status", { status });
+      }
+      if (type) {
+        const isPaid = type === 'PAGADO';
+        query.andWhere("post.isPaid = :isPaid", { isPaid });
+      }
+      if (startDate && endDate) {
+        const { start, end } = DateUtils.getDayRange(startDate);
+        query.andWhere("post.createdAt BETWEEN :start AND :end", { start, end });
+      }
     }
 
     const [posts, total] = await query.getManyAndCount();
