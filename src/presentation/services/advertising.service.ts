@@ -1,7 +1,7 @@
 import { Campaign, CampaignStatus, CampaignType, Status, User, UserRole, CampaignLog, LogStatus } from "../../data";
 import { EmailService } from "./email.service";
 import { envs } from "../../config";
-import { Between, LessThan, MoreThan } from "typeorm";
+import { Between, LessThan, MoreThan, In } from "typeorm";
 
 // Mock WhatsApp Provider (Replace with real logic or library)
 class WhatsAppProvider {
@@ -17,38 +17,170 @@ class WhatsAppProvider {
 export class AdvertisingService {
     constructor(private readonly emailService: EmailService) { }
 
-    // 1. FILTER RECIPIENTS
+    // 1. FILTER RECIPIENTS (Advanced Marketing System)
     async getRecipients(filters: any) {
-        const where: any = {};
+        // IF MANUAL SELECTION BY ID (User requested this feature)
+        if (filters.advanced?.includes('manual_selection') && filters.userIds?.length > 0) {
+            return await User.createQueryBuilder("user")
+                .where("user.id IN (:...ids)", { ids: filters.userIds })
+                .getMany();
+        }
 
-        // By Role
-        if (filters.role === 'CLIENT') where.rol = UserRole.USER;
-        if (filters.role === 'ADMIN') where.rol = UserRole.ADMIN;
-        // For specific roles like 'NEGOCIO' or 'MOTORIZADO', 
-        // we assume they are Users but we check relations.
-        // This logic depends on how you identify them. 
-        // Assuming 'role' filter maps to UserRole or specific relation checks.
+        const query = User.createQueryBuilder("user");
+        const advanced = filters.advanced || [];
+        const params = filters.params || {};
 
-        // By Status
-        if (filters.status) where.status = filters.status;
+        // 0. CHANNEL VALIDATION (CRITICAL)
+        if (filters.channel === 'WHATSAPP') {
+            query.andWhere("user.whatsapp IS NOT NULL AND user.whatsapp != ''");
+        } else if (filters.channel === 'EMAIL') {
+            query.andWhere("user.email IS NOT NULL AND user.email LIKE '%@%'");
+        }
 
-        // By Date Registration
+        // 1. BASE ROLE FILTER
+        if (filters.role === 'CLIENT') {
+            query.andWhere("user.rol = :rol", { rol: UserRole.USER });
+        } else if (filters.role === 'ADMIN') {
+            query.andWhere("user.rol = :rol", { rol: UserRole.ADMIN });
+        } else if (filters.role === 'BUSINESS') {
+            // "Negocios = Usuario con negocio registrado. Sin importar estado."
+            query.innerJoin("user.negocios", "negocio");
+        } else if (filters.role === 'MOTORIZED') {
+            query.innerJoin("UserMotorizado", "motorizado", "motorizado.userId = user.id");
+        }
+
+        // 2. STATUS FILTER (Ignored for Business if not specified)
+        if (filters.status && filters.role !== 'BUSINESS') {
+            query.andWhere("user.status = :status", { status: filters.status });
+        }
+
+        // 3. DATE FILTER
         if (filters.startDate && filters.endDate) {
-            where.createdAt = Between(new Date(filters.startDate), new Date(filters.endDate));
+            query.andWhere("user.createdAt BETWEEN :start AND :end", { 
+                start: new Date(filters.startDate), 
+                end: new Date(filters.endDate) 
+            });
         }
 
-        // Advanced: Check for Negocio/Motorizado existence if requested
-        // This is a simplified fetch.
-        const users = await User.find({ where, select: ['id', 'email', 'name', 'surname', 'whatsapp', 'rol', 'status', 'createdAt'] });
+        // 4. ADVANCED SMART TAGS (COMBINABLE)
+        advanced.forEach((tagId: string) => {
+            const tagVal = params[tagId];
 
-        // Detailed filtering in memory if relations needed (e.g. only those who have Negocio)
-        let filtered = users;
-        if (filters.targetGroup === 'BUSINESS') {
-            // Assume we need to check if user has businesses? 
-            // For MVP, letting frontend pass exact criteria or just simpler filtering
-        }
+            switch (tagId) {
+                case 'new_users':
+                    const dateLimit = new Date();
+                    dateLimit.setDate(dateLimit.getDate() - (Number(tagVal) || 7));
+                    query.andWhere("user.createdAt >= :dateLimit", { dateLimit });
+                    break;
 
-        return filtered;
+                case 'incomplete_profile':
+                    query.andWhere("(user.name IS NULL OR user.surname IS NULL OR user.name = '')");
+                    break;
+
+                case 'no_login':
+                    query.andWhere("user.lastLoginDate IS NULL");
+                    break;
+
+                case 'wallet_zero':
+                    query.innerJoin("user.wallet", "wallet_z")
+                         .andWhere("wallet_z.balance = 0");
+                    break;
+
+                case 'never_bought':
+                    query.leftJoin("user.pedidos", "pedido_n")
+                         .andWhere("pedido_n.id IS NULL");
+                    break;
+
+                case 'bought_once':
+                    query.innerJoin("user.pedidos", "pedido_o")
+                         .groupBy("user.id")
+                         .having("COUNT(pedido_o.id) = 1");
+                    break;
+
+                case 'top_buyers':
+                    query.innerJoin("user.pedidos", "pedido_t")
+                         .groupBy("user.id")
+                         .having("COUNT(pedido_t.id) > 10");
+                    break;
+
+                case 'unused_balance':
+                    const uDate = new Date();
+                    uDate.setDate(uDate.getDate() - (Number(tagVal) || 30));
+                    query.innerJoin("user.wallet", "wallet_u")
+                         .andWhere("wallet_u.balance > 0")
+                         .andWhere("wallet_u.updated_at < :uDate", { uDate });
+                    break;
+
+                case 'no_posts':
+                    query.leftJoin("user.posts", "post_n")
+                         .andWhere("post_n.id IS NULL");
+                    break;
+
+                case 'inactive_user':
+                    const iDate = new Date();
+                    iDate.setDate(iDate.getDate() - (Number(tagVal) || 30));
+                    query.andWhere("user.lastLoginDate < :iDate", { iDate });
+                    break;
+
+                case 'new_business':
+                    query.innerJoin("user.negocios", "nb_new")
+                         .andWhere("nb_new.createdAt >= :nbDate", { 
+                             nbDate: new Date(Date.now() - (Number(tagVal) || 7) * 24 * 60 * 60 * 1000) 
+                         });
+                    break;
+
+                case 'no_products':
+                    query.innerJoin("user.negocios", "nb_nop")
+                         .leftJoin("nb_nop.productos", "prod_n")
+                         .andWhere("prod_n.id IS NULL");
+                    break;
+
+                case 'no_sales':
+                    query.innerJoin("user.negocios", "nb_nos")
+                         .leftJoin("nb_nos.pedidos", "ped_nos")
+                         .andWhere("ped_nos.id IS NULL");
+                    break;
+
+                case 'high_sales':
+                    query.innerJoin("user.negocios", "nb_hs")
+                         .innerJoin("nb_hs.pedidos", "ped_hs")
+                         .groupBy("user.id")
+                         .having("COUNT(ped_hs.id) > 50");
+                    break;
+
+                case 'no_stock':
+                    query.innerJoin("user.negocios", "nb_stk")
+                         .innerJoin("nb_stk.productos", "prod_stk")
+                         .andWhere("prod_stk.stock = 0");
+                    break;
+
+                case 'inactive_biz':
+                    query.innerJoin("user.negocios", "nb_in")
+                         .andWhere("nb_in.updated_at < :nbInDate", { 
+                             nbInDate: new Date(Date.now() - (Number(tagVal) || 30) * 24 * 60 * 60 * 1000) 
+                         });
+                    break;
+
+                case 'negocio_by_status':
+                    query.innerJoin("user.negocios", "nb_status")
+                         .andWhere("nb_status.status = :nbStat", { nbStat: tagVal || 'ACTIVE' });
+                    break;
+
+                case 'cancelled_orders':
+                    query.innerJoin("user.negocios", "nb_can")
+                         .innerJoin("nb_can.pedidos", "ped_can")
+                         .andWhere("ped_can.status = 'CANCELADO'")
+                         .groupBy("user.id")
+                         .having("COUNT(ped_can.id) > 5");
+                    break;
+            }
+        });
+
+        const users = await query
+            .select(['user.id', 'user.email', 'user.name', 'user.surname', 'user.whatsapp', 'user.rol', 'user.status', 'user.createdAt'])
+            .getMany();
+
+        return users;
     }
 
     // 2. CREATE TEMPLATE CAMPAIGN
@@ -67,29 +199,45 @@ export class AdvertisingService {
         // 2. Generate Static List (Logs as Targets)
         const recipients = await this.getRecipients(data.filters);
         campaign.totalTargets = recipients.length;
-
         await campaign.save();
 
-        // 3. Bulk Insert Targets (Logs)
-        // We do this in chunks to avoid blowing up memory if list is huge
-        const CHUNK_SIZE = 100;
+        const CHUNK_SIZE = 50; 
         for (let i = 0; i < recipients.length; i += CHUNK_SIZE) {
-            const chunk = recipients.slice(i, i + CHUNK_SIZE);
-            const logsToInsert = chunk.map(user => {
+            const chunkUserIds = recipients.slice(i, i + CHUNK_SIZE).map(u => u.id);
+            if (chunkUserIds.length === 0) continue;
+
+            // Using In(ids) with relations is much more reliable in TypeORM 
+            // than complex QueryBuilder joins for deeply nested marketing data
+            const fullUsers = await User.find({
+                where: { id: In(chunkUserIds) },
+                relations: [
+                    'wallet', 
+                    'pedidos', 
+                    'negocios', 
+                    'negocios.productos', 
+                    'negocios.pedidos'
+                ]
+            });
+
+            const logsToInsert = fullUsers.map(user => {
+                const attr = this.resolveUserAttributes(user);
+
                 const log = new CampaignLog();
                 log.campaign = campaign;
                 log.user = user;
+                // Important: for email we use email, for whatsapp we use phone
                 log.targetContact = data.type === CampaignType.EMAIL ? user.email : user.whatsapp;
                 log.status = LogStatus.PENDING;
+                log.dynamicAttributes = attr;
                 return log;
             });
             await CampaignLog.save(logsToInsert);
         }
 
-        // If Email, we might still want auto-send? User focused on WhatsApp. 
-        // For now, let's leave Email as "Manual start" too for consistency or keep it auto if previous logic needed it.
-        // User said "Eliminar completamente el sistema anterior de WhatsApp masivo".
-        // I will NOT tigger processCampaign automatically for anyone now, to be safe and consistent.
+        // 3. AUTO-START BACKGROUND PROCESSOR (ONLY FOR EMAIL)
+        if (data.type === CampaignType.EMAIL) {
+            this.processCampaign(campaign.id).catch(console.error);
+        }
 
         return campaign;
     }
@@ -111,32 +259,24 @@ export class AdvertisingService {
         let errorMsg = null;
 
         try {
+            const attr = log.dynamicAttributes || {};
+            const subject = this.replaceTags(campaign.subject || "No Subject", attr);
+            const content = this.replaceTags(campaign.content, attr);
+
             if (campaign.type === CampaignType.EMAIL) {
                 if (!user.email || !user.email.includes('@')) throw new Error("Invalid Email");
                 await this.emailService.sendEmail({
                     to: user.email,
-                    subject: campaign.subject || "No Subject",
-                    htmlBody: campaign.content
+                    subject,
+                    htmlBody: content
                 });
                 success = true;
             } else if (campaign.type === CampaignType.WHATSAPP) {
                 if (!user.whatsapp) throw new Error("No WhatsApp Number");
-                let phone = user.whatsapp.trim().replace(/\+/g, '');
-                if (phone.length < 9) throw new Error("Invalid Phone Format");
-
-                const text = campaign.content.replace('{{name}}', user.name || 'Cliente');
-
-                // MEDIA SUPPORT (Mock for now, but ready for logic)
-                if (campaign.mediaUrl) {
-                    // logic to send media would go here
-                    // await WhatsAppProvider.sendMedia(...)
-                    console.log(`[WA] Sending Media ${campaign.mediaUrl}`);
-                }
-
-                // MANUAL SEND: We assume the admin clicked the "Open WhatsApp" button.
-                // We just mark it as successful in the database.
+                
+                // For WhatsApp, we assume the replacement is done here for the admin to use
+                // or we are logging the successful generation of the personalized message.
                 success = true;
-                // success = await WhatsAppProvider.sendMessage(phone, text);
             }
         } catch (e: any) {
             success = false;
@@ -192,16 +332,96 @@ export class AdvertisingService {
                 status: t.status,
                 role: t.user?.rol,
                 error: t.errorMessage,
-                sentAt: t.attemptedAt
+                sentAt: t.attemptedAt,
+                dynamicAttributes: t.dynamicAttributes // EXTREMELY CRITICAL for personalization!
             })),
             total,
             totalPages: Math.ceil(total / take)
         };
     }
 
+    // Centralized function to resolve ALL dynamic attributes
+    public resolveUserAttributes(user: User): any {
+        // DEFAULT BASE SNAPSHOT
+        const attr: any = {
+            id: user.id,
+            nombre: user.name || "Usuario",
+            name: user.name || "Usuario",
+            apellido: user.surname || "",
+            surname: user.surname || "",
+            email: user.email || "N/A",
+            telefono: user.whatsapp || "N/A",
+            phone: user.whatsapp || "N/A",
+            
+            saldo_billetera: "$0.00",
+            saldo: "$0.00",
+            total_compras: 0,
+            monto_total_compras: "$0.00",
+            
+            negocio_principal: "N/A",
+            nombre_negocio: "N/A",
+            total_productos: 0,
+            total_ventas: 0,
+            monto_total_ventas: "$0.00",
+        };
+
+        // 1. RESOLVE USER/CLIENT DATA (WALLETS AND PEDIDOS)
+        if (user.wallet) {
+            attr.saldo_billetera = `$${Number(user.wallet.balance || 0).toFixed(2)}`;
+            attr.saldo = attr.saldo_billetera;
+        }
+
+        const userPedidos = user.pedidos || [];
+        if (userPedidos.length > 0) {
+            attr.total_compras = userPedidos.length;
+            const totalSpent = userPedidos.reduce((sum, p) => sum + Number(p.total || 0), 0);
+            attr.monto_total_compras = `$${totalSpent.toFixed(2)}`;
+        }
+
+        // 2. RESOLVE BUSINESS DATA (AGGREGATED FROM ALL BUSINESSES)
+        const userBusinesses = user.negocios || [];
+        if (userBusinesses.length > 0) {
+            // Business Logic: Principal is the first one or latest
+            attr.negocio_principal = userBusinesses[0].nombre;
+            attr.nombre_negocio = userBusinesses.map(n => n.nombre).join(', ');
+
+            // Sales Aggregation
+            let productsCount = 0;
+            let salesCount = 0;
+            let revenue = 0;
+
+            userBusinesses.forEach(biz => {
+                const bizProducts = biz.productos || [];
+                const bizPedidos = biz.pedidos || [];
+                
+                productsCount += bizProducts.length;
+                salesCount += bizPedidos.length;
+                revenue += bizPedidos.reduce((sum, p) => sum + Number(p.total || 0), 0) || 0;
+            });
+
+            attr.total_productos = productsCount;
+            attr.total_ventas = salesCount;
+            attr.monto_total_ventas = `$${revenue.toFixed(2)}`;
+        }
+
+        return attr;
+    }
+
     // 4. STATS & LOGS
     async getCampaigns() {
         return await Campaign.find({ order: { createdAt: 'DESC' } });
+    }
+
+    async searchUsers(query: string) {
+        if (!query || query.length < 2) return [];
+        
+        return await User.createQueryBuilder("user")
+            .where("user.name ILIKE :q", { q: `%${query}%` })
+            .orWhere("user.email ILIKE :q", { q: `%${query}%` })
+            .orWhere("user.whatsapp ILIKE :q", { q: `%${query}%` })
+            .orWhere("user.surname ILIKE :q", { q: `%${query}%` })
+            .limit(20)
+            .getMany();
     }
 
     async deleteCampaign(id: string) {
@@ -213,5 +433,93 @@ export class AdvertisingService {
     }
 
     // Kept generic processCampaign for background compatibility if needed, but not used by new features.
-    private async processCampaign(id: string) { }
+    // Helper for personalization
+    public replaceTags(content: string, attributes: any): string {
+        try {
+            let text = content;
+            if (!attributes) return text;
+            
+            // Robust parsing in case it's a string
+            const attr = typeof attributes === 'string' ? JSON.parse(attributes) : attributes;
+            
+            // Loop over attributes and use Regex to handle spaces inside tags {{ tag }}
+            Object.keys(attr).forEach(key => {
+                const val = (attr[key] !== null && attr[key] !== undefined) ? String(attr[key]) : "";
+                
+                // This regex matches {{key}} with any internal spacing: {{ key }}, {{   key}}, etc.
+                // It also Ignores case for common placeholders
+                const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = new RegExp(`{{\\s*${escapedKey}\\s*}}`, 'gi');
+                
+                text = text.replace(regex, val);
+            });
+
+            // Fallback for some common English names if user used them
+            const fallbacks: any = {
+                'name': attr.nombre,
+                'surname': attr.apellido,
+                'phone': attr.telefono,
+                'balance': attr.saldo_billetera,
+                'wallet_balance': attr.saldo_billetera,
+                'wallet': attr.saldo_billetera,
+                'business_name': attr.negocio_principal
+            };
+
+            Object.keys(fallbacks).forEach(key => {
+                if (fallbacks[key] !== undefined) {
+                    const regex = new RegExp(`{{\\s*${key}\\s*}}`, 'gi');
+                    text = text.replace(regex, String(fallbacks[key]));
+                }
+            });
+
+            return text;
+        } catch (e) {
+            return content;
+        }
+    }
+
+    public async processCampaign(id: string) {
+        const campaign = await Campaign.findOne({ where: { id } });
+        if (!campaign) return;
+
+        // Auto-processing ONLY for EMAIL
+        if (campaign.type !== CampaignType.EMAIL) return;
+
+        campaign.status = CampaignStatus.PROCESSING;
+        await campaign.save();
+
+        const logs = await CampaignLog.find({
+            where: { campaign: { id }, status: LogStatus.PENDING },
+            relations: ['user']
+        });
+
+        for (const log of logs) {
+            try {
+                const attr = log.dynamicAttributes || {};
+                const subject = this.replaceTags(campaign.subject || "No Subject", attr);
+                const content = this.replaceTags(campaign.content, attr);
+
+                if (log.user?.email && log.user.email.includes('@')) {
+                    await this.emailService.sendEmail({
+                        to: log.user.email,
+                        subject,
+                        htmlBody: content
+                    });
+                    log.status = LogStatus.SENT;
+                    campaign.sentCount++;
+                } else {
+                    throw new Error("Invalid Email");
+                }
+            } catch (e: any) {
+                log.status = LogStatus.FAILED;
+                log.errorMessage = e.message || "Email error";
+                campaign.failedCount++;
+            }
+            log.attemptedAt = new Date();
+            await log.save();
+        }
+
+        campaign.status = CampaignStatus.COMPLETED;
+        await campaign.save();
+    }
 }

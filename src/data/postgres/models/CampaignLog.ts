@@ -37,6 +37,9 @@ export class CampaignLog extends BaseEntity {
     @Column("text", { nullable: true })
     errorMessage: string;
 
+    @Column("jsonb", { nullable: true })
+    dynamicAttributes: any; // Snapshot of calculated attributes for personalization
+
     @CreateDateColumn()
     attemptedAt: Date;
 }

@@ -66,7 +66,7 @@ export class WalletMovement extends BaseEntity {
     @Column({ name: "order_id", nullable: true })
     orderId: string | null;
 
-    @ManyToOne(() => Pedido, { nullable: true })
+    @ManyToOne(() => Pedido, { nullable: true, onDelete: "SET NULL" })
     @JoinColumn({ name: "order_id" })
     pedido: Pedido | null;
 

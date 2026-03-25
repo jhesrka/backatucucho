@@ -31,7 +31,7 @@ export class TransaccionMotorizado extends BaseEntity {
     @ManyToOne("UserMotorizado", (user: UserMotorizado) => user.transacciones)
     motorizado: UserMotorizado;
 
-    @ManyToOne("Pedido", { nullable: true })
+    @ManyToOne("Pedido", { nullable: true, onDelete: "SET NULL" })
     pedido: Pedido | null;
 
     @Column({ type: "enum", enum: TipoTransaccion })

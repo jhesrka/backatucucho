@@ -330,9 +330,30 @@ export class PostgresDatabase {
             IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_wallet_movements_motorizado') THEN
                 ALTER TABLE "wallet_movements" ADD CONSTRAINT "FK_wallet_movements_motorizado" FOREIGN KEY ("motorized_id") REFERENCES "user_motorizado"("id") ON DELETE CASCADE;
             END IF;
-            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_wallet_movements_pedido') THEN
-                ALTER TABLE "wallet_movements" ADD CONSTRAINT "FK_wallet_movements_pedido" FOREIGN KEY ("order_id") REFERENCES "pedido"("id") ON DELETE SET NULL;
+            
+            -- Asegurar que la relación Pedido -> Wallet sea SET NULL para permitir purgas
+            IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_wallet_movements_pedido') THEN
+                ALTER TABLE "wallet_movements" DROP CONSTRAINT "FK_wallet_movements_pedido";
             END IF;
+            ALTER TABLE "wallet_movements" ADD CONSTRAINT "FK_wallet_movements_pedido" FOREIGN KEY ("order_id") REFERENCES "pedido"("id") ON DELETE SET NULL;
+
+            -- Asegurar que la relación Pedido -> TransaccionMotorizado sea SET NULL
+            -- Buscamos el nombre de la FK dinámicamente si existe y la recreamos
+            DO $FK$
+            DECLARE
+                fk_name TEXT;
+            BEGIN
+                SELECT conname INTO fk_name
+                FROM pg_constraint 
+                WHERE confrelid = 'pedido'::regclass 
+                AND conrelid = 'transaccion_motorizado'::regclass;
+                
+                IF fk_name IS NOT NULL THEN
+                    EXECUTE 'ALTER TABLE transaccion_motorizado DROP CONSTRAINT ' || quote_ident(fk_name);
+                END IF;
+            END $FK$;
+            ALTER TABLE transaccion_motorizado ADD CONSTRAINT "FK_transaccion_motorizado_pedido" FOREIGN KEY ("pedidoId") REFERENCES "pedido"("id") ON DELETE SET NULL;
+
             IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_wallet_movements_admin') THEN
                 ALTER TABLE "wallet_movements" ADD CONSTRAINT "FK_wallet_movements_admin" FOREIGN KEY ("admin_id") REFERENCES "useradmin"("id") ON DELETE SET NULL;
             END IF;

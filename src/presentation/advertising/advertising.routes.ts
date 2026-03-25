@@ -23,6 +23,7 @@ export class AdvertisingRoutes {
         router.get("/campaigns", controller.getCampaigns);
         router.post("/campaigns", controller.createCampaign);
         router.delete("/campaigns/:id", controller.deleteCampaign);
+        router.get("/users/search", (req, res) => controller.searchUsers(req, res));
 
         router.get("/campaigns/:id/targets", controller.getCampaignTargets);
         router.post("/message/:logId", controller.sendOneMessage); // Manual trigger

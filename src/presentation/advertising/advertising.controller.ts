@@ -73,4 +73,14 @@ export class AdvertisingController {
             this.handleError(error, res);
         }
     };
+
+    public searchUsers = async (req: Request, res: Response) => {
+        try {
+            const { q } = req.query;
+            const users = await this.advertisingService.searchUsers(q as string);
+            return res.json(users);
+        } catch (error) {
+            this.handleError(error, res);
+        }
+    };
 }
