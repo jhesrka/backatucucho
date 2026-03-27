@@ -17,6 +17,9 @@ import { startStorieExpirationCron } from "./cron/storie-expiration.cron";
 import { startPedidoExpirationCron } from "./cron/pedidoAcceptanceExpiration.cron";
 import { startSubscriptionCleanupCron } from "./cron/subscription-cleanup.cron";
 
+import { ActivityService } from "./presentation/services/activity.service";
+import { getIO } from "./config/socket";
+
 async function main() {
   const postgres = new PostgresDatabase({
     username: envs.DB_USERNAME,
@@ -46,6 +49,18 @@ async function main() {
   console.log("🚀 Iniciando servidor...");
   await server.start();
   console.log("✅ Servidor ONLINE");
+
+  // 🟢 TIEMPO REAL (Socket.io) - Emitir cada 10 segundos
+  const activityService = new ActivityService();
+  setInterval(async () => {
+    try {
+      const { onlineNow } = await activityService.getOnlineStats();
+      const io = getIO();
+      io.emit("onlineUsers:update", { online: onlineNow });
+    } catch (error) {
+      console.error("Error broadcasting online users:", error);
+    }
+  }, 10000);
 }
 
 main();

@@ -180,6 +180,9 @@ export class User extends BaseEntity {
   @DeleteDateColumn({ type: "timestamp", nullable: true })
   deletedAt: Date;
 
+  @Column("timestamp", { nullable: true })
+  lastSeenAt: Date;
+
   @BeforeInsert()
   encryptedPassword() {
     if (this.password) {

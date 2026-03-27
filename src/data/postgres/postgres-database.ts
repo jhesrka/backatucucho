@@ -286,6 +286,7 @@ export class PostgresDatabase {
         ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "lastLoginCountry" VARCHAR;
         ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "lastLoginDate" TIMESTAMP;
         ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "lastDeviceInfo" VARCHAR;
+        ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "lastSeenAt" TIMESTAMP DEFAULT NULL;
 
         CREATE TABLE IF NOT EXISTS "moderation_log" (
             "id" uuid NOT NULL DEFAULT uuid_generate_v4(),

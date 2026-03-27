@@ -110,10 +110,20 @@ export class DashboardService {
                 where: { estadoCuenta: "ACTIVO" as any }
             });
 
-            // 5. USUARIOS
+            // 5. USUARIOS & ACTIVIDAD
             const usuariosNuevos = await User.count({
                 where: { createdAt: Between(todayStart, todayEnd) }
             });
+
+            // Activity Metrics
+            const twoMinutesAgo = new Date(now.getTime() - (2 * 60 * 1000));
+            const connectedToday = await User.createQueryBuilder("user")
+                .where("user.lastSeenAt >= :start", { start: todayStart })
+                .getCount();
+
+            const onlineNow = await User.createQueryBuilder("user")
+                .where("user.lastSeenAt >= :minAgo", { minAgo: twoMinutesAgo })
+                .getCount();
 
             // 6. ACTIVIDAD RECIENTE
             const lastOrders = await Pedido.find({
@@ -189,6 +199,8 @@ export class DashboardService {
                 },
                 usuarios: {
                     nuevosHoy: usuariosNuevos,
+                    conectadosHoy: connectedToday,
+                    onlineNow: onlineNow
                 },
                 activityFeed,
                 logistics
