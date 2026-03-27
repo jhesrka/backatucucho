@@ -11,6 +11,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FinancialController = void 0;
 const domain_1 = require("../../../domain");
+const date_utils_1 = require("../../../utils/date-utils");
 class FinancialController {
     constructor(financialService) {
         this.financialService = financialService;
@@ -23,17 +24,12 @@ class FinancialController {
         };
         this.getSummary = (req, res) => __awaiter(this, void 0, void 0, function* () {
             try {
-                const { startDate, endDate } = req.query; // Changed to query for GET requests consistency
+                const startDate = req.query.startDate || req.body.startDate;
+                const endDate = req.query.endDate || req.body.endDate;
                 if (!startDate || !endDate) {
-                    // Try body fallback if not in query
-                    if (req.body.startDate && req.body.endDate) {
-                        const { startDate, endDate } = req.body;
-                        const summary = yield this.financialService.getFinancialSummary(new Date(startDate), new Date(endDate));
-                        return res.json(summary);
-                    }
                     throw domain_1.CustomError.badRequest("Fechas requeridas");
                 }
-                const summary = yield this.financialService.getFinancialSummary(new Date(startDate), new Date(endDate));
+                const summary = yield this.financialService.getFinancialSummary(date_utils_1.DateUtils.parseLocalDate(startDate), date_utils_1.DateUtils.parseLocalDate(endDate));
                 res.json(summary);
             }
             catch (error) {
@@ -42,9 +38,10 @@ class FinancialController {
         });
         this.getShopReconciliation = (req, res) => __awaiter(this, void 0, void 0, function* () {
             try {
-                const { startDate, endDate } = req.query;
-                const start = startDate ? new Date(startDate) : new Date();
-                const end = endDate ? new Date(endDate) : new Date();
+                const startDate = req.query.startDate || req.body.startDate;
+                const endDate = req.query.endDate || req.body.endDate;
+                const start = startDate ? date_utils_1.DateUtils.parseLocalDate(startDate) : new Date();
+                const end = endDate ? date_utils_1.DateUtils.parseLocalDate(endDate) : new Date();
                 const shops = yield this.financialService.getShopReconciliation(start, end);
                 res.json(shops);
             }
@@ -59,7 +56,7 @@ class FinancialController {
                 const endDate = req.query.endDate || req.body.endDate;
                 if (!startDate || !endDate)
                     throw domain_1.CustomError.badRequest("Start and End Date required");
-                const drivers = yield this.financialService.getDriverReconciliation(new Date(startDate), new Date(endDate));
+                const drivers = yield this.financialService.getDriverReconciliation(date_utils_1.DateUtils.parseLocalDate(startDate), date_utils_1.DateUtils.parseLocalDate(endDate));
                 res.json(drivers);
             }
             catch (error) {
@@ -73,8 +70,8 @@ class FinancialController {
                 if (!fechaInicio)
                     throw domain_1.CustomError.badRequest("Fecha inicio requerida");
                 // If fechaFin is missing, default to fechaInicio (single day)
-                const start = new Date(fechaInicio);
-                const end = fechaFin ? new Date(fechaFin) : new Date(fechaInicio);
+                const start = date_utils_1.DateUtils.parseLocalDate(fechaInicio);
+                const end = fechaFin ? date_utils_1.DateUtils.parseLocalDate(fechaFin) : date_utils_1.DateUtils.parseLocalDate(fechaInicio);
                 const result = yield this.financialService.getMovimientosMotorizados(start, end);
                 res.json(result);
             }
@@ -89,7 +86,7 @@ class FinancialController {
                 const date = req.body.date || req.query.date;
                 if (!shopId || !date)
                     throw domain_1.CustomError.badRequest("Shop ID and Date required");
-                const details = yield this.financialService.getShopClosingDetails(shopId, new Date(date));
+                const details = yield this.financialService.getShopClosingDetails(shopId, date_utils_1.DateUtils.parseLocalDate(date));
                 res.json(details);
             }
             catch (error) {
@@ -101,7 +98,7 @@ class FinancialController {
                 const { shopId, date, sessionAdmin, comprobanteUrl } = req.body;
                 if (!shopId || !date)
                     throw domain_1.CustomError.badRequest("Shop ID and Date required");
-                const result = yield this.financialService.closeShopDay(shopId, new Date(date), sessionAdmin, comprobanteUrl);
+                const result = yield this.financialService.closeShopDay(shopId, date_utils_1.DateUtils.parseLocalDate(date), sessionAdmin, comprobanteUrl);
                 res.json(result);
             }
             catch (error) {
@@ -126,7 +123,7 @@ class FinancialController {
                 const { date, type, page = 1, limit = 20 } = req.query;
                 if (!date || !type)
                     throw domain_1.CustomError.badRequest("Date and Type are required");
-                const result = yield this.financialService.getAppRevenueDetails(new Date(date), type, Number(page), Number(limit));
+                const result = yield this.financialService.getAppRevenueDetails(date_utils_1.DateUtils.parseLocalDate(date), type, Number(page), Number(limit));
                 res.json(result);
             }
             catch (error) {
@@ -148,7 +145,7 @@ class FinancialController {
                 const { date } = req.query;
                 if (!date)
                     throw domain_1.CustomError.badRequest("Date query param required");
-                const result = yield this.financialService.getDayStatus(new Date(date));
+                const result = yield this.financialService.getDayStatus(date_utils_1.DateUtils.parseLocalDate(date));
                 res.json(result);
             }
             catch (error) {
@@ -169,7 +166,7 @@ class FinancialController {
                 const { date, statementUrl, sessionAdmin } = req.body; // sessionAdmin via Auth Middleware
                 if (!date || !statementUrl)
                     throw domain_1.CustomError.badRequest("Fecha y URL de archivo requeridos");
-                const result = yield this.financialService.closeDay(new Date(date), statementUrl, sessionAdmin);
+                const result = yield this.financialService.closeDay(date_utils_1.DateUtils.parseLocalDate(date), statementUrl, sessionAdmin);
                 res.json(result);
             }
             catch (error) {

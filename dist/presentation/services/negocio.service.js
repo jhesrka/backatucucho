@@ -166,29 +166,27 @@ class NegocioService {
             const categoria = yield data_1.CategoriaNegocio.findOneBy({ id: categoriaId });
             if (!categoria)
                 throw domain_1.CustomError.notFound("Categoría no encontrada");
-            const negocios = yield data_1.Negocio.find({
-                where: {
-                    categoria: { id: categoriaId },
-                    statusNegocio: data_1.StatusNegocio.ACTIVO,
-                    estadoNegocio: data_1.EstadoNegocio.ABIERTO, // 🔥 Nuevo filtro
-                },
-                order: {
-                    orden: "ASC", // Primero por orden configurado
-                    created_at: "DESC", // Luego lo más nuevo
-                },
-                relations: ["categoria"],
-            });
+            // OPTIMIZACIÓN: Delegar el orden aleatorio a PostgreSQL (ORDER BY RANDOM())
+            // 1. Obtenemos los negocios activos de la categoría con QueryBuilder
+            const negocios = yield data_1.Negocio.createQueryBuilder("negocio")
+                .leftJoinAndSelect("negocio.categoria", "categoria")
+                .where("negocio.categoriaId = :categoriaId", { categoriaId })
+                .andWhere("negocio.statusNegocio = :status", { status: data_1.StatusNegocio.ACTIVO })
+                .andWhere("negocio.estadoNegocio = :estado", { estado: data_1.EstadoNegocio.ABIERTO })
+                .orderBy("RANDOM()") // Orden aleatorio nativo (mucho más rápido)
+                .getMany();
             const negociosConUrl = yield Promise.all(negocios.map((negocio) => __awaiter(this, void 0, void 0, function* () {
                 let imagenUrl = null;
                 if (negocio.imagenNegocio) {
                     try {
+                        // OPTIMIZACIÓN: Usar tamaño CARD para el catálogo (ahorro de ~80% de ancho de banda)
                         imagenUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
                             bucketName: config_1.envs.AWS_BUCKET_NAME,
                             key: negocio.imagenNegocio,
-                        });
+                        }, 'card'); // Usamos versión optimizada
                     }
                     catch (error) {
-                        throw domain_1.CustomError.internalServer("Error obteniendo imagen del negocio");
+                        console.error(`Error obteniendo imagen para negocio ${negocio.id}:`, error);
                     }
                 }
                 return {
@@ -204,10 +202,11 @@ class NegocioService {
                         statusCategoria: negocio.categoria.statusCategoria,
                     },
                     imagenUrl,
+                    ratingPromedio: Number(negocio.ratingPromedio) || 0,
+                    totalResenas: Number(negocio.totalResenas) || 0,
                 };
             })));
-            // Barajar aleatoriamente antes de retornar
-            return shuffleArray(negociosConUrl);
+            return negociosConUrl;
         });
     }
     toggleEstadoNegocio(negocioId) {
@@ -297,6 +296,8 @@ class NegocioService {
                             photoperfil: userProfileUrl,
                         },
                         imagenUrl,
+                        ratingPromedio: Number(negocio.ratingPromedio) || 0,
+                        totalResenas: Number(negocio.totalResenas) || 0,
                     };
                 })));
                 return negociosConUrl;
@@ -344,6 +345,8 @@ class NegocioService {
                     numeroCuenta: negocio.numeroCuenta,
                     titularCuenta: negocio.titularCuenta,
                     productosCount: negocio.productosCount || 0,
+                    ratingPromedio: Number(negocio.ratingPromedio) || 0,
+                    totalResenas: Number(negocio.totalResenas) || 0,
                     imagenUrl,
                     categoria: {
                         id: negocio.categoria.id,

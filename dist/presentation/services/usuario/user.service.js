@@ -889,8 +889,7 @@ class UserService {
                     published: user.posts.filter((p) => p.statusPost === data_1.StatusPost.PUBLISHED).length,
                     hidden: user.posts.filter((p) => p.statusPost === data_1.StatusPost.HIDDEN)
                         .length,
-                    deleted: user.posts.filter((p) => p.statusPost === data_1.StatusPost.DELETED)
-                        .length,
+                    deleted: 0,
                     banned: user.posts.filter((p) => p.statusPost === data_1.StatusPost.FLAGGED)
                         .length,
                 };

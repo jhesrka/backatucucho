@@ -42,6 +42,8 @@ const CommissionLog_1 = require("./models/CommissionLog");
 const PostReport_1 = require("./models/PostReport");
 const StorieReport_1 = require("./models/StorieReport");
 const ModerationLog_1 = require("./models/ModerationLog");
+const wallet_movement_model_1 = require("./models/wallet-movement.model");
+const BankAccount_1 = require("./models/BankAccount");
 class PostgresDatabase {
     constructor(options) {
         this.datasource = new typeorm_1.DataSource({
@@ -82,15 +84,22 @@ class PostgresDatabase {
                 CommissionLog_1.CommissionLog,
                 PostReport_1.PostReport,
                 StorieReport_1.StorieReport,
-                ModerationLog_1.ModerationLog
+                ModerationLog_1.ModerationLog,
+                wallet_movement_model_1.WalletMovement,
+                BankAccount_1.BankAccount
             ],
             synchronize: false, // PRODUCCIÓN: SIEMPRE FALSE. Usar migraciones.
             ssl: {
                 rejectUnauthorized: false,
             },
+            // Configuración de pool para mayor estabilidad en Neon
             extra: {
-                options: "-c timezone=America/Guayaquil",
+                max: 20, // Límite de conexiones para evitar agotar el plan (Neon free tier)
+                idleTimeoutMillis: 30000, // Cerrar conexiones ociosas
+                connectionTimeoutMillis: 10000, // Tiempo máximo de espera para abrir conexión
             },
+            // Eliminamos el forzado de timezone de sesión para que el driver pg
+            // maneje todo en UTC de forma nativa y TypeORM no se confunda.
         });
     }
     connect() {
@@ -100,9 +109,16 @@ class PostgresDatabase {
                 console.log("database conected - Running manual migrations check");
                 // 1. Core Extensions and structural changes
                 yield this.datasource.query(`
+        SET timezone = 'UTC';
         CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
         ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "showWhatsApp" BOOLEAN DEFAULT true;
         ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "showLikes" BOOLEAN DEFAULT true;
+        ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "contentType" VARCHAR DEFAULT 'image';
+        ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "videoUrl" VARCHAR DEFAULT NULL;
+        ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "videoPlatform" VARCHAR DEFAULT NULL;
+        ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "videoId" VARCHAR DEFAULT NULL;
+        ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "videoEmbedUrl" VARCHAR DEFAULT NULL;
+        ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "videoOriginalUrl" VARCHAR DEFAULT NULL;
         
         ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "subscriptionBasicPrice" DECIMAL(10,2) DEFAULT 5.00;
         ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "subscriptionBasicPromoPrice" DECIMAL(10,2);
@@ -111,6 +127,24 @@ class PostgresDatabase {
         ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "currentTermsVersion" VARCHAR(20) DEFAULT 'v1.0';
         ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "termsUpdatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
         ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "reportsRetentionDays" INT DEFAULT 30;
+
+        -- Garantizar timestamptz para evitar desajustes
+        ALTER TABLE "post" ALTER COLUMN "createdAt" TYPE timestamptz;
+        ALTER TABLE "post" ALTER COLUMN "expiresAt" TYPE timestamptz;
+        ALTER TABLE "storie" ALTER COLUMN "createdAt" TYPE timestamptz;
+        ALTER TABLE "storie" ALTER COLUMN "expires_at" TYPE timestamptz;
+        ALTER TABLE "storie" ALTER COLUMN "deletedAt" TYPE timestamptz;
+        
+        -- Recargas de saldo
+        ALTER TABLE "recharge_requests" ALTER COLUMN "created_at" TYPE timestamptz;
+        ALTER TABLE "recharge_requests" ALTER COLUMN "transaction_date" TYPE timestamptz;
+        ALTER TABLE "recharge_requests" ALTER COLUMN "resolved_at" TYPE timestamptz;
+
+        -- Suscripciones
+        ALTER TABLE "subscription" ALTER COLUMN "startDate" TYPE timestamptz;
+        ALTER TABLE "subscription" ALTER COLUMN "endDate" TYPE timestamptz;
+        ALTER TABLE "subscription" ALTER COLUMN "createdAt" TYPE timestamptz;
+        ALTER TABLE "subscription" ALTER COLUMN "updatedAt" TYPE timestamptz;
 
         -- Migración para Versionado de Términos y Privacidad
         ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "acceptedTermsVersion" VARCHAR(20) DEFAULT NULL;
@@ -154,6 +188,35 @@ class PostgresDatabase {
         ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "total_comision_productos" DECIMAL(10,2) DEFAULT 0;
         ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "pago_motorizado" DECIMAL(10,2) DEFAULT 0;
         ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "comision_moto_app" DECIMAL(10,2) DEFAULT 0;
+        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "noAssignedSince" TIMESTAMPTZ DEFAULT NULL;
+        ALTER TABLE "pedido" ALTER COLUMN "noAssignedSince" TYPE TIMESTAMPTZ;
+        ALTER TABLE "pedido" ALTER COLUMN "createdAt" TYPE timestamptz;
+        ALTER TABLE "pedido" ALTER COLUMN "updatedAt" TYPE timestamptz;
+        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "motorizadosExcluidos" TEXT DEFAULT '';
+        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "transferenciaCanceladaConfirmada" BOOLEAN DEFAULT NULL;
+
+        -- 💳 PAYPHONE / TARJETA COLUMNS (NEGOCIO)
+        ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "pago_tarjeta_habilitado_admin" BOOLEAN DEFAULT false;
+        ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "pago_tarjeta_activo_negocio" BOOLEAN DEFAULT false;
+        ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "payphone_store_id" VARCHAR DEFAULT NULL;
+        ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "payphone_token" TEXT DEFAULT NULL;
+        ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "porcentaje_recargo_tarjeta" DECIMAL(10,2) DEFAULT 0;
+
+        -- 💳 PAYPHONE / TARJETA COLUMNS (PEDIDO)
+        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "metodoPago" VARCHAR DEFAULT 'EFECTIVO';
+        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "estadoPago" VARCHAR DEFAULT 'PENDIENTE';
+        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "referenciaPago" VARCHAR DEFAULT NULL;
+        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "recargo_tarjeta" DECIMAL(10,2) DEFAULT 0;
+
+        ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "timeoutRondaMs" INT DEFAULT 60000;
+        ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "maxRondasAsignacion" INT DEFAULT 4;
+        ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "max_wait_time_acceptance" INT DEFAULT 10;
+        ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "cleanupSubscriptionContentDays" INT DEFAULT 60;
+        
+        ALTER TABLE "transaccion_motorizado" ADD COLUMN IF NOT EXISTS "reintegrado" BOOLEAN DEFAULT false;
+        ALTER TABLE "transaccion_motorizado" ADD COLUMN IF NOT EXISTS "updated_at" TIMESTAMPTZ DEFAULT NOW();
+        
+        ALTER TABLE "wallet_movements" ADD COLUMN IF NOT EXISTS "reference_id" VARCHAR(255) DEFAULT NULL;
 
         ALTER TABLE "producto" ADD COLUMN IF NOT EXISTS "precio_venta" DECIMAL(10,2) DEFAULT 0;
         ALTER TABLE "producto" ADD COLUMN IF NOT EXISTS "precio_app" DECIMAL(10,2) DEFAULT 0;
@@ -258,8 +321,55 @@ class PostgresDatabase {
         ALTER TABLE "post_report" ADD COLUMN IF NOT EXISTS "status" VARCHAR DEFAULT 'PENDING';
         ALTER TABLE "storie_report" ADD COLUMN IF NOT EXISTS "status" VARCHAR DEFAULT 'PENDING';
 
+        CREATE TABLE IF NOT EXISTS "wallet_movements" (
+          "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+          "motorized_id" uuid NOT NULL,
+          "type" varchar NOT NULL,
+          "amount" decimal(10,2) NOT NULL,
+          "balance_after" decimal(10,2) NOT NULL DEFAULT 0,
+          "status" varchar NOT NULL DEFAULT 'COMPLETADO',
+          "description" varchar,
+          "order_id" uuid,
+          "admin_id" uuid,
+          "created_at" TIMESTAMP NOT NULL DEFAULT now(),
+          CONSTRAINT "PK_wallet_movements" PRIMARY KEY ("id")
+        );
+
+        -- Add balance_after if table exists but column is missing
+        ALTER TABLE "wallet_movements" ADD COLUMN IF NOT EXISTS "balance_after" decimal(10,2) DEFAULT 0;
+
         DO $$ 
         BEGIN 
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_wallet_movements_motorizado') THEN
+                ALTER TABLE "wallet_movements" ADD CONSTRAINT "FK_wallet_movements_motorizado" FOREIGN KEY ("motorized_id") REFERENCES "user_motorizado"("id") ON DELETE CASCADE;
+            END IF;
+            
+            -- Asegurar que la relación Pedido -> Wallet sea SET NULL para permitir purgas
+            IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_wallet_movements_pedido') THEN
+                ALTER TABLE "wallet_movements" DROP CONSTRAINT "FK_wallet_movements_pedido";
+            END IF;
+            ALTER TABLE "wallet_movements" ADD CONSTRAINT "FK_wallet_movements_pedido" FOREIGN KEY ("order_id") REFERENCES "pedido"("id") ON DELETE SET NULL;
+
+            -- Asegurar que la relación Pedido -> TransaccionMotorizado sea SET NULL
+            -- Buscamos el nombre de la FK dinámicamente si existe y la recreamos
+            DO $FK$
+            DECLARE
+                fk_name TEXT;
+            BEGIN
+                SELECT conname INTO fk_name
+                FROM pg_constraint 
+                WHERE confrelid = 'pedido'::regclass 
+                AND conrelid = 'transaccion_motorizado'::regclass;
+                
+                IF fk_name IS NOT NULL THEN
+                    EXECUTE 'ALTER TABLE transaccion_motorizado DROP CONSTRAINT ' || quote_ident(fk_name);
+                END IF;
+            END $FK$;
+            ALTER TABLE transaccion_motorizado ADD CONSTRAINT "FK_transaccion_motorizado_pedido" FOREIGN KEY ("pedidoId") REFERENCES "pedido"("id") ON DELETE SET NULL;
+
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_wallet_movements_admin') THEN
+                ALTER TABLE "wallet_movements" ADD CONSTRAINT "FK_wallet_movements_admin" FOREIGN KEY ("admin_id") REFERENCES "useradmin"("id") ON DELETE SET NULL;
+            END IF;
             IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_moderation_log_user') THEN
                 ALTER TABLE "moderation_log" ADD CONSTRAINT "FK_moderation_log_user" FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE SET NULL;
             END IF;
@@ -282,6 +392,48 @@ class PostgresDatabase {
                 ALTER TABLE "storie_report" ADD CONSTRAINT "FK_storie_report_storie" FOREIGN KEY ("storieId") REFERENCES "storie"("id") ON DELETE CASCADE;
             END IF;
         END $$;
+
+        -- 👇 TABLA: Bank Accounts (Actualizada)
+        CREATE TABLE IF NOT EXISTS "bank_accounts" (
+          "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+          "bank_name" varchar(100) NOT NULL,
+          "account_type" varchar(50) NOT NULL,
+          "account_number" varchar(50) NOT NULL,
+          "account_holder" varchar(100) NOT NULL,
+          "qr_image_url" text,
+          "is_active" boolean DEFAULT true,
+          "order" int DEFAULT 0,
+          "created_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
+          "updated_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
+          CONSTRAINT "PK_bank_accounts" PRIMARY KEY ("id")
+        );
+
+        -- Migraciones seguras para compatibilidad
+        DO $$ 
+        BEGIN 
+          BEGIN ALTER TABLE "bank_accounts" RENAME COLUMN "bankName" TO "bank_name"; EXCEPTION WHEN undefined_column THEN END;
+          BEGIN ALTER TABLE "bank_accounts" RENAME COLUMN "accountType" TO "account_type"; EXCEPTION WHEN undefined_column THEN END;
+          BEGIN ALTER TABLE "bank_accounts" RENAME COLUMN "accountNumber" TO "account_number"; EXCEPTION WHEN undefined_column THEN END;
+          BEGIN ALTER TABLE "bank_accounts" RENAME COLUMN "accountHolder" TO "account_holder"; EXCEPTION WHEN undefined_column THEN END;
+          BEGIN ALTER TABLE "bank_accounts" RENAME COLUMN "qrCodeUrl" TO "qr_image_url"; EXCEPTION WHEN undefined_column THEN END;
+          BEGIN ALTER TABLE "bank_accounts" RENAME COLUMN "qr_code_url" TO "qr_image_url"; EXCEPTION WHEN undefined_column THEN END;
+          BEGIN ALTER TABLE "bank_accounts" RENAME COLUMN "isActive" TO "is_active"; EXCEPTION WHEN undefined_column THEN END;
+          BEGIN ALTER TABLE "bank_accounts" RENAME COLUMN "createdAt" TO "created_at"; EXCEPTION WHEN undefined_column THEN END;
+          BEGIN ALTER TABLE "bank_accounts" RENAME COLUMN "updatedAt" TO "updated_at"; EXCEPTION WHEN undefined_column THEN END;
+        END $$;
+
+        -- 👇 SISTEMA DE CALIFICACIONES
+        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "ratingNegocio" DECIMAL(2,1) DEFAULT NULL;
+        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "ratingMotorizado" DECIMAL(2,1) DEFAULT NULL;
+
+        ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "ratingPromedio" DECIMAL(2,1) DEFAULT 0.0;
+        ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "totalResenas" INT DEFAULT 0;
+
+        ALTER TABLE "user_motorizado" ADD COLUMN IF NOT EXISTS "ratingPromedio" DECIMAL(2,1) DEFAULT 0.0;
+        ALTER TABLE "user_motorizado" ADD COLUMN IF NOT EXISTS "totalResenas" INT DEFAULT 0;
+
+        -- 👇 REPORTES / SOPORTE (TICKETS)
+        ALTER TABLE "report" ADD COLUMN IF NOT EXISTS "resolvedAt" TIMESTAMP DEFAULT NULL;
       `);
                 // 2. Enum Additions (Individual calls to ensure they commit)
                 const enums = [
@@ -292,6 +444,7 @@ class PostgresDatabase {
                     { type: 'storie_statusstorie_enum', label: 'FLAGGED' },
                     { type: 'storie_statusstorie_enum', label: 'PUBLISHED' },
                     { type: 'storie_statusstorie_enum', label: 'HIDDEN' },
+                    { type: 'pedido_estado_enum', label: 'PENDIENTE_PAGO' },
                 ];
                 for (const e of enums) {
                     try {

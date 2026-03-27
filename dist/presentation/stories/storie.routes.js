@@ -22,6 +22,7 @@ class StorieRoutes {
         const storieController = new storie_controller_1.StorieController(storieService);
         router.get("/", auth_middleware_1.AuthMiddleware.protect, storieController.findAllStorie);
         router.get("/user", auth_middleware_1.AuthMiddleware.protect, storieController.getStoriesByUser);
+        router.get("/:id", storieController.findOneStorie);
         router.post("/", auth_middleware_1.AuthMiddleware.protect, (0, config_1.uploadSingleFile)("imgstorie"), storieController.createStorie);
         router.delete("/:id", auth_middleware_1.AuthMiddleware.protect, storieController.deleteStorie);
         // ---------- RUTAS ADMIN ----------

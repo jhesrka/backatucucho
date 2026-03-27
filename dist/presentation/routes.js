@@ -31,6 +31,8 @@ const global_settings_routes_1 = require("./controller/globalSettings/global-set
 const report_routes_1 = require("./controller/report/report.routes");
 const financial_routes_1 = require("./controller/financial/financial.routes");
 const routes_2 = require("./reports/routes");
+const bank_account_routes_1 = require("./bank-account/bank-account.routes");
+const payphone_routes_1 = require("./webhooks/payphone.routes");
 class AppRoutes {
     //cuando hay metodoos estaticos no necesitams instanciar
     static get routes() {
@@ -84,6 +86,10 @@ class AppRoutes {
         router.use("/api/moderation", moderation_routes_1.ModerationRoutes.routes);
         // 🚩 NUEVA RUTA: Admin Reports (Aggregated)
         router.use("/api/admin/reports", routes_2.AdminReportRoutes.routes);
+        // 🏦 NUEVA RUTA: Bank Accounts
+        router.use("/api/bank-accounts", bank_account_routes_1.BankAccountRoutes.routes);
+        // 🔗 NUEVA RUTA: Payphone Webhook (Public)
+        router.use("/api/webhooks/payphone", payphone_routes_1.PayphoneWebhookRoutes.routes);
         return router;
     }
 }

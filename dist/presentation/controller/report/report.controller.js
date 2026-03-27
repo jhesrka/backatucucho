@@ -14,9 +14,16 @@ class ReportController {
                 .catch(error => res.status(500).json({ message: "Internal Server Error" }));
         };
         this.getAllReports = (req, res) => {
-            this.service.findAllReports()
+            const page = parseInt(req.query.page) || 1;
+            const limit = parseInt(req.query.limit) || 5;
+            this.service.findAllReports({ page, limit })
                 .then(data => res.json(data))
-                .catch(error => res.status(500).json({ message: "Internal Server Error" }));
+                .catch(error => {
+                console.error("DEBUG REPORT ERROR:", error);
+                // Temporary debug log
+                require('fs').appendFileSync('tmp/report_error.log', new Date().toISOString() + ": " + (error.stack || error.message || JSON.stringify(error)) + "\n");
+                res.status(500).json({ message: "Internal Server Error", error: error.message });
+            });
         };
         this.updateStatus = (req, res) => {
             const { id } = req.params;
@@ -26,6 +33,12 @@ class ReportController {
             this.service.updateReportStatus(id, status)
                 .then(data => res.json(data))
                 .catch(error => res.status(500).json({ message: "Internal Server Error" }));
+        };
+        this.deleteReport = (req, res) => {
+            const { id } = req.params;
+            this.service.deleteReport(id)
+                .then(data => res.json(data))
+                .catch(error => res.status(400).json({ message: error.message || "Internal Server Error" }));
         };
     }
 }

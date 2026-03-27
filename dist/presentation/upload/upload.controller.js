@@ -30,13 +30,16 @@ class UploadController {
                     body: req.file.buffer,
                     contentType: req.file.mimetype,
                 });
-                // Construct public URL directly
-                const url = `https://${env_1.envs.AWS_BUCKET_NAME}.s3.${env_1.envs.AWS_REGION}.amazonaws.com/${uploadedKey}`;
+                // Get signed URL for the response
+                const signedUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
+                    bucketName: env_1.envs.AWS_BUCKET_NAME,
+                    key: uploadedKey
+                });
                 return res.status(200).json({
                     success: true,
-                    url: url,
+                    url: signedUrl,
                     key: uploadedKey,
-                    secure_url: url // For compatibility with frontend expectation
+                    secure_url: signedUrl // For compatibility with frontend expectation
                 });
             }
             catch (error) {

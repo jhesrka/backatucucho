@@ -20,6 +20,7 @@ const domain_1 = require("../../domain");
 const uuid_1 = require("uuid");
 const content_moderation_1 = require("../../config/content-moderation");
 const PostReport_1 = require("../../data/postgres/models/PostReport");
+const date_utils_1 = require("../../utils/date-utils");
 class PostService {
     constructor(userService, subscriptionService, freePostTrackerService, globalSettingsService) {
         this.userService = userService;
@@ -589,17 +590,18 @@ class PostService {
             if (id) {
                 query.andWhere("post.id = :id", { id });
             }
-            if (status) {
-                query.andWhere("post.statusPost = :status", { status });
-            }
-            if (type) {
-                const isPaid = type === 'PAGADO';
-                query.andWhere("post.isPaid = :isPaid", { isPaid });
-            }
-            if (startDate && endDate) {
-                const end = new Date(endDate);
-                end.setHours(23, 59, 59, 999);
-                query.andWhere("post.createdAt BETWEEN :start AND :end", { start: startDate, end });
+            else {
+                if (status) {
+                    query.andWhere("post.statusPost = :status", { status });
+                }
+                if (type) {
+                    const isPaid = type === 'PAGADO';
+                    query.andWhere("post.isPaid = :isPaid", { isPaid });
+                }
+                if (startDate && endDate) {
+                    const { start, end } = date_utils_1.DateUtils.getDayRange(startDate);
+                    query.andWhere("post.createdAt BETWEEN :start AND :end", { start, end });
+                }
             }
             const [posts, total] = yield query.getManyAndCount();
             const formattedPosts = yield Promise.all(posts.map((post) => __awaiter(this, void 0, void 0, function* () {

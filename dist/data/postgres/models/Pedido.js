@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Pedido = exports.MetodoPago = exports.EstadoPedido = void 0;
+exports.Pedido = exports.EstadoPago = exports.MetodoPago = exports.EstadoPedido = void 0;
 const typeorm_1 = require("typeorm");
 const user_model_1 = require("./user.model");
 const Negocio_1 = require("./Negocio");
@@ -23,13 +23,31 @@ var EstadoPedido;
     EstadoPedido["EN_CAMINO"] = "EN_CAMINO";
     EstadoPedido["ENTREGADO"] = "ENTREGADO";
     EstadoPedido["CANCELADO"] = "CANCELADO";
+    EstadoPedido["PENDIENTE_PAGO"] = "PENDIENTE_PAGO";
 })(EstadoPedido || (exports.EstadoPedido = EstadoPedido = {}));
 var MetodoPago;
 (function (MetodoPago) {
     MetodoPago["EFECTIVO"] = "EFECTIVO";
     MetodoPago["TRANSFERENCIA"] = "TRANSFERENCIA";
+    MetodoPago["TARJETA"] = "TARJETA";
 })(MetodoPago || (exports.MetodoPago = MetodoPago = {}));
+var EstadoPago;
+(function (EstadoPago) {
+    EstadoPago["PENDIENTE"] = "PENDIENTE";
+    EstadoPago["PAGADO"] = "PAGADO";
+    EstadoPago["FALLIDO"] = "FALLIDO";
+})(EstadoPago || (exports.EstadoPago = EstadoPago = {}));
 let Pedido = class Pedido extends typeorm_1.BaseEntity {
+    updateNoAssignedSince() {
+        if (this.estado === EstadoPedido.PREPARANDO_NO_ASIGNADO) {
+            if (!this.noAssignedSince) {
+                this.noAssignedSince = new Date();
+            }
+        }
+        else {
+            this.noAssignedSince = null;
+        }
+    }
 };
 exports.Pedido = Pedido;
 __decorate([
@@ -42,8 +60,7 @@ __decorate([
 ], Pedido.prototype, "cliente", void 0);
 __decorate([
     (0, typeorm_1.ManyToOne)(() => Negocio_1.Negocio, (negocio) => negocio.pedidos),
-    (0, typeorm_1.JoinColumn)({ name: "negocioId" }) // Explicitly map to camelCase column verified in DB
-    ,
+    (0, typeorm_1.JoinColumn)({ name: "negocioId" }),
     __metadata("design:type", Negocio_1.Negocio)
 ], Pedido.prototype, "negocio", void 0);
 __decorate([
@@ -62,6 +79,18 @@ __decorate([
     }),
     __metadata("design:type", String)
 ], Pedido.prototype, "metodoPago", void 0);
+__decorate([
+    (0, typeorm_1.Column)({
+        type: "enum",
+        enum: EstadoPago,
+        default: EstadoPago.PENDIENTE,
+    }),
+    __metadata("design:type", String)
+], Pedido.prototype, "estadoPago", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "varchar", nullable: true }),
+    __metadata("design:type", Object)
+], Pedido.prototype, "referenciaPago", void 0);
 __decorate([
     (0, typeorm_1.Column)("decimal", { precision: 10, scale: 2 }),
     __metadata("design:type", Number)
@@ -127,6 +156,10 @@ __decorate([
     __metadata("design:type", Number)
 ], Pedido.prototype, "comision_moto_app", void 0);
 __decorate([
+    (0, typeorm_1.Column)("decimal", { precision: 10, scale: 2, default: 0 }),
+    __metadata("design:type", Number)
+], Pedido.prototype, "recargo_tarjeta", void 0);
+__decorate([
     (0, typeorm_1.ManyToOne)("UserMotorizado", { nullable: true }),
     __metadata("design:type", Object)
 ], Pedido.prototype, "motorizado", void 0);
@@ -179,9 +212,56 @@ __decorate([
     __metadata("design:type", Number)
 ], Pedido.prototype, "intentosEnRonda", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: "timestamptz", nullable: true }),
+    __metadata("design:type", Object)
+], Pedido.prototype, "noAssignedSince", void 0);
+__decorate([
     (0, typeorm_1.Column)({ type: "varchar", nullable: true }),
     __metadata("design:type", Object)
 ], Pedido.prototype, "motivoCancelacion", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "boolean", nullable: true, default: null }),
+    __metadata("design:type", Object)
+], Pedido.prototype, "transferenciaCanceladaConfirmada", void 0);
+__decorate([
+    (0, typeorm_1.Column)("simple-array", { default: "" }),
+    __metadata("design:type", Array)
+], Pedido.prototype, "motorizadosExcluidos", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "varchar", nullable: true }),
+    __metadata("design:type", Object)
+], Pedido.prototype, "pickup_code", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "boolean", default: false }),
+    __metadata("design:type", Boolean)
+], Pedido.prototype, "pickup_verified", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "varchar", nullable: true }),
+    __metadata("design:type", Object)
+], Pedido.prototype, "delivery_code", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "boolean", default: false }),
+    __metadata("design:type", Boolean)
+], Pedido.prototype, "delivery_verified", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "timestamp", nullable: true }),
+    __metadata("design:type", Object)
+], Pedido.prototype, "arrival_time", void 0);
+__decorate([
+    (0, typeorm_1.Column)("decimal", { precision: 2, scale: 1, nullable: true }),
+    __metadata("design:type", Object)
+], Pedido.prototype, "ratingNegocio", void 0);
+__decorate([
+    (0, typeorm_1.Column)("decimal", { precision: 2, scale: 1, nullable: true }),
+    __metadata("design:type", Object)
+], Pedido.prototype, "ratingMotorizado", void 0);
+__decorate([
+    (0, typeorm_1.BeforeInsert)(),
+    (0, typeorm_1.BeforeUpdate)(),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], Pedido.prototype, "updateNoAssignedSince", null);
 exports.Pedido = Pedido = __decorate([
     (0, typeorm_1.Entity)()
 ], Pedido);

@@ -1,7 +1,7 @@
 "use strict";
 //USUARIO
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ProductoPedidoInput = exports.CreatePedidoDTO = exports.UpdateEstadoPedidoDTO = exports.AsignarMotorizadoDTO = exports.UpdateUserDTO = exports.UpdateDTO = exports.CreateDTO = exports.CustomError = exports.CreatePostDTO = exports.CreateLikeDTO = exports.RechargeResponseDTO = exports.CreateRechargeRequestDTO = exports.ResetPasswordMotorizadoDTO = exports.ForgotPasswordMotorizadoDTO = exports.LoginMotorizadoUserDTO = exports.CreateMotorizadoDTO = exports.ResetPasswordDTO = exports.ForgotPasswordDTO = exports.LoginAdminUserDTO = exports.CreateUseradminDTO = exports.ChangePasswordUserDTO = exports.UpdateUserAdminDTO = exports.FilterUsersByStatusDTO = exports.UpdateUserStatusDTO = exports.UpdateUserRoleDTO = exports.DeleteUserDTO = exports.SearchUserDTO = exports.SendNotificationDTO = exports.ResetPasswordUserDTO = exports.ForgotPasswordUserDTO = exports.LoginGoogleUserDTO = exports.LoginUserDTO = exports.CreateUserDTO = void 0;
+exports.CalificarPedidoDTO = exports.ProductoPedidoInput = exports.CreatePedidoDTO = exports.UpdateEstadoPedidoDTO = exports.AsignarMotorizadoDTO = exports.UpdateUserDTO = exports.UpdateDTO = exports.CreateDTO = exports.CustomError = exports.CreatePostDTO = exports.CreateLikeDTO = exports.RechargeResponseDTO = exports.CreateRechargeRequestDTO = exports.ResetPasswordMotorizadoDTO = exports.ForgotPasswordMotorizadoDTO = exports.LoginMotorizadoUserDTO = exports.CreateMotorizadoDTO = exports.ResetPasswordDTO = exports.ForgotPasswordDTO = exports.LoginAdminUserDTO = exports.CreateUseradminDTO = exports.ChangePasswordUserDTO = exports.UpdateUserAdminDTO = exports.FilterUsersByStatusDTO = exports.UpdateUserStatusDTO = exports.UpdateUserRoleDTO = exports.DeleteUserDTO = exports.SearchUserDTO = exports.SendNotificationDTO = exports.ResetPasswordUserDTO = exports.ForgotPasswordUserDTO = exports.LoginGoogleUserDTO = exports.LoginUserDTO = exports.CreateUserDTO = void 0;
 var create_user_dto_1 = require("./dtos/user/create-user.dto");
 Object.defineProperty(exports, "CreateUserDTO", { enumerable: true, get: function () { return create_user_dto_1.CreateUserDTO; } });
 var login_user_dto_1 = require("./dtos/user/login-user.dto");
@@ -72,3 +72,5 @@ var CreatePedidoDTO_1 = require("./dtos/pedidos/CreatePedidoDTO");
 Object.defineProperty(exports, "CreatePedidoDTO", { enumerable: true, get: function () { return CreatePedidoDTO_1.CreatePedidoDTO; } });
 var ProductoPedidoInput_1 = require("./dtos/pedidos/ProductoPedidoInput");
 Object.defineProperty(exports, "ProductoPedidoInput", { enumerable: true, get: function () { return ProductoPedidoInput_1.ProductoPedidoInput; } });
+var CalificarPedidoDTO_1 = require("./dtos/pedidos/CalificarPedidoDTO");
+Object.defineProperty(exports, "CalificarPedidoDTO", { enumerable: true, get: function () { return CalificarPedidoDTO_1.CalificarPedidoDTO; } });

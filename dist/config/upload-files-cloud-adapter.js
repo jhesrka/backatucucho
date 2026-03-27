@@ -102,15 +102,13 @@ class UploadFilesCloud {
             // Si ya es una URL completa (ej: Google Profile Picture), retornar tal cual
             if (key.startsWith('http'))
                 return key;
-            // Si se solicita un tamaño específico y el archivo es un .webp generado por nosotros
+            // OPTIMIZACIÓN DE RENDIMIENTO: Eliminamos 'checkFileExists' (HeadObject a S3)
+            // para evitar el problema de N+1 peticiones de red por cada lista.
+            // Simplemente generamos la URL firmada para la versión optimizada.
+            // Si la versión no existe, el navegador mostrará fallback o el manejador de error local.
             if (size !== image_optimizer_adapter_1.ImageSize.ORIGINAL && key.endsWith('.webp')) {
                 const suffix = `_${size}`; // _thumb o _card
-                const sizedKey = key.replace(".webp", `${suffix}.webp`);
-                // Intentamos ver si existe el sizedKey
-                const exists = yield this.checkFileExists({ bucketName, key: sizedKey });
-                if (exists) {
-                    key = sizedKey;
-                }
+                key = key.replace(".webp", `${suffix}.webp`);
             }
             const params = {
                 Bucket: bucketName,

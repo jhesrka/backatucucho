@@ -96,6 +96,26 @@ __decorate([
     __metadata("design:type", Number)
 ], Negocio.prototype, "orden", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: "boolean", default: false }),
+    __metadata("design:type", Boolean)
+], Negocio.prototype, "pago_tarjeta_habilitado_admin", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "boolean", default: false }),
+    __metadata("design:type", Boolean)
+], Negocio.prototype, "pago_tarjeta_activo_negocio", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "varchar", nullable: true }),
+    __metadata("design:type", Object)
+], Negocio.prototype, "payphone_store_id", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "varchar", nullable: true }),
+    __metadata("design:type", Object)
+], Negocio.prototype, "payphone_token", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "decimal", precision: 5, scale: 2, default: 0 }),
+    __metadata("design:type", Number)
+], Negocio.prototype, "porcentaje_recargo_tarjeta", void 0);
+__decorate([
     (0, typeorm_1.Column)({ type: "timestamp", nullable: true }),
     __metadata("design:type", Object)
 ], Negocio.prototype, "fechaUltimoCobro", void 0);
@@ -147,6 +167,14 @@ __decorate([
     (0, typeorm_1.UpdateDateColumn)({ type: "timestamptz" }),
     __metadata("design:type", Date)
 ], Negocio.prototype, "updated_at", void 0);
+__decorate([
+    (0, typeorm_1.Column)("decimal", { precision: 2, scale: 1, default: 0.0 }),
+    __metadata("design:type", Number)
+], Negocio.prototype, "ratingPromedio", void 0);
+__decorate([
+    (0, typeorm_1.Column)("int", { default: 0 }),
+    __metadata("design:type", Number)
+], Negocio.prototype, "totalResenas", void 0);
 __decorate([
     (0, typeorm_1.ManyToOne)(() => user_model_1.User, (user) => user.negocios),
     __metadata("design:type", user_model_1.User)

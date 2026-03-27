@@ -12,6 +12,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WalletService = void 0;
 const data_1 = require("../../data");
 const domain_1 = require("../../domain");
+const upload_files_cloud_adapter_1 = require("../../config/upload-files-cloud-adapter");
+const config_1 = require("../../config");
 class WalletService {
     constructor(userService) {
         this.userService = userService;
@@ -156,17 +158,52 @@ class WalletService {
                 query.andWhere("transaction.type = :type", { type });
             }
             if (startDate && endDate) {
-                // Ajustar fechas para incluir todo el día final
-                const end = new Date(endDate);
-                end.setHours(23, 59, 59, 999);
-                query.andWhere("transaction.created_at BETWEEN :startDate AND :endDate", {
-                    startDate,
-                    endDate: end.toISOString(),
-                });
+                let start;
+                let end;
+                // Intentamos parsear como ISO primero. Si falla o es solo fecha, ajustamos.
+                const isShortDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s);
+                if (isShortDate(startDate)) {
+                    const [y, m, d] = startDate.split('-').map(Number);
+                    // 05:00 UTC = 00:00 Ecuador
+                    start = new Date(Date.UTC(y, m - 1, d, 5, 0, 0));
+                }
+                else {
+                    start = new Date(startDate);
+                }
+                if (isShortDate(endDate)) {
+                    const [y, m, d] = endDate.split('-').map(Number);
+                    // 04:59:59 UTC del día siguiente = 23:59:59 Ecuador (mismo día al final)
+                    end = new Date(Date.UTC(y, m - 1, d + 1, 4, 59, 59, 999));
+                }
+                else {
+                    end = new Date(endDate);
+                }
+                // Validar que sean fechas válidas antes de aplicar al query
+                if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+                    query.andWhere("transaction.created_at BETWEEN :startDate AND :endDate", {
+                        startDate: start.toISOString(),
+                        endDate: end.toISOString(),
+                    });
+                }
             }
             const [transactions, total] = yield query.getManyAndCount();
+            const transactionsSigned = yield Promise.all(transactions.map((tx) => __awaiter(this, void 0, void 0, function* () {
+                if (tx.receipt_image && !tx.receipt_image.startsWith('http')) {
+                    try {
+                        const signedUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
+                            bucketName: config_1.envs.AWS_BUCKET_NAME,
+                            key: tx.receipt_image
+                        });
+                        tx.receipt_image = signedUrl;
+                    }
+                    catch (error) {
+                        console.error(`Error signing receipt for transaction ${tx.id}`, error);
+                    }
+                }
+                return tx;
+            })));
             return {
-                data: transactions,
+                data: transactionsSigned,
                 pagination: {
                     currentPage: Number(page),
                     totalPages: Math.ceil(total / limit),

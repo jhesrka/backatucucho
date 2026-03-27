@@ -127,10 +127,15 @@ class RechargeRequestService {
                         transaction.status = 'PENDING';
                         transaction.observation = `Solicitud de Recarga - Banco: ${recharge.bank_name}`;
                         transaction.reference = savedRecharge.id; // Vinculamos con la solicitud
-                        transaction.receipt_image = savedRecharge.receipt_image; // Guardamos el key de la imagen
+                        transaction.receipt_image = key; // IMPORTANTE: Usar 'key' (string), no el objeto 'url'
                         transaction.previousBalance = Number(wallet.balance);
                         transaction.resultingBalance = Number(wallet.balance); // Sin cambios aún
-                        yield transaction.save();
+                        try {
+                            yield transaction.save();
+                        }
+                        catch (error) {
+                            console.error("Error al guardar transacción de recarga:", error);
+                        }
                     }
                 }
                 // Emitir evento socket en tiempo real
@@ -265,9 +270,9 @@ class RechargeRequestService {
         return __awaiter(this, arguments, void 0, function* (userId, startDate, endDate, page = 1, itemsPerPage = 9) {
             // Ajustar las fechas para reflejar correctamente el rango en UTC-5 (Ecuador)
             const start = new Date(startDate);
-            start.setUTCHours(5, 0, 0, 0); // 00:00 en Ecuador es 05:00 UTC
+            start.setHours(0, 0, 0, 0);
             const end = new Date(endDate);
-            end.setUTCHours(28, 59, 59, 999); // 23:59 en Ecuador es 04:59 UTC del día siguiente
+            end.setHours(23, 59, 59, 999);
             const [userRequests, total] = yield data_1.RechargeRequest.findAndCount({
                 where: {
                     user: { id: userId }, // Filtro por usuario
@@ -473,9 +478,9 @@ class RechargeRequestService {
             const skip = (page - 1) * take;
             // Ajustar las fechas para reflejar correctamente el rango en UTC-5 (Ecuador)
             const start = new Date(startDate);
-            start.setUTCHours(5, 0, 0, 0); // 00:00 en Ecuador es 05:00 UTC
+            start.setHours(0, 0, 0, 0);
             const end = new Date(endDate);
-            end.setUTCHours(28, 59, 59, 999); // 23:59 en Ecuador es 04:59 UTC del día siguiente
+            end.setHours(23, 59, 59, 999);
             const [allRequests, total] = yield data_1.RechargeRequest.findAndCount({
                 relations: ["user"],
                 order: { created_at: "DESC" },
@@ -633,9 +638,9 @@ class RechargeRequestService {
     exportToCSVByDate(startDate, endDate) {
         return __awaiter(this, void 0, void 0, function* () {
             const start = new Date(startDate);
-            start.setUTCHours(5, 0, 0, 0); // 00:00 hora Ecuador (UTC-5)
+            start.setHours(0, 0, 0, 0);
             const end = new Date(endDate);
-            end.setUTCHours(28, 59, 59, 999); // 23:59 hora Ecuador (UTC-5) => 04:59 UTC del día siguiente
+            end.setHours(23, 59, 59, 999);
             const allRequests = yield data_1.RechargeRequest.find({
                 relations: ["user"],
                 where: {

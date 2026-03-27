@@ -22,6 +22,7 @@ var EstadoTransaccion;
     EstadoTransaccion["COMPLETADA"] = "COMPLETADA";
     EstadoTransaccion["PENDIENTE"] = "PENDIENTE";
     EstadoTransaccion["RECHAZADA"] = "RECHAZADA";
+    EstadoTransaccion["CANCELADA"] = "CANCELADA";
 })(EstadoTransaccion || (exports.EstadoTransaccion = EstadoTransaccion = {}));
 let TransaccionMotorizado = class TransaccionMotorizado extends typeorm_1.BaseEntity {
 };
@@ -35,7 +36,7 @@ __decorate([
     __metadata("design:type", Function)
 ], TransaccionMotorizado.prototype, "motorizado", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)("Pedido", { nullable: true }),
+    (0, typeorm_1.ManyToOne)("Pedido", { nullable: true, onDelete: "SET NULL" }),
     __metadata("design:type", Object)
 ], TransaccionMotorizado.prototype, "pedido", void 0);
 __decorate([
@@ -55,6 +56,10 @@ __decorate([
     __metadata("design:type", Date)
 ], TransaccionMotorizado.prototype, "createdAt", void 0);
 __decorate([
+    (0, typeorm_1.UpdateDateColumn)({ name: 'updated_at' }),
+    __metadata("design:type", Date)
+], TransaccionMotorizado.prototype, "updatedAt", void 0);
+__decorate([
     (0, typeorm_1.Column)({ type: "enum", enum: EstadoTransaccion, default: EstadoTransaccion.COMPLETADA }),
     __metadata("design:type", String)
 ], TransaccionMotorizado.prototype, "estado", void 0);
@@ -70,6 +75,10 @@ __decorate([
     (0, typeorm_1.Column)("text", { nullable: true }),
     __metadata("design:type", Object)
 ], TransaccionMotorizado.prototype, "detalles", void 0);
+__decorate([
+    (0, typeorm_1.Column)("boolean", { default: false }),
+    __metadata("design:type", Boolean)
+], TransaccionMotorizado.prototype, "reintegrado", void 0);
 exports.TransaccionMotorizado = TransaccionMotorizado = __decorate([
     (0, typeorm_1.Entity)()
 ], TransaccionMotorizado);

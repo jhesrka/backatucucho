@@ -23,6 +23,11 @@ class PedidoUsuarioRoutes {
         router.get("/cliente/:clienteId", auth_middleware_1.AuthMiddleware.protect, pedidoUsuarioController.obtenerPedidosCliente);
         // ===================== ELIMINAR PEDIDO DEL CLIENTE =====================
         router.delete("/cliente/:clienteId/:pedidoId", auth_middleware_1.AuthMiddleware.protect, pedidoUsuarioController.eliminarPedidoCliente);
+        router.post("/ya-voy", auth_middleware_1.AuthMiddleware.protect, pedidoUsuarioController.notificarYaVoy);
+        router.post("/calificar", auth_middleware_1.AuthMiddleware.protect, pedidoUsuarioController.calificarPedido);
+        router.get("/run-sql-update", pedidoUsuarioController.runSqlUpdate);
+        router.post("/confirmar-pago", pedidoUsuarioController.confirmarPago);
+        router.post("/refresh-timer", auth_middleware_1.AuthMiddleware.protect, pedidoUsuarioController.refreshTimer);
         return router;
     }
 }

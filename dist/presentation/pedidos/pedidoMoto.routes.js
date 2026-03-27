@@ -20,6 +20,8 @@ class PedidoMotoRoutes {
         router.post("/entregado", middlewares_1.AuthMotorizadoMiddleware.protect, pedidoMotoController.entregarPedido);
         // ===================== CANCELAR PEDIDO =====================
         router.post("/cancelar", middlewares_1.AuthMotorizadoMiddleware.protect, pedidoMotoController.cancelarPedido);
+        // ===================== MARCAR LLEGADA =====================
+        router.post("/marcar-llegada", middlewares_1.AuthMotorizadoMiddleware.protect, pedidoMotoController.marcarLlegada);
         // ===================== HISTORIAL Y BILLETERA =====================
         router.get("/historial", middlewares_1.AuthMotorizadoMiddleware.protect, pedidoMotoController.obtenerHistorial);
         router.get("/billetera", middlewares_1.AuthMotorizadoMiddleware.protect, pedidoMotoController.obtenerBilletera);
@@ -34,6 +36,9 @@ class PedidoMotoRoutes {
         router.post("/pedido-activo", middlewares_1.AuthMotorizadoMiddleware.protect, pedidoMotoController.obtenerPedidoActivo);
         router.post("/disponibilidad", middlewares_1.AuthMotorizadoMiddleware.protect, pedidoMotoController.cambiarDisponibilidad);
         router.get("/estado", middlewares_1.AuthMotorizadoMiddleware.protect, pedidoMotoController.obtenerEstado);
+        // ===================== TABLERO OPERATIVO =====================
+        router.get("/tablero-operativo", middlewares_1.AuthMotorizadoMiddleware.protect, pedidoMotoController.obtenerTableroOperativo);
+        router.post("/aceptar-espera", middlewares_1.AuthMotorizadoMiddleware.protect, pedidoMotoController.aceptarPedidoEnEspera);
         return router;
     }
 }

@@ -82,6 +82,16 @@ class AdvertisingController {
                 this.handleError(error, res);
             }
         });
+        this.searchUsers = (req, res) => __awaiter(this, void 0, void 0, function* () {
+            try {
+                const { q } = req.query;
+                const users = yield this.advertisingService.searchUsers(q);
+                return res.json(users);
+            }
+            catch (error) {
+                this.handleError(error, res);
+            }
+        });
     }
 }
 exports.AdvertisingController = AdvertisingController;

@@ -47,6 +47,15 @@ class StorieController {
             })
                 .catch((error) => this.handleError(error, res));
         };
+        this.findOneStorie = (req, res) => {
+            const { id } = req.params;
+            this.storieService
+                .findOneStorie(id)
+                .then((data) => {
+                res.status(200).json(data);
+            })
+                .catch((error) => this.handleError(error, res));
+        };
         // 🆕 Eliminar historia (soft o hard delete)
         this.deleteStorie = (req, res) => {
             var _a;
@@ -62,6 +71,8 @@ class StorieController {
         };
         this.getStoriesByUser = (req, res) => __awaiter(this, void 0, void 0, function* () {
             const sessionUser = req.body.sessionUser;
+            const page = parseInt(req.query.page) || 1;
+            const limit = parseInt(req.query.limit) || 10;
             if (!(sessionUser === null || sessionUser === void 0 ? void 0 : sessionUser.id)) {
                 return res.status(401).json({
                     success: false,
@@ -75,10 +86,13 @@ class StorieController {
                 });
             }
             try {
-                const stories = yield this.storieService.getStoriesByUser(sessionUser.id);
+                const result = yield this.storieService.getStoriesByUser(sessionUser.id, page, limit);
                 return res.status(200).json({
                     success: true,
-                    stories,
+                    stories: result.stories,
+                    total: result.total,
+                    totalPages: result.totalPages,
+                    currentPage: result.currentPage
                 });
             }
             catch (error) {

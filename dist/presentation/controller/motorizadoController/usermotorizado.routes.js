@@ -29,8 +29,14 @@ class UserMotorizadoRoutes {
             res.json(req.body.sessionMotorizado);
         });
         router.get("/me", middlewares_1.AuthMotorizadoMiddleware.protect, motorizadoController.getMotorizadoMe);
+        router.post("/me/change-password", middlewares_1.AuthMotorizadoMiddleware.protect, motorizadoController.cambiarPasswordSelf);
         // 🔄 Gestión de Pedidos (Admin)
         router.patch("/orders/:pedidoId/status", motorizadoController.changeOrderStatus);
+        // Billetera & Finanzas (Globales primero para evitar interferencia con :id)
+        router.get("/wallet/global-stats", auth_admin_middleware_1.AuthAdminMiddleware.protect, motorizadoController.getGlobalWalletStats);
+        router.get("/wallet/global-withdrawals", auth_admin_middleware_1.AuthAdminMiddleware.protect, motorizadoController.getAllGlobalWithdrawals);
+        router.get("/wallet/withdrawals-stats-today", auth_admin_middleware_1.AuthAdminMiddleware.protect, motorizadoController.getWithdrawalStats);
+        router.get("/wallet/control-data", auth_admin_middleware_1.AuthAdminMiddleware.protect, motorizadoController.getWalletControlData);
         router.get("/", motorizadoController.findAllMotorizados);
         router.get("/:id", motorizadoController.findMotorizadoById);
         router.get("/:id/orders", motorizadoController.getOrdersHistory);
@@ -38,9 +44,6 @@ class UserMotorizadoRoutes {
         router.patch("/toggle-active/:id", motorizadoController.toggleActivo);
         router.patch("/change-password/:id", motorizadoController.cambiarPassword);
         router.get("/:id/stats/monthly", motorizadoController.getMonthlyPerformance);
-        // Billetera & Finanzas
-        router.get("/wallet/global-stats", auth_admin_middleware_1.AuthAdminMiddleware.protect, motorizadoController.getGlobalWalletStats);
-        router.get("/wallet/global-withdrawals", auth_admin_middleware_1.AuthAdminMiddleware.protect, motorizadoController.getAllGlobalWithdrawals);
         router.get("/:id/wallet/stats", auth_admin_middleware_1.AuthAdminMiddleware.protect, motorizadoController.getWalletStats);
         router.get("/:id/wallet/transactions", auth_admin_middleware_1.AuthAdminMiddleware.protect, motorizadoController.getTransactions);
         router.post("/:id/wallet/adjust", auth_admin_middleware_1.AuthAdminMiddleware.protect, motorizadoController.adjustBalance);

@@ -182,12 +182,15 @@ class NegocioAdminService {
             if (dto.modeloMonetizacion) {
                 if (!negocio.categoria)
                     throw domain_1.CustomError.badRequest("Negocio sin categoría asignada");
-                // Validar restricciones de la categoría si existen
-                if (negocio.categoria.soloComision && dto.modeloMonetizacion !== data_1.ModeloMonetizacion.COMISION_SUSCRIPCION) {
-                    throw domain_1.CustomError.badRequest(`La categoría '${negocio.categoria.nombre}' solo permite el modelo COMISION + SUSCRIPCION`);
-                }
-                if (negocio.categoria.restriccionModeloMonetizacion && negocio.categoria.restriccionModeloMonetizacion !== dto.modeloMonetizacion) {
-                    throw domain_1.CustomError.badRequest(`La categoría '${negocio.categoria.nombre}' tiene restricción a: ${negocio.categoria.restriccionModeloMonetizacion}`);
+                const hasModelChanged = negocio.modeloMonetizacion !== dto.modeloMonetizacion;
+                if (hasModelChanged) {
+                    // Validar restricciones de la categoría si existen
+                    if (negocio.categoria.soloComision && dto.modeloMonetizacion !== data_1.ModeloMonetizacion.COMISION_SUSCRIPCION) {
+                        throw domain_1.CustomError.badRequest(`La categoría '${negocio.categoria.nombre}' solo permite el modelo COMISION + SUSCRIPCION`);
+                    }
+                    if (negocio.categoria.restriccionModeloMonetizacion && negocio.categoria.restriccionModeloMonetizacion !== dto.modeloMonetizacion) {
+                        throw domain_1.CustomError.badRequest(`La categoría '${negocio.categoria.nombre}' tiene restricción a: ${negocio.categoria.restriccionModeloMonetizacion}`);
+                    }
                 }
                 negocio.modeloMonetizacion = dto.modeloMonetizacion;
             }
@@ -215,6 +218,21 @@ class NegocioAdminService {
             }
             if (dto.orden !== undefined) {
                 negocio.orden = dto.orden;
+            }
+            // ========================= ACTUALIZAR PAYPHONE =========================
+            if (dto.pago_tarjeta_habilitado_admin !== undefined) {
+                negocio.pago_tarjeta_habilitado_admin = dto.pago_tarjeta_habilitado_admin;
+                // EL NEGOCIO YA NO TIENE CONTROL PROPIO: El switch de negocio se sincroniza con el de admin
+                negocio.pago_tarjeta_activo_negocio = dto.pago_tarjeta_habilitado_admin;
+            }
+            if (dto.payphone_store_id !== undefined) {
+                negocio.payphone_store_id = dto.payphone_store_id;
+            }
+            if (dto.payphone_token !== undefined) {
+                negocio.payphone_token = dto.payphone_token;
+            }
+            if (dto.porcentaje_recargo_tarjeta !== undefined) {
+                negocio.porcentaje_recargo_tarjeta = dto.porcentaje_recargo_tarjeta;
             }
             // ========================= ACTUALIZAR STATUS =========================
             if (dto.statusNegocio) {
@@ -248,30 +266,23 @@ class NegocioAdminService {
                     }
                 }
                 // 🔄 FLUJO ATÓMICO: Si el admin intenta poner ACTIVO y se requiere cobro:
-                // (needsCharge se calcula después de haber actualizado valorSuscripcion arriba)
                 const needsCharge = Number(negocio.valorSuscripcion) > 0 && (negocio.statusNegocio === data_1.StatusNegocio.NO_PAGADO ||
                     negocio.statusNegocio === data_1.StatusNegocio.PENDIENTE ||
                     !negocio.fechaFinSuscripcion ||
                     new Date(negocio.fechaFinSuscripcion) <= new Date());
                 if (dto.statusNegocio === data_1.StatusNegocio.ACTIVO && needsCharge) {
-                    // CASO 1: Activación desde PENDIENTE -> OBLIGATORIO COBRAR
-                    // Si no cobra, no se activa.
-                    if (negocio.statusNegocio === data_1.StatusNegocio.PENDIENTE) {
-                        if (!this.subscriptionService) {
-                            throw domain_1.CustomError.internalServer("Servicio de suscripción no inicializado");
-                        }
-                        try {
-                            yield this.subscriptionService.chargeSubscription(negocio, false);
-                        }
-                        catch (error) {
-                            throw error;
-                        }
+                    if (!this.subscriptionService) {
+                        throw domain_1.CustomError.internalServer("Servicio de suscripción no inicializado");
                     }
-                    // CASO 2: Reactivación desde BLOQUEADO/SUSPENDIDO con suscripción vencida
-                    // No cobramos automático (podría no tener saldo), lo pasamos a NO_PAGADO para que pague manual.
-                    else {
-                        negocio.statusNegocio = data_1.StatusNegocio.NO_PAGADO;
-                        // Opcional: Podríamos mostrar un mensaje, pero aquí solo actualizamos el estado.
+                    try {
+                        // 🚀 REACTIVACIÓN FORZADA: Intentamos cobrar atómicamente.
+                        // Si falla (ej. por saldo insuficiente), SubscriptionService lanzará el error.
+                        yield this.subscriptionService.chargeSubscription(negocio, false);
+                        // Si el cobro fue exitoso, chargeSubscription ya actualiza el estado a ACTIVO y resetea fechas a 'Today'
+                    }
+                    catch (error) {
+                        // Si el cobro falla, propagamos el error (ej: "No hay saldo suficiente")
+                        throw error;
                     }
                 }
                 else if (dto.statusNegocio === data_1.StatusNegocio.ACTIVO && !needsCharge) {
@@ -286,7 +297,7 @@ class NegocioAdminService {
                     negocio.statusNegocio = data_1.StatusNegocio.NO_PAGADO;
                 }
                 else {
-                    // Si no necesita cobro (es de $0 o ya tiene período activo), simplemente actualizamos el estado
+                    // Estados normales (BLOQUEADO, SUSPENDIDO, etc)
                     negocio.statusNegocio = dto.statusNegocio;
                 }
             }
@@ -314,6 +325,11 @@ class NegocioAdminService {
                 fechaUltimoCobro: saved.fechaUltimoCobro,
                 intentosCobro: saved.intentosCobro,
                 orden: saved.orden,
+                pago_tarjeta_habilitado_admin: saved.pago_tarjeta_habilitado_admin,
+                pago_tarjeta_activo_negocio: saved.pago_tarjeta_activo_negocio,
+                payphone_store_id: saved.payphone_store_id,
+                payphone_token: saved.payphone_token,
+                porcentaje_recargo_tarjeta: Number(saved.porcentaje_recargo_tarjeta) || 0,
             };
         });
     }

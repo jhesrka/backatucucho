@@ -39,19 +39,19 @@ __decorate([
     __metadata("design:type", String)
 ], Storie.prototype, "imgstorie", void 0);
 __decorate([
-    (0, typeorm_1.Column)("timestamp", {
+    (0, typeorm_1.Column)("timestamptz", {
         default: () => "CURRENT_TIMESTAMP",
     }),
     __metadata("design:type", Date)
 ], Storie.prototype, "createdAt", void 0);
 __decorate([
-    (0, typeorm_1.Column)("timestamp", {
+    (0, typeorm_1.Column)("timestamptz", {
         default: () => "CURRENT_TIMESTAMP",
     }),
     __metadata("design:type", Date)
 ], Storie.prototype, "expires_at", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: "timestamp", nullable: true }),
+    (0, typeorm_1.Column)({ type: "timestamptz", nullable: true }),
     __metadata("design:type", Date)
 ], Storie.prototype, "deletedAt", void 0);
 __decorate([

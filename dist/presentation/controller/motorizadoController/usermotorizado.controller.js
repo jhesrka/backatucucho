@@ -22,8 +22,8 @@ class MotorizadoController {
                 .catch(error => this.handleError(error, res));
         };
         this.getAllGlobalWithdrawals = (req, res) => {
-            const { status } = req.query;
-            this.motorizadoService.getAllGlobalWithdrawals(status)
+            const { status, date } = req.query;
+            this.motorizadoService.getAllGlobalWithdrawals(status, date)
                 .then(data => res.json(data))
                 .catch(error => this.handleError(error, res));
         };
@@ -177,6 +177,20 @@ class MotorizadoController {
                 .then((data) => res.status(200).json(data))
                 .catch((error) => this.handleError(error, res));
         };
+        this.cambiarPasswordSelf = (req, res) => {
+            var _a;
+            const motorizadoId = (_a = req.body.sessionMotorizado) === null || _a === void 0 ? void 0 : _a.id;
+            if (!motorizadoId)
+                return res.status(401).json({ message: "No autenticado" });
+            const { passwordActual, nuevaPassword } = req.body;
+            if (!passwordActual || !nuevaPassword) {
+                return res.status(400).json({ message: "Todos los campos son obligatorios" });
+            }
+            this.motorizadoService
+                .cambiarPasswordSelf(motorizadoId, passwordActual, nuevaPassword)
+                .then((data) => res.json(data))
+                .catch((error) => this.handleError(error, res));
+        };
         // 💰 Obtener estadísticas de billetera y saldo
         this.getWalletStats = (req, res) => {
             const { id } = req.params;
@@ -321,6 +335,17 @@ class MotorizadoController {
                 this.handleError(err, res);
             }
         });
+        // ✅ Estadísticas de retiros hoy (Admin)
+        this.getWithdrawalStats = (req, res) => __awaiter(this, void 0, void 0, function* () {
+            this.motorizadoService.getWithdrawalStatsToday()
+                .then(data => res.json(data))
+                .catch(error => this.handleError(error, res));
+        });
+        this.getWalletControlData = (req, res) => {
+            this.motorizadoService.getWalletControlData()
+                .then(data => res.json(data))
+                .catch(error => this.handleError(error, res));
+        };
     }
 }
 exports.MotorizadoController = MotorizadoController;

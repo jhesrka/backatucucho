@@ -50,11 +50,11 @@ __decorate([
     __metadata("design:type", index_1.User)
 ], Subscription.prototype, "user", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: "timestamp" }),
+    (0, typeorm_1.Column)({ type: "timestamptz" }),
     __metadata("design:type", Date)
 ], Subscription.prototype, "startDate", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: "timestamp", nullable: true }),
+    (0, typeorm_1.Column)({ type: "timestamptz", nullable: true }),
     __metadata("design:type", Object)
 ], Subscription.prototype, "endDate", void 0);
 __decorate([
@@ -86,11 +86,11 @@ __decorate([
     __metadata("design:type", String)
 ], Subscription.prototype, "transactionId", void 0);
 __decorate([
-    (0, typeorm_1.CreateDateColumn)(),
+    (0, typeorm_1.CreateDateColumn)({ type: "timestamptz" }),
     __metadata("design:type", Date)
 ], Subscription.prototype, "createdAt", void 0);
 __decorate([
-    (0, typeorm_1.UpdateDateColumn)(),
+    (0, typeorm_1.UpdateDateColumn)({ type: "timestamptz" }),
     __metadata("design:type", Date)
 ], Subscription.prototype, "updatedAt", void 0);
 exports.Subscription = Subscription = __decorate([

@@ -38,6 +38,7 @@ __exportStar(require("./postgres/models/AdminNotification"), exports);
 __exportStar(require("./postgres/models/global-settings.model"), exports);
 __exportStar(require("./postgres/models/CommissionLog"), exports);
 __exportStar(require("./postgres/models/transactionType.model"), exports);
+__exportStar(require("./postgres/models/wallet-movement.model"), exports);
 __exportStar(require("./postgres/models/Campaign"), exports);
 __exportStar(require("./postgres/models/CampaignLog"), exports);
 __exportStar(require("./postgres/models/financial/FinancialClosing"), exports);

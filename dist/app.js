@@ -8,8 +8,13 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-process.env.TZ = 'UTC'; // Forzar Node.js a operar siempre en UTC
+const dns_1 = __importDefault(require("dns"));
+dns_1.default.setDefaultResultOrder("ipv4first");
+process.env.TZ = "America/Guayaquil"; // Forzar Node.js a operar siempre en la zona horaria de Ecuador
 require("reflect-metadata"); // esto si bien instalamos depues siempre debe ir primero
 const config_1 = require("./config");
 const data_1 = require("./data");
@@ -22,6 +27,9 @@ const post_expiration_cron_1 = require("./cron/post-expiration.cron");
 const pedidoPurge_cron_1 = require("./cron/pedidoPurge.cron");
 const report_purge_cron_1 = require("./cron/report-purge.cron");
 const global_schedule_cron_1 = require("./cron/global-schedule.cron");
+const storie_expiration_cron_1 = require("./cron/storie-expiration.cron");
+const pedidoAcceptanceExpiration_cron_1 = require("./cron/pedidoAcceptanceExpiration.cron");
+const subscription_cleanup_cron_1 = require("./cron/subscription-cleanup.cron");
 function main() {
     return __awaiter(this, void 0, void 0, function* () {
         const postgres = new data_1.PostgresDatabase({
@@ -41,9 +49,11 @@ function main() {
         (0, subscription_cron_1.startSubscriptionCron)();
         (0, post_expiration_cron_1.startPostExpirationCron)();
         (0, pedidoPurge_cron_1.startOrderPurgeCron)();
-        (0, pedidoPurge_cron_1.startOrderPurgeCron)();
         (0, report_purge_cron_1.startReportPurgeCron)();
         (0, global_schedule_cron_1.startGlobalScheduleCron)();
+        (0, storie_expiration_cron_1.startStorieExpirationCron)();
+        (0, pedidoAcceptanceExpiration_cron_1.startPedidoExpirationCron)();
+        (0, subscription_cleanup_cron_1.startSubscriptionCleanupCron)();
         yield server.start();
     });
 }

@@ -8,15 +8,20 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PedidoUsuarioService = void 0;
 const typeorm_1 = require("typeorm");
+const moment_timezone_1 = __importDefault(require("moment-timezone"));
 const socket_1 = require("../../../config/socket");
 const data_1 = require("../../../data");
 const domain_1 = require("../../../domain");
 const upload_files_cloud_adapter_1 = require("../../../config/upload-files-cloud-adapter");
 const env_1 = require("../../../config/env");
 const calcularEnvio_service_1 = require("./calcularEnvio.service");
+const payphone_service_1 = require("../payphone.service");
 class PedidoUsuarioService {
     static calcularEnvio(dto) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -34,10 +39,62 @@ class PedidoUsuarioService {
             return { distanciaKm, costoEnvio };
         });
     }
+    confirmarPago(id, clientTxId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            // ✂️ Si el ID trae sufijo de reintento (ej: UUID--timestamp), extraemos solo el UUID del pedido (36 caracteres)
+            const realOrderId = clientTxId.includes('--') ? clientTxId.split('--')[0] : clientTxId;
+            const pedido = yield data_1.Pedido.findOne({
+                where: { id: realOrderId },
+                relations: ["negocio", "cliente", "productos", "productos.producto"]
+            });
+            if (!pedido)
+                throw domain_1.CustomError.notFound("Pedido no encontrado");
+            if (!pedido.negocio.payphone_token)
+                throw domain_1.CustomError.badRequest("El negocio no tiene token de Payphone configurado");
+            const result = yield payphone_service_1.PayphoneService.confirmPayment(id, clientTxId, pedido.negocio.payphone_token);
+            if (result.transactionStatus === "Approved") {
+                pedido.estado = data_1.EstadoPedido.PENDIENTE; // Ya entra a la cola del restaurante
+                pedido.estadoPago = "PAGADO";
+                pedido.referenciaPago = id.toString();
+                yield pedido.save();
+                // 🔔 Notificar al negocio por Socket.io
+                console.log(`🔔 [Socket] Pago confirmado. Emitiendo nuevo pedido a sala: ${pedido.negocio.id}`);
+                const socketIO = (0, socket_1.getIO)();
+                if (socketIO) {
+                    socketIO.to(pedido.negocio.id).emit("nuevo_pedido", {
+                        id: pedido.id,
+                        estado: pedido.estado,
+                        total: pedido.total,
+                        productos: pedido.productos,
+                        cliente: {
+                            id: pedido.cliente.id,
+                            name: pedido.cliente.name,
+                            surname: pedido.cliente.surname
+                        },
+                        createdAt: pedido.createdAt
+                    });
+                }
+                return { success: true, message: "Pago aprobado y pedido activado", status: result.transactionStatus };
+            }
+            else {
+                pedido.estado = "CANCELADO";
+                pedido.estadoPago = "FALLIDO";
+                yield pedido.save();
+                return { success: false, message: "El pago no fue aprobado", status: result.transactionStatus };
+            }
+        });
+    }
     // Crear un pedido desde el frontend del cliente
     crearPedido(dto) {
         return __awaiter(this, void 0, void 0, function* () {
-            var _a, _b, _c;
+            var _a, _b, _c, _d, _e;
+            try {
+                const fs = require('fs');
+                const logPath = 'c:/Users/jhesr/OneDrive/Escritorio/academlo/proyectReales/atucuchoShop/atucuchoFull/atucuchoBack/tmp/order_debug.log';
+                const logData = `[${new Date().toISOString()}] CREAR PEDIDO: negocioId=${dto.negocioId} | metodoPago=${dto.metodoPago}\n`;
+                fs.appendFileSync(logPath, logData);
+            }
+            catch (e) { }
             // ... (validation logic identical to original)
             const { clienteId, negocioId, productos, ubicacionCliente, metodoPago, montoVuelto, comprobantePagoUrl, } = dto;
             const cliente = yield data_1.User.findOneBy({ id: clienteId });
@@ -102,13 +159,39 @@ class PedidoUsuarioService {
             const comisionTotalApp = +(totalComisionProductos + comisionAppDom).toFixed(2);
             // Lo que le queda al negocio (Equivalente a total_precio_app)
             const totalNegocio = +totalPrecioApp.toFixed(2);
+            // 💳 5. Calcular recargo de Tarjeta (si aplica)
+            let recargoTarjeta = 0;
+            let checkoutUrl = null;
+            if (metodoPago === "TARJETA") {
+                if (!negocio.pago_tarjeta_habilitado_admin) {
+                    throw domain_1.CustomError.badRequest("El pago con tarjeta está deshabilitado para este negocio por el administrador.");
+                }
+                if (!negocio.payphone_store_id || !negocio.payphone_token) {
+                    const missing = !negocio.payphone_store_id ? "Store ID" : "Token";
+                    throw domain_1.CustomError.badRequest(`Configuración incompleta: falta ${missing} de Payphone.`);
+                }
+                const porcentaje = Number(negocio.porcentaje_recargo_tarjeta) || 0;
+                recargoTarjeta = +(total * (porcentaje / 100)).toFixed(2);
+                try {
+                    const fs = require('fs');
+                    const logPath = 'c:/Users/jhesr/OneDrive/Escritorio/academlo/proyectReales/atucuchoShop/atucuchoFull/atucuchoBack/tmp/order_debug.log';
+                    const logData = `[${new Date().toISOString()}] PAYPHONE VALIDATED: ${negocio.nombre} | storeId=${negocio.payphone_store_id} | percentage=${porcentaje}%\n`;
+                    fs.appendFileSync(logPath, logData);
+                }
+                catch (e) { }
+            }
+            const totalFinal = +(total + recargoTarjeta).toFixed(2);
             // Construir pedido + items (cascade)
             const pedido = new data_1.Pedido();
             pedido.cliente = cliente;
             pedido.negocio = negocio;
-            pedido.estado = data_1.EstadoPedido.PENDIENTE;
+            // Si es tarjeta, el pedido queda "PENDIENTE_PAGO" hasta que el webhook confirme
+            pedido.estado =
+                metodoPago === "TARJETA" ? "PENDIENTE_PAGO" : data_1.EstadoPedido.PENDIENTE;
             pedido.costoEnvio = costoEnvio;
-            pedido.total = total;
+            pedido.total = totalFinal;
+            pedido.recargo_tarjeta = recargoTarjeta;
+            pedido.estadoPago = metodoPago === "TARJETA" ? "PENDIENTE" : "N/A";
             // Asignar auditoría financiera
             pedido.porcentaje_motorizado_aplicado = percMoto;
             pedido.porcentaje_app_aplicado = percApp;
@@ -136,19 +219,51 @@ class PedidoUsuarioService {
             if (dto.comprobantePagoUrl)
                 pedido.comprobantePagoUrl = dto.comprobantePagoUrl; // Saves Key if provided
             pedido.productos = productosDetalle;
-            const nuevo = yield pedido.save();
-            (0, socket_1.getIO)().to(negocio.id).emit("nuevo_pedido", {
-                id: nuevo.id,
-                estado: nuevo.estado,
-                total: nuevo.total,
-                productos: nuevo.productos,
-                cliente: {
-                    id: cliente.id,
-                    name: cliente.name,
-                    surname: cliente.surname
-                },
-                createdAt: nuevo.createdAt
-            });
+            let nuevo;
+            try {
+                nuevo = yield pedido.save();
+            }
+            catch (dbError) {
+                // 🧪 AUTOCURACIÓN: Si falla por el Enum de PENDIENTE_PAGO
+                if (dbError.message.includes("PENDIENTE_PAGO") || dbError.message.includes("enum")) {
+                    console.log("⚠️ Falló PENDIENTE_PAGO, reintentando con PENDIENTE...");
+                    pedido.estado = data_1.EstadoPedido.PENDIENTE;
+                    nuevo = yield pedido.save();
+                }
+                else {
+                    throw dbError;
+                }
+            }
+            // 🚀 6. Configuración Payphone (BOX FLOW)
+            let payphoneConfig = null;
+            if (metodoPago === "TARJETA") {
+                payphoneConfig = {
+                    token: (_d = negocio.payphone_token) === null || _d === void 0 ? void 0 : _d.trim(),
+                    storeId: (_e = negocio.payphone_store_id) === null || _e === void 0 ? void 0 : _e.trim(),
+                    clientTransactionId: `${nuevo.id}--${Math.random().toString(36).substring(2, 8)}`,
+                    amount: Math.round(totalFinal * 100),
+                    amountWithoutTax: Math.round(totalFinal * 100),
+                    currency: "USD",
+                    reference: `Orden #${nuevo.id} - Atucucho Shop`
+                };
+            }
+            // 🔔 7. Notificar al negocio (SOLO si NO es tarjeta, o si se confirma pago)
+            // Para TARJETA, el webhook hará esta notificación.
+            if (metodoPago !== "TARJETA") {
+                console.log(`🔔 [Socket] Emitiendo nuevo pedido a sala: ${negocio.id} (ID Pedido: ${nuevo.id})`);
+                (0, socket_1.getIO)().to(negocio.id).emit("nuevo_pedido", {
+                    id: nuevo.id,
+                    estado: nuevo.estado,
+                    total: nuevo.total,
+                    productos: nuevo.productos,
+                    cliente: {
+                        id: cliente.id,
+                        name: cliente.name,
+                        surname: cliente.surname
+                    },
+                    createdAt: nuevo.createdAt
+                });
+            }
             // Resolve URL for response (WhatsApp link)
             let solvedUrl = nuevo.comprobantePagoUrl;
             if (nuevo.comprobantePagoUrl && !nuevo.comprobantePagoUrl.startsWith('http')) {
@@ -166,7 +281,8 @@ class PedidoUsuarioService {
                 createdAt: nuevo.createdAt,
                 metodoPago: nuevo.metodoPago,
                 montoVuelto: nuevo.montoVuelto,
-                comprobantePagoUrl: solvedUrl
+                comprobantePagoUrl: solvedUrl,
+                payphoneConfig: payphoneConfig // 💳 Configuración Cajita
             };
         });
     }
@@ -188,15 +304,30 @@ class PedidoUsuarioService {
                 query.andWhere("pedido.estado = :estado", { estado: filters.estado });
             }
             if (filters.startDate) {
-                query.andWhere("pedido.createdAt >= :startDate", { startDate: filters.startDate });
+                const start = moment_timezone_1.default.tz(filters.startDate, "America/Guayaquil").startOf('day').toDate();
+                query.andWhere("pedido.createdAt >= :startDate", { startDate: start });
             }
             if (filters.endDate) {
-                const end = new Date(filters.endDate);
-                end.setHours(23, 59, 59, 999);
+                const end = moment_timezone_1.default.tz(filters.endDate, "America/Guayaquil").endOf('day').toDate();
                 query.andWhere("pedido.createdAt <= :endDate", { endDate: end });
             }
             const [pedidos, total] = yield query.getManyAndCount();
             const pedidosMapeados = yield Promise.all(pedidos.map((p) => __awaiter(this, void 0, void 0, function* () {
+                var _a, _b;
+                // Self-healing: Generar códigos si faltan
+                let changed = false;
+                if (p.estado === data_1.EstadoPedido.PREPARANDO_ASIGNADO && !p.pickup_code) {
+                    p.pickup_code = Math.floor(1000 + Math.random() * 9000).toString();
+                    p.pickup_verified = false;
+                    changed = true;
+                }
+                if (p.estado === data_1.EstadoPedido.EN_CAMINO && !p.delivery_code) {
+                    p.delivery_code = Math.floor(1000 + Math.random() * 9000).toString();
+                    p.delivery_verified = false;
+                    changed = true;
+                }
+                if (changed)
+                    yield p.save();
                 let solvedUrl = p.comprobantePagoUrl;
                 if (p.comprobantePagoUrl && !p.comprobantePagoUrl.startsWith('http')) {
                     solvedUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
@@ -210,6 +341,12 @@ class PedidoUsuarioService {
                     total: p.total,
                     costoEnvio: p.costoEnvio,
                     motivoCancelacion: p.motivoCancelacion,
+                    delivery_code: p.delivery_code,
+                    delivery_verified: p.delivery_verified,
+                    pickup_code: p.pickup_code,
+                    pickup_verified: p.pickup_verified,
+                    arrival_time: p.arrival_time,
+                    createdAt: p.createdAt,
                     negocio: {
                         id: p.negocio.id,
                         nombre: p.negocio.nombre,
@@ -235,6 +372,16 @@ class PedidoUsuarioService {
                         telefono: p.motorizado.whatsapp,
                         whatsapp: p.motorizado.whatsapp,
                     } : null,
+                    // 💳 Configuración para reintentar pago
+                    payphoneConfig: p.estado === "PENDIENTE_PAGO" ? {
+                        token: (_a = p.negocio.payphone_token) === null || _a === void 0 ? void 0 : _a.trim(),
+                        storeId: (_b = p.negocio.payphone_store_id) === null || _b === void 0 ? void 0 : _b.trim(),
+                        clientTransactionId: `${p.id}--${Math.random().toString(36).substring(2, 8)}`,
+                        amount: Math.round(Number(p.total) * 100),
+                        amountWithoutTax: Math.round(Number(p.total) * 100),
+                        currency: "USD",
+                        reference: `Orden #${p.id} - Atucucho Shop`
+                    } : null
                 };
             })));
             return {
@@ -248,6 +395,7 @@ class PedidoUsuarioService {
     // Eliminar pedido del cliente (solo si está pendiente)
     eliminarPedidoCliente(pedidoId, clienteId) {
         return __awaiter(this, void 0, void 0, function* () {
+            var _a, _b, _c;
             const pedido = yield data_1.Pedido.findOne({
                 where: { id: pedidoId },
                 relations: ["cliente"],
@@ -258,7 +406,11 @@ class PedidoUsuarioService {
                 throw domain_1.CustomError.unAuthorized("No tiene permiso para eliminar este pedido");
             if (pedido.estado !== data_1.EstadoPedido.PENDIENTE)
                 throw domain_1.CustomError.badRequest("Solo puede eliminar pedidos pendientes");
+            const negocioId = ((_a = pedido.negocio) === null || _a === void 0 ? void 0 : _a.id) || ((_c = (_b = (yield data_1.Pedido.findOne({ where: { id: pedidoId }, relations: ['negocio'] }))) === null || _b === void 0 ? void 0 : _b.negocio) === null || _c === void 0 ? void 0 : _c.id);
             yield data_1.Pedido.remove(pedido);
+            if (negocioId) {
+                (0, socket_1.getIO)().to(negocioId).emit("pedido_cancelado", { pedidoId });
+            }
             return { message: "Pedido eliminado correctamente" };
         });
     }
@@ -293,6 +445,117 @@ class PedidoUsuarioService {
             });
             return { url, key: uploadedKey };
         });
+    }
+    notificarYaVoy(pedidoId, clienteId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const pedido = yield data_1.Pedido.findOne({
+                where: { id: pedidoId, cliente: { id: clienteId } },
+                relations: ["motorizado", "cliente"]
+            });
+            if (!pedido)
+                throw domain_1.CustomError.notFound("Pedido no encontrado");
+            if (!pedido.motorizado)
+                throw domain_1.CustomError.badRequest("No hay un motorizado asignado aún");
+            // Notificar al motorizado
+            (0, socket_1.getIO)().to(pedido.motorizado.id).emit("cliente_ya_va", {
+                pedidoId: pedido.id,
+                mensaje: "El cliente ya está saliendo",
+            });
+            return { message: "Notificación enviada al motorizado" };
+        });
+    }
+    calificarPedido(dto) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const pedido = yield data_1.Pedido.findOne({
+                where: { id: dto.pedidoId },
+                relations: ["negocio", "motorizado"]
+            });
+            if (!pedido)
+                throw domain_1.CustomError.notFound("Pedido no encontrado");
+            if (pedido.estado !== data_1.EstadoPedido.ENTREGADO)
+                throw domain_1.CustomError.badRequest("Solo puedes calificar pedidos entregados");
+            const response = {
+                message: "Calificación procesada",
+                ratedNegocio: false,
+                ratedMotorizado: false
+            };
+            // --- Calificar Negocio ---
+            if (dto.ratingNegocio !== undefined) {
+                if (pedido.ratingNegocio && Number(pedido.ratingNegocio) > 0) {
+                    throw domain_1.CustomError.badRequest("Este pedido ya ha calificado al restaurante");
+                }
+                pedido.ratingNegocio = dto.ratingNegocio;
+                if (pedido.negocio) {
+                    const negocio = yield data_1.Negocio.findOneBy({ id: pedido.negocio.id });
+                    if (negocio) {
+                        const totalActual = Number(negocio.totalResenas) || 0;
+                        const promedioActual = Number(negocio.ratingPromedio) || 0;
+                        const nuevoTotal = totalActual + 1;
+                        const nuevoPromedio = (promedioActual * totalActual + dto.ratingNegocio) / nuevoTotal;
+                        negocio.totalResenas = nuevoTotal;
+                        negocio.ratingPromedio = Number(nuevoPromedio.toFixed(1));
+                        yield negocio.save();
+                        response.ratedNegocio = true;
+                    }
+                }
+            }
+            // --- Calificar Motorizado ---
+            if (dto.ratingMotorizado !== undefined) {
+                if (pedido.ratingMotorizado && Number(pedido.ratingMotorizado) > 0) {
+                    throw domain_1.CustomError.badRequest("Este pedido ya ha calificado al motorizado");
+                }
+                pedido.ratingMotorizado = dto.ratingMotorizado;
+                if (pedido.motorizado) {
+                    const moto = yield data_1.UserMotorizado.findOneBy({ id: pedido.motorizado.id });
+                    if (moto) {
+                        const totalActual = Number(moto.totalResenas) || 0;
+                        const promedioActual = Number(moto.ratingPromedio) || 0;
+                        const nuevoTotal = totalActual + 1;
+                        const nuevoPromedio = (promedioActual * totalActual + dto.ratingMotorizado) / nuevoTotal;
+                        moto.totalResenas = nuevoTotal;
+                        moto.ratingPromedio = Number(nuevoPromedio.toFixed(1));
+                        yield moto.save();
+                        response.ratedMotorizado = true;
+                    }
+                }
+            }
+            yield pedido.save();
+            return response;
+        });
+    }
+    // 🔄 Recargar el tiempo de vida (5 min adicionales)
+    refreshTimer(id) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const pedido = yield data_1.Pedido.findOneBy({ id });
+            if (!pedido)
+                throw domain_1.CustomError.notFound("Pedido no encontrado");
+            // Solo si está esperando pago
+            if (pedido.estado !== "PENDIENTE_PAGO")
+                return { success: false, message: "El pedido no está en espera de pago" };
+            pedido.createdAt = new Date(); // Resetear a NOW
+            yield pedido.save();
+            return { success: true, newCreatedAt: pedido.createdAt };
+        });
+    }
+    // 🕒 Vigilante de limpieza (Pedidos expirados)
+    static startMaintenanceJob() {
+        setInterval(() => __awaiter(this, void 0, void 0, function* () {
+            try {
+                const repo = data_1.Pedido.getRepository();
+                // Cancelar pedidos PENDIENTE_PAGO de más de 6 minutos (le damos 1 extra por si acaso)
+                const result = yield repo.query(`
+                UPDATE pedido 
+                SET estado = 'CANCELADO', motivo_cancelacion = 'Tiempo de pago excedido (5 min)' 
+                WHERE estado = 'PENDIENTE_PAGO' 
+                AND "createdAt" < NOW() - INTERVAL '6 minutes'
+            `);
+                if (result[1] > 0)
+                    console.log(`🧹 [Maintenance] ${result[1]} pedidos expirados cancelados.`);
+            }
+            catch (error) {
+                console.error("❌ Error en MaintenanceJob:", error);
+            }
+        }), 60000); // Revisar cada minuto
     }
 }
 exports.PedidoUsuarioService = PedidoUsuarioService;

@@ -31,6 +31,10 @@ __decorate([
     __metadata("design:type", Number)
 ], GlobalSettings.prototype, "reportsRetentionDays", void 0);
 __decorate([
+    (0, typeorm_1.Column)("int", { default: 60 }),
+    __metadata("design:type", Number)
+], GlobalSettings.prototype, "cleanupSubscriptionContentDays", void 0);
+__decorate([
     (0, typeorm_1.Column)("time", { default: "08:00:00" }),
     __metadata("design:type", String)
 ], GlobalSettings.prototype, "hora_apertura", void 0);
@@ -98,6 +102,22 @@ __decorate([
     (0, typeorm_1.Column)("timestamp", { default: () => "CURRENT_TIMESTAMP" }),
     __metadata("design:type", Date)
 ], GlobalSettings.prototype, "termsUpdatedAt", void 0);
+__decorate([
+    (0, typeorm_1.Column)("int", { default: 60000 }),
+    __metadata("design:type", Number)
+], GlobalSettings.prototype, "timeoutRondaMs", void 0);
+__decorate([
+    (0, typeorm_1.Column)("int", { default: 4 }),
+    __metadata("design:type", Number)
+], GlobalSettings.prototype, "maxRondasAsignacion", void 0);
+__decorate([
+    (0, typeorm_1.Column)("int", { default: 10 }),
+    __metadata("design:type", Number)
+], GlobalSettings.prototype, "driver_cancel_wait_time", void 0);
+__decorate([
+    (0, typeorm_1.Column)("int", { default: 10 }),
+    __metadata("design:type", Number)
+], GlobalSettings.prototype, "max_wait_time_acceptance", void 0);
 __decorate([
     (0, typeorm_1.UpdateDateColumn)(),
     __metadata("design:type", Date)

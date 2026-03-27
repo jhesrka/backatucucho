@@ -378,7 +378,7 @@ class DashboardService {
                     .where(`("post"."createdAt" AT TIME ZONE 'America/Guayaquil')::date = ${queryDate}`)
                     .orderBy("post.createdAt", "DESC")
                     .take(10)
-                    .select(["post.id", "post.title", "post.createdAt", "post.statusPost", "user.name", "user.surname"])
+                    .select(["post.id", "post.title", "post.createdAt", "post.statusPost", "user.name", "user.surname", "user.email"])
                     .getMany();
                 // 3. Últimas 10 Historias del Día
                 const topStoriesToday = yield stories_model_1.Storie.createQueryBuilder("storie")
@@ -386,7 +386,7 @@ class DashboardService {
                     .where(`("storie"."createdAt" AT TIME ZONE 'America/Guayaquil')::date = ${queryDate}`)
                     .orderBy("storie.createdAt", "DESC")
                     .take(10)
-                    .select(["storie.id", "storie.createdAt", "storie.statusStorie", "user.name", "user.surname"])
+                    .select(["storie.id", "storie.createdAt", "storie.statusStorie", "user.name", "user.surname", "user.email"])
                     .getMany();
                 // 4. Estado Global de la App
                 const globalSettings = yield global_settings_model_1.GlobalSettings.findOne({ where: {} });
@@ -437,20 +437,22 @@ class DashboardService {
                 return {
                     negociosAbiertos: negociosAbiertosWithCount,
                     publicacionesHoy: topPostsToday.map(p => {
-                        var _a, _b;
+                        var _a, _b, _c;
                         return ({
                             id: p.id,
                             usuario: `${((_a = p.user) === null || _a === void 0 ? void 0 : _a.name) || ''} ${((_b = p.user) === null || _b === void 0 ? void 0 : _b.surname) || ''}`.trim() || 'Desconocido',
+                            email: ((_c = p.user) === null || _c === void 0 ? void 0 : _c.email) || '',
                             titulo: p.title,
                             hora: new Date(p.createdAt).toLocaleTimeString('es-EC', { timeZone: 'America/Guayaquil', hour: '2-digit', minute: '2-digit' }),
                             estado: p.statusPost
                         });
                     }),
                     historiasHoy: topStoriesToday.map(s => {
-                        var _a, _b;
+                        var _a, _b, _c;
                         return ({
                             id: s.id,
                             usuario: `${((_a = s.user) === null || _a === void 0 ? void 0 : _a.name) || ''} ${((_b = s.user) === null || _b === void 0 ? void 0 : _b.surname) || ''}`.trim() || 'Desconocido',
+                            email: ((_c = s.user) === null || _c === void 0 ? void 0 : _c.email) || '',
                             hora: new Date(s.createdAt).toLocaleTimeString('es-EC', { timeZone: 'America/Guayaquil', hour: '2-digit', minute: '2-digit' }),
                             estado: s.statusStorie
                         });

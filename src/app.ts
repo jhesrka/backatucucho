@@ -43,7 +43,9 @@ async function main() {
   startPedidoExpirationCron();
   startSubscriptionCleanupCron();
 
+  console.log("🚀 Iniciando servidor...");
   await server.start();
+  console.log("✅ Servidor ONLINE");
 }
 
 main();

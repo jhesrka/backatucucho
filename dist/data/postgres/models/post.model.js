@@ -17,6 +17,7 @@ var StatusPost;
     StatusPost["PUBLISHED"] = "PUBLISHED";
     StatusPost["FLAGGED"] = "FLAGGED";
     StatusPost["HIDDEN"] = "HIDDEN";
+    StatusPost["DELETED"] = "DELETED";
 })(StatusPost || (exports.StatusPost = StatusPost = {}));
 let Post = class Post extends typeorm_1.BaseEntity {
 };
@@ -57,12 +58,12 @@ __decorate([
     __metadata("design:type", Boolean)
 ], Post.prototype, "isPaid", void 0);
 __decorate([
-    (0, typeorm_1.CreateDateColumn)({ type: 'timestamp' }) // <-- Esto soluciona el problema
+    (0, typeorm_1.CreateDateColumn)({ type: 'timestamptz' }) // <-- Ahora sí es timestamp real UTC
     ,
     __metadata("design:type", Date)
 ], Post.prototype, "createdAt", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: "timestamp", nullable: true }),
+    (0, typeorm_1.Column)({ type: "timestamptz", nullable: true }),
     __metadata("design:type", Date)
 ], Post.prototype, "expiresAt", void 0);
 __decorate([

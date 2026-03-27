@@ -85,15 +85,18 @@ class PedidoMotoController {
         this.entregarPedido = (req, res) => __awaiter(this, void 0, void 0, function* () {
             var _a;
             try {
-                const { pedidoId } = req.body;
+                const { pedidoId, code } = req.body;
                 const motorizadoId = (_a = req.body.sessionMotorizado) === null || _a === void 0 ? void 0 : _a.id;
                 if (!pedidoId) {
                     return res.status(400).json({ message: "Falta el pedidoId" });
                 }
+                if (!code) {
+                    return res.status(400).json({ message: "Falta el código de entrega" });
+                }
                 if (!motorizadoId) {
                     return res.status(401).json({ message: "Motorizado no autenticado" });
                 }
-                const pedido = yield pedidoMoto_service_1.PedidoMotoService.entregarPedido(pedidoId, motorizadoId);
+                const pedido = yield pedidoMoto_service_1.PedidoMotoService.entregarPedido(pedidoId, motorizadoId, code);
                 return res.status(200).json(pedido);
             }
             catch (error) {
@@ -122,16 +125,35 @@ class PedidoMotoController {
                 return this.handleError(error, res);
             }
         });
+        // ======================== Marcar LLEGADA ========================
+        this.marcarLlegada = (req, res) => __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            try {
+                const { pedidoId } = req.body;
+                const motorizadoId = (_a = req.body.sessionMotorizado) === null || _a === void 0 ? void 0 : _a.id;
+                if (!pedidoId) {
+                    return res.status(400).json({ message: "Falta el pedidoId" });
+                }
+                if (!motorizadoId) {
+                    return res.status(401).json({ message: "Motorizado no autenticado" });
+                }
+                const result = yield pedidoMoto_service_1.PedidoMotoService.marcarLlegada(pedidoId, motorizadoId);
+                return res.status(200).json(result);
+            }
+            catch (error) {
+                return this.handleError(error, res);
+            }
+        });
         // ======================== Historial ========================
         this.obtenerHistorial = (req, res) => __awaiter(this, void 0, void 0, function* () {
             var _a;
             try {
                 const motorizadoId = (_a = req.body.sessionMotorizado) === null || _a === void 0 ? void 0 : _a.id;
-                const { fechaInicio, fechaFin } = req.query;
+                const { fecha, page, limit } = req.query;
                 if (!motorizadoId) {
                     return res.status(401).json({ message: "Motorizado no autenticado" });
                 }
-                const historial = yield pedidoMoto_service_1.PedidoMotoService.obtenerHistorial(motorizadoId, fechaInicio, fechaFin);
+                const historial = yield this.pedidoMotoService.obtenerHistorial(motorizadoId, fecha, page ? Number(page) : 1, limit ? Number(limit) : 10);
                 return res.json(historial);
             }
             catch (error) {
@@ -143,10 +165,11 @@ class PedidoMotoController {
             var _a;
             try {
                 const motorizadoId = (_a = req.body.sessionMotorizado) === null || _a === void 0 ? void 0 : _a.id;
+                const { fecha, page = 1, limit = 10 } = req.query;
                 if (!motorizadoId) {
                     return res.status(401).json({ message: "Motorizado no autenticado" });
                 }
-                const billetera = yield pedidoMoto_service_1.PedidoMotoService.obtenerBilletera(motorizadoId);
+                const billetera = yield this.pedidoMotoService.obtenerBilletera(motorizadoId, fecha, Number(page), Number(limit));
                 return res.json(billetera);
             }
             catch (error) {
@@ -214,13 +237,15 @@ class PedidoMotoController {
                     pedido.fechaInicioRonda = new Date();
                     yield pedido.save();
                 }
-                const expiresAt = pedido.fechaInicioRonda.getTime() + 60000; // 1 minuto
+                const timeout = yield pedidoMoto_service_1.PedidoMotoService.getTimeout();
+                const expiresAt = pedido.fechaInicioRonda.getTime() + timeout;
                 return res.json({
                     pedidoId: pedido.id,
                     total: pedido.total,
                     negocioId: ((_b = pedido.negocio) === null || _b === void 0 ? void 0 : _b.id) || null,
                     expiresAt,
-                    costoEnvio: pedido.costoEnvio, // Ensure this is sent if needed
+                    duration: timeout,
+                    costoEnvio: pedido.costoEnvio,
                 });
             }
             catch (error) {
@@ -273,6 +298,32 @@ class PedidoMotoController {
                 }
                 const estado = yield pedidoMoto_service_1.PedidoMotoService.obtenerEstadoMotorizado(motorizadoId);
                 return res.json(estado);
+            }
+            catch (error) {
+                return this.handleError(error, res);
+            }
+        });
+        this.obtenerTableroOperativo = (req, res) => __awaiter(this, void 0, void 0, function* () {
+            try {
+                // Nota: Esta información es pública para motorizados disponibles
+                const result = yield pedidoMoto_service_1.PedidoMotoService.obtenerTableroOperativo();
+                return res.json(result);
+            }
+            catch (error) {
+                return this.handleError(error, res);
+            }
+        });
+        this.aceptarPedidoEnEspera = (req, res) => __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            try {
+                const { pedidoId } = req.body;
+                const motorizadoId = (_a = req.body.sessionMotorizado) === null || _a === void 0 ? void 0 : _a.id;
+                if (!pedidoId)
+                    return res.status(400).json({ message: "Falta el pedidoId" });
+                if (!motorizadoId)
+                    return res.status(401).json({ message: "No autenticado" });
+                const pedido = yield pedidoMoto_service_1.PedidoMotoService.aceptarPedidoEnEspera(pedidoId, motorizadoId);
+                return res.json(pedido);
             }
             catch (error) {
                 return this.handleError(error, res);

@@ -19,6 +19,7 @@ const domain_1 = require("../../domain");
 const typeorm_1 = require("typeorm");
 const uuid_1 = require("uuid");
 const content_moderation_1 = require("../../config/content-moderation");
+const date_utils_1 = require("../../utils/date-utils");
 class StorieService {
     constructor(userService, walletService, priceService) {
         this.userService = userService;
@@ -142,7 +143,54 @@ class StorieService {
             }
         });
     }
-    // 🔁 Método para manejar stories expiradas
+    findOneStorie(id) {
+        return __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            if (!id || !(0, uuid_1.validate)(id)) {
+                throw domain_1.CustomError.badRequest("ID de story inválido");
+            }
+            const story = yield data_1.Storie.findOne({
+                where: {
+                    id,
+                    statusStorie: data_1.StatusStorie.PUBLISHED,
+                },
+                relations: ["user"],
+                select: {
+                    user: {
+                        id: true,
+                        name: true,
+                        surname: true,
+                        photoperfil: true,
+                        whatsapp: true,
+                    },
+                },
+            });
+            if (!story)
+                throw domain_1.CustomError.notFound("Story no encontrada");
+            // Verificar si ha expirado
+            const now = new Date();
+            if (new Date(story.expires_at) <= now) {
+                throw domain_1.CustomError.notFound("Esta historia ha expirado");
+            }
+            // Resolver URLs
+            const [imgUrl, userImgUrl] = yield Promise.all([
+                story.imgstorie
+                    ? yield upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
+                        bucketName: config_1.envs.AWS_BUCKET_NAME,
+                        key: story.imgstorie,
+                    })
+                    : null,
+                ((_a = story.user) === null || _a === void 0 ? void 0 : _a.photoperfil)
+                    ? yield upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
+                        bucketName: config_1.envs.AWS_BUCKET_NAME,
+                        key: story.user.photoperfil,
+                    })
+                    : null,
+            ]);
+            return Object.assign(Object.assign({}, story), { imgstorie: imgUrl, user: Object.assign(Object.assign({}, story.user), { photoperfil: userImgUrl }) });
+        });
+    }
+    // 🔁 Método público para manejar stories expiradas (cron y on-read)
     processExpiredStories() {
         return __awaiter(this, void 0, void 0, function* () {
             const now = new Date();
@@ -155,14 +203,37 @@ class StorieService {
                 relations: ["user"],
             });
             if (expiredStories.length > 0) {
+                let expiredCount = 0;
                 yield Promise.all(expiredStories.map((story) => __awaiter(this, void 0, void 0, function* () {
-                    // Aquí aplicamos la misma lógica soft/hard delete
-                    yield this.deleteStorie(story.id, story.user.id);
+                    try {
+                        // 1. Eliminar imagen en S3 primero
+                        if (story.imgstorie) {
+                            yield upload_files_cloud_adapter_1.UploadFilesCloud.deleteFile({
+                                bucketName: config_1.envs.AWS_BUCKET_NAME,
+                                key: story.imgstorie,
+                            }).catch(err => {
+                                console.warn(`[Stories] Error no bloqueante eliminando imagen S3 (${story.imgstorie}):`, err);
+                            });
+                        }
+                        // 2. Si hay éxito o se silenció el S3, eliminar de Base de Datos totalmente
+                        yield data_1.Storie.remove(story);
+                        expiredCount++;
+                        // 3. Avisar al frontend que la historia desapareció de su grid
+                        (0, socket_1.getIO)().emit("storieChanged", {
+                            action: "hardDelete",
+                            storieId: story.id,
+                        });
+                    }
+                    catch (error) {
+                        console.error(`[Stories] Error crítico en Hard Delete DB (${story.id}):`, error);
+                    }
                 })));
+                return expiredCount;
             }
+            return 0;
         });
     }
-    // 🔹 Método de eliminar story (soft/hard) similar a tus posts
+    // 🔹 Método de eliminar story definitivo (hard delete forzado)
     deleteStorie(id, userId) {
         return __awaiter(this, void 0, void 0, function* () {
             const story = yield data_1.Storie.findOne({
@@ -173,9 +244,7 @@ class StorieService {
                 throw domain_1.CustomError.notFound("Story no encontrada");
             if (story.user.id !== userId)
                 throw domain_1.CustomError.forbiden("No autorizado para eliminar esta story");
-            return story.statusStorie === data_1.StatusStorie.DELETED
-                ? yield this.hardDeleteStorie(story)
-                : yield this.softDeleteStorie(story);
+            return yield this.hardDeleteStorie(story);
         });
     }
     softDeleteStorie(story) {
@@ -206,14 +275,15 @@ class StorieService {
             return { message: "Story eliminada permanentemente" };
         });
     }
-    getStoriesByUser(userId) {
-        return __awaiter(this, void 0, void 0, function* () {
+    getStoriesByUser(userId_1) {
+        return __awaiter(this, arguments, void 0, function* (userId, page = 1, limit = 10) {
             if (!userId) {
                 throw domain_1.CustomError.badRequest("ID de usuario no proporcionado");
             }
             try {
                 const now = new Date();
-                const stories = yield data_1.Storie.find({
+                const skip = (page - 1) * limit;
+                const [stories, total] = yield data_1.Storie.findAndCount({
                     where: {
                         statusStorie: data_1.StatusStorie.PUBLISHED,
                         expires_at: (0, typeorm_1.MoreThan)(now),
@@ -230,6 +300,8 @@ class StorieService {
                         },
                     },
                     order: { createdAt: "DESC" },
+                    take: limit,
+                    skip: skip,
                 });
                 const storiesWithUrls = yield Promise.all(stories.map((story) => __awaiter(this, void 0, void 0, function* () {
                     var _a;
@@ -247,9 +319,15 @@ class StorieService {
                         : null;
                     return Object.assign(Object.assign({}, story), { imgstorie: imgstorieUrl, user: Object.assign(Object.assign({}, story.user), { photoperfil: photoperfilUrl }) });
                 })));
-                return storiesWithUrls.filter((story) => story.imgstorie !== null);
+                const validStories = storiesWithUrls.filter((story) => story.imgstorie !== null);
+                return {
+                    stories: validStories,
+                    total,
+                    totalPages: Math.ceil(total / limit),
+                    currentPage: page,
+                };
             }
-            catch (_a) {
+            catch (error) {
                 throw domain_1.CustomError.internalServer("Error obteniendo historias del usuario");
             }
         });
@@ -527,29 +605,30 @@ class StorieService {
             const skip = (page - 1) * limit;
             const where = {};
             // Filters
-            if (id)
+            if (id) {
                 where.id = id;
-            if (status)
-                where.statusStorie = status;
-            if (userId)
-                where.user = { id: userId };
-            // Date Range (Creation)
-            if (startDate && endDate) {
-                const start = new Date(startDate);
-                const end = new Date(endDate);
-                end.setHours(23, 59, 59, 999);
-                where.createdAt = (0, typeorm_1.Between)(start, end);
             }
-            else if (startDate) {
-                const start = new Date(startDate);
-                where.createdAt = (0, typeorm_1.MoreThan)(start);
-            }
-            // Type (Paid/Free)
-            if (type === 'PAGADO') {
-                where.total_pagado = (0, typeorm_1.MoreThan)(0);
-            }
-            else if (type === 'GRATIS') {
-                where.total_pagado = 0;
+            else {
+                if (status)
+                    where.statusStorie = status;
+                if (userId)
+                    where.user = { id: userId };
+                // Date Range (Creation)
+                if (startDate && endDate) {
+                    const { start, end } = date_utils_1.DateUtils.getDayRange(startDate);
+                    where.createdAt = (0, typeorm_1.Between)(start, end);
+                }
+                else if (startDate) {
+                    const start = new Date(startDate);
+                    where.createdAt = (0, typeorm_1.MoreThan)(start);
+                }
+                // Type (Paid/Free)
+                if (type === 'PAGADO') {
+                    where.total_pagado = (0, typeorm_1.MoreThan)(0);
+                }
+                else if (type === 'GRATIS') {
+                    where.total_pagado = 0;
+                }
             }
             try {
                 const [stories, total] = yield data_1.Storie.findAndCount({

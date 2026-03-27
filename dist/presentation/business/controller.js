@@ -22,7 +22,6 @@ class BusinessController {
                 .catch((error) => this.handleError(error, res));
         };
         this.getMyBusinesses = (req, res) => {
-            // sessionUser viene del middleware AuthMiddleware
             const { id } = req.body.sessionUser;
             this.businessService
                 .getMyBusinesses(id)
@@ -31,9 +30,9 @@ class BusinessController {
         };
         this.getOrders = (req, res) => {
             const { businessId } = req.params;
-            const { status, page = 1, limit = 10, date } = req.query;
+            const { status, page = 1, limit = 15, date, search } = req.query;
             this.businessService
-                .getOrdersByBusiness(businessId, status, +page, +limit, date)
+                .getOrdersByBusiness(businessId, status, Number(page), Number(limit), date, search)
                 .then((data) => res.status(200).json(data))
                 .catch((error) => this.handleError(error, res));
         };
@@ -53,14 +52,57 @@ class BusinessController {
                 .then((data) => res.status(200).json(data))
                 .catch((error) => this.handleError(error, res));
         };
+        this.closeDay = (req, res) => {
+            const { businessId } = req.params;
+            const { date } = req.body;
+            this.businessService
+                .closeDay(businessId, date)
+                .then((data) => res.status(200).json(data))
+                .catch((error) => this.handleError(error, res));
+        };
         this.registerPayment = (req, res) => {
             var _a;
             const { businessId } = req.params;
             const { date } = req.body;
-            const file = (_a = req.files) === null || _a === void 0 ? void 0 : _a.file;
+            const file = req.file || ((_a = req.files) === null || _a === void 0 ? void 0 : _a.file);
+            if (!file)
+                return res.status(400).json({ message: "Comprobante requerido" });
             this.businessService.registerPayment(businessId, date, file)
-                .then(data => res.json(data))
-                .catch(error => this.handleError(error, res));
+                .then((data) => res.json(data))
+                .catch((error) => this.handleError(error, res));
+        };
+        this.verifyPickupCode = (req, res) => {
+            const { businessId, orderId } = req.params;
+            const { code } = req.body;
+            if (!code)
+                return res.status(400).json({ message: "Código requerido" });
+            this.businessService
+                .verifyPickupCode(businessId, orderId, code)
+                .then((data) => res.status(200).json(data))
+                .catch((error) => this.handleError(error, res));
+        };
+        this.confirmTransferCancellation = (req, res) => {
+            const { businessId, orderId } = req.params;
+            const { confirmed } = req.body;
+            this.businessService
+                .confirmTransferCancellation(businessId, orderId, confirmed)
+                .then((data) => res.status(200).json(data))
+                .catch((error) => this.handleError(error, res));
+        };
+        this.getUnclosedDays = (req, res) => {
+            const { businessId } = req.params;
+            this.businessService
+                .getUnclosedDays(businessId)
+                .then((data) => res.status(200).json(data))
+                .catch((error) => this.handleError(error, res));
+        };
+        this.updateSettings = (req, res) => {
+            const { businessId } = req.params;
+            const settings = req.body;
+            this.businessService
+                .updateSettings(businessId, settings)
+                .then((data) => res.status(200).json(data))
+                .catch((error) => this.handleError(error, res));
         };
     }
 }

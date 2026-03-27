@@ -30,6 +30,8 @@ class GlobalSettingsService {
                 settings.hora_cierre = "22:00:00";
                 settings.app_status = "CLOSED";
                 settings.modo_operacion = "AUTO";
+                settings.max_wait_time_acceptance = 10;
+                settings.cleanupSubscriptionContentDays = 60;
                 yield settings.save();
             }
             return settings;
@@ -88,6 +90,14 @@ class GlobalSettingsService {
                 settings.subscriptionBasicPromoPrice = data.subscriptionBasicPromoPrice;
             if (data.subscriptionBasicDurationDays !== undefined)
                 settings.subscriptionBasicDurationDays = data.subscriptionBasicDurationDays;
+            if (data.timeoutRondaMs !== undefined)
+                settings.timeoutRondaMs = data.timeoutRondaMs;
+            if (data.maxRondasAsignacion !== undefined)
+                settings.maxRondasAsignacion = data.maxRondasAsignacion;
+            if (data.max_wait_time_acceptance !== undefined)
+                settings.max_wait_time_acceptance = Number(data.max_wait_time_acceptance);
+            if (data.cleanupSubscriptionContentDays !== undefined)
+                settings.cleanupSubscriptionContentDays = Number(data.cleanupSubscriptionContentDays);
             yield settings.save();
             return settings;
         });

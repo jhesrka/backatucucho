@@ -118,6 +118,14 @@ __decorate([
     __metadata("design:type", Date)
 ], UserMotorizado.prototype, "createdAt", void 0);
 __decorate([
+    (0, typeorm_1.Column)("decimal", { precision: 2, scale: 1, default: 0.0 }),
+    __metadata("design:type", Number)
+], UserMotorizado.prototype, "ratingPromedio", void 0);
+__decorate([
+    (0, typeorm_1.Column)("int", { default: 0 }),
+    __metadata("design:type", Number)
+], UserMotorizado.prototype, "totalResenas", void 0);
+__decorate([
     (0, typeorm_1.Column)("int", { default: 0 }),
     __metadata("design:type", Number)
 ], UserMotorizado.prototype, "resetTokenVersion", void 0);

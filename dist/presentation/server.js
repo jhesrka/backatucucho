@@ -84,7 +84,11 @@ class Server {
                     socket.join(motorizadoId);
                 });
                 socket.on("join_business", (businessId) => {
+                    console.log(`🏠 [Socket] Negocio unido a la sala: ${businessId}`);
                     socket.join(businessId);
+                });
+                socket.on("join_user", (userId) => {
+                    socket.join(userId);
                 });
             });
             this.server.listen(this.port, "0.0.0.0", () => {

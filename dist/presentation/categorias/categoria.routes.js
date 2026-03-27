@@ -21,8 +21,8 @@ class CategoriaRoutes {
         router.delete("/:id", auth_admin_middleware_1.AuthAdminMiddleware.protect, categoriaController.deleteCategoria);
         router.get("/", auth_admin_middleware_1.AuthAdminMiddleware.protect, categoriaController.getAllCategorias);
         // =================== AUTENTICADOS ==================
-        // Obtener todas las categorías
-        router.get("/user", auth_middleware_1.AuthMiddleware.protect, categoriaController.getAllCategorias);
+        // Obtener todas las categorías (Solo las que están en estado ACTIVO)
+        router.get("/user", auth_middleware_1.AuthMiddleware.protect, categoriaController.getAllCategoriasUser);
         // Obtener categoría por ID
         router.get("/:id", auth_middleware_1.AuthMiddleware.protect, categoriaController.getCategoriaById);
         return router;

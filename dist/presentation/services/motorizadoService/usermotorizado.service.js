@@ -13,6 +13,8 @@ exports.UserMotorizadoService = void 0;
 const domain_1 = require("../../../domain");
 const data_1 = require("../../../data");
 const config_1 = require("../../../config");
+const socket_1 = require("../../../config/socket");
+const pedidoMoto_service_1 = require("../pedidosServices/pedidoMoto.service");
 const typeorm_1 = require("typeorm");
 class UserMotorizadoService {
     // ✅ Historial de Pedidos Avanzado (Filtrado y Paginado)
@@ -253,6 +255,8 @@ class UserMotorizadoService {
                     createdAt: p.createdAt,
                 })),
                 createdAt: motorizado.createdAt,
+                ratingPromedio: Number(motorizado.ratingPromedio) || 0,
+                totalResenas: Number(motorizado.totalResenas) || 0,
             };
         });
     }
@@ -343,6 +347,8 @@ class UserMotorizadoService {
                 fechaHoraDisponible: m.fechaHoraDisponible,
                 quiereTrabajar: m.quiereTrabajar,
                 saldo: m.saldo,
+                ratingPromedio: Number(m.ratingPromedio) || 0,
+                totalResenas: Number(m.totalResenas) || 0,
                 createdAt: m.createdAt,
             }));
         });
@@ -364,6 +370,8 @@ class UserMotorizadoService {
                 quiereTrabajar: motorizado.quiereTrabajar,
                 saldo: motorizado.saldo,
                 fechaHoraDisponible: motorizado.fechaHoraDisponible,
+                ratingPromedio: Number(motorizado.ratingPromedio) || 0,
+                totalResenas: Number(motorizado.totalResenas) || 0,
                 createdAt: motorizado.createdAt,
             };
         });
@@ -400,14 +408,32 @@ class UserMotorizadoService {
                 estadoTrabajo: motorizado.estadoTrabajo,
                 quiereTrabajar: motorizado.quiereTrabajar
             });
-            // Lógica de Consistencia y Reglas de Negocio
-            // 1. Si está DISPONIBLE, obligatoriamente quiere trabajar.
-            if (motorizado.estadoTrabajo === data_1.EstadoTrabajoMotorizado.DISPONIBLE) {
-                motorizado.quiereTrabajar = true;
+            // 🔒 Limitaciones de Seguridad: El admin no puede asignar estados automáticos
+            if (data.estadoTrabajo === data_1.EstadoTrabajoMotorizado.EN_EVALUACION ||
+                data.estadoTrabajo === data_1.EstadoTrabajoMotorizado.ENTREGANDO) {
+                throw domain_1.CustomError.badRequest("⛔ SEGURIDAD: Los estados 'EN_EVALUACION' y 'ENTREGANDO' son automáticos y no pueden ser asignados manualmente por un administrador.");
             }
-            // 2. Si NO quiere trabajar, no puede estar DISPONIBLE.
-            if (motorizado.quiereTrabajar === false && motorizado.estadoTrabajo === data_1.EstadoTrabajoMotorizado.DISPONIBLE) {
-                motorizado.estadoTrabajo = data_1.EstadoTrabajoMotorizado.NO_TRABAJANDO;
+            // 🔄 Sincronización Atómica (Evitar Zombis)
+            // Si el admin fuerza DISPONIBLE o NO_TRABAJANDO, liberamos cualquier pedido atrapado
+            if (motorizado.estadoTrabajo === data_1.EstadoTrabajoMotorizado.DISPONIBLE ||
+                motorizado.estadoTrabajo === data_1.EstadoTrabajoMotorizado.NO_TRABAJANDO) {
+                const pedidoAtrapado = yield data_1.Pedido.findOne({
+                    where: {
+                        motorizadoEnEvaluacion: motorizado.id,
+                        estado: data_1.EstadoPedido.PREPARANDO
+                    }
+                });
+                if (pedidoAtrapado) {
+                    console.log(`[Sync] Liberando pedido ${pedidoAtrapado.id} del motorizado ${motorizado.id} (Manual Admin)`);
+                    pedidoMoto_service_1.PedidoMotoService.limpiarCamposRonda(pedidoAtrapado);
+                    yield pedidoAtrapado.save();
+                    // Notificar a todos para que el tablero se actualice
+                    (0, socket_1.getIO)().emit("pedido_actualizado", {
+                        pedidoId: pedidoAtrapado.id,
+                        estado: pedidoAtrapado.estado,
+                        motorizadoEnEvaluacion: null
+                    });
+                }
             }
             console.log("Saving Motorizado (Normalized):", {
                 estadoTrabajo: motorizado.estadoTrabajo,
@@ -415,6 +441,11 @@ class UserMotorizadoService {
             });
             try {
                 const actualizado = yield motorizado.save();
+                // 📡 Notificar al motorizado afectado para que su app refresque estado
+                (0, socket_1.getIO)().to(motorizado.id).emit("motorizado_estado_actualizado", {
+                    estadoTrabajo: actualizado.estadoTrabajo,
+                    quiereTrabajar: actualizado.quiereTrabajar
+                });
                 return {
                     id: actualizado.id,
                     name: actualizado.name,
@@ -471,6 +502,20 @@ class UserMotorizadoService {
             return { message: "Contraseña actualizada correctamente" };
         });
     }
+    // ✅ Cambiar contraseña por el propio motorizado (verificando la actual)
+    cambiarPasswordSelf(id, passwordActual, nuevaPassword) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const motorizado = yield data_1.UserMotorizado.findOneBy({ id });
+            if (!motorizado)
+                throw domain_1.CustomError.notFound("Motorizado no encontrado");
+            const validPassword = config_1.encriptAdapter.compare(passwordActual, motorizado.password);
+            if (!validPassword)
+                throw domain_1.CustomError.badRequest("La contraseña actual es incorrecta");
+            motorizado.password = config_1.encriptAdapter.hash(nuevaPassword);
+            yield motorizado.save();
+            return { message: "Contraseña actualizada con éxito" };
+        });
+    }
     // ✅ Historial de transacciones de billetera (Admin)
     getTransactions(motorizadoId_1) {
         return __awaiter(this, arguments, void 0, function* (motorizadoId, page = 1, limit = 20) {
@@ -500,7 +545,16 @@ class UserMotorizadoService {
                 throw domain_1.CustomError.badRequest("El monto no puede ser 0");
             // Calcular nuevo saldo
             const newBalance = Number(motorizado.saldo) + amount;
-            // Crear transacción
+            const movement = new data_1.WalletMovement();
+            movement.motorizado = motorizado;
+            movement.type = data_1.WalletMovementType.AJUSTE_ADMIN;
+            movement.amount = amount;
+            movement.balanceAfter = newBalance;
+            movement.description = `AJUSTE ADMIN: ${observation}`;
+            movement.status = data_1.WalletMovementStatus.COMPLETADO;
+            movement.adminId = adminId;
+            yield movement.save();
+            // Crear transacción (Mantener para auditoría interna existente si aplica)
             const transaction = new data_1.TransaccionMotorizado();
             transaction.motorizado = motorizado;
             transaction.monto = amount; // Puede ser negativo
@@ -512,8 +566,21 @@ class UserMotorizadoService {
             yield transaction.save();
             motorizado.saldo = newBalance;
             yield motorizado.save();
+            // EMITIR SOCKET PARA ACTUALIZACIÓN EN TIEMPO REAL
+            const io = (0, socket_1.getIO)();
+            if (io) {
+                io.emit('wallet_updated', {
+                    motorizadoId: motorizado.id,
+                    newBalance: motorizado.saldo,
+                    type: 'AJUSTE_ADMIN'
+                });
+                io.to(`motorizado_${motorizado.id}`).emit('wallet_updated', {
+                    newBalance: motorizado.saldo
+                });
+            }
             return {
                 newBalance: motorizado.saldo,
+                movement,
                 transaction,
             };
         });
@@ -611,22 +678,42 @@ class UserMotorizadoService {
                 throw domain_1.CustomError.badRequest("No es una solicitud de retiro");
             if (transaction.estado !== data_1.EstadoTransaccion.PENDIENTE)
                 throw domain_1.CustomError.badRequest("La solicitud no está pendiente");
-            // 1. Descontar saldo AHORA (Flujo corregido: se descuenta al aprobar)
+            // 1. Saldo ya fue descontado al SOLICITAR (para bloquear fondos)
             const motorizado = transaction.motorizado;
-            const withdrawalAmount = Math.abs(Number(transaction.monto));
-            if (Number(motorizado.saldo) < withdrawalAmount) {
-                throw domain_1.CustomError.badRequest(`Saldo insuficiente en billetera del motorizado al momento de aprobar. Saldo: ${motorizado.saldo}, Retiro: ${withdrawalAmount}`);
-            }
-            motorizado.saldo = Number(motorizado.saldo) - withdrawalAmount;
-            yield motorizado.save();
+            // No descontar de nuevo. Solo procedemos a marcar como completado.
             // 2. Actualizar transacción
             transaction.estado = data_1.EstadoTransaccion.COMPLETADA;
             transaction.descripcion = `${transaction.descripcion || ''} | APROBADO por Admin: ${comment}`;
             transaction.saldoNuevo = motorizado.saldo;
-            transaction.detalles = JSON.stringify(Object.assign(Object.assign({}, JSON.parse(transaction.detalles || '{}')), { adminId,
+            const currentDetalles = JSON.parse(transaction.detalles || '{}');
+            transaction.detalles = JSON.stringify(Object.assign(Object.assign({}, currentDetalles), { adminId,
                 proofUrl, approvedAt: new Date() }));
             yield transaction.save();
-            return { message: "Retiro aprobado y saldo descontado", transaction };
+            // 3. Sincronizar con WalletMovement
+            const movementId = currentDetalles.movementId;
+            if (movementId) {
+                const movement = yield data_1.WalletMovement.findOneBy({ id: movementId });
+                if (movement) {
+                    movement.status = data_1.WalletMovementStatus.PROCESADO;
+                    movement.type = data_1.WalletMovementType.RETIRO_APROBADO;
+                    movement.adminId = adminId;
+                    movement.description = `Retiro Aprobado: ${comment}`;
+                    yield movement.save();
+                }
+            }
+            // EMITIR SOCKET PARA ACTUALIZACIÓN EN TIEMPO REAL
+            const io = (0, socket_1.getIO)();
+            if (io) {
+                io.emit('wallet_updated', {
+                    motorizadoId: motorizado.id,
+                    newBalance: motorizado.saldo,
+                    type: 'RETIRO_APROBADO'
+                });
+                io.to(`motorizado_${motorizado.id}`).emit('wallet_updated', {
+                    newBalance: motorizado.saldo
+                });
+            }
+            return { message: "Retiro aprobado y procesado exitosamente", transaction };
         });
     }
     // ✅ Rechazar retiro (Reembolsar saldo)
@@ -642,17 +729,59 @@ class UserMotorizadoService {
                 throw domain_1.CustomError.badRequest("No es una solicitud de retiro");
             if (transaction.estado !== data_1.EstadoTransaccion.PENDIENTE)
                 throw domain_1.CustomError.badRequest("La solicitud no está pendiente");
-            // 1. NO Reembolsar saldo (porque NO se descontó al solicitar en el nuevo flujo)
+            // SEGURIDAD FINANCIERA: Evitar duplicaciones
+            if (transaction.reintegrado)
+                throw domain_1.CustomError.badRequest("El monto ya ha sido reintegrado o la solicitud fue procesada");
+            // 1. Reembolsar saldo (porque se descontó al solicitar)
             const motorizado = transaction.motorizado;
-            // motorizado.saldo = Number(motorizado.saldo) + refundAmount;
-            // await motorizado.save();
-            // 2. Actualizar transacción
+            const refundAmount = Math.abs(Number(transaction.monto));
+            const saldoAntes = Number(motorizado.saldo);
+            const saldoDespues = saldoAntes + refundAmount;
+            motorizado.saldo = saldoDespues;
+            yield motorizado.save();
+            // 2. Actualizar transacción original
             transaction.estado = data_1.EstadoTransaccion.RECHAZADA;
             transaction.descripcion = `${transaction.descripcion || ''} | RECHAZADO por Admin: ${comment}`;
             transaction.saldoNuevo = motorizado.saldo;
-            transaction.detalles = JSON.stringify(Object.assign(Object.assign({}, JSON.parse(transaction.detalles || '{}')), { adminId, rejectedAt: new Date(), refundAmount: 0 }));
+            transaction.reintegrado = true; // MARCAR COMO REINTEGRADO
+            const currentDetalles = JSON.parse(transaction.detalles || '{}');
+            transaction.detalles = JSON.stringify(Object.assign(Object.assign({}, currentDetalles), { adminId, rejectedAt: new Date() }));
             yield transaction.save();
-            return { message: "Retiro rechazado", transaction, newBalance: motorizado.saldo };
+            // 3. Crear NUEVO WalletMovement de DEVOLUCION_RETIRO (Para que aparezca en el historial del moto)
+            const refundMovement = new data_1.WalletMovement();
+            refundMovement.motorizado = motorizado;
+            refundMovement.type = data_1.WalletMovementType.DEVOLUCION_RETIRO;
+            refundMovement.amount = refundAmount;
+            refundMovement.balanceAfter = saldoDespues;
+            refundMovement.description = `Devolución de retiro rechazado: ${comment}`;
+            refundMovement.referenceId = transaction.id; // GUARDAR ID DEL RETIRO ORIGINAL
+            refundMovement.status = data_1.WalletMovementStatus.COMPLETADO;
+            refundMovement.adminId = adminId;
+            yield refundMovement.save();
+            // 4. Sincronizar con el WalletMovement original (marcarlo como CANCELADO)
+            const movementId = currentDetalles.movementId;
+            if (movementId) {
+                const movement = yield data_1.WalletMovement.findOneBy({ id: movementId });
+                if (movement) {
+                    movement.status = data_1.WalletMovementStatus.CANCELADO;
+                    movement.adminId = adminId;
+                    movement.description = `Retiro Rechazado: ${comment}`;
+                    yield movement.save();
+                }
+            }
+            // 5. Emitir evento WebSocket para actualización en tiempo real
+            const io = (0, socket_1.getIO)();
+            if (io) {
+                io.emit('wallet_updated', {
+                    motorizadoId: motorizado.id,
+                    newBalance: motorizado.saldo,
+                    type: 'DEVOLUCION_RETIRO'
+                });
+                io.to(`motorizado_${motorizado.id}`).emit('wallet_updated', {
+                    newBalance: motorizado.saldo
+                });
+            }
+            return { message: "Retiro rechazado y saldo reintegrado exitosamente", transaction, newBalance: motorizado.saldo };
         });
     }
     // ✅ Obtener estadísticas globales de la wallet de motorizados
@@ -686,7 +815,7 @@ class UserMotorizadoService {
         });
     }
     // ✅ Obtener TODAS las solicitudes de retiro (Global)
-    getAllGlobalWithdrawals(status) {
+    getAllGlobalWithdrawals(status, date) {
         return __awaiter(this, void 0, void 0, function* () {
             const query = data_1.TransaccionMotorizado.createQueryBuilder("t")
                 .leftJoinAndSelect("t.motorizado", "m")
@@ -694,6 +823,13 @@ class UserMotorizadoService {
                 .orderBy("t.createdAt", "DESC");
             if (status) {
                 query.andWhere("t.estado = :status", { status });
+            }
+            if (date) {
+                const start = new Date(date);
+                start.setHours(0, 0, 0, 0);
+                const end = new Date(date);
+                end.setHours(23, 59, 59, 999);
+                query.andWhere("t.createdAt BETWEEN :start AND :end", { start, end });
             }
             const withdrawals = yield query.getMany();
             return withdrawals.map(w => ({
@@ -711,6 +847,58 @@ class UserMotorizadoService {
                 },
                 detalles: w.detalles ? JSON.parse(w.detalles) : {}
             }));
+        });
+    }
+    // ✅ Obtener estadísticas de retiros de HOY
+    getWithdrawalStatsToday() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const now = new Date();
+            const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const solicitudesHoy = yield data_1.TransaccionMotorizado.createQueryBuilder("t")
+                .where("t.tipo = :tipo", { tipo: data_1.TipoTransaccion.RETIRO })
+                .andWhere("t.createdAt >= :today", { today: startOfToday })
+                .getCount();
+            const aprobadasHoy = yield data_1.TransaccionMotorizado.createQueryBuilder("t")
+                .where("t.tipo = :tipo", { tipo: data_1.TipoTransaccion.RETIRO })
+                .andWhere("t.estado = :estado", { estado: data_1.EstadoTransaccion.COMPLETADA })
+                .andWhere("t.updatedAt >= :today", { today: startOfToday })
+                .getCount();
+            const rechazadasHoy = yield data_1.TransaccionMotorizado.createQueryBuilder("t")
+                .where("t.tipo = :tipo", { tipo: data_1.TipoTransaccion.RETIRO })
+                .andWhere("t.estado = :estado", { estado: data_1.EstadoTransaccion.RECHAZADA })
+                .andWhere("t.updatedAt >= :today", { today: startOfToday })
+                .getCount();
+            const totalRetiradoHoyRaw = yield data_1.TransaccionMotorizado.createQueryBuilder("t")
+                .where("t.tipo = :tipo", { tipo: data_1.TipoTransaccion.RETIRO })
+                .andWhere("t.estado = :estado", { estado: data_1.EstadoTransaccion.COMPLETADA })
+                .andWhere("t.updatedAt >= :today", { today: startOfToday })
+                .select("SUM(t.monto)", "total")
+                .getRawOne();
+            return {
+                solicitudesHoy,
+                aprobadasHoy,
+                rechazadasHoy,
+                totalRetiradoHoy: Math.abs(Number((totalRetiradoHoyRaw === null || totalRetiradoHoyRaw === void 0 ? void 0 : totalRetiradoHoyRaw.total) || 0))
+            };
+        });
+    }
+    // ✅ Obtener información para el panel de Control de Billeteras
+    getWalletControlData() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const motorizados = yield data_1.UserMotorizado.find({
+                order: { saldo: "DESC" },
+                select: ["id", "name", "surname", "saldo"]
+            });
+            const totalSaldo = motorizados.reduce((acc, m) => acc + Number(m.saldo), 0);
+            return {
+                totalSaldo,
+                motorizados: motorizados.map(m => ({
+                    id: m.id,
+                    name: m.name,
+                    surname: m.surname,
+                    saldo: m.saldo
+                }))
+            };
         });
     }
 }

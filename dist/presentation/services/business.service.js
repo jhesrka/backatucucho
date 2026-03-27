@@ -47,6 +47,8 @@ const data_1 = require("../../data");
 const domain_1 = require("../../domain");
 const config_1 = require("../../config");
 const upload_files_cloud_adapter_1 = require("../../config/upload-files-cloud-adapter");
+const socket_1 = require("../../config/socket");
+const pedidoExpiration_service_1 = require("./pedidosServices/pedidoExpiration.service");
 class BusinessService {
     constructor() { }
     loginBusiness(credentials) {
@@ -87,7 +89,7 @@ class BusinessService {
                     key: user.photoperfil,
                 });
             }
-            // Resolver imagenes de negocios
+            // Resolve imagenes de negocios
             const negociosWithImages = yield Promise.all(user.negocios.map((n) => __awaiter(this, void 0, void 0, function* () {
                 let img = "";
                 if (n.imagenNegocio) {
@@ -107,7 +109,14 @@ class BusinessService {
                     imagenNegocio: img, // Legacy support
                     imagenUrl: img, // New standard
                     statusNegocio: n.statusNegocio,
-                    modeloMonetizacion: n.modeloMonetizacion
+                    estadoNegocio: n.estadoNegocio,
+                    modeloMonetizacion: n.modeloMonetizacion,
+                    ratingPromedio: Number(n.ratingPromedio) || 0,
+                    totalResenas: Number(n.totalResenas) || 0,
+                    pago_tarjeta_habilitado_admin: n.pago_tarjeta_habilitado_admin,
+                    porcentaje_recargo_tarjeta: Number(n.porcentaje_recargo_tarjeta) || 0,
+                    payphone_store_id: n.payphone_store_id,
+                    payphone_token: n.payphone_token,
                 };
             })));
             // Retornamos token, usuario y sus negocios (para que seleccione)
@@ -153,7 +162,14 @@ class BusinessService {
                     imagenNegocio: img, // Legacy support
                     imagenUrl: img, // New standard
                     statusNegocio: n.statusNegocio,
-                    modeloMonetizacion: n.modeloMonetizacion
+                    estadoNegocio: n.estadoNegocio,
+                    modeloMonetizacion: n.modeloMonetizacion,
+                    ratingPromedio: Number(n.ratingPromedio) || 0,
+                    totalResenas: Number(n.totalResenas) || 0,
+                    pago_tarjeta_habilitado_admin: n.pago_tarjeta_habilitado_admin,
+                    porcentaje_recargo_tarjeta: Number(n.porcentaje_recargo_tarjeta) || 0,
+                    payphone_store_id: n.payphone_store_id,
+                    payphone_token: n.payphone_token,
                 };
             })));
             return negociosWithImages;
@@ -162,8 +178,8 @@ class BusinessService {
     // ==========================================
     // 📦 GESTIÓN DE PEDIDOS (Business)
     // ==========================================
-    getOrdersByBusiness(businessId_1, status_1) {
-        return __awaiter(this, arguments, void 0, function* (businessId, status, page = 1, limit = 10, date) {
+    getOrdersByBusiness(businessId_1) {
+        return __awaiter(this, arguments, void 0, function* (businessId, status = 'PREPARANDO,EN_CAMINO,ENTREGADO,CANCELADO', page = 1, limit = 15, date, search) {
             // Validar que el negocio exista
             const Negocio = (yield Promise.resolve().then(() => __importStar(require("../../data")))).Negocio;
             const negocio = yield Negocio.findOne({ where: { id: businessId } });
@@ -178,35 +194,71 @@ class BusinessService {
                 .leftJoinAndSelect("pp.producto", "prod")
                 .leftJoinAndSelect("p.motorizado", "m")
                 .where("p.negocio = :businessId", { businessId });
-            // Normalize status to array (handling arrays, single strings, and comma-separated strings)
-            let statusFilter = [];
-            if (status) {
-                if (Array.isArray(status)) {
-                    statusFilter = status;
-                }
-                else if (typeof status === 'string') {
-                    statusFilter = status.split(',');
-                }
+            // Search has PRIORITY (Global search by ID)
+            if (search && search.trim() !== "") {
+                qb.andWhere("p.id ILIKE :search", { search: `%${search}%` });
             }
-            if (statusFilter.length > 0) {
-                qb.andWhere("p.estado::text IN (:...statuses)", { statuses: statusFilter });
-            }
-            // Filter by Date (Ecuador Time UTC-5 awareness)
-            if (date) {
-                // Assuming date comes as YYYY-MM-DD
-                const start = new Date(`${date}T00:00:00-05:00`);
-                const end = new Date(`${date}T23:59:59.999-05:00`);
-                qb.andWhere("p.createdAt BETWEEN :start AND :end", { start, end });
+            else {
+                // Normalize status to array (handling arrays, single strings, and comma-separated strings)
+                let statusFilter = [];
+                if (status) {
+                    if (Array.isArray(status)) {
+                        statusFilter = status;
+                    }
+                    else if (typeof status === 'string') {
+                        statusFilter = status.split(',');
+                    }
+                }
+                if (statusFilter.length > 0) {
+                    qb.andWhere("p.estado::text IN (:...statuses)", { statuses: statusFilter });
+                }
+                // Filter by Date (Ecuador Time UTC-5 awareness)
+                if (date) {
+                    const { DateUtils } = yield Promise.resolve().then(() => __importStar(require("../../utils/date-utils")));
+                    const { start, end } = DateUtils.getDayRange(date);
+                    qb.andWhere("p.createdAt BETWEEN :start AND :end", { start, end });
+                }
             }
             qb.orderBy("p.createdAt", "DESC")
                 .skip((page - 1) * limit)
                 .take(limit);
+            // Count cancelled orders today (Ecuador Time)
+            const { DateUtils } = yield Promise.resolve().then(() => __importStar(require("../../utils/date-utils")));
+            const { start: startToday, end: endToday } = DateUtils.getDayRange(new Date());
+            const cancelledOrdersToday = yield Pedido.createQueryBuilder("p")
+                .where("p.negocio = :businessId", { businessId })
+                .andWhere("p.estado = :status", { status: EstadoPedido.CANCELADO })
+                .andWhere("p.createdAt BETWEEN :start AND :end", { start: startToday, end: endToday })
+                .getCount();
             try {
                 const [orders, total] = yield qb.getManyAndCount();
                 // Resolve Signed URLs for Comprobantes
                 const { UploadFilesCloud } = yield Promise.resolve().then(() => __importStar(require("../../config/upload-files-cloud-adapter")));
                 const { envs } = yield Promise.resolve().then(() => __importStar(require("../../config/env")));
                 const ordersMapped = yield Promise.all(orders.map((order) => __awaiter(this, void 0, void 0, function* () {
+                    // Self-healing
+                    let changed = false;
+                    // 🕵️ AUTO-EXPIRACIÓN LAZY (Si el cron aún no lo ha capturado)
+                    if (order.estado === EstadoPedido.PENDIENTE) {
+                        const isExpired = yield pedidoExpiration_service_1.PedidoExpirationService.isOrderExpired(order);
+                        if (isExpired) {
+                            order.estado = EstadoPedido.CANCELADO;
+                            order.motivoCancelacion = "El tiempo para aceptar el pedido ha expirado";
+                            changed = true;
+                        }
+                    }
+                    if (order.estado === EstadoPedido.PREPARANDO_ASIGNADO && !order.pickup_code) {
+                        order.pickup_code = Math.floor(1000 + Math.random() * 9000).toString();
+                        order.pickup_verified = false;
+                        changed = true;
+                    }
+                    if (order.estado === EstadoPedido.EN_CAMINO && !order.delivery_code) {
+                        order.delivery_code = Math.floor(1000 + Math.random() * 9000).toString();
+                        order.delivery_verified = false;
+                        changed = true;
+                    }
+                    if (changed)
+                        yield order.save();
                     if (order.comprobantePagoUrl && !order.comprobantePagoUrl.startsWith('http')) {
                         try {
                             order.comprobantePagoUrl = yield UploadFilesCloud.getFile({
@@ -220,11 +272,16 @@ class BusinessService {
                     }
                     return order;
                 })));
+                // 💰 Añadir Resumen Financiero DIARIO (Para unificar con Finance)
+                const financialSummary = yield this.getFinanceSummary(businessId, date);
                 return {
                     orders: ordersMapped,
                     total,
                     page,
-                    totalPages: Math.ceil(total / limit)
+                    totalPages: Math.ceil(total / limit),
+                    cancelledOrdersToday,
+                    financialSummary: financialSummary.detail,
+                    financialSnapshot: financialSummary.snapshot
                 };
             }
             catch (error) {
@@ -235,6 +292,7 @@ class BusinessService {
     }
     updateOrderStatus(businessId, orderId, status, motivoCancelacion) {
         return __awaiter(this, void 0, void 0, function* () {
+            var _a, _b;
             // Validar que el pedido pertenezca al negocio
             const Pedido = (yield Promise.resolve().then(() => __importStar(require("../../data")))).Pedido;
             const EstadoPedido = (yield Promise.resolve().then(() => __importStar(require("../../data")))).EstadoPedido;
@@ -244,6 +302,19 @@ class BusinessService {
             });
             if (!order)
                 throw domain_1.CustomError.notFound("Pedido no encontrado o no pertenece a este negocio");
+            // Validar si el día ya está cerrado
+            const { DateUtils } = yield Promise.resolve().then(() => __importStar(require("../../utils/date-utils")));
+            const { start, end } = DateUtils.getDayRange(order.createdAt);
+            const { BalanceNegocio } = yield Promise.resolve().then(() => __importStar(require("../../data")));
+            const { Between } = yield Promise.resolve().then(() => __importStar(require("typeorm")));
+            const balance = yield BalanceNegocio.findOne({
+                where: {
+                    negocio: { id: businessId },
+                    fecha: Between(start, end)
+                }
+            });
+            if (balance === null || balance === void 0 ? void 0 : balance.isClosed)
+                throw domain_1.CustomError.badRequest("No se puede modificar un pedido de un día ya cerrado");
             // Reglas de negocio: 
             // 1. PENDIENTE -> ACEPTADO
             // 2. ACEPTADO -> PREPARANDO
@@ -251,6 +322,23 @@ class BusinessService {
             if (status === EstadoPedido.ACEPTADO) {
                 if (order.estado !== EstadoPedido.PENDIENTE) {
                     throw domain_1.CustomError.badRequest("Solo se pueden aceptar pedidos en estado PENDIENTE");
+                }
+                // Validar expiración antes de aceptar
+                const isExpired = yield pedidoExpiration_service_1.PedidoExpirationService.isOrderExpired(order);
+                if (isExpired) {
+                    order.estado = EstadoPedido.CANCELADO;
+                    order.motivoCancelacion = "El tiempo para aceptar el pedido ha expirado";
+                    yield order.save();
+                    // Notificar al cliente via socket
+                    const io = (0, socket_1.getIO)();
+                    if ((_a = order.cliente) === null || _a === void 0 ? void 0 : _a.id) {
+                        io.to(order.cliente.id).emit("pedido_actualizado", {
+                            id: order.id,
+                            estado: order.estado,
+                            motivoCancelacion: order.motivoCancelacion
+                        });
+                    }
+                    throw domain_1.CustomError.badRequest("El tiempo para aceptar este pedido ha expirado y ha sido cancelado automáticamente");
                 }
                 order.estado = EstadoPedido.ACEPTADO;
             }
@@ -275,12 +363,24 @@ class BusinessService {
                     throw domain_1.CustomError.badRequest("Se requiere un motivo para cancelar");
                 order.estado = EstadoPedido.CANCELADO;
                 order.motivoCancelacion = motivoCancelacion;
-                // TODO: Notificar al usuario (Socket/Push)
             }
             else {
                 throw domain_1.CustomError.badRequest("Estado no permitido para el negocio");
             }
             yield order.save();
+            // Disparar socket en tiempo real al cliente y negocio
+            const io = (0, socket_1.getIO)();
+            const updateData = {
+                pedidoId: order.id,
+                estado: order.estado,
+                timestamp: new Date().toISOString()
+            };
+            // Emitir al cliente
+            if ((_b = order.cliente) === null || _b === void 0 ? void 0 : _b.id) {
+                io.to(order.cliente.id).emit("pedido_actualizado", updateData);
+            }
+            // Emitir al negocio
+            io.to(businessId).emit("pedido_actualizado", updateData);
             return order;
         });
     }
@@ -291,12 +391,11 @@ class BusinessService {
         return __awaiter(this, void 0, void 0, function* () {
             const { Between, FindOperator } = yield Promise.resolve().then(() => __importStar(require("typeorm")));
             const { Pedido, MetodoPago, BalanceNegocio, EstadoBalance } = yield Promise.resolve().then(() => __importStar(require("../../data")));
+            const { UploadFilesCloud } = yield Promise.resolve().then(() => __importStar(require("../../config/upload-files-cloud-adapter")));
+            const { envs } = yield Promise.resolve().then(() => __importStar(require("../../config/env")));
             // 1. Definir rango de fecha (Día específico)
-            const targetDate = date ? new Date(date) : new Date();
-            const startOfDay = new Date(targetDate);
-            startOfDay.setHours(0, 0, 0, 0);
-            const endOfDay = new Date(targetDate);
-            endOfDay.setHours(23, 59, 59, 999);
+            const { DateUtils } = yield Promise.resolve().then(() => __importStar(require("../../utils/date-utils")));
+            const { start: startOfDay, end: endOfDay } = DateUtils.getDayRange(date || new Date());
             // 2. Buscar si ya existe un Balance Snapshot para este día
             let balanceSnapshot = yield BalanceNegocio.findOne({
                 where: {
@@ -314,7 +413,9 @@ class BusinessService {
                 },
                 relations: ["productos", "productos.producto"]
             });
-            const validOrders = orders.filter(o => o.estado !== "CANCELADO");
+            // Count cancelled orders today specifically
+            const cancelledOrdersToday = orders.filter(o => o.estado === "CANCELADO").length;
+            const validOrders = orders.filter(o => o.estado === "ENTREGADO" || o.estado === "CANCELADO");
             let totalVendido = 0; // Productos
             let totalComision = 0;
             let totalDelivery = 0;
@@ -332,39 +433,50 @@ class BusinessService {
             // Esto implica que el negocio NO recibió el dinero directamente.
             let deudaAppNegocio = 0; // La app tiene el dinero, debe pagar al negocio.
             validOrders.forEach(order => {
-                const totalProd = Number(order.total) || 0; // Total productos
-                const delivery = Number(order.costoEnvio) || 0;
-                const comision = Number(order.comisionTotal) || 0;
-                // "Total Pagado" = Productos + Domicilio (User says: "Total pagado ✅ Incluye productos + costo de domicilio")
-                const totalPagado = totalProd + delivery;
-                totalVendido += totalProd;
-                totalComision += comision;
-                totalDelivery += delivery;
-                // Lógica Global: El negocio SIEMPRE debe la comisión a la App
-                deudaNegocioApp += comision;
-                if (order.metodoPago === MetodoPago.EFECTIVO) {
-                    totalEfectivo += totalPagado;
-                    // Caso Efectivo:
-                    // El dinero (Prod + Del) lo tiene el Motorizado/App.
-                    // La App tiene el dinero de los Productos del Negocio.
-                    // App debe devolver el valor de los productos al negocio.
-                    deudaAppNegocio += totalProd;
+                var _a, _b;
+                const isCanceled = order.estado === "CANCELADO";
+                // Usamos los mismos campos que el Historial de Pedidos (OrdersHistory.jsx)
+                // para asegurar consistencia total.
+                const costoEnvio = Number(order.costoEnvio || 0);
+                const comisionProductos = Number(order.total_comision_productos || 0);
+                const totalVentaPublico = Number(order.total_precio_venta_publico || 0); // Precio productos sin envío
+                const precioParaNegocio = Number(order.total_precio_app || 0); // Lo que el negocio se queda realmente
+                if (isCanceled) {
+                    if (order.metodoPago === MetodoPago.TRANSFERENCIA) {
+                        const isSystemCancelled = ((_a = order.motivoCancelacion) === null || _a === void 0 ? void 0 : _a.includes('nunca aceptó')) || ((_b = order.motivoCancelacion) === null || _b === void 0 ? void 0 : _b.includes('expirado'));
+                        const isNotRejected = order.transferenciaCanceladaConfirmada !== false;
+                        if (isSystemCancelled && isNotRejected) {
+                            // En cancelado (por sistema), el negocio tiene TODO (Venta + Envío) si el cliente pagó
+                            const totalPagadoPorCliente = totalVentaPublico + costoEnvio;
+                            totalTransferencia += totalPagadoPorCliente;
+                            deudaNegocioApp += totalPagadoPorCliente;
+                        }
+                    }
+                    else {
+                        totalEfectivo += (totalVentaPublico + costoEnvio);
+                    }
                 }
                 else {
-                    // Caso Transferencia:
-                    // El dinero (Prod + Del) entra a la cuenta del Negocio.
-                    totalTransferencia += totalPagado;
-                    // El Negocio tiene el dinero del Delivery (que es del Motorizado/App).
-                    // Negocio debe pagar el Delivery a la App.
-                    deudaNegocioApp += delivery;
+                    // ENTREGADO
+                    totalVendido += totalVentaPublico;
+                    totalComision += comisionProductos;
+                    totalDelivery += costoEnvio;
+                    if (order.metodoPago === MetodoPago.EFECTIVO) {
+                        totalEfectivo += (totalVentaPublico + costoEnvio);
+                        // App recaudó todo (vía motorizado). Debe devolver al local lo que le corresponde (total_precio_app).
+                        deudaAppNegocio += precioParaNegocio;
+                    }
+                    else {
+                        // Transferencia: Local recaudó todo. Debe devolver a la App (Comisión Productos + Delivery).
+                        totalTransferencia += (totalVentaPublico + costoEnvio);
+                        deudaNegocioApp += (comisionProductos + costoEnvio);
+                    }
                 }
             });
             // Caso 3: Transferencia + Efectivo (Balance Neto)
-            // "Sumar lo que negocio debe a app (deudaNegocioApp) - Restar lo que app debe a negocio (deudaAppNegocio)"
             // Balance Final = deudaNegocioApp - deudaAppNegocio.
-            // Si Positivo: Negocio debe pagar a App.
-            // Si Negativo: App debe pagar a Negocio.
-            // User Example: "Balance Neto... Puede ser: El negocio debe pagar / La app debe pagar".
+            // Si Positivo: Negocio debe pagar a App (Debo).
+            // Si Negativo: App debe pagar a Negocio (Me deben).
             const balanceFinal = deudaNegocioApp - deudaAppNegocio;
             // Guardar o Actualizar Snapshot
             // Solo creamos/actualizamos si no está pagado/liquidado (o si queremos actualizar montos en PENDIENTE)
@@ -383,8 +495,89 @@ class BusinessService {
                 balanceSnapshot.balanceFinal = balanceFinal;
                 yield balanceSnapshot.save();
             }
+            const ordersMapped = yield Promise.all(validOrders.map((o) => __awaiter(this, void 0, void 0, function* () {
+                const isCanceled = o.estado === "CANCELADO";
+                const totalProd = Number(o.total) || 0;
+                const delivery = Number(o.costoEnvio) || 0;
+                const comision = Number(o.comisionTotal) || 0;
+                let precioParaNegocio = o.total_precio_app ? Number(o.total_precio_app) : (totalProd - comision);
+                let paraLaApp = (totalProd + delivery) - precioParaNegocio;
+                if (isCanceled) {
+                    if (o.metodoPago === MetodoPago.TRANSFERENCIA) {
+                        precioParaNegocio = 0;
+                        paraLaApp = totalProd + delivery;
+                    }
+                    else {
+                        // Canceled Cash: No money exchanged via app, so 0 for both
+                        precioParaNegocio = 0;
+                        paraLaApp = 0;
+                    }
+                }
+                let resolvedComprobante = o.comprobantePagoUrl;
+                if (resolvedComprobante && !resolvedComprobante.startsWith('http')) {
+                    try {
+                        resolvedComprobante = yield UploadFilesCloud.getFile({
+                            bucketName: envs.AWS_BUCKET_NAME,
+                            key: resolvedComprobante
+                        });
+                    }
+                    catch (e) {
+                        console.error("Error signing receipt for business breakdown:", e);
+                    }
+                }
+                return {
+                    id: o.id,
+                    totalProductos: isCanceled ? 0 : totalProd,
+                    totalPagado: totalProd + delivery, // Total paid by customer, regardless of cancellation
+                    metodoPago: o.metodoPago,
+                    estado: o.estado,
+                    isCanceled,
+                    comprobanteUrl: resolvedComprobante,
+                    comision: isCanceled ? 0 : totalProd - precioParaNegocio,
+                    paraElLocal: precioParaNegocio,
+                    paraLaApp: paraLaApp,
+                    createdAt: o.createdAt
+                };
+            })));
+            // Resolvemos el comprobante del snapshot para el frontend SIN afectar la persistencia
+            let signedUrl = balanceSnapshot === null || balanceSnapshot === void 0 ? void 0 : balanceSnapshot.comprobanteUrl;
+            if (signedUrl && !signedUrl.startsWith('http')) {
+                try {
+                    signedUrl = yield UploadFilesCloud.getFile({
+                        bucketName: envs.AWS_BUCKET_NAME,
+                        key: signedUrl
+                    });
+                }
+                catch (e) {
+                    console.error("Error signing snapshot receipt:", e);
+                }
+            }
+            else if (signedUrl && signedUrl.includes('amazonaws.com')) {
+                // Reparación de emergencia: si se guardó una URL firmada previa, intentamos extraer la key
+                try {
+                    const urlObj = new URL(signedUrl);
+                    const pathParts = urlObj.pathname.split('/');
+                    // El primer slash e index 0 están vacíos, el resto es el path
+                    const extractedKey = pathParts.slice(1).join('/');
+                    if (extractedKey) {
+                        signedUrl = yield UploadFilesCloud.getFile({
+                            bucketName: envs.AWS_BUCKET_NAME,
+                            key: extractedKey
+                        });
+                        // Opcionalmente: arreglar la DB aquí si no está cerrado
+                        if (!(balanceSnapshot === null || balanceSnapshot === void 0 ? void 0 : balanceSnapshot.isClosed)) {
+                            balanceSnapshot.comprobanteUrl = extractedKey;
+                            yield balanceSnapshot.save();
+                        }
+                    }
+                }
+                catch (err) {
+                    console.error("Error reparando URL dañada:", err);
+                }
+            }
             return {
-                snapshot: balanceSnapshot, // Contains id, status, balance, etc.
+                balanceEntity: balanceSnapshot, // Entidad real para uso interno (Ej: closeDay)
+                snapshot: Object.assign(Object.assign({}, balanceSnapshot), { comprobanteUrl: signedUrl }),
                 detail: {
                     totalVendido,
                     totalComision,
@@ -393,17 +586,10 @@ class BusinessService {
                     totalTransferencia,
                     deudaNegocioApp,
                     deudaAppNegocio,
-                    balanceFinal
+                    balanceFinal,
+                    cancelledOrdersToday
                 },
-                orders: validOrders.map(o => ({
-                    id: o.id,
-                    totalProductos: Number(o.total),
-                    totalPagado: Number(o.total) + Number(o.costoEnvio),
-                    metodoPago: o.metodoPago,
-                    estado: o.estado,
-                    comision: Number(o.comisionTotal),
-                    createdAt: o.createdAt
-                }))
+                orders: ordersMapped
             };
         });
     }
@@ -411,11 +597,8 @@ class BusinessService {
         return __awaiter(this, void 0, void 0, function* () {
             const { BalanceNegocio, EstadoBalance } = yield Promise.resolve().then(() => __importStar(require("../../data")));
             const { Between } = yield Promise.resolve().then(() => __importStar(require("typeorm")));
-            const targetDate = new Date(date);
-            const startOfDay = new Date(targetDate);
-            startOfDay.setHours(0, 0, 0, 0);
-            const endOfDay = new Date(targetDate);
-            endOfDay.setHours(23, 59, 59, 999);
+            const { DateUtils } = yield Promise.resolve().then(() => __importStar(require("../../utils/date-utils")));
+            const { start: startOfDay, end: endOfDay } = DateUtils.getDayRange(date);
             let balanceSnapshot = yield BalanceNegocio.findOne({
                 where: {
                     negocio: { id: businessId },
@@ -423,33 +606,198 @@ class BusinessService {
                 }
             });
             if (!balanceSnapshot) {
-                throw domain_1.CustomError.badRequest("No existe reporte financiero para esta fecha.");
+                // Si no existe, lo calculamos para asegurar veracidad
+                yield this.getFinanceSummary(businessId, date);
+                balanceSnapshot = yield BalanceNegocio.findOne({
+                    where: {
+                        negocio: { id: businessId },
+                        fecha: Between(startOfDay, endOfDay)
+                    }
+                });
             }
-            // Subir archivo
-            let urlComprobante = "";
+            if (!balanceSnapshot)
+                throw domain_1.CustomError.badRequest("No se pudo generar el resumen financiero para esta fecha.");
+            if (balanceSnapshot.isClosed)
+                throw domain_1.CustomError.badRequest("Este día ya está cerrado y no se puede modificar.");
+            // Subir archivo (El frontend ya debería enviar la imagen optimizada)
             if (file) {
-                const fileKey = `comprobantes/${Date.now()}_${file.name}`;
-                urlComprobante = yield upload_files_cloud_adapter_1.UploadFilesCloud.uploadSingleFile({
+                // Adaptamos según si viene de Multer (buffer/originalname) o de express-fileupload (data/name)
+                const buffer = file.buffer || file.data;
+                const originalName = file.originalname || file.name || 'document.png';
+                if (!buffer)
+                    throw domain_1.CustomError.badRequest("El contenido del archivo es inválido.");
+                const fileKey = `comprobantes_negocio/${businessId}/${Date.now()}_${originalName}`;
+                const savedKey = yield upload_files_cloud_adapter_1.UploadFilesCloud.uploadSingleFile({
                     bucketName: config_1.envs.AWS_BUCKET_NAME,
                     key: fileKey,
-                    body: file.data,
-                    contentType: file.mimetype
+                    body: buffer,
+                    contentType: file.mimetype,
+                    isReceipt: true
                 });
-                // Guardamos la URL prefirmada? O la KEY?
-                // El modelo espera string. Guardemos la Key para persistencia a largo plazo, 
-                // pero para mostrarla necesitamos firmarla cada vez.
-                // Por simplicidad en esta demo, guardemos la KEY.
-                // Para verla en frontend, necesitariamos un endpoint que resuelva la URL o firmarla al obtener el balance.
-                // En `loginBusiness` resolvemos las imagenes. Hagamos lo mismo en `getFinanceSummary`?
-                // Mejor: UploadFilesCloud.getFile devuelve URL firmada.
-                // Guardamos KEY en DB.
-                balanceSnapshot.comprobanteUrl = fileKey;
+                balanceSnapshot.comprobanteUrl = savedKey;
+                balanceSnapshot.estado = EstadoBalance.PAGADO;
             }
-            balanceSnapshot.estado = EstadoBalance.PAGADO;
-            // User request: "Una vez pagado... marca dia como liquidado"
-            balanceSnapshot.estado = EstadoBalance.LIQUIDADO;
             yield balanceSnapshot.save();
             return balanceSnapshot;
+        });
+    }
+    closeDay(businessId, date) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const { BalanceNegocio, Pedido, MetodoPago, EstadoPedido, EstadoBalance } = yield Promise.resolve().then(() => __importStar(require("../../data")));
+            const { Between, IsNull } = yield Promise.resolve().then(() => __importStar(require("typeorm")));
+            const { DateUtils } = yield Promise.resolve().then(() => __importStar(require("../../utils/date-utils")));
+            // 1. Validar que no sea el día actual
+            const { start: startOfToday } = DateUtils.getDayRange(new Date());
+            const { start: startOfClosingDay, end: endOfClosingDay } = DateUtils.getDayRange(date);
+            if (startOfClosingDay.getTime() === startOfToday.getTime()) {
+                throw domain_1.CustomError.badRequest("No puedes cerrar el día actual");
+            }
+            // 2. Recalcular todo (por seguridad)
+            const summary = yield this.getFinanceSummary(businessId, date);
+            const balanceSnapshot = summary.balanceEntity; // USAMOS LA ENTIDAD REAL
+            if (balanceSnapshot.isClosed) {
+                throw domain_1.CustomError.badRequest("Este día ya está cerrado");
+            }
+            // 3. Validar transferencias canceladas (sin confirmar/rechazar)
+            const pendingTransfers = yield Pedido.find({
+                where: {
+                    negocio: { id: businessId },
+                    estado: EstadoPedido.CANCELADO,
+                    metodoPago: MetodoPago.TRANSFERENCIA,
+                    transferenciaCanceladaConfirmada: IsNull(),
+                    createdAt: Between(startOfClosingDay, endOfClosingDay)
+                }
+            });
+            if (pendingTransfers.length > 0) {
+                throw domain_1.CustomError.badRequest("Tienes transferencias canceladas pendientes de validar");
+            }
+            // 4. Validar comprobante si balanceFinal > 0 (Negocio DEBE pagar a la app)
+            if (balanceSnapshot.balanceFinal > 0 && !balanceSnapshot.comprobanteUrl) {
+                throw domain_1.CustomError.badRequest("Debes subir el comprobante de pago");
+            }
+            // 5. Cerrar el día
+            balanceSnapshot.isClosed = true;
+            balanceSnapshot.estado = EstadoBalance.LIQUIDADO;
+            yield balanceSnapshot.save();
+            return {
+                message: "Cierre realizado correctamente",
+                snapshot: balanceSnapshot
+            };
+        });
+    }
+    verifyPickupCode(businessId, orderId, code) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const Pedido = (yield Promise.resolve().then(() => __importStar(require("../../data")))).Pedido;
+            const order = yield Pedido.findOne({
+                where: { id: orderId, negocio: { id: businessId } },
+                relations: ["motorizado"]
+            });
+            if (!order)
+                throw domain_1.CustomError.notFound("Pedido no encontrado o no pertenece a este negocio");
+            if (order.pickup_code !== code) {
+                throw domain_1.CustomError.badRequest("Código incorrecto. Intente nuevamente.");
+            }
+            order.pickup_verified = true;
+            yield order.save();
+            // Disparar socket
+            (0, socket_1.getIO)().emit("pedido_actualizado", {
+                pedidoId: order.id,
+                estado: order.estado,
+                pickup_verified: order.pickup_verified,
+                timestamp: new Date().toISOString()
+            });
+            return { message: "Código validado correctamente", pickup_verified: true };
+        });
+    }
+    confirmTransferCancellation(businessId, orderId, confirmed) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const Pedido = (yield Promise.resolve().then(() => __importStar(require("../../data")))).Pedido;
+            const order = yield Pedido.findOne({
+                where: { id: orderId, negocio: { id: businessId } }
+            });
+            if (!order)
+                throw domain_1.CustomError.notFound("Pedido no encontrado");
+            // Validar si el día ya está cerrado
+            const { DateUtils } = yield Promise.resolve().then(() => __importStar(require("../../utils/date-utils")));
+            const { start, end } = DateUtils.getDayRange(order.createdAt);
+            const { BalanceNegocio } = yield Promise.resolve().then(() => __importStar(require("../../data")));
+            const { Between } = yield Promise.resolve().then(() => __importStar(require("typeorm")));
+            const balance = yield BalanceNegocio.findOne({
+                where: {
+                    negocio: { id: businessId },
+                    fecha: Between(start, end)
+                }
+            });
+            if (balance === null || balance === void 0 ? void 0 : balance.isClosed)
+                throw domain_1.CustomError.badRequest("No se puede modificar un pedido de un día ya cerrado");
+            order.transferenciaCanceladaConfirmada = confirmed;
+            yield order.save();
+            return order;
+        });
+    }
+    getUnclosedDays(businessId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const { Pedido, BalanceNegocio } = yield Promise.resolve().then(() => __importStar(require("../../data")));
+            const { In, LessThan } = yield Promise.resolve().then(() => __importStar(require("typeorm")));
+            const { DateUtils } = yield Promise.resolve().then(() => __importStar(require("../../utils/date-utils")));
+            const today = new Date();
+            const { start: startOfToday } = DateUtils.getDayRange(today);
+            // 1. Obtener todos los pedidos del negocio antes de hoy
+            const orders = yield Pedido.find({
+                where: {
+                    negocio: { id: businessId },
+                    createdAt: LessThan(startOfToday)
+                },
+                select: ["createdAt"]
+            });
+            if (orders.length === 0)
+                return [];
+            // 2. Extraer fechas únicas (YYYY-MM-DD) y ordenar descendente
+            const uniqueDates = Array.from(new Set(orders.map(o => DateUtils.toLocalDateString(o.createdAt)))).sort((a, b) => b.localeCompare(a));
+            // 3. Buscar balances ya cerrados para ese negocio en esas fechas
+            const closedBalances = yield BalanceNegocio.find({
+                where: {
+                    negocio: { id: businessId },
+                    isClosed: true,
+                    fecha: In(uniqueDates)
+                },
+                select: ["fecha"]
+            });
+            const closedDatesSet = new Set(closedBalances.map(b => b.fecha));
+            return uniqueDates.filter(d => !closedDatesSet.has(d));
+        });
+    }
+    updateSettings(businessId, settings) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const { Negocio } = yield Promise.resolve().then(() => __importStar(require("../../data")));
+            const negocio = yield Negocio.findOne({ where: { id: businessId } });
+            if (!negocio)
+                throw domain_1.CustomError.notFound("Negocio no encontrado");
+            // Ya no permitimos al negocio cambiar el estado de pago con tarjeta (Controlado por Admin)
+            // Permitir al negocio cambiar su estado (Abierto/Cerrado)
+            if (settings.estadoNegocio !== undefined) {
+                const { EstadoNegocio } = yield Promise.resolve().then(() => __importStar(require("../../data")));
+                if (Object.values(EstadoNegocio).includes(settings.estadoNegocio)) {
+                    negocio.estadoNegocio = settings.estadoNegocio;
+                }
+            }
+            yield negocio.save();
+            let img = "";
+            if (negocio.imagenNegocio) {
+                img = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
+                    bucketName: config_1.envs.AWS_BUCKET_NAME,
+                    key: negocio.imagenNegocio,
+                }).catch(() => "");
+            }
+            return {
+                id: negocio.id,
+                nombre: negocio.nombre,
+                imagenUrl: img,
+                statusNegocio: negocio.statusNegocio,
+                estadoNegocio: negocio.estadoNegocio,
+                pago_tarjeta_habilitado_admin: negocio.pago_tarjeta_habilitado_admin,
+                porcentaje_recargo_tarjeta: Number(negocio.porcentaje_recargo_tarjeta) || 0,
+            };
         });
     }
 }

@@ -5,7 +5,7 @@ exports.UpdateNegocioDTO = void 0;
 const config_1 = require("../../../config");
 const data_1 = require("../../../data");
 class UpdateNegocioDTO {
-    constructor(nombre, descripcion, categoriaId, statusNegocio, modeloMonetizacion, latitud, longitud, direccionTexto, valorSuscripcion, diaPago, masterPin, orden) {
+    constructor(nombre, descripcion, categoriaId, statusNegocio, modeloMonetizacion, latitud, longitud, direccionTexto, valorSuscripcion, diaPago, masterPin, orden, pago_tarjeta_habilitado_admin, pago_tarjeta_activo_negocio, payphone_store_id, payphone_token, porcentaje_recargo_tarjeta) {
         this.nombre = nombre;
         this.descripcion = descripcion;
         this.categoriaId = categoriaId;
@@ -18,9 +18,14 @@ class UpdateNegocioDTO {
         this.diaPago = diaPago;
         this.masterPin = masterPin;
         this.orden = orden;
+        this.pago_tarjeta_habilitado_admin = pago_tarjeta_habilitado_admin;
+        this.pago_tarjeta_activo_negocio = pago_tarjeta_activo_negocio;
+        this.payphone_store_id = payphone_store_id;
+        this.payphone_token = payphone_token;
+        this.porcentaje_recargo_tarjeta = porcentaje_recargo_tarjeta;
     }
     static create(obj) {
-        const { nombre, descripcion, categoriaId, statusNegocio, modeloMonetizacion, latitud, longitud, direccionTexto, valorSuscripcion, diaPago, orden } = obj;
+        const { nombre, descripcion, categoriaId, statusNegocio, modeloMonetizacion, latitud, longitud, direccionTexto, valorSuscripcion, diaPago, orden, pago_tarjeta_habilitado_admin, pago_tarjeta_activo_negocio, payphone_store_id, payphone_token, porcentaje_recargo_tarjeta } = obj;
         // Validaciones opcionales
         if (nombre !== undefined && (typeof nombre !== "string" || nombre.trim().length < 3)) {
             return ["El nombre del negocio debe tener al menos 3 caracteres"];
@@ -68,12 +73,18 @@ class UpdateNegocioDTO {
                 return ["El orden debe ser un número"];
             }
         }
+        if (porcentaje_recargo_tarjeta !== undefined) {
+            const recargo = Number(porcentaje_recargo_tarjeta);
+            if (isNaN(recargo) || recargo < 0 || recargo > 100) {
+                return ["El porcentaje de recargo debe estar entre 0 y 100"];
+            }
+        }
         const dirTxt = typeof direccionTexto === "string" && direccionTexto.trim().length > 0
             ? direccionTexto.trim().slice(0, 200)
             : undefined;
         return [
             undefined,
-            new UpdateNegocioDTO(nombre === null || nombre === void 0 ? void 0 : nombre.trim(), descripcion === null || descripcion === void 0 ? void 0 : descripcion.trim(), categoriaId, statusNegocio, modeloMonetizacion, latitud !== undefined ? Number(latitud) : undefined, longitud !== undefined ? Number(longitud) : undefined, dirTxt, valorSuscripcion !== undefined ? Number(valorSuscripcion) : undefined, diaPago !== undefined ? Number(diaPago) : undefined, obj.masterPin, orden !== undefined ? Number(orden) : undefined),
+            new UpdateNegocioDTO(nombre === null || nombre === void 0 ? void 0 : nombre.trim(), descripcion === null || descripcion === void 0 ? void 0 : descripcion.trim(), categoriaId, statusNegocio, modeloMonetizacion, latitud !== undefined ? Number(latitud) : undefined, longitud !== undefined ? Number(longitud) : undefined, dirTxt, valorSuscripcion !== undefined ? Number(valorSuscripcion) : undefined, diaPago !== undefined ? Number(diaPago) : undefined, obj.masterPin, orden !== undefined ? Number(orden) : undefined, pago_tarjeta_habilitado_admin, pago_tarjeta_activo_negocio, payphone_store_id, payphone_token, porcentaje_recargo_tarjeta !== undefined ? Number(porcentaje_recargo_tarjeta) : undefined),
         ];
     }
 }

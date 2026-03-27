@@ -47,6 +47,10 @@ __decorate([
     __metadata("design:type", String)
 ], CampaignLog.prototype, "errorMessage", void 0);
 __decorate([
+    (0, typeorm_1.Column)("jsonb", { nullable: true }),
+    __metadata("design:type", Object)
+], CampaignLog.prototype, "dynamicAttributes", void 0);
+__decorate([
     (0, typeorm_1.CreateDateColumn)(),
     __metadata("design:type", Date)
 ], CampaignLog.prototype, "attemptedAt", void 0);

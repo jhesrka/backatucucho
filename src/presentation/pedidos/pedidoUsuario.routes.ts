@@ -14,6 +14,7 @@ export class PedidoUsuarioRoutes {
     const pedidoUsuarioController = new PedidoUsuarioController(
       pedidoUsuarioService
     );
+    console.log("🛤️ Rutas PedidoUsuario listas.");
     // ===================== CALCULAR ENVÍO SIN CREAR PEDIDO =====================
     // ⚠️ Este endpoint NO requiere autenticación
     router.post("/calcular-envio", pedidoUsuarioController.calcularEnvio);

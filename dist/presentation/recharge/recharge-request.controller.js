@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.RechargeRequestController = void 0;
 const domain_1 = require("../../domain");
 const data_1 = require("../../data");
+const date_utils_1 = require("../../utils/date-utils");
 class RechargeRequestController {
     constructor(rechargeService) {
         this.rechargeService = rechargeService;
@@ -113,8 +114,8 @@ class RechargeRequestController {
                 });
             }
             try {
-                const start = new Date(startDate);
-                const end = new Date(endDate);
+                const start = date_utils_1.DateUtils.parseLocalDate(startDate);
+                const end = date_utils_1.DateUtils.parseLocalDate(endDate);
                 if (isNaN(start.getTime()) || isNaN(end.getTime())) {
                     return res.status(400).json({ message: "Formato de fecha inválido" });
                 }
@@ -188,8 +189,8 @@ class RechargeRequestController {
                     .json({ message: "Debe proporcionar startDate y endDate en la query" });
             }
             try {
-                const start = new Date(startDate);
-                const end = new Date(endDate);
+                const start = date_utils_1.DateUtils.parseLocalDate(startDate);
+                const end = date_utils_1.DateUtils.parseLocalDate(endDate);
                 // Validación de fechas
                 if (isNaN(start.getTime()) || isNaN(end.getTime())) {
                     return res.status(400).json({ message: "Formato de fecha inválido" });
@@ -230,8 +231,8 @@ class RechargeRequestController {
                 });
             }
             // Convierte a Date y valida formato
-            const start = new Date(startDate);
-            const end = new Date(endDate);
+            const start = date_utils_1.DateUtils.parseLocalDate(startDate);
+            const end = date_utils_1.DateUtils.parseLocalDate(endDate);
             if (isNaN(start.getTime()) || isNaN(end.getTime())) {
                 return res.status(400).json({ message: "Formato de fecha inválido" });
             }

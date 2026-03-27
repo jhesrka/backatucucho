@@ -25,32 +25,37 @@ export class PedidoExpirationService {
             const now = new Date();
             const expirationLimit = new Date(now.getTime() - maxMinutes * 60000);
 
-            // 2. Buscar pedidos PENDIENTES o PENDIENTE_PAGO
-            const expiredPedidos = await Pedido.find({
-                where: [
-                    {
-                        estado: EstadoPedido.PENDIENTE,
-                        createdAt: LessThan(expirationLimit)
-                    },
-                    {
-                        estado: "PENDIENTE_PAGO" as any,
-                        createdAt: LessThan(new Date(now.getTime() - 5 * 60000)) // 5 Minutos para Payphone
-                    }
-                ],
+            // 2. Buscar pedidos PENDIENTES (UsamoscreatedAt para el cálculo)
+            const expiredPending = await Pedido.find({
+                where: {
+                    estado: EstadoPedido.PENDIENTE,
+                    createdAt: LessThan(expirationLimit)
+                },
                 relations: ["cliente", "negocio"]
             });
+
+            // 2.2 Buscar pedidos PENDIENTE_PAGO (5 min)
+            const expiredPayphone = await Pedido.find({
+                where: {
+                    estado: "PENDIENTE_PAGO" as any,
+                    createdAt: LessThan(new Date(now.getTime() - 5 * 60000))
+                },
+                relations: ["cliente", "negocio"]
+            });
+
+            const expiredPedidos = [...expiredPending, ...expiredPayphone];
 
             if (expiredPedidos.length === 0) return;
 
             console.log(`🕒 [EXPIRACIÓN] Se encontraron ${expiredPedidos.length} pedidos fuera de tiempo.`);
 
             for (const pedido of expiredPedidos) {
-                const isPayphone = pedido.estado === "PENDIENTE_PAGO";
+                const isPayphone = pedido.estado === "PENDIENTE_PAGO" as any;
                 pedido.estado = EstadoPedido.CANCELADO;
                 pedido.motivoCancelacion = isPayphone 
                     ? "Tiempo de pago excedido (5 min)" 
                     : "El restaurante nunca aceptó tu pedido";
-                await pedido.save();
+                await pedido.save().catch(err => console.error("❌ Error salvando pedido expirado:", err));
 
                 // 3. Notificar vía Socket
                 const io = getIO();

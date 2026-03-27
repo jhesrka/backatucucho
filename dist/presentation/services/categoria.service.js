@@ -60,9 +60,14 @@ class CategoriaService {
         });
     }
     // Obtener todas las categorías
-    getAllCategorias() {
+    getAllCategorias(status) {
         return __awaiter(this, void 0, void 0, function* () {
+            const whereCondition = {};
+            if (status) {
+                whereCondition.statusCategoria = status;
+            }
             const categorias = yield data_1.CategoriaNegocio.find({
+                where: whereCondition,
                 order: { orden: "ASC", created_at: "ASC" },
             });
             return yield Promise.all(categorias.map((cat) => __awaiter(this, void 0, void 0, function* () {
