@@ -11,18 +11,10 @@ export class PedidoUsuarioController {
     if (error instanceof CustomError) {
       return res.status(error.statusCode).json({ message: error.message });
     }
-    
-    // Check if it's an Axios/Payphone error
-    if (error?.response?.data) {
-        return res.status(400).json({ 
-            message: "Error al preparar pago con Payphone", 
-            error: error.response.data 
-        });
-    }
 
     console.error("Unhandled error:", error);
     
-    // Si es un error de Axios (Payphone)
+    // Capture axios (Payphone) error body
     const axiosError = (error as any)?.response?.data;
     if (axiosError) {
       return res.status(400).json({ 
@@ -31,8 +23,8 @@ export class PedidoUsuarioController {
     }
 
     return res.status(500).json({ 
-      message: "Something went very wrong", 
-      detail: (error as Error)?.message || "Internal Server Error" 
+      message: "Internal Server Error", 
+      error: (error as any).message 
     });
   };
   // ======================== Calcular envío ========================
