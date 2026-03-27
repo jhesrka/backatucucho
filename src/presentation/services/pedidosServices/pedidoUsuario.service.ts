@@ -285,7 +285,7 @@ export class PedidoUsuarioService {
         payphoneConfig = {
             token: negocio.payphone_token?.trim(),
             storeId: negocio.payphone_store_id?.trim(),
-            clientTransactionId: `${nuevo.id}--${Date.now()}`,
+            clientTransactionId: `${nuevo.id}--${Math.random().toString(36).substring(2, 8)}`,
             amount: Math.round(totalFinal * 100),
             amountWithoutTax: Math.round(totalFinal * 100),
             currency: "USD",
@@ -431,7 +431,7 @@ export class PedidoUsuarioService {
         payphoneConfig: p.estado === "PENDIENTE_PAGO" ? {
             token: p.negocio.payphone_token?.trim(),
             storeId: p.negocio.payphone_store_id?.trim(),
-            clientTransactionId: `${p.id}--${Date.now()}`,
+            clientTransactionId: `${p.id}--${Math.random().toString(36).substring(2, 8)}`,
             amount: Math.round(Number(p.total) * 100),
             amountWithoutTax: Math.round(Number(p.total) * 100),
             currency: "USD",
