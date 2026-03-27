@@ -64,18 +64,24 @@ export class PedidoUsuarioController {
   // ======================== Crear pedido ========================
   crearPedido = async (req: Request, res: Response) => {
     try {
-      const fs = require('fs');
-      const logPath = 'c:/Users/jhesr/OneDrive/Escritorio/academlo/proyectReales/atucuchoShop/atucuchoFull/atucuchoBack/tmp/order_debug.log';
-      fs.appendFileSync(logPath, `[${new Date().toISOString()}] CONTROLLER: request body=${JSON.stringify(req.body)}\n`);
+      // 🧪 LOGS DE AUDITORÍA
+      console.log("-------------------------------------------");
+      console.log("🛒 NUEVA PETICIÓN DE PEDIDO");
+      console.log("Headers Auth:", req.headers.authorization);
+      console.log("User en Body:", req.body.sessionUser ? "✅ OK" : "❌ NO");
+      console.log("-------------------------------------------");
 
-      // Validar y tipar el body con tu patrón de DTO
-      const [err, dto] = CreatePedidoDTO.create(req.body);
-      if (err) {
-        fs.appendFileSync(logPath, `[${new Date().toISOString()}] CONTROLLER ERROR: ${err}\n`);
-        return res.status(400).json({ message: err });
+      // 🥈 BACKEND – VALIDAR AUTH
+      if (!req.body.sessionUser) {
+        return res.status(401).json({ message: "No autenticado" });
       }
 
-      fs.appendFileSync(logPath, `[${new Date().toISOString()}] CONTROLLER SUCCESS: calling service\n`);
+      // Inyectar clienteId de la sesión si falta
+      if (!req.body.clienteId) req.body.clienteId = req.body.sessionUser.id;
+
+      const [err, dto] = CreatePedidoDTO.create(req.body);
+      if (err) return res.status(400).json({ message: err });
+
       const pedido = await this.pedidoUsuarioService.crearPedido(dto!);
       return res.status(201).json(pedido);
     } catch (error) {
