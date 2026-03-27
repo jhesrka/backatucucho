@@ -169,31 +169,24 @@ export class PedidoUsuarioController {
     try {
         const repo = Pedido.getRepository();
         
-        // 1. Intentar forzar los valores (DE UNO EN UNO PARA EVITAR BLOQUEOS)
-        let log = "";
+        // 1. Limpiar espacios traicioneros en la BD
+        await repo.query("UPDATE negocio SET payphone_store_id = TRIM(payphone_store_id), payphone_token = TRIM(payphone_token)");
+
+        // 2. Intentar forzar los valores
         try {
             await repo.query("ALTER TYPE pedido_metodopago_enum ADD VALUE IF NOT EXISTS 'TARJETA'");
-            log += "MetodoPago: OK | ";
-        } catch (e: any) { log += "MetodoPago: " + e.message + " | "; }
-
+        } catch (e) {}
         try {
             await repo.query("ALTER TYPE pedido_estado_enum ADD VALUE IF NOT EXISTS 'PENDIENTE_PAGO'");
-            log += "Estado: OK | ";
-        } catch (e: any) { log += "Estado: " + e.message + " | "; }
+        } catch (e) {}
 
-        // 2. Consultar valores REALES
-        const enumValues = await repo.query(`
-            SELECT t.typname as enum_name, e.enumlabel as value
-            FROM pg_type t 
-            JOIN pg_enum e ON t.oid = e.enumtypid  
-            WHERE t.typname IN ('pedido_metodopago_enum', 'pedido_estado_enum')
-            ORDER BY enum_name, value
-        `);
+        // 3. Consultar valores REALES del negocio específico
+        const business = await repo.query("SELECT id, nombre, payphone_store_id, " + '"pago_tarjeta_habilitado_admin"' + " as enabled FROM negocio WHERE id = '36a53408-4d75-4f96-928b-a8ffb840e753'");
 
         return res.status(200).json({ 
             success: true,
-            migrationLog: log,
-            dbEnums: enumValues
+            status: "DB CLEANED",
+            business: business[0]
         });
     } catch (error: any) {
         return res.status(500).json({ message: "Error", error: error.message });

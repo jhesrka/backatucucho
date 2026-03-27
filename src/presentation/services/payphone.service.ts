@@ -29,6 +29,9 @@ export class PayphoneService {
             const amountWithTaxCents = Math.round(amountWithTax * 100);
             const amountWithoutTaxCents = amountCents - amountWithTaxCents;
 
+            const cleanToken = token.trim();
+            const cleanStoreId = storeId.trim();
+
             const payload = {
                 amount: amountCents,
                 tax: taxCents,
@@ -36,7 +39,7 @@ export class PayphoneService {
                 amountWithoutTax: amountWithoutTaxCents,
                 clientTransactionId,
                 reference,
-                storeId,
+                storeId: cleanStoreId,
                 currency: "USD",
                 expireIn: 15,
                 responseUrl: `${envs.WEBSERVICE_URL_FRONT}/mis-pedidos?payment=success&orderId=${clientTransactionId}`,
@@ -44,11 +47,11 @@ export class PayphoneService {
             };
 
             console.log("🚀 [Payphone] PAYLOAD:", JSON.stringify(payload, null, 2));
-            console.log("🔐 [Payphone] TOKEN:", token);
+            console.log("🔐 [Payphone] TOKEN (CLEAN):", cleanToken);
 
             const { data } = await axios.post(`${this.API_URL}/button/Prepare`, payload, {
                 headers: {
-                    Authorization: `Bearer ${token}`,
+                    Authorization: `Bearer ${cleanToken}`,
                     "Content-Type": "application/json",
                 },
             });
