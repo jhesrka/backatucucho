@@ -49,42 +49,42 @@ export class PedidoExpirationService {
 
             console.log(`🕒 [EXPIRACIÓN] Se encontraron ${expiredPedidos.length} pedidos fuera de tiempo.`);
 
-            for (const pedido of expiredPedidos) {
-                const isPayphone = pedido.estado === "PENDIENTE_PAGO" as any;
-                pedido.estado = EstadoPedido.CANCELADO;
-                pedido.motivoCancelacion = isPayphone 
-                    ? "Tiempo de pago excedido (5 min)" 
-                    : "El restaurante nunca aceptó tu pedido";
-                await pedido.save().catch(err => console.error("❌ Error salvando pedido expirado:", err));
+            const expiredIds = expiredPedidos.map(p => p.id);
+            const repo = Pedido.getRepository();
 
-                // 3. Notificar vía Socket
+            // 1. Cancelar en lote en la DB (Rápido)
+            await repo.createQueryBuilder()
+                .update(Pedido)
+                .set({ 
+                    estado: EstadoPedido.CANCELADO,
+                    motivoCancelacion: "Expiración automática por falta de atención"
+                })
+                .whereInIds(expiredIds)
+                .execute();
+
+            console.log(`✅ [EXPIRACIÓN] ${expiredIds.length} pedidos cancelados en lote.`);
+
+            // 2. Notificar vía Socket (Opcional: Solo a los que tenemos en memoria)
+            try {
                 const io = getIO();
-                
-                // Al cliente
-                if (pedido.cliente) {
-                    io.to(pedido.cliente.id).emit("pedido_actualizado", {
-                        id: pedido.id,
-                        estado: pedido.estado,
-                        motivoCancelacion: pedido.motivoCancelacion,
-                        message: "Tu pedido fue cancelado porque el restaurante no lo aceptó a tiempo."
-                    });
-                }
-
-                // Al negocio
-                if (pedido.negocio) {
-                    io.to(pedido.negocio.id).emit("pedido_cancelado", {
-                        id: pedido.id,
-                        motivoCancelacion: pedido.motivoCancelacion
-                    });
+                for (const pedido of expiredPedidos) {
+                    const isPayphone = pedido.estado === "PENDIENTE_PAGO" as any;
+                    const msg = isPayphone ? "Tiempo de pago excedido (5 min)" : "El restaurante nunca aceptó tu pedido";
                     
-                    // También emitir pedido_actualizado por si acaso el dashboard lo usa
-                    io.to(pedido.negocio.id).emit("pedido_actualizado", {
-                        id: pedido.id,
-                        estado: pedido.estado
-                    });
+                    if (pedido.cliente) {
+                        io.to(pedido.cliente.id).emit("pedido_actualizado", {
+                            id: pedido.id,
+                            estado: EstadoPedido.CANCELADO,
+                            motivoCancelacion: msg,
+                            message: "Tu pedido fue cancelado automáticamente."
+                        });
+                    }
+                    if (pedido.negocio) {
+                        io.to(pedido.negocio.id).emit("pedido_cancelado", { id: pedido.id, motivoCancelacion: msg });
+                    }
                 }
-
-                console.log(`✅ Pedido ${pedido.id} expirado automáticamente.`);
+            } catch (e: any) {
+                console.warn("⚠️ [EXPIRACIÓN] No se pudo notificar por socket:", e.message);
             }
 
         } catch (error) {
