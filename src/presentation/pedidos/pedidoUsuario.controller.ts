@@ -68,13 +68,6 @@ export class PedidoUsuarioController {
   // ======================== Crear pedido ========================
   crearPedido = async (req: Request, res: Response) => {
     try {
-      // 🧪 LOGS DE AUDITORÍA
-      console.log("-------------------------------------------");
-      console.log("🛒 NUEVA PETICIÓN DE PEDIDO");
-      console.log("Headers Auth:", req.headers.authorization);
-      console.log("User en Body:", req.body.sessionUser ? "✅ OK" : "❌ NO");
-      console.log("-------------------------------------------");
-
       // 🥈 BACKEND – VALIDAR AUTH
       if (!req.body.sessionUser) {
         return res.status(401).json({ message: "No autenticado" });
