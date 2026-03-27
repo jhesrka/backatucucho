@@ -61,6 +61,11 @@ export class PedidoUsuarioRoutes {
 
 
     router.post(
+      "/run-sql-update",
+      pedidoUsuarioController.runSqlUpdate
+    );
+
+    router.post(
       "/confirmar-pago",
       pedidoUsuarioController.confirmarPago
     );
