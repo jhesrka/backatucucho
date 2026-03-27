@@ -479,11 +479,18 @@ export class AdvertisingService {
     }
 
     public async processCampaign(id: string) {
+        console.log(`[ENGINE] 🚀 Iniciando procesamiento automático para campaña: ${id}`);
         const campaign = await Campaign.findOne({ where: { id } });
-        if (!campaign) return;
+        if (!campaign) {
+            console.error(`[ENGINE] ❌ Error: Campaña ${id} no encontrada`);
+            return;
+        }
 
         // Auto-processing ONLY for EMAIL
-        if (campaign.type !== CampaignType.EMAIL) return;
+        if (campaign.type !== CampaignType.EMAIL) {
+            console.log(`[ENGINE] ⚠️ Campaña ${id} no es de tipo EMAIL. Abortando auto-procesamiento.`);
+            return;
+        }
 
         campaign.status = CampaignStatus.PROCESSING;
         await campaign.save();
@@ -493,6 +500,15 @@ export class AdvertisingService {
             relations: ['user']
         });
 
+        console.log(`[ENGINE] 📬 Encontrados ${logs.length} destinatarios pendientes para campaña: ${campaign.name}`);
+
+        if (logs.length === 0) {
+            console.warn(`[ENGINE] ⚠️ No hay logs pendientes para procesar.`);
+            campaign.status = CampaignStatus.COMPLETED;
+            await campaign.save();
+            return;
+        }
+
         for (const log of logs) {
             try {
                 const attr = log.dynamicAttributes || {};
@@ -500,20 +516,28 @@ export class AdvertisingService {
                 const content = this.replaceTags(campaign.content, attr);
 
                 if (log.user?.email && log.user.email.includes('@')) {
-                    await this.emailService.sendEmail({
+                    console.log(`[ENGINE] 📧 Enviando a: ${log.user.email}...`);
+                    const result = await this.emailService.sendEmail({
                         to: log.user.email,
                         subject,
                         htmlBody: content
                     });
-                    log.status = LogStatus.SENT;
-                    campaign.sentCount++;
+                    
+                    if (result) {
+                        log.status = LogStatus.SENT;
+                        await Campaign.getRepository().increment({ id: campaign.id }, 'sentCount', 1);
+                        console.log(`[ENGINE] ✅ Éxito: ${log.user.email}`);
+                    } else {
+                        throw new Error("SMTP Refused / Internal Error");
+                    }
                 } else {
-                    throw new Error("Invalid Email");
+                    throw new Error("Invalid Email Address");
                 }
             } catch (e: any) {
+                console.error(`[ENGINE] ❌ Fallo en ${log.targetContact}: ${e.message}`);
                 log.status = LogStatus.FAILED;
                 log.errorMessage = e.message || "Email error";
-                campaign.failedCount++;
+                await Campaign.getRepository().increment({ id: campaign.id }, 'failedCount', 1);
             }
             log.attemptedAt = new Date();
             await log.save();
@@ -521,5 +545,6 @@ export class AdvertisingService {
 
         campaign.status = CampaignStatus.COMPLETED;
         await campaign.save();
+        console.log(`[ENGINE] 🏁 Campaña ${id} terminada.`);
     }
 }

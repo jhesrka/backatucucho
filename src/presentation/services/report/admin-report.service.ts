@@ -6,6 +6,22 @@ import { envs } from "../../../config";
 import { Brackets } from "typeorm";
 
 export class AdminReportService {
+    // 6. Global Pending Count (Support + Moderation)
+    public async getGlobalPendingCount(): Promise<{ total: number; moderation: number; support: number }> {
+        // Moderation Pending
+        const pendingPosts = await PostReport.count({ where: { status: ReportStatus.PENDING } });
+        const pendingStories = await StorieReport.count({ where: { status: ReportStatus.PENDING } });
+
+        // Support Tickets Pending
+        const { Report } = require("../../../data");
+        const pendingSupport = await Report.count({ where: { status: ReportStatus.PENDING } });
+
+        return {
+            total: (pendingPosts || 0) + (pendingStories || 0) + (pendingSupport || 0),
+            moderation: (pendingPosts || 0) + (pendingStories || 0),
+            support: pendingSupport || 0
+        };
+    }
 
     // 1. Get Aggregated Reports (Paginated)
     async getAggregatedReports(filters: any) {
@@ -42,6 +58,7 @@ export class AdminReportService {
         u.surname as "authorSurname", 
         u.email as "authorEmail", 
         u.photoperfil as "authorPhoto",
+        u.status as "authorStatus",
         COUNT(r.id) as "reportCount",
         MIN(r."createdAt") as "firstReportDate",
         MAX(r."createdAt") as "lastReportDate",
@@ -63,6 +80,7 @@ export class AdminReportService {
         u.surname as "authorSurname", 
         u.email as "authorEmail", 
         u.photoperfil as "authorPhoto",
+        u.status as "authorStatus",
         COUNT(r.id) as "reportCount",
         MIN(r."createdAt") as "firstReportDate",
         MAX(r."createdAt") as "lastReportDate",
@@ -102,8 +120,8 @@ export class AdminReportService {
         }
 
         // Grouping
-        postsQuery += ` GROUP BY p.id, u.id `;
-        storiesQuery += ` GROUP BY s.id, u.id `;
+        postsQuery += ` GROUP BY p.id, u.id, u.status `;
+        storiesQuery += ` GROUP BY s.id, u.id, u.status `;
 
         // Filter by Content Status (derived from Aggregation) if needed, 
         // but usually status filter applies to "Resolved" vs "Pending".
@@ -181,7 +199,8 @@ export class AdminReportService {
                         name: row.authorName,
                         surname: row.authorSurname,
                         email: row.authorEmail,
-                        photo: authorPhoto
+                        photo: authorPhoto,
+                        status: row.authorStatus
                     },
                     reportCount: Number(row.reportCount),
                     firstReportDate: row.firstReportDate,
@@ -266,7 +285,8 @@ export class AdminReportService {
                         name: content.user.name,
                         surname: content.user.surname,
                         email: content.user.email,
-                        photo: authorPhoto
+                        photo: authorPhoto,
+                        status: content.user.status
                     }
                 },
                 reports: reports.map(r => ({
@@ -277,7 +297,8 @@ export class AdminReportService {
                         id: r.reporter.id,
                         name: r.reporter.name,
                         surname: r.reporter.surname,
-                        email: r.reporter.email
+                        email: r.reporter.email,
+                        status: r.reporter.status
                     }
                 }))
             };
@@ -335,6 +356,13 @@ export class AdminReportService {
                 .execute();
         }
 
+        // Emit updates
+        try {
+            const { getIO } = require("../../../config/socket");
+            getIO().emit("report_count_updated");
+            getIO().emit("moderation_status_changed", { contentId, type, action });
+        } catch (e) {}
+
         return { message: "Acción aplicada correctamente" };
     }
 
@@ -390,6 +418,22 @@ export class AdminReportService {
 
         return {
             deleted: (deletePostsReports.affected || 0) + (deleteStoriesReports.affected || 0)
+        };
+    }
+
+    async purgeResolvedSupportTickets(days: number) {
+        const { Report: SupportReport } = require("../../../data");
+        const dateLimit = new Date();
+        dateLimit.setDate(dateLimit.getDate() - days);
+
+        const result = await SupportReport.createQueryBuilder()
+            .delete()
+            .where("status = :status", { status: 'RESOLVED' })
+            .andWhere("resolvedAt < :date", { date: dateLimit })
+            .execute();
+
+        return {
+            deleted: result.affected || 0
         };
     }
 

@@ -28,8 +28,8 @@ export class CategoriaRoutes {
 
     // =================== AUTENTICADOS ==================
 
-    // Obtener todas las categorías
-    router.get("/user", AuthMiddleware.protect, categoriaController.getAllCategorias);
+    // Obtener todas las categorías (Solo las que están en estado ACTIVO)
+    router.get("/user", AuthMiddleware.protect, categoriaController.getAllCategoriasUser);
 
     // Obtener categoría por ID
     router.get("/:id", AuthMiddleware.protect, categoriaController.getCategoriaById);

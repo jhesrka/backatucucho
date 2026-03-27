@@ -81,11 +81,11 @@ export class ModerationController {
 
     changeUserStatus = (req: Request, res: Response) => {
         const adminId = req.body.user.id;
-        const { userId, status, comment } = req.body;
+        const { userId, status, comment, postId, storieId } = req.body;
 
         if (!comment) return res.status(400).json({ error: "El comentario es obligatorio" });
 
-        this.adminModerationService.changeUserStatus(adminId, userId, status as UserStatus, comment)
+        this.adminModerationService.changeUserStatus(adminId, userId, status as UserStatus, comment, postId, storieId)
             .then((result: any) => res.json(result))
             .catch((error: any) => this.handleError(error, res));
     };

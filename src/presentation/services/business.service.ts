@@ -88,6 +88,10 @@ export class BusinessService {
                 modeloMonetizacion: n.modeloMonetizacion,
                 ratingPromedio: Number(n.ratingPromedio) || 0,
                 totalResenas: Number(n.totalResenas) || 0,
+                pago_tarjeta_habilitado_admin: n.pago_tarjeta_habilitado_admin,
+                porcentaje_recargo_tarjeta: Number(n.porcentaje_recargo_tarjeta) || 0,
+                payphone_store_id: n.payphone_store_id,
+                payphone_token: n.payphone_token,
             };
         }));
 
@@ -135,6 +139,10 @@ export class BusinessService {
                 modeloMonetizacion: n.modeloMonetizacion,
                 ratingPromedio: Number(n.ratingPromedio) || 0,
                 totalResenas: Number(n.totalResenas) || 0,
+                pago_tarjeta_habilitado_admin: n.pago_tarjeta_habilitado_admin,
+                porcentaje_recargo_tarjeta: Number(n.porcentaje_recargo_tarjeta) || 0,
+                payphone_store_id: n.payphone_store_id,
+                payphone_token: n.payphone_token,
             };
         }));
 
@@ -790,8 +798,43 @@ export class BusinessService {
 
         const closedDatesSet = new Set(closedBalances.map(b => b.fecha));
 
-        // 4. Filtrar los días que tienen pedidos pero no tienen cierre registrado
         return uniqueDates.filter(d => !closedDatesSet.has(d));
+    }
+
+    async updateSettings(businessId: string, settings: any) {
+        const { Negocio } = await import("../../data");
+        const negocio = await Negocio.findOne({ where: { id: businessId } });
+        if (!negocio) throw CustomError.notFound("Negocio no encontrado");
+
+        // Ya no permitimos al negocio cambiar el estado de pago con tarjeta (Controlado por Admin)
+
+        // Permitir al negocio cambiar su estado (Abierto/Cerrado)
+        if (settings.estadoNegocio !== undefined) {
+            const { EstadoNegocio } = await import("../../data");
+            if (Object.values(EstadoNegocio).includes(settings.estadoNegocio)) {
+                negocio.estadoNegocio = settings.estadoNegocio;
+            }
+        }
+
+        await negocio.save();
+
+        let img = "";
+        if (negocio.imagenNegocio) {
+            img = await UploadFilesCloud.getFile({
+                bucketName: envs.AWS_BUCKET_NAME,
+                key: negocio.imagenNegocio,
+            }).catch(() => "");
+        }
+
+        return {
+            id: negocio.id,
+            nombre: negocio.nombre,
+            imagenUrl: img,
+            statusNegocio: negocio.statusNegocio,
+            estadoNegocio: negocio.estadoNegocio,
+            pago_tarjeta_habilitado_admin: negocio.pago_tarjeta_habilitado_admin,
+            porcentaje_recargo_tarjeta: Number(negocio.porcentaje_recargo_tarjeta) || 0,
+        };
     }
 }
 

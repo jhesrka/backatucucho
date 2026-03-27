@@ -151,7 +151,7 @@ export class AdminModerationService {
         });
     }
 
-    async changeUserStatus(adminId: string, userId: string, newStatus: UserStatus, comment: string) {
+    async changeUserStatus(adminId: string, userId: string, newStatus: UserStatus, comment: string, postId?: string, storieId?: string) {
         const user = await User.findOne({ where: { id: userId } });
         if (!user) throw CustomError.notFound("Usuario no encontrado");
 
@@ -166,6 +166,8 @@ export class AdminModerationService {
         await this.moderationLogService.logAction({
             adminId,
             userId: user.id,
+            postId,
+            storieId,
             action: `CHANGE_USER_STATUS_${newStatus}`,
             comment
         });

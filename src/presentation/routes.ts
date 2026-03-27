@@ -36,6 +36,7 @@ import { ReportRoutes } from "./controller/report/report.routes";
 import { FinancialRoutes } from "./controller/financial/financial.routes";
 import { AdminReportRoutes } from "./reports/routes";
 import { BankAccountRoutes } from "./bank-account/bank-account.routes";
+import { PayphoneWebhookRoutes } from "./webhooks/payphone.routes";
 
 export class AppRoutes {
   //cuando hay metodoos estaticos no necesitams instanciar
@@ -115,6 +116,9 @@ export class AppRoutes {
 
     // 🏦 NUEVA RUTA: Bank Accounts
     router.use("/api/bank-accounts", BankAccountRoutes.routes);
+
+    // 🔗 NUEVA RUTA: Payphone Webhook (Public)
+    router.use("/api/webhooks/payphone", PayphoneWebhookRoutes.routes);
 
     return router;
 

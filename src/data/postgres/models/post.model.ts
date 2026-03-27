@@ -13,6 +13,7 @@ export enum StatusPost {
   PUBLISHED = "PUBLISHED",
   FLAGGED = "FLAGGED",
   HIDDEN = "HIDDEN",
+  DELETED = "DELETED",
 }
 
 @Entity()

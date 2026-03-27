@@ -17,8 +17,8 @@ export class AdminReportController {
     getAggregatedReports = (req: Request, res: Response) => {
         const filters = req.query; // page, limit, status, type, etc.
         this.service.getAggregatedReports(filters)
-            .then(data => res.json(data))
-            .catch(error => this.handleError(error, res));
+            .then((data: any) => res.json(data))
+            .catch((error: any) => this.handleError(error, res));
     };
 
     getReportDetails = (req: Request, res: Response) => {
@@ -28,8 +28,8 @@ export class AdminReportController {
         }
 
         this.service.getReportDetails(id, type as 'POST' | 'STORY')
-            .then(data => res.json(data))
-            .catch(error => this.handleError(error, res));
+            .then((data: any) => res.json(data))
+            .catch((error: any) => this.handleError(error, res));
     };
 
     resolveReport = (req: Request, res: Response) => {
@@ -44,14 +44,14 @@ export class AdminReportController {
         }
 
         this.service.resolveReport(id, type as 'POST' | 'STORY', action, comment)
-            .then(data => res.json(data))
-            .catch(error => this.handleError(error, res));
+            .then((data: any) => res.json(data))
+            .catch((error: any) => this.handleError(error, res));
     };
 
     getStatistics = (req: Request, res: Response) => {
         this.service.getStatistics()
-            .then(data => res.json(data))
-            .catch(error => this.handleError(error, res));
+            .then((data: any) => res.json(data))
+            .catch((error: any) => this.handleError(error, res));
     };
 
     purgeOldReports = (req: Request, res: Response) => {
@@ -59,7 +59,14 @@ export class AdminReportController {
         if (!days || isNaN(days)) return res.status(400).json({ message: "Days is required" });
 
         this.service.purgeOldReports(Number(days))
-            .then(data => res.json(data))
-            .catch(error => this.handleError(error, res));
+            .then((data: any) => res.json(data))
+            .catch((error: any) => this.handleError(error, res));
+    };
+
+    // Get global pending counts (support + moderation)
+    getGlobalPendingCount = (req: Request, res: Response) => {
+        this.service.getGlobalPendingCount()
+            .then((data: any) => res.json(data))
+            .catch((error: any) => this.handleError(error, res));
     };
 }

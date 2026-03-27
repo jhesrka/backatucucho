@@ -14,6 +14,7 @@ export class ReportRoutes {
         // Admin routes
         router.get("/", AuthAdminMiddleware.protect, controller.getAllReports);
         router.patch("/:id", AuthAdminMiddleware.protect, controller.updateStatus);
+        router.delete("/:id", AuthAdminMiddleware.protect, controller.deleteReport);
 
         return router;
     }

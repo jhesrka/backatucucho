@@ -48,8 +48,14 @@ export class CategoriaService {
   }
 
   // Obtener todas las categorías
-  async getAllCategorias() {
+  async getAllCategorias(status?: string) {
+    const whereCondition: any = {};
+    if (status) {
+      whereCondition.statusCategoria = status;
+    }
+
     const categorias = await CategoriaNegocio.find({
+      where: whereCondition,
       order: { orden: "ASC", created_at: "ASC" },
     });
 

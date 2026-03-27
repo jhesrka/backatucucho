@@ -1,5 +1,5 @@
- import { Request, Response } from "express";
-import { BusinessService } from "../services/business.service"; // Ajustar import según estructura final
+import { Request, Response } from "express";
+import { BusinessService } from "../services/business.service";
 import { CustomError, LoginUserDTO } from "../../domain";
 
 export class BusinessController {
@@ -24,7 +24,6 @@ export class BusinessController {
     };
 
     getMyBusinesses = (req: Request, res: Response) => {
-        // sessionUser viene del middleware AuthMiddleware
         const { id } = req.body.sessionUser;
 
         this.businessService
@@ -74,8 +73,7 @@ export class BusinessController {
         const { businessId } = req.params;
         const { date } = req.body;
 
-        // @ts-ignore - Explicit cast to bypass inconsistent TS compilation error
-        (this.businessService as any)
+        this.businessService
             .closeDay(businessId, date)
             .then((data: any) => res.status(200).json(data))
             .catch((error: any) => this.handleError(error, res));
@@ -88,8 +86,7 @@ export class BusinessController {
 
         if (!file) return res.status(400).json({ message: "Comprobante requerido" });
 
-        // @ts-ignore - Explicit cast to bypass inconsistent TS compilation error
-        (this.businessService as any).registerPayment(businessId, date, file)
+        this.businessService.registerPayment(businessId, date, file)
             .then((data: any) => res.json(data))
             .catch((error: any) => this.handleError(error, res));
     };
@@ -124,5 +121,14 @@ export class BusinessController {
             .then((data: string[]) => res.status(200).json(data))
             .catch((error: any) => this.handleError(error, res));
     };
-}
 
+    updateSettings = (req: Request, res: Response) => {
+        const { businessId } = req.params;
+        const settings = req.body;
+
+        this.businessService
+            .updateSettings(businessId, settings)
+            .then((data: any) => res.status(200).json(data))
+            .catch((error: any) => this.handleError(error, res));
+    };
+}

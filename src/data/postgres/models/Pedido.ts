@@ -7,7 +7,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   BaseEntity,
-  JoinColumn, // Added import
+  JoinColumn,
   BeforeUpdate,
   BeforeInsert
 } from "typeorm";
@@ -25,11 +25,19 @@ export enum EstadoPedido {
   EN_CAMINO = "EN_CAMINO",
   ENTREGADO = "ENTREGADO",
   CANCELADO = "CANCELADO",
+  PENDIENTE_PAGO = "PENDIENTE_PAGO",
 }
 
 export enum MetodoPago {
   EFECTIVO = "EFECTIVO",
   TRANSFERENCIA = "TRANSFERENCIA",
+  TARJETA = "TARJETA",
+}
+
+export enum EstadoPago {
+  PENDIENTE = "PENDIENTE",
+  PAGADO = "PAGADO",
+  FALLIDO = "FALLIDO",
 }
 
 @Entity()
@@ -41,12 +49,9 @@ export class Pedido extends BaseEntity {
   cliente: User;
 
   @ManyToOne(() => Negocio, (negocio) => negocio.pedidos)
-  @JoinColumn({ name: "negocioId" }) // Explicitly map to camelCase column verified in DB
+  @JoinColumn({ name: "negocioId" })
   negocio: Negocio;
 
-  // ==============================
-  // 🧾 ESTADO DEL PEDIDO
-  // ==============================
   @Column({
     type: "enum",
     enum: EstadoPedido,
@@ -61,20 +66,30 @@ export class Pedido extends BaseEntity {
   })
   metodoPago: MetodoPago;
 
+  @Column({
+    type: "enum",
+    enum: EstadoPago,
+    default: EstadoPago.PENDIENTE,
+  })
+  estadoPago: EstadoPago;
+
+  @Column({ type: "varchar", nullable: true })
+  referenciaPago: string | null;
+
   @Column("decimal", { precision: 10, scale: 2 })
   total: number;
 
   @Column("decimal", { precision: 10, scale: 2, nullable: true })
-  montoVuelto: number | null; // Para pagos en efectivo
+  montoVuelto: number | null;
 
   @Column({ type: "text", nullable: true })
-  comprobantePagoUrl: string | null; // Para pagos con transferencia
+  comprobantePagoUrl: string | null;
 
   @Column("decimal", { precision: 10, scale: 2, default: 0 })
-  comisionTotal: number; // Snapshot de comision total del pedido
+  comisionTotal: number;
 
   @Column("decimal", { precision: 10, scale: 2, default: 0 })
-  totalNegocio: number; // Lo que le corresponde al negocio (Total - Comision)
+  totalNegocio: number;
 
   @Column("decimal", { precision: 10, scale: 2, default: 1.25 })
   costoEnvio: number;
@@ -109,30 +124,21 @@ export class Pedido extends BaseEntity {
   @Column("decimal", { precision: 10, scale: 2, default: 0 })
   comision_moto_app: number;
 
-  // ==============================
-  // 🚚 MOTORIZADO ASIGNADO (FINAL)
-  // ==============================
+  @Column("decimal", { precision: 10, scale: 2, default: 0 })
+  recargo_tarjeta: number;
+
   @ManyToOne("UserMotorizado", { nullable: true })
   motorizado: UserMotorizado | null;
 
-  // ==============================
-  // 🛒 PRODUCTOS
-  // ==============================
   @OneToMany("ProductoPedido", (pp: any) => pp.pedido, { cascade: true })
   productos: ProductoPedido[];
 
-  // ==============================
-  // ⏱ FECHAS
-  // ==============================
   @CreateDateColumn()
   createdAt: Date;
 
   @UpdateDateColumn()
   updatedAt: Date;
 
-  // ==============================
-  // 📍 DIRECCIÓN
-  // ==============================
   @Column("decimal", { precision: 10, scale: 2, nullable: true })
   distanciaKm: number | null;
 
@@ -145,20 +151,15 @@ export class Pedido extends BaseEntity {
   @Column({ type: "varchar", nullable: true })
   direccionTexto: string | null;
 
-  // ==============================
-  // 🔁 SISTEMA DE RONDAS
-  // ==============================
   @Column({ type: "int", default: 1 })
   rondaAsignacion: number;
 
   @Column({ type: "timestamp", nullable: true })
   fechaInicioRonda: Date | null;
 
-  // 👉 Motorizado al que se le MOSTRÓ el pedido (no asignado aún)
   @Column({ type: "varchar", nullable: true })
   motorizadoEnEvaluacion: string | null;
 
-  // 👉 Bloqueo para evitar doble asignación
   @Column({ type: "boolean", default: false })
   asignacionBloqueada: boolean;
 
@@ -210,4 +211,3 @@ export class Pedido extends BaseEntity {
     }
   }
 }
-

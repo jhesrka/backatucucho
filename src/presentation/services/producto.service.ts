@@ -288,6 +288,8 @@ export class ProductoService {
         titularCuenta: negocio.titularCuenta,
         ratingPromedio: Number(negocio.ratingPromedio) || 0,
         totalResenas: Number(negocio.totalResenas) || 0,
+        pago_tarjeta_habilitado_admin: negocio.pago_tarjeta_habilitado_admin,
+        porcentaje_recargo_tarjeta: Number(negocio.porcentaje_recargo_tarjeta) || 0,
       },
       usuario: {
         id: negocio.usuario.id,

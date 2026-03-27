@@ -31,6 +31,9 @@ export class Report extends BaseEntity {
     @Column("enum", { enum: ReportStatus, default: ReportStatus.PENDING })
     status: ReportStatus;
 
+    @Column("timestamp", { nullable: true })
+    resolvedAt: Date;
+
     @CreateDateColumn()
     createdAt: Date;
 

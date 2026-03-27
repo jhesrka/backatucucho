@@ -2,12 +2,14 @@ import { Router } from "express";
 import { BankAccountService } from "../services/bank-account.service";
 import { BankAccountController } from "./bank-account.controller";
 import { AuthAdminMiddleware } from "../../middlewares";
+import { UseradminService } from "../services/administradorService/useradmin.service";
 
 export class BankAccountRoutes {
     static get routes(): Router {
         const router = Router();
         const service = new BankAccountService();
-        const controller = new BankAccountController(service);
+        const userAdminService = new UseradminService();
+        const controller = new BankAccountController(service, userAdminService);
 
         // Public/User (GET)
         router.get("/", controller.findAll);

@@ -23,6 +23,7 @@ import { UploadFilesCloud } from "../../../config/upload-files-cloud-adapter";
 import { envs } from "../../../config/env";
 import { CalcularEnvioService } from "./calcularEnvio.service";
 import { PedidoMotoService } from "./pedidoMoto.service";
+import { PayphoneService } from "../payphone.service";
 
 export class PedidoUsuarioService {
   static async calcularEnvio(dto: {
@@ -48,8 +49,15 @@ export class PedidoUsuarioService {
   }
 
 
-  // Crear un pedido desde el frontend del cliente
-  async crearPedido(dto: CreatePedidoDTO) {
+
+    // Crear un pedido desde el frontend del cliente
+    async crearPedido(dto: CreatePedidoDTO) {
+        try {
+            const fs = require('fs');
+            const logPath = 'c:/Users/jhesr/OneDrive/Escritorio/academlo/proyectReales/atucuchoShop/atucuchoFull/atucuchoBack/tmp/order_debug.log';
+            const logData = `[${new Date().toISOString()}] CREAR PEDIDO: negocioId=${dto.negocioId} | metodoPago=${dto.metodoPago}\n`;
+            fs.appendFileSync(logPath, logData);
+        } catch (e) {}
 
     // ... (validation logic identical to original)
     const {
@@ -144,13 +152,43 @@ export class PedidoUsuarioService {
     // Lo que le queda al negocio (Equivalente a total_precio_app)
     const totalNegocio = +totalPrecioApp.toFixed(2);
 
+    // 💳 5. Calcular recargo de Tarjeta (si aplica)
+    let recargoTarjeta = 0;
+    let checkoutUrl = null;
+
+    if (metodoPago === "TARJETA") {
+        if (!negocio.pago_tarjeta_habilitado_admin) {
+            throw CustomError.badRequest("El pago con tarjeta está deshabilitado para este negocio por el administrador.");
+        }
+        if (!negocio.payphone_store_id || !negocio.payphone_token) {
+            const missing = !negocio.payphone_store_id ? "Store ID" : "Token";
+            throw CustomError.badRequest(`Configuración incompleta: falta ${missing} de Payphone.`);
+        }
+
+        const porcentaje = Number(negocio.porcentaje_recargo_tarjeta) || 0;
+        recargoTarjeta = +(total * (porcentaje / 100)).toFixed(2);
+
+        try {
+            const fs = require('fs');
+            const logPath = 'c:/Users/jhesr/OneDrive/Escritorio/academlo/proyectReales/atucuchoShop/atucuchoFull/atucuchoBack/tmp/order_debug.log';
+            const logData = `[${new Date().toISOString()}] PAYPHONE VALIDATED: ${negocio.nombre} | storeId=${negocio.payphone_store_id} | percentage=${porcentaje}%\n`;
+            fs.appendFileSync(logPath, logData);
+        } catch (e) {}
+    }
+
+    const totalFinal = +(total + recargoTarjeta).toFixed(2);
+
     // Construir pedido + items (cascade)
     const pedido = new Pedido();
     pedido.cliente = cliente;
     pedido.negocio = negocio;
-    pedido.estado = EstadoPedido.PENDIENTE;
+    // Si es tarjeta, el pedido queda "PENDIENTE_PAGO" hasta que el webhook confirme
+    pedido.estado =
+        metodoPago === "TARJETA" ? "PENDIENTE_PAGO" as any : EstadoPedido.PENDIENTE;
     pedido.costoEnvio = costoEnvio;
-    pedido.total = total;
+    pedido.total = totalFinal;
+    (pedido as any).recargo_tarjeta = recargoTarjeta;
+    pedido.estadoPago = metodoPago === "TARJETA" ? "PENDIENTE" as any : "N/A" as any;
 
     // Asignar auditoría financiera
     pedido.porcentaje_motorizado_aplicado = percMoto;
@@ -182,21 +220,60 @@ export class PedidoUsuarioService {
 
     pedido.productos = productosDetalle;
 
-    const nuevo = await pedido.save();
+    let nuevo;
+    try {
+        nuevo = await pedido.save();
+    } catch (dbError: any) {
+        const fs = require('fs');
+        const logPath = 'c:/Users/jhesr/OneDrive/Escritorio/academlo/proyectReales/atucuchoShop/atucuchoFull/atucuchoBack/tmp/order_debug.log';
+        const logData = `[${new Date().toISOString()}] DB SAVE ERROR: ${dbError.message} | ${JSON.stringify(dbError)}\n`;
+        fs.appendFileSync(logPath, logData);
+        throw dbError;
+    }
 
-    console.log(`🔔 [Socket] Emitiendo nuevo pedido a sala: ${negocio.id} (ID Pedido: ${nuevo.id})`);
-    getIO().to(negocio.id).emit("nuevo_pedido", {
-      id: nuevo.id,
-      estado: nuevo.estado,
-      total: nuevo.total,
-      productos: nuevo.productos,
-      cliente: {
-        id: cliente.id,
-        name: cliente.name,
-        surname: cliente.surname
-      },
-      createdAt: nuevo.createdAt
-    });
+    // 🚀 6. Preparar Checkout Payphone si es Tarjeta
+    if (metodoPago === "TARJETA") {
+        try {
+            const fs = require('fs');
+            const logPath = 'c:/Users/jhesr/OneDrive/Escritorio/academlo/proyectReales/atucuchoShop/atucuchoFull/atucuchoBack/tmp/order_debug.log';
+            const logData = `[${new Date().toISOString()}] BEFORE PAYPHONE CALL: id=${nuevo.id} | amount=${totalFinal} | storeId=${negocio.payphone_store_id}\n`;
+            fs.appendFileSync(logPath, logData);
+
+            const checkout = await PayphoneService.createCheckout({
+                amount: totalFinal,
+                clientTransactionId: nuevo.id,
+                reference: `Orden #${nuevo.id} - Atucucho Shop`,
+                storeId: negocio.payphone_store_id!,
+                token: negocio.payphone_token!,
+            });
+            checkoutUrl = checkout.paylinkUrl;
+            // Guardar ID de pago para referencia del webhook
+            nuevo.referenciaPago = checkout.paymentId.toString();
+            await nuevo.save();
+        } catch (error) {
+            // Si falla Payphone, eliminamos el pedido para evitar basura
+            await Pedido.delete(nuevo.id);
+            throw error;
+        }
+    }
+
+    // 🔔 7. Notificar al negocio (SOLO si NO es tarjeta, o si se confirma pago)
+    // Para TARJETA, el webhook hará esta notificación.
+    if (metodoPago !== "TARJETA") {
+        console.log(`🔔 [Socket] Emitiendo nuevo pedido a sala: ${negocio.id} (ID Pedido: ${nuevo.id})`);
+        getIO().to(negocio.id).emit("nuevo_pedido", {
+            id: nuevo.id,
+            estado: nuevo.estado,
+            total: nuevo.total,
+            productos: nuevo.productos,
+            cliente: {
+                id: cliente.id,
+                name: cliente.name,
+                surname: cliente.surname
+            },
+            createdAt: nuevo.createdAt
+        });
+    }
 
     // Resolve URL for response (WhatsApp link)
     let solvedUrl = nuevo.comprobantePagoUrl;
@@ -216,7 +293,8 @@ export class PedidoUsuarioService {
       createdAt: nuevo.createdAt,
       metodoPago: nuevo.metodoPago,
       montoVuelto: nuevo.montoVuelto,
-      comprobantePagoUrl: solvedUrl
+      comprobantePagoUrl: solvedUrl,
+      checkoutUrl: checkoutUrl // New field for frontend redirect
     };
   }
 

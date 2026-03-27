@@ -12,12 +12,15 @@ export const startReportPurgeCron = () => {
             const adminReportService = new AdminReportService();
 
             const settings = await globalSettingsService.getSettings();
-            const days = settings.reportsRetentionDays || 30;
+            const moderationDays = settings.reportsRetentionDays || 30;
 
-            console.log(`🧹 Purging reports older than ${days} days...`);
-            const result = await adminReportService.purgeOldReports(days);
+            console.log(`🧹 Purging moderation reports older than ${moderationDays} days...`);
+            const moderationResult = await adminReportService.purgeOldReports(moderationDays);
+            
+            console.log(`🧹 Purging resolved support tickets older than 5 days...`);
+            const supportResult = await adminReportService.purgeResolvedSupportTickets(5);
 
-            console.log(`✅ Report purge complete. Deleted records:`, result);
+            console.log(`✅ Purge complete. | Moderation: ${moderationResult.deleted} | Support: ${supportResult.deleted}`);
         } catch (error) {
             console.error("❌ Error in report purge cron job:", error);
         }

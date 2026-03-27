@@ -1,16 +1,26 @@
 import { Request, Response } from "express";
 import { CreatePedidoDTO, CustomError, CalificarPedidoDTO } from "../../domain";
 import { PedidoUsuarioService } from "../services/pedidosServices/pedidoUsuario.service";
+import { PayphoneService } from "../services/payphone.service";
 
 export class PedidoUsuarioController {
   constructor(private readonly pedidoUsuarioService: PedidoUsuarioService) { }
 
-  private handleError = (error: unknown, res: Response) => {
+  private handleError = (error: any, res: Response) => {
     if (error instanceof CustomError) {
       return res.status(error.statusCode).json({ message: error.message });
     }
+    
+    // Check if it's an Axios/Payphone error
+    if (error?.response?.data) {
+        return res.status(400).json({ 
+            message: "Error al preparar pago con Payphone", 
+            error: error.response.data 
+        });
+    }
+
     console.error("Unhandled error:", error);
-    return res.status(500).json({ message: "Something went very wrong" });
+    return res.status(500).json({ message: "Something went very wrong", detail: error.message });
   };
   // ======================== Calcular envío ========================
   calcularEnvio = async (req: Request, res: Response) => {
@@ -53,10 +63,18 @@ export class PedidoUsuarioController {
   // ======================== Crear pedido ========================
   crearPedido = async (req: Request, res: Response) => {
     try {
+      const fs = require('fs');
+      const logPath = 'c:/Users/jhesr/OneDrive/Escritorio/academlo/proyectReales/atucuchoShop/atucuchoFull/atucuchoBack/tmp/order_debug.log';
+      fs.appendFileSync(logPath, `[${new Date().toISOString()}] CONTROLLER: request body=${JSON.stringify(req.body)}\n`);
+
       // Validar y tipar el body con tu patrón de DTO
       const [err, dto] = CreatePedidoDTO.create(req.body);
-      if (err) return res.status(400).json({ message: err });
+      if (err) {
+        fs.appendFileSync(logPath, `[${new Date().toISOString()}] CONTROLLER ERROR: ${err}\n`);
+        return res.status(400).json({ message: err });
+      }
 
+      fs.appendFileSync(logPath, `[${new Date().toISOString()}] CONTROLLER SUCCESS: calling service\n`);
       const pedido = await this.pedidoUsuarioService.crearPedido(dto!);
       return res.status(201).json(pedido);
     } catch (error) {
@@ -124,6 +142,31 @@ export class PedidoUsuarioController {
       .calificarPedido(dto!)
       .then((result) => res.status(200).json(result))
       .catch((error) => this.handleError(error, res));
+  };
+
+  testPayphone = async (req: Request, res: Response) => {
+    try {
+        const { storeId, token, amount = 1 } = req.body;
+        if (!storeId || !token) {
+            return res.status(400).json({ message: "Faltan storeId o token" });
+        }
+
+        console.log("🛠️ TESTING PAYPHONE DIRECTLY IN CONTROLLER...");
+        const result = await PayphoneService.createCheckout({
+            amount,
+            clientTransactionId: `test-${Date.now()}`,
+            reference: "Atucucho Shop Test Integration",
+            storeId,
+            token
+        });
+
+        return res.status(200).json({ 
+            message: "Conexión con Payphone EXITOSA", 
+            data: result 
+        });
+    } catch (error) {
+        return this.handleError(error, res);
+    }
   };
 }
 

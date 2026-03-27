@@ -1,0 +1,88 @@
+import axios from "axios";
+import { CustomError } from "../../domain";
+import { envs } from "../../config/env";
+
+export class PayphoneService {
+    private static API_URL = "https://pay.payphonetodoesposible.com/api";
+
+    static async createCheckout({
+        amount,
+        tax = 0,
+        amountWithTax = 0,
+        clientTransactionId,
+        reference,
+        storeId,
+        token,
+    }: {
+        amount: number;
+        tax?: number;
+        amountWithTax?: number;
+        clientTransactionId: string;
+        reference: string;
+        storeId: string;
+        token: string;
+    }) {
+        try {
+            // Convert to cents (integer)
+            const amountCents = Math.round(amount * 100);
+            const taxCents = Math.round(tax * 100);
+            const amountWithTaxCents = Math.round(amountWithTax * 100);
+            const amountWithoutTaxCents = amountCents - amountWithTaxCents;
+
+            const payload = {
+                amount: amountCents,
+                tax: taxCents,
+                amountWithTax: amountWithTaxCents,
+                amountWithoutTax: amountWithoutTaxCents,
+                clientTransactionId,
+                reference,
+                storeId,
+                currency: "USD",
+                expireIn: 15,
+                responseUrl: `${envs.WEBSERVICE_URL_FRONT}/mis-pedidos?payment=success&orderId=${clientTransactionId}`,
+                cancellationUrl: `${envs.WEBSERVICE_URL_FRONT}/mis-pedidos?payment=cancelled&orderId=${clientTransactionId}`,
+            };
+
+            console.log("🚀 [Payphone] PAYLOAD:", JSON.stringify(payload, null, 2));
+            console.log("🔐 [Payphone] TOKEN:", token);
+
+            const { data } = await axios.post(`${this.API_URL}/button/Prepare`, payload, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+            });
+
+            console.log("✅ [Payphone] SUCCESS:", data);
+            return data;
+        } catch (error: any) {
+            const errorDetail = error?.response?.data || error.message;
+            console.error("❌ [Payphone] ERROR:", errorDetail);
+
+            // Log to file for deep debugging
+            const fs = require('fs');
+            const logPath = 'c:/Users/jhesr/OneDrive/Escritorio/academlo/proyectReales/atucuchoShop/atucuchoFull/atucuchoBack/tmp/order_debug.log';
+            try {
+                fs.appendFileSync(logPath, `[${new Date().toISOString()}] PAYPHONE PREPARE ERROR: ${JSON.stringify(errorDetail)}\n`);
+            } catch (e) {}
+
+            throw error; // Rethrow to let the controller handle it with 400
+        }
+    }
+
+    static async verifyTransaction(id: number, token: string) {
+        try {
+            const { data } = await axios.post(`${this.API_URL}/button/V2/Confirm`, { id }, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+            });
+            // data.transactionStatus can be "Approved", "Denied", etc.
+            return data;
+        } catch (error: any) {
+            console.error("Payphone Confirm Error:", error?.response?.data || error.message);
+            return null;
+        }
+    }
+}

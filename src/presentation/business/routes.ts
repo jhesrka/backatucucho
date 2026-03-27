@@ -14,14 +14,13 @@ export class BusinessRoutes {
 
         // Rutas protegidas
         router.get("/my-businesses", [AuthMiddleware.protect], controller.getMyBusinesses);
+        router.patch("/:businessId/settings", [AuthMiddleware.protect], controller.updateSettings);
 
         // Gestión de Pedidos
         router.get("/:businessId/orders", [AuthMiddleware.protect], controller.getOrders);
         router.patch("/:businessId/orders/:orderId/status", [AuthMiddleware.protect], controller.updateOrderStatus);
         router.post("/:businessId/orders/:orderId/verify-pickup", [AuthMiddleware.protect], controller.verifyPickupCode);
         router.patch("/:businessId/orders/:orderId/confirm-transfer-cancellation", [AuthMiddleware.protect], controller.confirmTransferCancellation);
-
-
 
         // Reportes Financieros
         router.get("/:businessId/finance", [AuthMiddleware.protect], controller.getFinance);

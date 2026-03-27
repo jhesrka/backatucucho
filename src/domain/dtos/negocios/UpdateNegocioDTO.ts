@@ -15,7 +15,12 @@ export class UpdateNegocioDTO {
     public readonly valorSuscripcion?: number,
     public readonly diaPago?: number,
     public readonly masterPin?: string,
-    public readonly orden?: number
+    public readonly orden?: number,
+    public readonly pago_tarjeta_habilitado_admin?: boolean,
+    public readonly pago_tarjeta_activo_negocio?: boolean,
+    public readonly payphone_store_id?: string | null,
+    public readonly payphone_token?: string | null,
+    public readonly porcentaje_recargo_tarjeta?: number
   ) { }
 
   static create(obj: { [key: string]: any }): [string?, UpdateNegocioDTO?] {
@@ -30,7 +35,12 @@ export class UpdateNegocioDTO {
       direccionTexto,
       valorSuscripcion,
       diaPago,
-      orden
+      orden,
+      pago_tarjeta_habilitado_admin,
+      pago_tarjeta_activo_negocio,
+      payphone_store_id,
+      payphone_token,
+      porcentaje_recargo_tarjeta
     } = obj;
 
     // Validaciones opcionales
@@ -92,6 +102,13 @@ export class UpdateNegocioDTO {
       }
     }
 
+    if (porcentaje_recargo_tarjeta !== undefined) {
+      const recargo = Number(porcentaje_recargo_tarjeta);
+      if (isNaN(recargo) || recargo < 0 || recargo > 100) {
+        return ["El porcentaje de recargo debe estar entre 0 y 100"];
+      }
+    }
+
     const dirTxt =
       typeof direccionTexto === "string" && direccionTexto.trim().length > 0
         ? direccionTexto.trim().slice(0, 200)
@@ -111,7 +128,12 @@ export class UpdateNegocioDTO {
         valorSuscripcion !== undefined ? Number(valorSuscripcion) : undefined,
         diaPago !== undefined ? Number(diaPago) : undefined,
         obj.masterPin,
-        orden !== undefined ? Number(orden) : undefined
+        orden !== undefined ? Number(orden) : undefined,
+        pago_tarjeta_habilitado_admin,
+        pago_tarjeta_activo_negocio,
+        payphone_store_id,
+        payphone_token,
+        porcentaje_recargo_tarjeta !== undefined ? Number(porcentaje_recargo_tarjeta) : undefined
       ),
     ];
   }

@@ -18,6 +18,7 @@ export class AdminReportRoutes {
         router.get("/stats", controller.getStatistics);
         router.delete("/purge", controller.purgeOldReports);
         router.get("/:type/:id", controller.getReportDetails);
+        router.get("/pending-count", controller.getGlobalPendingCount);
 
         // Resolve report (Hide, Delete, Restore)
         router.post("/:type/:id/resolve", controller.resolveReport);

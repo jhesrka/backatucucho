@@ -81,6 +81,24 @@ export class Negocio extends BaseEntity {
   @Column({ type: "int", default: 0 })
   orden: number;
 
+  // ==============================
+  // 💳 CONFIGURACIÓN PAYPHONE
+  // ==============================
+  @Column({ type: "boolean", default: false })
+  pago_tarjeta_habilitado_admin: boolean;
+
+  @Column({ type: "boolean", default: false })
+  pago_tarjeta_activo_negocio: boolean;
+
+  @Column({ type: "varchar", nullable: true })
+  payphone_store_id: string | null;
+
+  @Column({ type: "varchar", nullable: true })
+  payphone_token: string | null;
+
+  @Column({ type: "decimal", precision: 5, scale: 2, default: 0 })
+  porcentaje_recargo_tarjeta: number;
+
   @Column({ type: "timestamp", nullable: true })
   fechaUltimoCobro: Date | null;
 

@@ -195,6 +195,19 @@ export class PostgresDatabase {
         ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "motorizadosExcluidos" TEXT DEFAULT '';
         ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "transferenciaCanceladaConfirmada" BOOLEAN DEFAULT NULL;
 
+        -- 💳 PAYPHONE / TARJETA COLUMNS (NEGOCIO)
+        ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "pago_tarjeta_habilitado_admin" BOOLEAN DEFAULT false;
+        ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "pago_tarjeta_activo_negocio" BOOLEAN DEFAULT false;
+        ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "payphone_store_id" VARCHAR DEFAULT NULL;
+        ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "payphone_token" TEXT DEFAULT NULL;
+        ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "porcentaje_recargo_tarjeta" DECIMAL(10,2) DEFAULT 0;
+
+        -- 💳 PAYPHONE / TARJETA COLUMNS (PEDIDO)
+        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "metodoPago" VARCHAR DEFAULT 'EFECTIVO';
+        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "estadoPago" VARCHAR DEFAULT 'PENDIENTE';
+        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "referenciaPago" VARCHAR DEFAULT NULL;
+        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "recargo_tarjeta" DECIMAL(10,2) DEFAULT 0;
+
         ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "timeoutRondaMs" INT DEFAULT 60000;
         ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "maxRondasAsignacion" INT DEFAULT 4;
         ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "max_wait_time_acceptance" INT DEFAULT 10;
@@ -418,6 +431,9 @@ export class PostgresDatabase {
 
         ALTER TABLE "user_motorizado" ADD COLUMN IF NOT EXISTS "ratingPromedio" DECIMAL(2,1) DEFAULT 0.0;
         ALTER TABLE "user_motorizado" ADD COLUMN IF NOT EXISTS "totalResenas" INT DEFAULT 0;
+
+        -- 👇 REPORTES / SOPORTE (TICKETS)
+        ALTER TABLE "report" ADD COLUMN IF NOT EXISTS "resolvedAt" TIMESTAMP DEFAULT NULL;
       `);
 
       // 2. Enum Additions (Individual calls to ensure they commit)
@@ -429,6 +445,7 @@ export class PostgresDatabase {
         { type: 'storie_statusstorie_enum', label: 'FLAGGED' },
         { type: 'storie_statusstorie_enum', label: 'PUBLISHED' },
         { type: 'storie_statusstorie_enum', label: 'HIDDEN' },
+        { type: 'pedido_estado_enum', label: 'PENDIENTE_PAGO' },
       ];
 
       for (const e of enums) {

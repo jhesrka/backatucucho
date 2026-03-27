@@ -60,6 +60,11 @@ export class PedidoUsuarioRoutes {
     );
 
 
+    router.post(
+      "/test-payphone",
+      pedidoUsuarioController.testPayphone
+    );
+
     return router;
   }
 }

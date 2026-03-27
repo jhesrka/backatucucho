@@ -34,10 +34,18 @@ export class CategoriaController {
       .catch((error) => this.handleError(error, res));
   };
 
-  // Obtener todas las categorías
+  // Obtener todas las categorías (ADMIN)
   getAllCategorias = (_req: Request, res: Response) => {
     this.categoriaService
       .getAllCategorias()
+      .then((categorias) => res.status(200).json(categorias))
+      .catch((error) => this.handleError(error, res));
+  };
+
+  // Obtener todas las categorías (USUARIO PUBLICO) - Filtradas por ACTIVO
+  getAllCategoriasUser = (_req: Request, res: Response) => {
+    this.categoriaService
+      .getAllCategorias("ACTIVO") // 🔐 Solo ACTIVOS
       .then((categorias) => res.status(200).json(categorias))
       .catch((error) => this.handleError(error, res));
   };
