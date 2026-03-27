@@ -70,6 +70,12 @@ export class PedidoUsuarioRoutes {
       pedidoUsuarioController.confirmarPago
     );
 
+    router.post(
+      "/refresh-timer",
+      AuthMiddleware.protect,
+      pedidoUsuarioController.refreshTimer
+    );
+
     return router;
   }
 }

@@ -169,6 +169,16 @@ export class PedidoUsuarioController {
     }
   };
 
+  refreshTimer = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.body;
+        const result = await this.pedidoUsuarioService.refreshTimer(id);
+        return res.status(200).json(result);
+    } catch (error) {
+        return this.handleError(error, res);
+    }
+  };
+
   runSqlUpdate = async (req: Request, res: Response) => {
     try {
         const repo = Pedido.getRepository();

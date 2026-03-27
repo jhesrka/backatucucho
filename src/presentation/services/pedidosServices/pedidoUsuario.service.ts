@@ -600,6 +600,19 @@ export class PedidoUsuarioService {
     return response;
   }
 
+  // 🔄 Recargar el tiempo de vida (5 min adicionales)
+  async refreshTimer(id: string) {
+    const pedido = await Pedido.findOneBy({ id });
+    if (!pedido) throw CustomError.notFound("Pedido no encontrado");
+    
+    // Solo si está esperando pago
+    if (pedido.estado !== "PENDIENTE_PAGO" as any) return { success: false, message: "El pedido no está en espera de pago" };
+
+    pedido.createdAt = new Date(); // Resetear a NOW
+    await pedido.save();
+    return { success: true, newCreatedAt: pedido.createdAt };
+  }
+
   // 🕒 Vigilante de limpieza (Pedidos expirados)
   static startMaintenanceJob() {
     setInterval(async () => {
