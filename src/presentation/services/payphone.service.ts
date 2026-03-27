@@ -70,19 +70,24 @@ export class PayphoneService {
         }
     }
 
-    static async verifyTransaction(id: number, token: string) {
+    static async confirmPayment(id: number, clientTxId: string, token: string) {
         try {
-            const { data } = await axios.post(`${this.API_URL}/button/V2/Confirm`, { id }, {
+            const payload = { id, clientTxId };
+            console.log("🚀 [Payphone] CONFIRMING:", JSON.stringify(payload, null, 2));
+
+            const { data } = await axios.post(`${this.API_URL}/button/V2/Confirm`, payload, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                     "Content-Type": "application/json",
                 },
             });
-            // data.transactionStatus can be "Approved", "Denied", etc.
-            return data;
+
+            console.log("✅ [Payphone] CONFIRMATION SUCCESS:", data);
+            return data; // Approved, Denied, etc.
         } catch (error: any) {
-            console.error("Payphone Confirm Error:", error?.response?.data || error.message);
-            return null;
+            const errorDetail = error?.response?.data || error.message;
+            console.error("❌ [Payphone] CONFIRMATION ERROR:", errorDetail);
+            throw error;
         }
     }
 }

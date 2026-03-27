@@ -61,8 +61,8 @@ export class PedidoUsuarioRoutes {
 
 
     router.post(
-      "/test-payphone",
-      pedidoUsuarioController.testPayphone
+      "/confirmar-pago",
+      pedidoUsuarioController.confirmarPago
     );
 
     return router;

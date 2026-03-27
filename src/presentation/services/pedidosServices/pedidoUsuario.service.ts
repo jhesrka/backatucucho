@@ -47,7 +47,49 @@ export class PedidoUsuarioService {
 
     return { distanciaKm, costoEnvio };
   }
+    async confirmarPago(id: number, clientTxId: string) {
+        const pedido = await Pedido.findOne({
+            where: { id: clientTxId },
+            relations: ["negocio", "cliente", "productos", "productos.producto"]
+        });
 
+        if (!pedido) throw CustomError.notFound("Pedido no encontrado");
+        if (!pedido.negocio.payphone_token) throw CustomError.badRequest("El negocio no tiene token de Payphone configurado");
+
+        const result = await PayphoneService.confirmPayment(id, clientTxId, pedido.negocio.payphone_token);
+
+        if (result.transactionStatus === "Approved") {
+            pedido.estado = EstadoPedido.PENDIENTE; // Ya entra a la cola del restaurante
+            pedido.estadoPago = "PAGADO" as any;
+            pedido.referenciaPago = id.toString();
+            await pedido.save();
+
+            // 🔔 Notificar al negocio por Socket.io
+            console.log(`🔔 [Socket] Pago confirmado. Emitiendo nuevo pedido a sala: ${pedido.negocio.id}`);
+            const socketIO = getIO();
+            if (socketIO) {
+                socketIO.to(pedido.negocio.id).emit("nuevo_pedido", {
+                    id: pedido.id,
+                    estado: pedido.estado,
+                    total: pedido.total,
+                    productos: pedido.productos,
+                    cliente: {
+                        id: pedido.cliente.id,
+                        name: pedido.cliente.name,
+                        surname: pedido.cliente.surname
+                    },
+                    createdAt: pedido.createdAt
+                });
+            }
+
+            return { success: true, message: "Pago aprobado y pedido activado", status: result.transactionStatus };
+        } else {
+            pedido.estado = "CANCELADO" as any;
+            pedido.estadoPago = "FALLIDO" as any;
+            await pedido.save();
+            return { success: false, message: "El pago no fue aprobado", status: result.transactionStatus };
+        }
+    }
 
 
     // Crear un pedido desde el frontend del cliente

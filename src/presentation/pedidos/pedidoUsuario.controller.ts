@@ -144,26 +144,15 @@ export class PedidoUsuarioController {
       .catch((error) => this.handleError(error, res));
   };
 
-  testPayphone = async (req: Request, res: Response) => {
+  confirmarPago = async (req: Request, res: Response) => {
     try {
-        const { storeId, token, amount = 1 } = req.body;
-        if (!storeId || !token) {
-            return res.status(400).json({ message: "Faltan storeId o token" });
+        const { id, clientTransactionId } = req.body;
+        if (!id || !clientTransactionId) {
+            return res.status(400).json({ message: "Faltan id o clientTransactionId" });
         }
 
-        console.log("🛠️ TESTING PAYPHONE DIRECTLY IN CONTROLLER...");
-        const result = await PayphoneService.createCheckout({
-            amount,
-            clientTransactionId: `test-${Date.now()}`,
-            reference: "Atucucho Shop Test Integration",
-            storeId,
-            token
-        });
-
-        return res.status(200).json({ 
-            message: "Conexión con Payphone EXITOSA", 
-            data: result 
-        });
+        const result = await this.pedidoUsuarioService.confirmarPago(+id, clientTransactionId);
+        return res.status(200).json(result);
     } catch (error) {
         return this.handleError(error, res);
     }
