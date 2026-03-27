@@ -21,7 +21,19 @@ export class PedidoUsuarioController {
     }
 
     console.error("Unhandled error:", error);
-    return res.status(500).json({ message: "Something went very wrong", detail: error.message });
+    
+    // Si es un error de Axios (Payphone)
+    const axiosError = (error as any)?.response?.data;
+    if (axiosError) {
+      return res.status(400).json({ 
+        message: axiosError.message || JSON.stringify(axiosError) 
+      });
+    }
+
+    return res.status(500).json({ 
+      message: "Something went very wrong", 
+      detail: (error as Error)?.message || "Internal Server Error" 
+    });
   };
   // ======================== Calcular envío ========================
   calcularEnvio = async (req: Request, res: Response) => {
