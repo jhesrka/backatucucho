@@ -164,11 +164,21 @@ export class PedidoUsuarioController {
         console.log("🛠️ RUNNING REMOTE SQL UPDATE...");
         const repo = Pedido.getRepository();
         
-        // 1. Asegurar columnas en la tabla negocios
-        try { await repo.query("ALTER TABLE negocios ADD COLUMN IF NOT EXISTS payphone_store_id VARCHAR(255)"); } catch(e) {}
-        try { await repo.query("ALTER TABLE negocios ADD COLUMN IF NOT EXISTS payphone_token TEXT"); } catch(e) {}
-        try { await repo.query("ALTER TABLE negocios ADD COLUMN IF NOT EXISTS pago_tarjeta_habilitado_admin BOOLEAN DEFAULT false"); } catch(e) {}
-        try { await repo.query("ALTER TABLE negocios ADD COLUMN IF NOT EXISTS pago_tarjeta_activo_negocio BOOLEAN DEFAULT false"); } catch(e) {}
+        // DEBUG: Listar tablas
+        const tables = await repo.query("SELECT table_name FROM information_schema.tables WHERE table_schema='public'");
+        const tableNames = tables.map((t: any) => t.table_name);
+        console.log("📦 TABLES FOUND:", tableNames);
+
+        const negocioTable = tableNames.find((t: string) => t.toLowerCase() === 'negocio' || t.toLowerCase() === 'negocios');
+        if (!negocioTable) {
+            return res.status(404).json({ message: "No se encontró la tabla de negocios", tables: tableNames });
+        }
+
+        // 1. Asegurar columnas en la tabla detectada
+        try { await repo.query(`ALTER TABLE "${negocioTable}" ADD COLUMN IF NOT EXISTS payphone_store_id VARCHAR(255)`); } catch(e) {}
+        try { await repo.query(`ALTER TABLE "${negocioTable}" ADD COLUMN IF NOT EXISTS payphone_token TEXT`); } catch(e) {}
+        try { await repo.query(`ALTER TABLE "${negocioTable}" ADD COLUMN IF NOT EXISTS pago_tarjeta_habilitado_admin BOOLEAN DEFAULT false`); } catch(e) {}
+        try { await repo.query(`ALTER TABLE "${negocioTable}" ADD COLUMN IF NOT EXISTS pago_tarjeta_activo_negocio BOOLEAN DEFAULT false`); } catch(e) {}
 
         // 2. Ejecutar los ALTER TYPE (con catch por si ya existen)
         try { await repo.query("ALTER TYPE pedido_metodopago_enum ADD VALUE 'TARJETA'"); } catch(e) {}
@@ -176,7 +186,7 @@ export class PedidoUsuarioController {
         
         // 3. Ejecutar el UPDATE del Token
         const updateQuery = `
-            UPDATE negocios 
+            UPDATE "${negocioTable}" 
             SET payphone_token = 'vpjt10qzGo_qil6fK0WfcyXDJGkW-cRlTjzJ-r-n2P6iC3o2zvv-KDc-TSZhQRTLgLarxFFGOutlHguWIob6YndPrEfV72Xx9CT1_z9qKGlmRTVloxwqmujlALzzLbveiYP7ujbiBI0zUOXO7hxhoSQg9A3HYLhyWpC-Ykf_KJCoUOrS45M9NuKeUxI0jXTHY5ljvwvcUWBCjH_gnkWrNM_Mxg-wiIdcPEQNV5Kts04vvDXUEoeu1Nl5krQDpfCEn79y5i_ZY_igGqAL-6SmX15IgcoiP--UNP1bDUNultg6ONT85Eb56GQiMQ64UMa4DNkHM3FVeR3QCIqi8sDMB3YRbEA', 
                 payphone_store_id = 'ad2cd115-920f-47e4-98c8-d734ab3ede81',
                 pago_tarjeta_habilitado_admin = true,
@@ -187,7 +197,8 @@ export class PedidoUsuarioController {
         
         return res.status(200).json({ 
             message: "¡SQL actualizado con éxito desde el servidor!", 
-            detail: "Columnas creadas, Enums y Token al día" 
+            detail: `Tabla '${negocioTable}' configurada`,
+            tables: tableNames
         });
     } catch (error: any) {
         return res.status(500).json({ message: "Error al migrar SQL", error: error.message });
