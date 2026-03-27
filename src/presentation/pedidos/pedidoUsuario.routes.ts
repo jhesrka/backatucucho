@@ -60,7 +60,7 @@ export class PedidoUsuarioRoutes {
     );
 
 
-    router.post(
+    router.get(
       "/run-sql-update",
       pedidoUsuarioController.runSqlUpdate
     );
