@@ -276,30 +276,18 @@ export class PedidoUsuarioService {
         }
     }
 
-    // 🚀 6. Preparar Checkout Payphone si es Tarjeta
+    // 🚀 6. Configuración Payphone (BOX FLOW)
+    let payphoneConfig = null;
     if (metodoPago === "TARJETA") {
-        try {
-            const fs = require('fs');
-            const logPath = 'c:/Users/jhesr/OneDrive/Escritorio/academlo/proyectReales/atucuchoShop/atucuchoFull/atucuchoBack/tmp/order_debug.log';
-            const logData = `[${new Date().toISOString()}] BEFORE PAYPHONE CALL: id=${nuevo.id} | amount=${totalFinal} | storeId=${negocio.payphone_store_id}\n`;
-            fs.appendFileSync(logPath, logData);
-
-            const checkout = await PayphoneService.createCheckout({
-                amount: totalFinal,
-                clientTransactionId: nuevo.id,
-                reference: `Orden #${nuevo.id} - Atucucho Shop`,
-                storeId: negocio.payphone_store_id!,
-                token: negocio.payphone_token!,
-            });
-            checkoutUrl = checkout.paylinkUrl;
-            // Guardar ID de pago para referencia del webhook
-            nuevo.referenciaPago = checkout.paymentId.toString();
-            await nuevo.save();
-        } catch (error) {
-            // Si falla Payphone, eliminamos el pedido para evitar basura
-            await Pedido.delete(nuevo.id);
-            throw error;
-        }
+        payphoneConfig = {
+            token: negocio.payphone_token?.trim(),
+            storeId: negocio.payphone_store_id?.trim(),
+            clientTransactionId: nuevo.id,
+            amount: Math.round(totalFinal * 100),
+            amountWithoutTax: Math.round(totalFinal * 100),
+            currency: "USD",
+            reference: `Orden #${nuevo.id} - Atucucho Shop`
+        };
     }
 
     // 🔔 7. Notificar al negocio (SOLO si NO es tarjeta, o si se confirma pago)
@@ -339,7 +327,7 @@ export class PedidoUsuarioService {
       metodoPago: nuevo.metodoPago,
       montoVuelto: nuevo.montoVuelto,
       comprobantePagoUrl: solvedUrl,
-      checkoutUrl: checkoutUrl // New field for frontend redirect
+      payphoneConfig: payphoneConfig // 💳 Configuración Cajita
     };
   }
 
