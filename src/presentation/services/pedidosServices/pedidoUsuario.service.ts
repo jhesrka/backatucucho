@@ -48,8 +48,11 @@ export class PedidoUsuarioService {
     return { distanciaKm, costoEnvio };
   }
     async confirmarPago(id: number, clientTxId: string) {
+        // ✂️ Si el ID trae sufijo de reintento (ej: UUID--timestamp), extraemos solo el UUID del pedido (36 caracteres)
+        const realOrderId = clientTxId.includes('--') ? clientTxId.split('--')[0] : clientTxId;
+
         const pedido = await Pedido.findOne({
-            where: { id: clientTxId },
+            where: { id: realOrderId },
             relations: ["negocio", "cliente", "productos", "productos.producto"]
         });
 
@@ -282,7 +285,7 @@ export class PedidoUsuarioService {
         payphoneConfig = {
             token: negocio.payphone_token?.trim(),
             storeId: negocio.payphone_store_id?.trim(),
-            clientTransactionId: nuevo.id,
+            clientTransactionId: `${nuevo.id}--${Date.now()}`,
             amount: Math.round(totalFinal * 100),
             amountWithoutTax: Math.round(totalFinal * 100),
             currency: "USD",
@@ -428,7 +431,7 @@ export class PedidoUsuarioService {
         payphoneConfig: p.estado === "PENDIENTE_PAGO" ? {
             token: p.negocio.payphone_token?.trim(),
             storeId: p.negocio.payphone_store_id?.trim(),
-            clientTransactionId: p.id,
+            clientTransactionId: `${p.id}--${Date.now()}`,
             amount: Math.round(Number(p.total) * 100),
             amountWithoutTax: Math.round(Number(p.total) * 100),
             currency: "USD",
