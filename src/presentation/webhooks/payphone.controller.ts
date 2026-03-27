@@ -34,7 +34,7 @@ export class PayphoneWebhookController {
                 return res.status(500).json({ message: "Configuración de negocio inválida" });
             }
 
-            const verification = await PayphoneService.verifyTransaction(transactionId, negocio.payphone_token);
+            const verification = await PayphoneService.confirmPayment(transactionId, clientTransactionId, negocio.payphone_token);
 
             if (verification && verification.transactionStatus === "Approved") {
                 // ✅ PAGO APROBADO
