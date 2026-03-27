@@ -24,12 +24,7 @@ export class StorieController {
       .then((data) => {
         res.status(201).json(data);
       })
-      .catch((error: unknown) => {
-        console.error("Error en createStorie:", error);
-        return res
-          .status(500)
-          .json({ message: (error as any).message || "Unknown error" });
-      });
+      .catch((error: unknown) => this.handleError(error, res));
   };
   findAllStorie = (req: Request, res: Response) => {
     this.storieService

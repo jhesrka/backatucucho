@@ -42,7 +42,24 @@ export class StorieService {
     );
 
     // Validar y descontar de wallet
-    await this.walletService.subtractFromWallet(user.id, costo, "Pago por publicación de historia", "STORIE");
+    try {
+      await this.walletService.subtractFromWallet(
+        user.id,
+        costo,
+        "Pago por publicación de historia",
+        "STORIE"
+      );
+    } catch (error) {
+      if (
+        error instanceof CustomError &&
+        error.message.toLowerCase().includes("saldo suficiente")
+      ) {
+        throw CustomError.badRequest(
+          "No tienes saldo suficiente para publicar esta historia"
+        );
+      }
+      throw error;
+    }
 
     // Subir la imagen
     let key: string;

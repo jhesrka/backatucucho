@@ -21,8 +21,8 @@ export class CreateStorieDTO {
       return ["Formato inválido de UUID"];
     }
 
-    if (!description || typeof description !== "string") {
-      return ["La descripción es necesaria"];
+    if (!description || typeof description !== "string" || description.trim().length === 0) {
+      return ["La descripción es necesaria para crear la historia"];
     }
 
     const diasNumber = Number(dias);
