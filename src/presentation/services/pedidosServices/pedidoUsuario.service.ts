@@ -424,6 +424,16 @@ export class PedidoUsuarioService {
           telefono: p.motorizado.whatsapp,
           whatsapp: p.motorizado.whatsapp,
         } : null,
+        // 💳 Configuración para reintentar pago
+        payphoneConfig: p.estado === "PENDIENTE_PAGO" ? {
+            token: p.negocio.payphone_token?.trim(),
+            storeId: p.negocio.payphone_store_id?.trim(),
+            clientTransactionId: p.id,
+            amount: Math.round(Number(p.total) * 100),
+            amountWithoutTax: Math.round(Number(p.total) * 100),
+            currency: "USD",
+            reference: `Orden #${p.id} - Atucucho Shop`
+        } : null
       };
     }));
 
@@ -585,6 +595,25 @@ export class PedidoUsuarioService {
 
     await pedido.save();
     return response;
+  }
+
+  // 🕒 Vigilante de limpieza (Pedidos expirados)
+  static startMaintenanceJob() {
+    setInterval(async () => {
+        try {
+            const repo = Pedido.getRepository();
+            // Cancelar pedidos PENDIENTE_PAGO de más de 6 minutos (le damos 1 extra por si acaso)
+            const result = await repo.query(`
+                UPDATE pedido 
+                SET estado = 'CANCELADO', motivo_cancelacion = 'Tiempo de pago excedido (5 min)' 
+                WHERE estado = 'PENDIENTE_PAGO' 
+                AND "createdAt" < NOW() - INTERVAL '6 minutes'
+            `);
+            if (result[1] > 0) console.log(`🧹 [Maintenance] ${result[1]} pedidos expirados cancelados.`);
+        } catch (error) {
+            console.error("❌ Error en MaintenanceJob:", error);
+        }
+    }, 60000); // Revisar cada minuto
   }
 }
 

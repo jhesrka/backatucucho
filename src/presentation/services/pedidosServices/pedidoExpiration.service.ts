@@ -25,23 +25,31 @@ export class PedidoExpirationService {
             const now = new Date();
             const expirationLimit = new Date(now.getTime() - maxMinutes * 60000);
 
-            // 2. Buscar pedidos PENDIENTES que superen el tiempo límite
-            // Usamos createdAt para el cálculo
+            // 2. Buscar pedidos PENDIENTES o PENDIENTE_PAGO
             const expiredPedidos = await Pedido.find({
-                where: {
-                    estado: EstadoPedido.PENDIENTE,
-                    createdAt: LessThan(expirationLimit)
-                },
+                where: [
+                    {
+                        estado: EstadoPedido.PENDIENTE,
+                        createdAt: LessThan(expirationLimit)
+                    },
+                    {
+                        estado: "PENDIENTE_PAGO" as any,
+                        createdAt: LessThan(new Date(now.getTime() - 5 * 60000)) // 5 Minutos para Payphone
+                    }
+                ],
                 relations: ["cliente", "negocio"]
             });
 
             if (expiredPedidos.length === 0) return;
 
-            console.log(`🕒 [EXPIRACIÓN] Se encontraron ${expiredPedidos.length} pedidos sin aceptar fuera de tiempo.`);
+            console.log(`🕒 [EXPIRACIÓN] Se encontraron ${expiredPedidos.length} pedidos fuera de tiempo.`);
 
             for (const pedido of expiredPedidos) {
+                const isPayphone = pedido.estado === "PENDIENTE_PAGO";
                 pedido.estado = EstadoPedido.CANCELADO;
-                pedido.motivoCancelacion = "El restaurante nunca aceptó tu pedido";
+                pedido.motivoCancelacion = isPayphone 
+                    ? "Tiempo de pago excedido (5 min)" 
+                    : "El restaurante nunca aceptó tu pedido";
                 await pedido.save();
 
                 // 3. Notificar vía Socket
