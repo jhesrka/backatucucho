@@ -169,35 +169,34 @@ export class PedidoUsuarioController {
     try {
         const repo = Pedido.getRepository();
         
-        // 1. Intentar forzar los valores (una vez más, por si acaso)
+        // 1. Intentar forzar los valores (DE UNO EN UNO PARA EVITAR BLOQUEOS)
+        let log = "";
         try {
             await repo.query("ALTER TYPE pedido_metodopago_enum ADD VALUE IF NOT EXISTS 'TARJETA'");
-        } catch (e) {}
+            log += "MetodoPago: OK | ";
+        } catch (e: any) { log += "MetodoPago: " + e.message + " | "; }
+
         try {
             await repo.query("ALTER TYPE pedido_estado_enum ADD VALUE IF NOT EXISTS 'PENDIENTE_PAGO'");
-        } catch (e) {}
+            log += "Estado: OK | ";
+        } catch (e: any) { log += "Estado: " + e.message + " | "; }
 
-        // 2. Consultar valores REALES del catálogo de Postgres
+        // 2. Consultar valores REALES
         const enumValues = await repo.query(`
-            SELECT n.nspname as schema, t.typname as enum_name, e.enumlabel as value
+            SELECT t.typname as enum_name, e.enumlabel as value
             FROM pg_type t 
             JOIN pg_enum e ON t.oid = e.enumtypid  
-            JOIN pg_namespace n ON n.oid = t.typnamespace
             WHERE t.typname IN ('pedido_metodopago_enum', 'pedido_estado_enum')
             ORDER BY enum_name, value
         `);
 
-        // 3. Verificar si el negocio tiene el flag habilitado
-        const businessInfo = await repo.query("SELECT id, nombre, " + '"pago_tarjeta_habilitado_admin"' + ", payphone_store_id FROM negocio WHERE id = '36a53408-4d75-4f96-928b-a8ffb840e753'");
-
         return res.status(200).json({ 
             success: true,
-            message: "Diagnóstico de base de datos ejecutado.",
-            dbEnums: enumValues,
-            business: businessInfo[0]
+            migrationLog: log,
+            dbEnums: enumValues
         });
     } catch (error: any) {
-        return res.status(500).json({ message: "Error en diagnóstico", error: error.message });
+        return res.status(500).json({ message: "Error", error: error.message });
     }
   };
 }
