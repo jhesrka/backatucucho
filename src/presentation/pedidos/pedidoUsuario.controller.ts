@@ -169,38 +169,35 @@ export class PedidoUsuarioController {
     try {
         const repo = Pedido.getRepository();
         
-        // 1. Expandir Enum (Si no existe)
-        // Nota: En Postgres no se puede hacer ADD VALUE dentro de una transacción fácilmente, 
-        // pero trataremos de hacerlo directamente aprovechando que TypeORM repo.query no inicia transacciones por defecto.
+        // 1. Intentar forzar los valores (una vez más, por si acaso)
         try {
             await repo.query("ALTER TYPE pedido_metodopago_enum ADD VALUE IF NOT EXISTS 'TARJETA'");
-        } catch (e) {
-            console.log("Enum TARJETA already exists or error bypassing");
-        }
+        } catch (e) {}
+        try {
+            await repo.query("ALTER TYPE pedido_estado_enum ADD VALUE IF NOT EXISTS 'PENDIENTE_PAGO'");
+        } catch (e) {}
 
-        // 2. Agregar columnas a negocio (en singular)
-        await repo.query("ALTER TABLE negocio ADD COLUMN IF NOT EXISTS payphone_store_id VARCHAR(255)");
-        await repo.query("ALTER TABLE negocio ADD COLUMN IF NOT EXISTS payphone_token TEXT");
-
-        // 3. Actualizar el negocio específico (La hueca parrillera)
-        const businessId = '36a53408-4d75-4f96-928b-a8ffb840e753';
-        const storeId = 'ad2cd115-920f-47e4-98c8-d734ab3ede81';
-        const token = 'vpjt10qzGo_qil6fK0WfcyXDJGkW-cRlTjzJ-r-n2P6iC3o2zvv-KDc-TSZhQRTLgLarxFFGOutlHguWIob6YndPrEfV72Xx9CT1_z9qKGlmRTVloxwqmujlALzzLbveiYP7ujbiBI0zUOXO7hxhoSQg9A3HYLhyWpC-Ykf_KJCoUOrS45M9NuKeUxI0jXTHY5ljvwvcUWBCjH_gnkWrNM_Mxg-wiIdcPEQNV5Kts04vvDXUEoeu1Nl5krQDpfCEn79y5i_ZY_igGqAL-6SmX15IgcoiP--UNP1bDUNultg6ONT85Eb56GQiMQ64UMa4DNkHM3FVeR3QCIqi8sDMB3YRbEA';
-
-        await repo.query(`
-            UPDATE negocio 
-            SET payphone_store_id = '${storeId}',
-                payphone_token = '${token}'
-            WHERE id = '${businessId}'
+        // 2. Consultar valores REALES del catálogo de Postgres
+        const enumValues = await repo.query(`
+            SELECT n.nspname as schema, t.typname as enum_name, e.enumlabel as value
+            FROM pg_type t 
+            JOIN pg_enum e ON t.oid = e.enumtypid  
+            JOIN pg_namespace n ON n.oid = t.typnamespace
+            WHERE t.typname IN ('pedido_metodopago_enum', 'pedido_estado_enum')
+            ORDER BY enum_name, value
         `);
+
+        // 3. Verificar si el negocio tiene el flag habilitado
+        const businessInfo = await repo.query("SELECT id, nombre, " + '"pago_tarjeta_habilitado_admin"' + ", payphone_store_id FROM negocio WHERE id = '36a53408-4d75-4f96-928b-a8ffb840e753'");
 
         return res.status(200).json({ 
             success: true,
-            message: "Migración de base de datos completada con éxito. Columnas añadidas, Enum actualizado y credenciales de Payphone configuradas para La hueca parrillera."
+            message: "Diagnóstico de base de datos ejecutado.",
+            dbEnums: enumValues,
+            business: businessInfo[0]
         });
     } catch (error: any) {
-        console.error("MIGRATION ERROR:", error);
-        return res.status(500).json({ message: "Error en la migración final", error: error.message });
+        return res.status(500).json({ message: "Error en diagnóstico", error: error.message });
     }
   };
 }
