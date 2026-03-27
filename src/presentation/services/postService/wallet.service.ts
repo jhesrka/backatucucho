@@ -1,4 +1,4 @@
-import { Wallet, WalletStatus, GlobalSettings, Storie, FinancialClosing, RechargeRequest, StatusRecarga } from "../../../data";
+import { Wallet, WalletStatus, GlobalSettings, Storie, FinancialClosing, RechargeRequest, StatusRecarga, Subscription } from "../../../data";
 import { Transaction, TransactionType, TransactionOrigin, TransactionReason } from "../../../data/postgres/models/transactionType.model";
 import { CustomError } from "../../../domain";
 import { encriptAdapter, UploadFilesCloud, envs } from "../../../config";
@@ -317,82 +317,47 @@ export class WalletService {
     /**
      * 📈 Obtener estadísticas globales de billeteras (Dashboard)
      */
-    async getGlobalWalletStats(period: 'today' | '7days' | '30days' | 'all' = 'today'): Promise<any> {
-        const startOfPeriod = new Date();
-        if (period === 'today') startOfPeriod.setHours(0, 0, 0, 0);
-        if (period === '7days') startOfPeriod.setDate(startOfPeriod.getDate() - 7);
-        if (period === '30days') startOfPeriod.setDate(startOfPeriod.getDate() - 30);
-        if (period === 'all') startOfPeriod.setFullYear(2000);
+    async getGlobalWalletStats(dateStr: string): Promise<any> {
+        const { DateUtils } = await import("../../../utils/date-utils");
+        const { start, end } = DateUtils.getDayRange(dateStr);
 
-        // 1. Resumen General
+        // 1. Saldo en Circulación (TOTAL GLOBAL - no depende de fecha)
         const totalBalanceData = await Wallet.createQueryBuilder("wallet")
             .select("SUM(wallet.balance)", "total")
             .getRawOne();
         const totalBalance = parseFloat(totalBalanceData.total || "0");
-        const positivewallets = await Wallet.createQueryBuilder("w").where("w.balance > 0").getCount();
 
-        // 2. Regularizaciones
-        const regularizations = await Transaction.createQueryBuilder("t")
-            .where("t.created_at >= :start", { start: startOfPeriod })
-            .andWhere("t.reason = :reason", { reason: TransactionReason.ADMIN_ADJUSTMENT })
-            .getCount();
-
-        // 3. Gastos: Historias (Storie) vs Suscripciones (Transaction)
-        // A) Historias: Total pagado en Storie
+        // 2. Gasto en Historias (Día Seleccionado)
         const storiesData = await Storie.createQueryBuilder("s")
             .select("SUM(s.total_pagado)", "total")
-            .where("s.createdAt >= :start", { start: startOfPeriod })
+            .where("s.createdAt >= :start AND s.createdAt <= :end", { start, end })
             .getRawOne();
         const totalStories = parseFloat(storiesData.total || "0");
 
-        // B) Suscripciones: Total debitado por SUBSCRIPTION en Transacciones
-        const subsData = await Transaction.createQueryBuilder("t")
-            .select("SUM(t.amount)", "total")
-            .where("t.created_at >= :start", { start: startOfPeriod })
+        // 3. Suscripciones (Día Seleccionado)
+        // Necesitamos unir con la tabla Subscription para filtrar por plan (BUSINESS vs others)
+        const subsQuery = Transaction.createQueryBuilder("t")
+            .leftJoin(Subscription, "sub", "t.reference = CAST(sub.id AS VARCHAR)")
+            .select([
+                "SUM(CASE WHEN sub.plan = 'business' THEN t.amount ELSE 0 END) AS businessTotal",
+                "SUM(CASE WHEN sub.plan != 'business' OR sub.id IS NULL THEN t.amount ELSE 0 END) AS userTotal"
+            ])
+            .where("t.created_at >= :start AND t.created_at <= :end", { start, end })
             .andWhere("t.reason = :reason", { reason: TransactionReason.SUBSCRIPTION })
-            .andWhere("t.type = :type", { type: 'debit' })
-            .getRawOne();
-        const totalSubscriptions = parseFloat(subsData.total || "0");
-
-        // 4. Top Gastadores (Total Debitado excluyendo admin)
-        const topSpendersRaw = await Transaction.createQueryBuilder("t")
-            .leftJoinAndSelect("t.wallet", "wallet")
-            .leftJoinAndSelect("wallet.user", "user")
-            .select(["user.name AS name", "user.surname AS surname", "user.email AS email", "SUM(t.amount) AS totalSpent"])
-            .where("t.created_at >= :start", { start: startOfPeriod })
             .andWhere("t.type = 'debit'")
-            .andWhere("t.reason != :reason", { reason: TransactionReason.ADMIN_ADJUSTMENT })
-            .groupBy("wallet.id, user.id")
-            .orderBy("SUM(t.amount)", "DESC")
-            .limit(5)
-            .getRawMany();
+            .andWhere("t.status = 'APPROVED'");
 
-        // 5. Top Acumuladores (Mayor Saldo Actual)
-        const topSaversRaw = await Wallet.createQueryBuilder("w")
-            .leftJoinAndSelect("w.user", "user")
-            .orderBy("w.balance", "DESC")
-            .take(5)
-            .getMany();
+        const subsData = await subsQuery.getRawOne();
+        const totalUserSubs = parseFloat(subsData.userTotal || "0");
+        const totalBusinessSubs = parseFloat(subsData.businessTotal || "0");
 
         return {
             totalBalance,
-            usersWithBalance: positivewallets,
-            averageBalance: positivewallets > 0 ? (totalBalance / positivewallets).toFixed(2) : 0,
-            regularizationsInPeriod: regularizations,
-            spendingStats: {
+            dailyStats: {
                 stories: totalStories,
-                subscriptions: totalSubscriptions
-            },
-            topSpenders: topSpendersRaw.map(r => ({
-                name: `${r.name} ${r.surname}`,
-                email: r.email,
-                amount: parseFloat(r.totalSpent || "0")
-            })),
-            topSavers: topSaversRaw.map(w => ({
-                name: `${w.user.name} ${w.user.surname}`,
-                email: w.user.email,
-                amount: Number(w.balance)
-            }))
+                userSubscriptions: totalUserSubs,
+                businessSubscriptions: totalBusinessSubs
+            }
         };
     }
 

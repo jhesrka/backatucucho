@@ -182,8 +182,14 @@ export class WalletController {
      */
     getGlobalDashStats = async (req: Request, res: Response) => {
         try {
-            const period = (req.query.period as any) || 'today';
-            const stats = await this.walletService.getGlobalWalletStats(period);
+            const date = (req.query.date as string) || new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'America/Guayaquil',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            }).format(new Date());
+            
+            const stats = await this.walletService.getGlobalWalletStats(date);
 
             res.json({
                 success: true,
