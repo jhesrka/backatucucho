@@ -13,6 +13,8 @@ export class PayphoneService {
         reference,
         storeId,
         token,
+        responseUrl,
+        cancellationUrl,
     }: {
         amount: number;
         tax?: number;
@@ -21,6 +23,8 @@ export class PayphoneService {
         reference: string;
         storeId: string;
         token: string;
+        responseUrl?: string;
+        cancellationUrl?: string;
     }) {
         try {
             // Convert to cents (integer)
@@ -42,8 +46,8 @@ export class PayphoneService {
                 storeId: cleanStoreId,
                 currency: "USD",
                 expireIn: 15,
-                responseUrl: `${envs.WEBSERVICE_URL_FRONT}/mis-pedidos?payment=success&orderId=${clientTransactionId}`,
-                cancellationUrl: `${envs.WEBSERVICE_URL_FRONT}/mis-pedidos?payment=cancelled&orderId=${clientTransactionId}`,
+                responseUrl: responseUrl || `${envs.WEBSERVICE_URL_FRONT}/mis-pedidos?payment=success&orderId=${clientTransactionId}`,
+                cancellationUrl: cancellationUrl || `${envs.WEBSERVICE_URL_FRONT}/mis-pedidos?payment=cancelled&orderId=${clientTransactionId}`,
             };
 
             console.log("🚀 [Payphone] PAYLOAD:", JSON.stringify(payload, null, 2));

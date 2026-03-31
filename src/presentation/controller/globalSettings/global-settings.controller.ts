@@ -16,7 +16,10 @@ export class GlobalSettingsController {
     updateSettings = (req: Request, res: Response) => {
         this.service.updateSettings(req.body)
             .then(data => res.json(data))
-            .catch(error => res.status(500).json({ error: "Internal Server Error" }));
+            .catch(error => {
+                console.error("Error updating settings:", error);
+                res.status(500).json({ error: "Internal Server Error" });
+            });
     };
 
     closeApp = (req: Request, res: Response) => {

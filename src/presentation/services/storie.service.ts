@@ -140,7 +140,9 @@ export class StorieService {
         order: { createdAt: "DESC" },
       });
 
-      // 2️⃣ Convertir imágenes a URLs públicas
+      // 2️⃣ Convertir imágenes a URLs públicas con cache de usuario para optimizar firmas
+      const userPicCache = new Map<string, any>();
+
       const storiesWithUrls = await Promise.all(
         stories.map(async (story) => {
           try {
@@ -151,12 +153,19 @@ export class StorieService {
               })
               : null;
 
-            const photoperfilUrl = story.user?.photoperfil
-              ? await UploadFilesCloud.getOptimizedUrls({
-                bucketName: envs.AWS_BUCKET_NAME,
-                key: story.user.photoperfil,
-              })
-              : null;
+            // Optimizar: No volver a firmar la foto de perfil si el usuario se repite en la lista
+            let photoperfilUrl = null;
+            if (story.user?.photoperfil) {
+              if (userPicCache.has(story.user.id)) {
+                photoperfilUrl = userPicCache.get(story.user.id);
+              } else {
+                photoperfilUrl = await UploadFilesCloud.getOptimizedUrls({
+                  bucketName: envs.AWS_BUCKET_NAME,
+                  key: story.user.photoperfil,
+                });
+                userPicCache.set(story.user.id, photoperfilUrl);
+              }
+            }
 
             return {
               ...story,

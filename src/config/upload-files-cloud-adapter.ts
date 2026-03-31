@@ -62,12 +62,12 @@ export class UploadFilesCloud {
       const thumbKey = baseKey.replace(".webp", "_thumb.webp");
       const cardKey = baseKey.replace(".webp", "_card.webp");
 
-      // Generar versiones SECUENCIALMENTE para ahorrar memoria en el servidor local
-      const thumb = await ImageOptimizer.optimize(body, ImageSize.THUMBNAIL);
-      const card = await ImageOptimizer.optimize(body, ImageSize.CARD);
-      // Use RECEIPT size (no crop) if isReceipt is true, otherwise default to LARGE (crop)
-      const baseSize = isReceipt ? ImageSize.RECEIPT : ImageSize.LARGE;
-      const large = await ImageOptimizer.optimize(body, baseSize);
+      // Generar versiones en PARALELO para máximo rendimiento
+      const [thumb, card, large] = await Promise.all([
+        ImageOptimizer.optimize(body, ImageSize.THUMBNAIL),
+        ImageOptimizer.optimize(body, ImageSize.CARD),
+        ImageOptimizer.optimize(body, isReceipt ? ImageSize.RECEIPT : ImageSize.LARGE)
+      ]);
 
       // Subir todas las versiones en paralelo (E/S es menos pesada que CPU)
       await Promise.all([

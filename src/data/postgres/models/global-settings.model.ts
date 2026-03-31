@@ -86,6 +86,13 @@ export class GlobalSettings extends BaseEntity {
     @Column("int", { default: 10 })
     max_wait_time_acceptance: number; // Tiempo máximo para aceptar pedidos (minutos)
 
+    // Payphone Platform Credentials (for Recharges)
+    @Column("text", { nullable: true })
+    payphoneToken?: string;
+
+    @Column("varchar", { length: 100, nullable: true })
+    payphoneStoreId?: string;
+
     @UpdateDateColumn()
     updatedAt: Date;
 }

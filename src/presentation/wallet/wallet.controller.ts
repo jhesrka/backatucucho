@@ -166,4 +166,16 @@ export class WalletController {
       return this.handleError(err, res);
     }
   };
+
+  initializePayphoneRecharge = async (req: Request, res: Response) => {
+    const { userId } = req.params;
+    const { amount } = req.body;
+
+    try {
+      const result = await this.walletService.initializePayphoneRecharge(userId, Number(amount));
+      return res.status(200).json(result);
+    } catch (err) {
+      return this.handleError(err, res);
+    }
+  }
 }

@@ -487,4 +487,108 @@ export class WalletService {
 
         return await closing.save();
     }
+
+    /**
+     * 💳 Iniciar recarga con PayPhone (Tarjeta)
+     */
+    async initializePayphoneRecharge(userId: string, amount: number) {
+        if (amount <= 0) throw CustomError.badRequest("Monto inválido");
+
+        // 1. Obtener credenciales globales de PayPhone
+        const settings = await GlobalSettings.findOne({ where: {} });
+        if (!settings?.payphoneToken || !settings?.payphoneStoreId) {
+            throw CustomError.badRequest("La pasarela de pago PayPhone no está configurada por el administrador.");
+        }
+
+        // 2. Crear solicitud de recarga pendiente
+        const recharge = new RechargeRequest();
+        recharge.user = { id: userId } as any;
+        recharge.amount = amount;
+        recharge.bank_name = "PayPhone (Tarjeta)";
+        recharge.payment_method = "CARD";
+        recharge.status = StatusRecarga.PENDIENTE;
+        recharge.receipt_image = "https://pay.payphonetodoesposible.com/images/Logotipo.png"; // Placeholder representativo
+        recharge.transaction_date = new Date();
+        await recharge.save();
+
+        // 3. Crear Checkout en PayPhone
+        const { PayphoneService } = await import("../payphone.service");
+        
+        try {
+            const checkout = await PayphoneService.createCheckout({
+                amount,
+                clientTransactionId: recharge.id, // Usamos el ID de la solicitud como referencia
+                reference: `Recarga de Billetera - ${userId}`,
+                storeId: settings.payphoneStoreId,
+                token: settings.payphoneToken,
+            });
+
+            return {
+                rechargeId: recharge.id,
+                payphoneUrl: checkout.payUrl,
+            };
+        } catch (error) {
+            // Si falla la preparación del pago, la marcamos como rechazada o la dejamos pendiente por si el usuario reintenta? 
+            // Mejor eliminarla o cancelarla para evitar solicitudes basura.
+            await recharge.remove();
+            throw error;
+        }
+    }
+
+    /**
+     * ✅ Confirmación automática de recarga PayPhone
+     */
+    async confirmPayphoneRecharge(rechargeId: string, remoteId: number) {
+        const recharge = await RechargeRequest.findOne({
+            where: { id: rechargeId },
+            relations: ["user"]
+        });
+
+        if (!recharge) throw CustomError.notFound("Solicitud de recarga no encontrada");
+        if (recharge.status === StatusRecarga.APROBADO) return { message: "Recarga ya procesada" };
+
+        const settings = await GlobalSettings.findOne({ where: {} });
+        if (!settings?.payphoneToken) throw CustomError.internalServer("Error de configuración PayPhone");
+
+        // Verificar con PayPhone
+        const { PayphoneService } = await import("../payphone.service");
+        const verification = await PayphoneService.confirmPayment(remoteId, rechargeId, settings.payphoneToken);
+
+        if (verification && (verification.transactionStatus === "Approved" || verification.status === "Approved")) {
+            // Acreditar saldo directamente
+            const wallet = await this.getWalletByUserId(recharge.user.id);
+            const previousBalance = Number(wallet.balance);
+            const amount = Number(recharge.amount);
+            
+            wallet.balance = previousBalance + amount;
+            await wallet.save();
+
+            // Actualizar solicitud
+            recharge.status = StatusRecarga.APROBADO;
+            recharge.external_transaction_id = remoteId.toString();
+            recharge.resolved_at = new Date();
+            await recharge.save();
+
+            // Crear registro de transacción
+            const transaction = new Transaction();
+            transaction.wallet = wallet;
+            transaction.amount = amount;
+            transaction.type = 'credit';
+            transaction.status = 'APPROVED'; // Aprobado automáticamente
+            transaction.reason = TransactionReason.RECHARGE;
+            transaction.origin = TransactionOrigin.USER;
+            transaction.previousBalance = previousBalance;
+            transaction.resultingBalance = Number(wallet.balance);
+            transaction.observation = "Recarga automática con PayPhone (Tarjeta)";
+            transaction.reference = recharge.id;
+            await transaction.save();
+
+            return { success: true, newBalance: wallet.balance };
+        } else {
+            recharge.status = StatusRecarga.RECHAZADO;
+            recharge.admin_comment = "Pago denegado por PayPhone";
+            await recharge.save();
+            throw CustomError.badRequest("El pago no fue aprobado por el banco.");
+        }
+    }
 }

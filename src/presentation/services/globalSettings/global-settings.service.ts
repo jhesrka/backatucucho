@@ -81,6 +81,10 @@ export class GlobalSettingsService {
         if (data.max_wait_time_acceptance !== undefined) settings.max_wait_time_acceptance = Number(data.max_wait_time_acceptance);
         if (data.cleanupSubscriptionContentDays !== undefined) settings.cleanupSubscriptionContentDays = Number(data.cleanupSubscriptionContentDays);
 
+        // Payphone
+        if (data.payphoneToken !== undefined) settings.payphoneToken = data.payphoneToken;
+        if (data.payphoneStoreId !== undefined) settings.payphoneStoreId = data.payphoneStoreId;
+
         await settings.save();
         return settings;
     }

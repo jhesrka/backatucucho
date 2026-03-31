@@ -40,6 +40,14 @@ export class WalletRoutes {
       AuthMiddleware.protect,
       walletController.requestWithdrawal
     );
+
+    // RECARGA CON PAYPHONE (TARJETA)
+    router.post(
+      "/:userId/payphone-recharge",
+      AuthMiddleware.protect,
+      walletController.initializePayphoneRecharge
+    );
+
     //ADMINISTRADOR
     // Todas las wallets
     router.get(

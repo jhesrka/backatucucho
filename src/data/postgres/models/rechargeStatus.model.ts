@@ -58,6 +58,12 @@ export class RechargeRequest extends BaseEntity {
   })
   status: StatusRecarga;
 
+  @Column("varchar", { default: "TRANSF" })
+  payment_method: string; // TRANSF, CARD
+
+  @Column("varchar", { nullable: true })
+  external_transaction_id: string; // Payphone ID
+
   @Column({
     nullable: true,
   })
