@@ -3,7 +3,7 @@ import { WalletService } from "../services/wallet.service";
 import { CustomError } from "../../domain";
 import { CreateWalletDTO } from "../../domain/dtos/wallet/CreateWallet.dto";
 
-export class WalletController {
+export class UserWalletController {
   constructor(private readonly walletService: WalletService) { }
 
   private handleError = (error: unknown, res: Response) => {
@@ -177,5 +177,22 @@ export class WalletController {
     } catch (err) {
       return this.handleError(err, res);
     }
-  }
+  };
+
+  verifyPayphoneRecharge = async (req: Request, res: Response) => {
+    const { rechargeId } = req.params;
+
+    try {
+      console.log(`🔍 [Payphone Controller] Verificando recarga: ${rechargeId}`);
+      // Nota: El transactionId de PayPhone es opcional en nuestra lógica de confirmación manual 
+      // si solo queremos que el server lo busque en PayPhone por clientTxId.
+      // Pero nuestro service actual espera (rechargeId, remoteId).
+      // Debemos actualizar el service para que remoteId sea opcional si vamos a verificar por clientTxId.
+      
+      const result = await this.walletService.confirmPayphoneRecharge(rechargeId);
+      return res.status(200).json(result);
+    } catch (err) {
+      return this.handleError(err, res);
+    }
+  };
 }

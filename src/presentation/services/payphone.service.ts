@@ -97,4 +97,22 @@ export class PayphoneService {
             throw error;
         }
     }
+
+    static async getTransactionByClientTxId(clientTxId: string, token: string) {
+        try {
+            console.log(`🚀 [Payphone] GET TRANSACTION BY CLIENT TX ID: ${clientTxId}`);
+            // Note: Token should be cleaned
+            const { data } = await axios.get(`https://pay.payphonetodoesposible.com/api/button/V2/Get?clientTxId=${clientTxId}`, {
+                headers: {
+                    Authorization: `Bearer ${token.trim()}`,
+                    "Content-Type": "application/json",
+                },
+            });
+            console.log("✅ [Payphone] TRANSACTION FOUND:", data);
+            return data;
+        } catch (error: any) {
+            console.error("❌ [Payphone] GET TRANSACTION ERROR:", error?.response?.data || error.message);
+            return null;
+        }
+    }
 }

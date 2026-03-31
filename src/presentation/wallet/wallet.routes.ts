@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { WalletController } from "./wallet.controller";
+import { UserWalletController } from "./wallet.controller";
 import { WalletService } from "../services/wallet.service";
 import { UserService } from "../services/usuario/user.service";
 import { EmailService } from "../services/email.service";
@@ -19,7 +19,7 @@ export class WalletRoutes {
     );
     const userService = new UserService(emailService);
     const walletService = new WalletService(userService);
-    const walletController = new WalletController(walletService);
+    const walletController = new UserWalletController(walletService);
 
     //USUARIO
 
@@ -41,11 +41,16 @@ export class WalletRoutes {
       walletController.requestWithdrawal
     );
 
-    // RECARGA CON PAYPHONE (TARJETA)
     router.post(
       "/:userId/payphone-recharge",
       AuthMiddleware.protect,
       walletController.initializePayphoneRecharge
+    );
+
+    router.get(
+      "/payphone-verify/:rechargeId",
+      AuthMiddleware.protect,
+      walletController.verifyPayphoneRecharge
     );
 
     //ADMINISTRADOR

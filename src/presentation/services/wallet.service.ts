@@ -305,7 +305,7 @@ export class WalletService {
   /**
    * ✅ Confirmación automática de recarga PayPhone
    */
-  async confirmPayphoneRecharge(rechargeId: string, remoteId: number) {
+  async confirmPayphoneRecharge(rechargeId: string, remoteId?: number) {
     const { RechargeRequest, StatusRecarga } = await import("../../data");
     const recharge = await RechargeRequest.findOne({
       where: { id: rechargeId },
@@ -313,14 +313,28 @@ export class WalletService {
     });
 
     if (!recharge) throw CustomError.notFound("Solicitud de recarga no encontrada");
+    
+    // Si ya está aprobado, no hay que hacer nada pero devolvemos éxito
     if (recharge.status === StatusRecarga.APROBADO) return { success: true, message: "Recarga ya procesada" };
 
     const settings = await GlobalSettings.findOne({ where: {} });
     if (!settings?.payphoneToken) throw CustomError.internalServer("Error de configuración PayPhone");
 
-    // Verificar con PayPhone
     const { PayphoneService } = await import("./payphone.service");
-    const verification = await PayphoneService.confirmPayment(remoteId, rechargeId, settings.payphoneToken);
+    let currentRemoteId = remoteId;
+
+    // Si no tenemos el RemoteId (ID de transacción de PayPhone), lo buscamos por clientTxId (rechargeId)
+    if (!currentRemoteId) {
+      console.log(`🔍 [Wallet Service] Buscando RemoteId para recarga: ${rechargeId}`);
+      const txInfo = await PayphoneService.getTransactionByClientTxId(rechargeId, settings.payphoneToken);
+      if (!txInfo || !txInfo.transactionId) {
+          throw CustomError.notFound("No se encontró la transacción en PayPhone. Verifique el estado en su panel de PayPhone.");
+      }
+      currentRemoteId = txInfo.transactionId;
+    }
+
+    // Verificar y Confirmar con PayPhone
+    const verification = await PayphoneService.confirmPayment(currentRemoteId!, rechargeId, settings.payphoneToken);
 
     if (verification && (verification.transactionStatus === "Approved" || verification.status === "Approved")) {
       // Acreditar saldo directamente
@@ -335,7 +349,7 @@ export class WalletService {
 
       // Actualizar solicitud
       recharge.status = StatusRecarga.APROBADO;
-      recharge.external_transaction_id = remoteId.toString();
+      recharge.external_transaction_id = currentRemoteId!.toString();
       recharge.resolved_at = new Date();
       await recharge.save();
 
