@@ -287,11 +287,13 @@ export class WalletService {
         cancellationUrl: `${envs.WEBSERVICE_URL_FRONT}/saldo?payment=cancelled&rechargeId=${recharge.id}`,
       });
 
-      console.log(`✅ [PayPhone Recharge] Checkout creado: ${checkout.payUrl}`);
+      console.log(`✅ [PayPhone Recharge] Checkout creado:`, checkout);
+
+      const payphoneUrl = checkout.payWithCard || checkout.payWithPayPhone || checkout.payUrl;
 
       return {
         rechargeId: recharge.id,
-        payphoneUrl: checkout.payUrl,
+        payphoneUrl,
       };
     } catch (error: any) {
       console.error(`❌ [PayPhone Recharge] Error al crear checkout:`, error?.response?.data || error.message);
