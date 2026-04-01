@@ -127,6 +127,12 @@ export class RechargeRoutes {
     );
 
     // 10. Configurar Purga
+    router.get(
+      "/configure-purge",
+      AuthAdminMiddleware.protect,
+      rechargeRequestController.getPurgeSettings
+    );
+
     router.post(
       "/configure-purge",
       AuthAdminMiddleware.protect,

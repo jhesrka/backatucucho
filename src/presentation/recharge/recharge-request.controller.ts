@@ -7,6 +7,7 @@ import {
 } from "../../domain";
 import { StatusRecarga } from "../../data";
 import { DateUtils } from "../../utils/date-utils";
+
 export class RechargeRequestController {
   constructor(private readonly rechargeService: RechargeRequestService) { }
 
@@ -386,6 +387,15 @@ export class RechargeRequestController {
     const { pin, days } = req.body;
     try {
       const result = await this.rechargeService.configurePurge(pin, days);
+      return res.status(200).json(result);
+    } catch (error) {
+      return this.handleError(error, res);
+    }
+  };
+
+  getPurgeSettings = async (_req: Request, res: Response): Promise<Response> => {
+    try {
+      const result = await this.rechargeService.getPurgeSettings();
       return res.status(200).json(result);
     } catch (error) {
       return this.handleError(error, res);

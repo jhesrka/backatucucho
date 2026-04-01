@@ -912,6 +912,14 @@ export class RechargeRequestService {
     };
   }
 
+  // 11. Obtener Configuración de Purga
+  async getPurgeSettings() {
+    const settings = await GlobalSettings.findOne({ where: {} });
+    return {
+      days: settings?.rechargeRetentionDays || 60
+    };
+  }
+
   // Helper: Validar día cerrado
   private async validateDayNotClosed(date: Date) {
     const dateStr = new Date(date).toISOString().split('T')[0];
