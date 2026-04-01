@@ -20175,3 +20175,24 @@
 {}
 2026-03-28T00:13:24.084Z - CONTROLLER ERROR: Error: Connection terminated due to connection timeout
 {}
+2026-03-31T23:50:47.919Z - CONTROLLER ERROR: Error: Connection terminated due to connection timeout
+{}
+2026-03-31T23:50:47.980Z - CONTROLLER ERROR: Error: Error al obtener dashboard operativo
+{}
+2026-04-01T00:06:09.565Z - CONTROLLER ERROR: Error: Error al obtener dashboard operativo
+{}
+2026-04-01T01:16:09.578Z - CONTROLLER ERROR: Error: Connection terminated due to connection timeout
+{}
+2026-04-01T02:25:09.574Z - CONTROLLER ERROR: Error: Connection terminated due to connection timeout
+{}
+2026-04-01T08:50:52.538Z - CONTROLLER ERROR: Error: Error al obtener dashboard operativo
+{}
+2026-04-01T08:50:54.399Z - CONTROLLER ERROR: QueryFailedError: Connection terminated unexpectedly
+{
+  "query": "SELECT COUNT(1) AS \"cnt\" FROM \"negocio\" \"Negocio\" WHERE ((\"Negocio\".\"created_at\" BETWEEN $1 AND $2))",
+  "parameters": [
+    "2026-03-31T10:00:00.000Z",
+    "2026-04-01T09:59:59.999Z"
+  ],
+  "driverError": {}
+}
