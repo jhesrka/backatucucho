@@ -1,4 +1,5 @@
-import { Wallet, WalletStatus, Transaction, TransactionReason, TransactionOrigin, GlobalSettings } from "../../data";
+import { BaseEntity, LessThanOrEqual, MoreThanOrEqual, Between, Not } from "typeorm";
+import { Wallet, WalletStatus, Transaction, TransactionReason, TransactionOrigin, GlobalSettings, User, Status, RechargeRequest, StatusRecarga } from "../../data";
 import { CustomError } from "../../domain";
 import { CreateWalletDTO } from "../../domain/dtos/wallet/CreateWallet.dto";
 import { UserService } from "./usuario/user.service";
@@ -137,61 +138,43 @@ export class WalletService {
     wallet.status = WalletStatus.ACTIVO;
     return await wallet.save();
   }
-  // ✅ Obtener transacciones de usuario
+  // ✅ Obtener transacciones de usuario (Consolidado)
   async getUserTransactions(
     userId: string,
-    page: number = 1,
-    limit: number = 10,
+    page = 1,
+    limit = 20,
     type?: string,
     startDate?: string,
     endDate?: string
   ) {
     const wallet = await Wallet.findOne({ where: { user: { id: userId } } });
-    if (!wallet) throw CustomError.notFound("Wallet no encontrada");
+    if (!wallet) throw CustomError.notFound("Wallet no encontrada para este usuario.");
 
-    const query = Transaction.createQueryBuilder("transaction")
-      .where("transaction.walletId = :walletId", { walletId: wallet.id })
-      .orderBy("transaction.created_at", "DESC")
-      .skip((page - 1) * limit)
-      .take(limit);
+    const whereCondition: any = {
+      wallet: { id: wallet.id }
+    };
+
+    if (startDate) {
+      const startDateValid = startDate;
+      const endDateValid = endDate || startDateValid;
+      const start = new Date(startDateValid);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(endDateValid);
+      end.setHours(23, 59, 59, 999);
+      whereCondition.created_at = Between(start, end);
+    }
 
     if (type) {
-      query.andWhere("transaction.type = :type", { type });
+      whereCondition.type = type as any;
     }
 
-    if (startDate && endDate) {
-      let start: Date;
-      let end: Date;
-
-      // Intentamos parsear como ISO primero. Si falla o es solo fecha, ajustamos.
-      const isShortDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
-
-      if (isShortDate(startDate)) {
-        const [y, m, d] = startDate.split('-').map(Number);
-        // 05:00 UTC = 00:00 Ecuador
-        start = new Date(Date.UTC(y, m - 1, d, 5, 0, 0));
-      } else {
-        start = new Date(startDate);
-      }
-
-      if (isShortDate(endDate)) {
-        const [y, m, d] = endDate.split('-').map(Number);
-        // 04:59:59 UTC del día siguiente = 23:59:59 Ecuador (mismo día al final)
-        end = new Date(Date.UTC(y, m - 1, d + 1, 4, 59, 59, 999));
-      } else {
-        end = new Date(endDate);
-      }
-
-      // Validar que sean fechas válidas antes de aplicar al query
-      if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
-        query.andWhere("transaction.created_at BETWEEN :startDate AND :endDate", {
-          startDate: start.toISOString(),
-          endDate: end.toISOString(),
-        });
-      }
-    }
-
-    const [transactions, total] = await query.getManyAndCount();
+    const [transactions, total] = await Transaction.findAndCount({
+      where: whereCondition,
+      order: { created_at: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+      relations: ["admin"]
+    });
 
     const transactionsSigned = await Promise.all(transactions.map(async (tx) => {
       if (tx.receipt_image && !tx.receipt_image.startsWith('http')) {
@@ -354,7 +337,6 @@ export class WalletService {
       await recharge.save();
 
       // Crear registro de transacción
-      const { Transaction, TransactionReason, TransactionOrigin } = await import("../../data");
       const transaction = new Transaction();
       transaction.wallet = wallet;
       transaction.amount = amount;
@@ -374,6 +356,96 @@ export class WalletService {
       recharge.admin_comment = "Pago denegado por PayPhone";
       await recharge.save();
       throw CustomError.badRequest("El pago no fue aprobado por el banco.");
+    }
+  }
+
+  /**
+   * 🔍 Buscar usuario para recarga (Admin only)
+   */
+  async findUserForRecharge(email: string) {
+    const user = await User.findOne({
+      where: { email: email.toLowerCase().trim() },
+      relations: ["wallet"]
+    });
+
+    if (!user) throw CustomError.notFound("Usuario no encontrado");
+    if (user.status === Status.DELETED) throw CustomError.badRequest("El usuario ha sido eliminado");
+
+    return {
+      id: user.id,
+      name: user.name,
+      surname: user.surname,
+      email: user.email,
+      whatsapp: user.whatsapp,
+      status: user.status,
+      balance: user.wallet ? Number(user.wallet.balance) : 0
+    };
+  }
+
+  /**
+   * 💵 Recarga en efectivo desde Administrador
+   */
+  async adminCashRecharge(userId: string, amount: number, adminId: string) {
+    if (amount <= 0) throw CustomError.badRequest("El monto debe ser mayor a cero");
+
+    const wallet = await Wallet.findOne({ 
+      where: { user: { id: userId } }, 
+      relations: ["user"] 
+    });
+
+    if (!wallet) throw CustomError.notFound("Wallet no encontrada para este usuario");
+
+    const previousBalance = Number(wallet.balance);
+    try {
+      // 1. Crear Registro en Tabla de Recargas (Para Auditoría Unificada)
+      const recharge = new RechargeRequest();
+      recharge.user = wallet.user;
+      recharge.amount = amount;
+      recharge.bank_name = 'EFECTIVO';
+      recharge.payment_method = 'CASH';
+      recharge.status = StatusRecarga.APROBADO;
+      recharge.receipt_number = `ADMIN-${adminId.slice(0, 5)}`;
+      recharge.receipt_image = 'ImgStore/cash_recharge.png'; // Placeholder
+      recharge.resolved_at = new Date();
+      recharge.admin_comment = "Recarga manual por administrador";
+      await recharge.save();
+
+      // 2. Actualizar Saldo
+      wallet.balance = previousBalance + amount;
+      await wallet.save();
+
+      // 3. Registro Crítico de Transacción (Vinculada)
+      const transaction = new Transaction();
+      transaction.wallet = wallet;
+      transaction.amount = amount;
+      transaction.type = 'credit';
+      transaction.status = 'APPROVED';
+      transaction.reason = TransactionReason.CASH_RECHARGE;
+      transaction.origin = TransactionOrigin.ADMIN;
+      transaction.reference = recharge.id; // Vinculación
+      transaction.previousBalance = previousBalance;
+      transaction.resultingBalance = Number(wallet.balance);
+      transaction.observation = "Recarga en efectivo realizada por Administrador";
+      transaction.admin = { id: adminId } as any;
+      
+      await transaction.save();
+
+      return {
+        success: true,
+        newBalance: wallet.balance,
+        transactionId: transaction.id,
+        summary: {
+          user: `${wallet.user.name} ${wallet.user.surname}`,
+          amount: amount,
+          date: transaction.created_at,
+          method: "Efectivo",
+          whatsapp: wallet.user.whatsapp,
+          adminId: adminId
+        }
+      };
+    } catch (error) {
+      console.error("Error en adminCashRecharge:", error);
+      throw CustomError.internalServer("Error al procesar la recarga en efectivo");
     }
   }
 }

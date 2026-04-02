@@ -447,6 +447,7 @@ export class PostgresDatabase {
         { type: 'storie_statusstorie_enum', label: 'PUBLISHED' },
         { type: 'storie_statusstorie_enum', label: 'HIDDEN' },
         { type: 'pedido_estado_enum', label: 'PENDIENTE_PAGO' },
+        { type: 'transactions_reason_enum', label: 'CASH_RECHARGE' },
       ];
 
       for (const e of enums) {

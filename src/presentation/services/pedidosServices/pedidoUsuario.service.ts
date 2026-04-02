@@ -190,6 +190,36 @@ export class PedidoUsuarioService {
     return { total, page, totalPages: Math.ceil(total / limit), pedidos: pedidosMapeados };
   }
 
+  async notificarYaVoy(pedidoId: string, clienteId: string) {
+    const pedido = await Pedido.findOne({
+      where: { id: pedidoId, cliente: { id: clienteId } },
+      relations: ["cliente"]
+    });
+    if (!pedido) throw CustomError.notFound("Pedido no encontrado");
+
+    getIO().to(pedido.cliente.id).emit("ya_voy", {
+      pedidoId: pedido.id,
+      mensaje: "¡Ya voy en camino!"
+    });
+
+    return { success: true };
+  }
+
+  async calificarPedido(dto: CalificarPedidoDTO) {
+    const { pedidoId, ratingNegocio, ratingMotorizado } = dto;
+    const pedido = await Pedido.findOne({
+      where: { id: pedidoId },
+      relations: ["negocio", "motorizado"]
+    });
+    if (!pedido) throw CustomError.notFound("Pedido no encontrado");
+
+    if (ratingNegocio !== undefined) pedido.ratingNegocio = ratingNegocio;
+    if (ratingMotorizado !== undefined) pedido.ratingMotorizado = ratingMotorizado;
+
+    await pedido.save();
+    return { success: true };
+  }
+
   async eliminarPedidoCliente(pedidoId: string, clienteId: string) {
     const p = await Pedido.findOne({ where: { id: pedidoId, cliente: { id: clienteId } } });
     if (!p || p.estado !== EstadoPedido.PENDIENTE) throw CustomError.notFound("No encontrado o no cancelable");

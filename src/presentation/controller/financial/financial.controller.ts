@@ -136,6 +136,25 @@ export class FinancialController {
         }
     };
 
+    getUnifiedTransactions = async (req: Request, res: Response) => {
+        try {
+            const { date, type, status } = req.query;
+            if (!date) throw CustomError.badRequest("Date required");
+
+            const types = typeof type === 'string' ? type.split(',') : (Array.isArray(type) ? type as string[] : undefined);
+            const statuses = typeof status === 'string' ? status.split(',') : (Array.isArray(status) ? status as string[] : undefined);
+
+            const result = await this.financialService.getUnifiedTransactions(
+                DateUtils.parseLocalDate(date as string),
+                types,
+                statuses
+            );
+            res.json(result);
+        } catch (error) {
+            this.handleError(error, res);
+        }
+    };
+
     // DAILY CLOSING //
     uploadBankStatement = async (req: Request, res: Response) => {
         try {
@@ -178,4 +197,5 @@ export class FinancialController {
             this.handleError(error, res);
         }
     };
-}
+} 
+

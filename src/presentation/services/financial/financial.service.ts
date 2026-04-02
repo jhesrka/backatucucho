@@ -14,7 +14,8 @@ import {
     TransaccionMotorizado,
     Subscription,
     BalanceNegocio,
-    EstadoBalance
+    EstadoBalance,
+    Storie
 } from "../../../data";
 import { FinancialClosing } from "../../../data/postgres/models/financial/FinancialClosing";
 import { Useradmin } from "../../../data/postgres/models/useradmin.model";
@@ -121,7 +122,7 @@ export class FinancialService {
                     skip: skip
                 });
 
-                const { Storie } = require("../../../data/postgres/models/stories.model");
+                // data = await Promise.all(storiesTx.map(async (t) => {
 
                 data = await Promise.all(storiesTx.map(async (t) => {
                     let storyDetail = 'Historia';
@@ -288,12 +289,54 @@ export class FinancialService {
             .select("SUM(r.amount)", "total")
             .addSelect("COUNT(r.id)", "count")
             .where("r.status = :status", { status: StatusRecarga.APROBADO })
+            .andWhere("r.payment_method <> 'CASH'") // EXCLUDE CASH TO AVOID DOUBLE COUNTING WITH MANUALTX
             .andWhere("r.created_at BETWEEN :start AND :end", { start: start, end: end })
             .getRawOne();
 
-        const totalRecargasObjectivo = Number(recharges.total || 0);
+        const totalRecargasAprobadas = Number(recharges.total || 0);
 
-        // 2. INGRESOS APP (GANANCIA REAL)
+        // 1.5. RECARGAS MANUALES (ADMIN_ADJUSTMENT / CASH_RECHARGE)
+        // A. SOLO EFECTIVO (CASH_RECHARGE)
+        const cashRaw = await Transaction.createQueryBuilder("t")
+            .select("SUM(t.amount)", "total")
+            .addSelect("COUNT(t.id)", "count")
+            .where("t.reason = 'CASH_RECHARGE'")
+            .andWhere("t.status = 'APPROVED'")
+            .andWhere("t.created_at BETWEEN :start AND :end", { start, end })
+            .getRawOne();
+        const totalEfectivo = Number(cashRaw.total || 0);
+
+        // B. SOLO AJUSTES (ADMIN_ADJUSTMENT)
+        const adjustmentsRaw = await Transaction.createQueryBuilder("t")
+            .select("SUM(t.amount)", "total")
+            .addSelect("COUNT(t.id)", "count")
+            .where("t.reason = 'ADMIN_ADJUSTMENT'")
+            .andWhere("t.status = 'APPROVED'")
+            .andWhere("t.created_at BETWEEN :start AND :end", { start, end })
+            .getRawOne();
+        const totalAjustes = Number(adjustmentsRaw.total || 0);
+
+        // C. BREAKDOWN RECARGAS TABLA (TRANSFER vs CARD)
+        const transferRaw = await RechargeRequest.createQueryBuilder("r")
+            .select("SUM(r.amount)", "total")
+            .where("r.status = :status", { status: StatusRecarga.APROBADO })
+            .andWhere("r.payment_method = 'TRANSF'")
+            .andWhere("r.created_at BETWEEN :start AND :end", { start, end })
+            .getRawOne();
+        const totalTransferencia = Number(transferRaw.total || 0);
+
+        const cardRaw = await RechargeRequest.createQueryBuilder("r")
+            .select("SUM(r.amount)", "total")
+            .where("r.status = :status", { status: StatusRecarga.APROBADO })
+            .andWhere("r.payment_method = 'CARD'")
+            .andWhere("r.created_at BETWEEN :start AND :end", { start, end })
+            .getRawOne();
+        const totalTarjeta = Number(cardRaw.total || 0);
+
+        const totalRecargasManuales = totalEfectivo + totalAjustes;
+        const totalRecargasObjectivo = totalRecargasAprobadas + totalRecargasManuales;
+        const countRecargas = Number(recharges.count || 0) + (Number(cashRaw.count || 0) || 0) + (Number(adjustmentsRaw.count || 0) || 0);
+
         // 2. INGRESOS APP (GANANCIA REAL)
         // A. Suscripciones Usuarios (Transaction -> Reason SUBSCRIPTION + Ref OK)
         const subsUserIncome = await Transaction.createQueryBuilder("t")
@@ -424,16 +467,23 @@ export class FinancialService {
             period: { start: start, end: end },
             bank: {
                 totalRecargas: totalRecargasObjectivo,
-                countRecargas: Number(recharges.count || 0)
+                countRecargas: countRecargas,
+                breakdown: {
+                    transferencia: totalTransferencia,
+                    tarjeta: totalTarjeta,
+                    efectivo: totalEfectivo,
+                    ajustes: totalAjustes
+                }
             },
             appRevenue: {
-                total: totalIngresosApp,
+                total: totalIngresosApp + totalRecargasManuales, 
                 breakdown: {
                     suscripciones: totalSubsUser,
                     suscripcionesNegocios: totalSubsBiz,
                     historias: totalStories,
                     comisionProductos: totalComisionProductos,
-                    comisionDomicilio: totalComisionDomicilios
+                    comisionDomicilio: totalComisionDomicilios,
+                    recargasManuales: totalRecargasManuales
                 }
             },
             deposits: {
@@ -443,8 +493,8 @@ export class FinancialService {
             liabilities: {
                 usuarios: totalSaldoUsuarios,
                 motorizados: totalPorPagarMotorizados,
-                tiendasPagar: totalPorPagarTiendas, // We owe them
-                tiendasCobrar: totalPorCobrarTiendas // They owe us
+                tiendasPagar: totalPorPagarTiendas, 
+                tiendasCobrar: totalPorCobrarTiendas 
             },
             expenses: {
                 motorizados: totalPagoMotorizadosArr
@@ -452,6 +502,161 @@ export class FinancialService {
             alert: (totalRecargasObjectivo - totalIngresosApp),
             isClosed: !!closingSnapshot
         };
+    }
+
+    async getUnifiedTransactions(date: Date, types?: string[], statuses?: string[]) {
+        // Match the "generous" range from getFinancialSummary for consistency
+        const start = new Date(date);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(date);
+        end.setHours(23, 59, 59, 999);
+
+        // 1. Fetch Manual Transactions (The Ledger)
+        const manualTxQuery = Transaction.createQueryBuilder("t")
+            .leftJoinAndSelect("t.wallet", "wallet")
+            .leftJoinAndSelect("wallet.user", "user")
+            .leftJoinAndSelect("t.admin", "admin")
+            .where("(t.reason = 'ADMIN_ADJUSTMENT' OR t.reason = 'CASH_RECHARGE' OR t.reason = 'RECHARGE')", { })
+            .andWhere("t.created_at BETWEEN :start AND :end", { start, end })
+            .orderBy("t.created_at", "DESC");
+
+        if (statuses && statuses.length > 0) {
+            const dbStatuses = statuses.map(s => {
+                const map: any = { 'APROBADO': 'APPROVED', 'PENDIENTE': 'PENDING', 'RECHAZADO': 'REJECTED' };
+                return map[s] || s;
+            });
+            manualTxQuery.andWhere("t.status IN (:...statuses)", { statuses: dbStatuses });
+        }
+
+        // Apply types to Transaction (Manual)
+        if (types && types.length > 0) {
+            const txParts = [];
+            if (types.includes('recarga_efectivo')) txParts.push("t.reason = 'CASH_RECHARGE'");
+            if (types.includes('recarga_transferencia')) txParts.push("t.reason = 'RECHARGE'");
+            if (types.includes('credito_manual')) txParts.push("(t.reason = 'ADMIN_ADJUSTMENT' AND t.type = 'credit')");
+            if (types.includes('debito_manual')) txParts.push("(t.reason = 'ADMIN_ADJUSTMENT' AND t.type = 'debit')");
+
+            if (txParts.length > 0) {
+                manualTxQuery.andWhere(`(${txParts.join(" OR ")})`);
+            } else if (!types.includes('payphone')) {
+                manualTxQuery.andWhere("1=0");
+            }
+        }
+
+        const manualTx = await manualTxQuery.getMany();
+
+        // 2. Recharge Requests (Automatic/Bank)
+        const linkedRequestIds = manualTx
+            .filter(t => t.reason === TransactionReason.RECHARGE && t.reference)
+            .map(t => t.reference);
+
+        const requestsQuery = RechargeRequest.createQueryBuilder("r")
+            .leftJoinAndSelect("r.user", "user")
+            .leftJoinAndSelect("user.wallet", "wallet")
+            .where("r.created_at BETWEEN :start AND :end", { start, end })
+            .andWhere("r.payment_method <> 'CASH'");
+
+        if (statuses && statuses.length > 0) {
+            requestsQuery.andWhere("r.status IN (:...reqStatuses)", { reqStatuses: statuses });
+        }
+
+        // Apply types to RechargeRequest
+        if (types && types.length > 0) {
+            const reqParts = [];
+            if (types.includes('payphone')) reqParts.push("r.payment_method = 'CARD'");
+            if (types.includes('recarga_transferencia')) reqParts.push("r.payment_method = 'TRANSFER'");
+            
+            if (reqParts.length > 0) {
+                requestsQuery.andWhere(`(${reqParts.join(" OR ")})`);
+            } else if (!types.includes('recarga_efectivo') && !types.includes('credito_manual') && !types.includes('debito_manual')) {
+                requestsQuery.andWhere("1=0");
+            }
+        }
+
+        if (linkedRequestIds.length > 0) {
+            requestsQuery.andWhere("r.id NOT IN (:...ids)", { ids: linkedRequestIds });
+        }
+
+        const requests = await requestsQuery.getMany();
+
+        const formattedRequests = await Promise.all(requests.map(async (r) => {
+            // If approved, try to find the actual transaction to get balance_after
+            let balanceAfter = null;
+            if (r.status === StatusRecarga.APROBADO) {
+                const tx = await Transaction.findOneBy({ reference: r.id });
+                if (tx) balanceAfter = Number(tx.resultingBalance);
+            }
+
+            return {
+                id: r.id,
+                created_at: r.created_at,
+                amount: Number(r.amount),
+                status: r.status,
+                bank_name: r.bank_name || 'RECARGA EXTERNA',
+                receipt_number: r.receipt_number || 'S/N',
+                type: r.payment_method === 'CARD' ? 'payphone' : 'recarga_transferencia',
+                user: {
+                    name: r.user.name,
+                    surname: r.user.surname,
+                    email: r.user.email,
+                    whatsapp: r.user.whatsapp,
+                    current_balance: Number(r.user.wallet?.balance || 0)
+                },
+                balance_after: balanceAfter
+            };
+        }));
+
+        const formattedManual = await Promise.all(manualTx.map(async (t) => {
+            let imageUrl = null;
+            try {
+                if (t.receipt_image) {
+                    imageUrl = await UploadFilesCloud.getFile({
+                        bucketName: envs.AWS_BUCKET_NAME,
+                        key: t.receipt_image,
+                    });
+                }
+            } catch (e) {
+                console.error("Error fetching receipt image:", e);
+            }
+
+            // Attempt to enrich "RECHARGE" with info from the request if reference exists
+            let bankInfo = (t.reason === 'RECHARGE' || t.reason === 'CASH_RECHARGE') ? 'BANCO / EFECTIVO' : 'AJUSTE INTERNO';
+            let refInfo = t.admin ? `ADMIN: ${t.admin.name}` : 'SISTEMA';
+
+            if (t.reason === TransactionReason.RECHARGE && t.reference) {
+                const req = await RechargeRequest.findOneBy({ id: t.reference });
+                if (req) {
+                    bankInfo = req.bank_name || bankInfo;
+                    refInfo = req.receipt_number || refInfo;
+                }
+            }
+
+            return {
+                id: t.id,
+                created_at: t.created_at,
+                amount: Number(t.amount),
+                status: 'APROBADO', // Manuals are approved if they exist
+                bank_name: bankInfo,
+                receipt_number: refInfo,
+                receiptImage: imageUrl,
+                type: (t.reason === 'CASH_RECHARGE') ? 'recarga_efectivo' :
+                      (t.reason === 'RECHARGE') ? 'recarga_transferencia' :
+                      (t.type === 'credit') ? 'credito_manual' : 'debito_manual',
+                user: {
+                    name: t.wallet.user.name,
+                    surname: t.wallet.user.surname,
+                    email: t.wallet.user.email,
+                    whatsapp: t.wallet.user.whatsapp,
+                    current_balance: Number(t.wallet.user.wallet?.balance || 0)
+                },
+                balance_after: Number(t.resultingBalance)
+            };
+        }));
+
+        // Combine and Sort
+        return [...formattedRequests, ...formattedManual].sort((a, b) => 
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
     }
 
     // ===================================
@@ -1062,4 +1267,5 @@ export class FinancialService {
 
         return result;
     }
-}
+} 
+

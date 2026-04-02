@@ -28,9 +28,8 @@ export class FinancialRoutes {
         router.post('/upload-statement', [AuthAdminMiddleware.protect, uploadSingleFile('file')], controller.uploadBankStatement);
         router.get('/day-status', AuthAdminMiddleware.protect, controller.getDayStatus);
         router.post('/close-day', AuthAdminMiddleware.protect, controller.closeDay);
-
-        // Internal Pending Closings
-        router.get('/pending-closings', AuthAdminMiddleware.protect, controller.getPendingShopClosings);
+        router.get('/unified-transactions', AuthAdminMiddleware.protect, controller.getUnifiedTransactions);
+        router.get('/pending-shop-closings', AuthAdminMiddleware.protect, controller.getPendingShopClosings);
 
         // Detailed Revenue (Auditable)
         router.get('/revenue-details', AuthAdminMiddleware.protect, controller.getAppRevenueDetails);

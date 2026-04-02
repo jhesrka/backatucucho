@@ -1,5 +1,6 @@
 import { Wallet, WalletStatus, GlobalSettings, Storie, FinancialClosing, RechargeRequest, StatusRecarga, Subscription } from "../../../data";
 import { Transaction, TransactionType, TransactionOrigin, TransactionReason } from "../../../data/postgres/models/transactionType.model";
+import { Between } from "typeorm";
 import { CustomError } from "../../../domain";
 import { encriptAdapter, UploadFilesCloud, envs } from "../../../config";
 
@@ -50,16 +51,17 @@ export class WalletService {
     }> {
         const skip = (page - 1) * limit;
 
+        const { DateUtils } = await import("../../../utils/date-utils");
+        const start = DateUtils.getDayRange(startDate || new Date()).start;
+        const end = DateUtils.getDayRange(endDate || startDate || new Date()).end;
+
         const query = Transaction.createQueryBuilder("t")
             .leftJoinAndSelect("t.admin", "admin")
-            .where("t.walletId = :walletId", { walletId })
+            .where("t.wallet = :walletId", { walletId })
+            .andWhere("t.created_at BETWEEN :start AND :end", { start, end })
             .orderBy("t.created_at", "DESC")
             .skip(skip)
             .take(limit);
-
-        if (startDate && endDate) {
-            query.andWhere("t.created_at BETWEEN :start AND :end", { start: startDate, end: endDate });
-        }
 
         if (type && type !== 'ALL') {
             // If type matches 'credit'/'debit', filter by type.

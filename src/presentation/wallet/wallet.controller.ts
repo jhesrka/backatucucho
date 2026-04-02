@@ -195,4 +195,38 @@ export class UserWalletController {
       return this.handleError(err, res);
     }
   };
+
+  /**
+   * 🔍 Buscar usuario por email para recarga manual
+   */
+  findUserForRecharge = async (req: Request, res: Response) => {
+    const { email } = req.params;
+    try {
+      const result = await this.walletService.findUserForRecharge(email);
+      return res.status(200).json(result);
+    } catch (err) {
+      return this.handleError(err, res);
+    }
+  };
+
+  /**
+   * 💵 Ejecutar recarga en efectivo (Solo Admin)
+   */
+  adminCashRecharge = async (req: Request, res: Response) => {
+    const { userId, amount } = req.body;
+    // El middleware AuthAdminMiddleware inyecta sessionAdmin en req y en req.body
+    const admin = (req as any).sessionAdmin || req.body.sessionAdmin;
+    const adminId = admin?.id;
+
+    if (!adminId) {
+      return res.status(403).json({ message: "No se identificó el administrador responsable" });
+    }
+
+    try {
+      const result = await this.walletService.adminCashRecharge(userId, Number(amount), adminId);
+      return res.status(200).json(result);
+    } catch (err) {
+      return this.handleError(err, res);
+    }
+  };
 }

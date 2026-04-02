@@ -103,6 +103,19 @@ export class WalletRoutes {
       walletController.activateWallet
     );
 
+    // ✅ NUEVO: Recarga en efectivo desde Admin
+    router.get(
+      "/admin/user-search/:email",
+      AuthAdminMiddleware.protect,
+      walletController.findUserForRecharge
+    );
+
+    router.post(
+      "/admin/cash-recharge",
+      AuthAdminMiddleware.protect,
+      walletController.adminCashRecharge
+    );
+
     return router;
   }
 }
