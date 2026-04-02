@@ -105,7 +105,7 @@ export class PayphoneService {
         try {
             console.log(`🚀 [Payphone] GET TRANSACTION BY CLIENT TX ID: ${clientTxId}`);
             // Note: Token should be cleaned
-            const { data } = await axios.get(`https://pay.payphonetodoesposible.com/api/button/V2/Get?clientTxId=${clientTxId}`, {
+            const { data } = await axios.get(`https://pay.payphonetodoesposible.com/api/button/V2/Get?clientTransactionId=${clientTxId}`, {
                 headers: {
                     Authorization: `Bearer ${token.trim()}`,
                     "Content-Type": "application/json",

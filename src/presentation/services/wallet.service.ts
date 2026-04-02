@@ -276,9 +276,13 @@ export class WalletService {
     try {
       console.log(`🚀 [PayPhone Recharge] Iniciando checkout: User #${userId}, Amount: ${amount} + Fee: ${fee} = Total: ${totalAmount}`);
       
+      // 🏆 USAR ID CORTO PARA PAYPHONE (Límite 20 caracteres)
+      const shortId = recharge.id.replace(/-/g, '').slice(0, 20);
+      console.log(`🚀 [PayPhone Recharge] ID PayPhone (20 chars): ${shortId}`);
+
       const checkout = await PayphoneService.createCheckout({
         amount: totalAmount, // Enviamos el TOTAL a PayPhone
-        clientTransactionId: recharge.id,
+        clientTransactionId: shortId,
         reference: `Recarga de Billetera - ${userId}`,
         storeId: settings.payphoneStoreId,
         token: settings.payphoneToken,
@@ -325,7 +329,15 @@ export class WalletService {
     // Si no tenemos el RemoteId (ID de transacción de PayPhone), lo buscamos por clientTxId (rechargeId)
     if (!currentRemoteId) {
       console.log(`🔍 [Wallet Service] Buscando RemoteId para recarga: ${rechargeId}`);
-      const txInfo = await PayphoneService.getTransactionByClientTxId(rechargeId, settings.payphoneToken);
+      
+      const shortIdForSearch = rechargeId.replace(/-/g, '').slice(0, 20);
+      let txInfo = await PayphoneService.getTransactionByClientTxId(shortIdForSearch, settings.payphoneToken);
+      
+      if (!txInfo) {
+          console.warn(`🔍 [Wallet Service] No hallado con shortId, probando con fullId...`);
+          txInfo = await PayphoneService.getTransactionByClientTxId(rechargeId, settings.payphoneToken);
+      }
+
       if (!txInfo || !txInfo.transactionId) {
           throw CustomError.notFound("No se encontró la transacción en PayPhone. Verifique el estado en su panel de PayPhone.");
       }
@@ -335,7 +347,20 @@ export class WalletService {
     // Verificar y Confirmar con PayPhone
     try {
       console.log(`🚀 [Payphone Service] Confirmando con PayPhone ID: ${currentRemoteId} | Client ID: ${rechargeId}`);
-      const verification = await PayphoneService.confirmPayment(currentRemoteId!, rechargeId, settings.payphoneToken);
+      
+      // 🛡️ INTENTO DINÁMICO: PayPhone corta a 20 caracteres el clientTransactionId
+      const shortId = rechargeId.replace(/-/g, '').slice(0, 20);
+      let verification: any;
+      
+      try {
+          // Intento 1: Con el ID que realmente le gusta a PayPhone (20 chars)
+          console.log(`🔍 [Payphone Service] Intento 1 (Short ID): ${shortId}`);
+          verification = await PayphoneService.confirmPayment(currentRemoteId!, shortId, settings.payphoneToken);
+      } catch (err1: any) {
+          console.warn(`⚠️ [Payphone Service] Intento con Short ID falló, probando Long ID...`);
+          // Intento 2: Con el ID completo por si acaso
+          verification = await PayphoneService.confirmPayment(currentRemoteId!, rechargeId, settings.payphoneToken);
+      }
       
       console.log("✅ [Payphone Service] Respuesta verificación:", JSON.stringify(verification));
 
