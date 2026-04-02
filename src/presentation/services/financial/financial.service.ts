@@ -504,9 +504,8 @@ export class FinancialService {
         };
     }
 
-    async getUnifiedTransactions(dateStr: string, types?: string[], statuses?: string[]) {
-        const start = new Date(`${dateStr}T00:00:00-05:00`);
-        const end = new Date(`${dateStr}T23:59:59-05:00`);
+    async getUnifiedTransactions(date: Date, types?: string[], statuses?: string[]) {
+        const { start, end } = DateUtils.getDayRange(date);
 
         // 1. Fetch Manual Transactions (The Ledger)
         const manualTxQuery = Transaction.createQueryBuilder("t")
