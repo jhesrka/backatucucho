@@ -346,23 +346,41 @@ export class WalletService {
 
     // Verificar y Confirmar con PayPhone
     try {
-      console.log(`🚀 [Payphone Service] Confirmando con PayPhone ID: ${currentRemoteId} | Client ID: ${rechargeId}`);
+      console.log(`🚀 [Payphone Service] Iniciando búsqueda exhaustiva de confirmación para: ${rechargeId}`);
       
-      // 🛡️ INTENTO DINÁMICO: PayPhone corta a 20 caracteres el clientTransactionId
-      const shortId = rechargeId.replace(/-/g, '').slice(0, 20);
-      let verification: any;
-      
-      try {
-          // Intento 1: Con el ID que realmente le gusta a PayPhone (20 chars)
-          console.log(`🔍 [Payphone Service] Intento 1 (Short ID): ${shortId}`);
-          verification = await PayphoneService.confirmPayment(currentRemoteId!, shortId, settings.payphoneToken);
-      } catch (err1: any) {
-          console.warn(`⚠️ [Payphone Service] Intento con Short ID falló, probando Long ID...`);
-          // Intento 2: Con el ID completo por si acaso
-          verification = await PayphoneService.confirmPayment(currentRemoteId!, rechargeId, settings.payphoneToken);
+      // Lista de variantes de ID para probar (PayPhone es inconsistente con el truncamiento)
+      const idVariations = [
+          rechargeId,                                      // 1. Completo con guiones
+          rechargeId.slice(0, 20),                        // 2. Recortado con guiones (20 chars)
+          rechargeId.replace(/-/g, ''),                   // 3. Completo sin guiones
+          rechargeId.replace(/-/g, '').slice(0, 20)      // 4. Recortado sin guiones (20 chars)
+      ];
+
+      let verification: any = null;
+      let lastError: any = null;
+      let usedId: string = "";
+
+      for (const idToTry of idVariations) {
+          try {
+              console.log(`🔍 [Payphone Service] Probando confirmar con ID: ${idToTry}`);
+              verification = await PayphoneService.confirmPayment(currentRemoteId!, idToTry, settings.payphoneToken);
+              if (verification) {
+                  usedId = idToTry;
+                  break; // ¡Encontrado y confirmado!
+              }
+          } catch (err: any) {
+              lastError = err?.response?.data || err.message;
+              console.warn(`❌ [Payphone Service] Falló con ID ${idToTry}:`, lastError);
+          }
+      }
+
+      if (!verification) {
+          console.error("🔥 [Payphone Service] Ninguna combinación de ID funcionó.");
+          throw CustomError.badRequest(`PayPhone: ${lastError?.message || "La transacción no pudo ser vinculada"}`);
       }
       
-      console.log("✅ [Payphone Service] Respuesta verificación:", JSON.stringify(verification));
+      console.log(`✅ [Payphone Service] EXITOSO con ID: ${usedId}`);
+      console.log("📄 [Payphone Service] Respuesta:", JSON.stringify(verification));
 
       if (verification && (
         verification.transactionStatus === "Approved" || 
