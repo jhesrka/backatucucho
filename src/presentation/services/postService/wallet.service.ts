@@ -540,7 +540,7 @@ export class WalletService {
     /**
      * ✅ Confirmación automática de recarga PayPhone
      */
-    async confirmPayphoneRecharge(rechargeId: string, remoteId: number) {
+    async confirmPayphoneRecharge(rechargeId: string, remoteId: number | string) {
         const recharge = await RechargeRequest.findOne({
             where: { id: rechargeId },
             relations: ["user"]

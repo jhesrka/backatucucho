@@ -212,7 +212,12 @@ export class PostgresDatabase {
         ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "maxRondasAsignacion" INT DEFAULT 4;
         ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "max_wait_time_acceptance" INT DEFAULT 10;
         ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "cleanupSubscriptionContentDays" INT DEFAULT 60;
+        ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "payphoneRechargePercentage" DECIMAL(5,2) DEFAULT 0.00;
         
+        ALTER TABLE "recharge_requests" ADD COLUMN IF NOT EXISTS "baseAmount" DECIMAL(10,2) DEFAULT 0.00;
+        ALTER TABLE "recharge_requests" ADD COLUMN IF NOT EXISTS "feeAmount" DECIMAL(10,2) DEFAULT 0.00;
+        ALTER TABLE "recharge_requests" ADD COLUMN IF NOT EXISTS "appliedPercentage" DECIMAL(5,2) DEFAULT 0.00;
+
         ALTER TABLE "transaccion_motorizado" ADD COLUMN IF NOT EXISTS "reintegrado" BOOLEAN DEFAULT false;
         ALTER TABLE "transaccion_motorizado" ADD COLUMN IF NOT EXISTS "updated_at" TIMESTAMPTZ DEFAULT NOW();
         

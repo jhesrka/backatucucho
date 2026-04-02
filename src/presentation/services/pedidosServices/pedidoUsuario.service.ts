@@ -43,7 +43,7 @@ export class PedidoUsuarioService {
     return { distanciaKm, costoEnvio };
   }
 
-  async confirmarPago(id: number, clientTxId: string) {
+  async confirmarPago(id: number | string, clientTxId: string) {
     const realOrderId = clientTxId.includes('--') ? clientTxId.split('--')[0] : clientTxId;
     const pedido = await Pedido.findOne({
       where: { id: realOrderId },
@@ -53,7 +53,14 @@ export class PedidoUsuarioService {
     if (!pedido.negocio.payphone_token) throw CustomError.badRequest("Negocio sin token Payphone");
 
     const result = await PayphoneService.confirmPayment(id, clientTxId, pedido.negocio.payphone_token);
-    if (result.transactionStatus === "Approved") {
+    
+    if (result && (
+      result.transactionStatus === "Approved" || 
+      result.status === "Approved" ||
+      result.transactionStatus === "approved" ||
+      result.status === "approved" ||
+      Number(result.statusCode) === 3
+    )) {
       pedido.estado = EstadoPedido.PENDIENTE;
       pedido.estadoPago = "PAGADO" as any;
       pedido.referenciaPago = id.toString();
@@ -64,9 +71,9 @@ export class PedidoUsuarioService {
         cliente: { id: pedido.cliente.id, name: pedido.cliente.name, surname: pedido.cliente.surname },
         createdAt: pedido.createdAt
       });
-      return { success: true, status: result.transactionStatus };
+      return { success: true, status: result.transactionStatus || result.status };
     }
-    return { success: false, status: result.transactionStatus };
+    return { success: false, status: result.transactionStatus || result.status, message: "El pago no fue aprobado por el banco." };
   }
 
   async crearPedido(dto: CreatePedidoDTO) {

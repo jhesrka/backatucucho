@@ -155,7 +155,7 @@ export class PedidoUsuarioController {
             return res.status(400).json({ message: "Faltan id o clientTransactionId" });
         }
 
-        const result = await this.pedidoUsuarioService.confirmarPago(+id, clientTransactionId);
+        const result = await this.pedidoUsuarioService.confirmarPago(id, clientTransactionId);
         return res.status(200).json(result);
     } catch (error) {
         return this.handleError(error, res);

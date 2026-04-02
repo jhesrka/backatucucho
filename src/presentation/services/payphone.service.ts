@@ -77,14 +77,17 @@ export class PayphoneService {
         }
     }
 
-    static async confirmPayment(id: number, clientTxId: string, token: string) {
+    static async confirmPayment(id: number | string, clientTransactionId: string, token: string) {
         try {
-            const payload = { id, clientTxId };
+            const payload = { 
+                id: Number(id), 
+                clientTransactionId 
+            };
             console.log("🚀 [Payphone] CONFIRMING:", JSON.stringify(payload, null, 2));
 
             const { data } = await axios.post(`${this.API_URL}/button/V2/Confirm`, payload, {
                 headers: {
-                    Authorization: `Bearer ${token}`,
+                    Authorization: `Bearer ${token.trim()}`,
                     "Content-Type": "application/json",
                 },
             });

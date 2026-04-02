@@ -93,6 +93,9 @@ export class GlobalSettings extends BaseEntity {
     @Column("varchar", { length: 100, nullable: true })
     payphoneStoreId?: string;
 
+    @Column("decimal", { precision: 5, scale: 2, default: 0.00 })
+    payphoneRechargePercentage: number;
+
     @UpdateDateColumn()
     updatedAt: Date;
 }

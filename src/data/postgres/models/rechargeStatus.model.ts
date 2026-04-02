@@ -25,7 +25,16 @@ export class RechargeRequest extends BaseEntity {
   user: User;
 
   @Column("decimal", { precision: 10, scale: 2, nullable: true })
-  amount: number | null;
+  amount: number | null; // TOTAL (Base + Fee)
+
+  @Column("decimal", { precision: 10, scale: 2, default: 0.00 })
+  baseAmount: number;
+
+  @Column("decimal", { precision: 10, scale: 2, default: 0.00 })
+  feeAmount: number;
+
+  @Column("decimal", { precision: 5, scale: 2, default: 0.00 })
+  appliedPercentage: number;
 
   @Column("varchar", {
     nullable: true,

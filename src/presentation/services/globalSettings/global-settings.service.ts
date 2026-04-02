@@ -21,6 +21,7 @@ export class GlobalSettingsService {
             settings.modo_operacion = "AUTO";
             settings.max_wait_time_acceptance = 10;
             settings.cleanupSubscriptionContentDays = 60;
+            settings.payphoneRechargePercentage = 0.00;
             await settings.save();
         }
         return settings;
@@ -31,16 +32,16 @@ export class GlobalSettingsService {
 
         let termsChanged = false;
 
-        if (data.supportWhatsapp !== undefined) settings.supportWhatsapp = data.supportWhatsapp;
+        if (data.supportWhatsapp) settings.supportWhatsapp = data.supportWhatsapp;
 
-        // Explicitly update text fields even if empty string (to allow clearing)
-        if (data.termsAndConditions !== undefined) {
+        // Explicitly update text fields if provided
+        if (data.termsAndConditions) {
             if (settings.termsAndConditions !== data.termsAndConditions) {
                 settings.termsAndConditions = data.termsAndConditions;
                 termsChanged = true;
             }
         }
-        if (data.privacyPolicy !== undefined) {
+        if (data.privacyPolicy) {
             if (settings.privacyPolicy !== data.privacyPolicy) {
                 settings.privacyPolicy = data.privacyPolicy;
                 termsChanged = true;
@@ -65,12 +66,9 @@ export class GlobalSettingsService {
         if (data.reportsRetentionDays !== undefined) settings.reportsRetentionDays = data.reportsRetentionDays;
         if (data.freePostsLimit !== undefined) settings.freePostsLimit = data.freePostsLimit;
 
-        // NEW: Schedule Settings
-        if (data.hora_apertura !== undefined) settings.hora_apertura = data.hora_apertura;
-        if (data.hora_cierre !== undefined) settings.hora_cierre = data.hora_cierre;
-        // status/mode should be handled by specific methods, but allowing manual override for flexibility could be okay.
-        // But per requirements, use specific endpoints. However, an admin might want to force "OPEN" manually.
-        // Let's stick to the requested endpoints for status/mode, but allow updating hours here.
+        // NEW: Schedule Settings (FALSY SKIP TO AVOID DB ERROR WITH EMPTY STRINGS)
+        if (data.hora_apertura) settings.hora_apertura = data.hora_apertura;
+        if (data.hora_cierre) settings.hora_cierre = data.hora_cierre;
 
         if (data.subscriptionBasicPrice !== undefined) settings.subscriptionBasicPrice = data.subscriptionBasicPrice;
         if (data.subscriptionBasicPromoPrice !== undefined) settings.subscriptionBasicPromoPrice = data.subscriptionBasicPromoPrice;
@@ -84,6 +82,7 @@ export class GlobalSettingsService {
         // Payphone
         if (data.payphoneToken !== undefined) settings.payphoneToken = data.payphoneToken;
         if (data.payphoneStoreId !== undefined) settings.payphoneStoreId = data.payphoneStoreId;
+        if (data.payphoneRechargePercentage !== undefined) settings.payphoneRechargePercentage = Number(data.payphoneRechargePercentage);
 
         await settings.save();
         return settings;

@@ -155,13 +155,22 @@ export class WalletService {
     };
 
     if (startDate) {
-      const startDateValid = startDate;
-      const endDateValid = endDate || startDateValid;
-      const start = new Date(startDateValid);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(endDateValid);
-      end.setHours(23, 59, 59, 999);
-      whereCondition.created_at = Between(start, end);
+      // 💎 Extract only YYYY-MM-DD using regex to be completely safe from any format
+      const dateRegex = /(\d{4}-\d{2}-\d{2})/;
+      const startMatch = startDate.match(dateRegex);
+      const endMatch = (endDate || startDate).match(dateRegex);
+
+      if (startMatch && endMatch) {
+         const startStr = startMatch[1];
+         const endStr = endMatch[1];
+         
+         const start = new Date(`${startStr}T00:00:00-05:00`);
+         const end = new Date(`${endStr}T23:59:59-05:00`);
+         
+         if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+           whereCondition.created_at = Between(start, end);
+         }
+      }
     }
 
     if (type) {
@@ -242,11 +251,18 @@ export class WalletService {
       throw CustomError.badRequest("La pasarela de pago PayPhone no está configurada por el administrador.");
     }
 
+    const percentage = Number(settings.payphoneRechargePercentage || 0);
+    const fee = amount * (percentage / 100);
+    const totalAmount = amount + fee;
+
     // 2. Crear solicitud de recarga pendiente
     const { RechargeRequest, StatusRecarga } = await import("../../data");
     const recharge = new RechargeRequest();
     recharge.user = { id: userId } as any;
-    recharge.amount = amount;
+    recharge.amount = totalAmount; // TOTAL (Base + Fee)
+    recharge.baseAmount = amount;   // Monto que el usuario quería
+    recharge.feeAmount = fee;       // Comisión aplicada
+    recharge.appliedPercentage = percentage;
     recharge.bank_name = "PayPhone (Tarjeta)";
     recharge.payment_method = "CARD";
     recharge.status = StatusRecarga.PENDIENTE;
@@ -258,10 +274,10 @@ export class WalletService {
     const { PayphoneService } = await import("./payphone.service");
 
     try {
-      console.log(`🚀 [PayPhone Recharge] Iniciando checkout: User #${userId}, Amount: ${amount}, Store: ${settings.payphoneStoreId}`);
+      console.log(`🚀 [PayPhone Recharge] Iniciando checkout: User #${userId}, Amount: ${amount} + Fee: ${fee} = Total: ${totalAmount}`);
       
       const checkout = await PayphoneService.createCheckout({
-        amount,
+        amount: totalAmount, // Enviamos el TOTAL a PayPhone
         clientTransactionId: recharge.id,
         reference: `Recarga de Billetera - ${userId}`,
         storeId: settings.payphoneStoreId,
@@ -288,7 +304,7 @@ export class WalletService {
   /**
    * ✅ Confirmación automática de recarga PayPhone
    */
-  async confirmPayphoneRecharge(rechargeId: string, remoteId?: number) {
+  async confirmPayphoneRecharge(rechargeId: string, remoteId?: number | string) {
     const { RechargeRequest, StatusRecarga } = await import("../../data");
     const recharge = await RechargeRequest.findOne({
       where: { id: rechargeId },
@@ -319,15 +335,21 @@ export class WalletService {
     // Verificar y Confirmar con PayPhone
     const verification = await PayphoneService.confirmPayment(currentRemoteId!, rechargeId, settings.payphoneToken);
 
-    if (verification && (verification.transactionStatus === "Approved" || verification.status === "Approved")) {
+    if (verification && (
+      verification.transactionStatus === "Approved" || 
+      verification.status === "Approved" ||
+      verification.transactionStatus === "approved" ||
+      verification.status === "approved" ||
+      Number(verification.statusCode) === 3
+    )) {
       // Acreditar saldo directamente
       const wallet = await Wallet.findOne({ where: { user: { id: recharge.user.id } } });
       if (!wallet) throw CustomError.notFound("Billetera no encontrada");
 
       const previousBalance = Number(wallet.balance);
-      const amount = Number(recharge.amount);
+      const amountToCredit = Number(recharge.baseAmount || recharge.amount);
 
-      wallet.balance = previousBalance + amount;
+      wallet.balance = previousBalance + amountToCredit;
       await wallet.save();
 
       // Actualizar solicitud
@@ -339,7 +361,7 @@ export class WalletService {
       // Crear registro de transacción
       const transaction = new Transaction();
       transaction.wallet = wallet;
-      transaction.amount = amount;
+      transaction.amount = amountToCredit; // Crédito Real
       transaction.type = 'credit';
       transaction.status = 'APPROVED';
       transaction.reason = TransactionReason.RECHARGE;
