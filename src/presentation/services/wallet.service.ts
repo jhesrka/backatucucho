@@ -333,51 +333,75 @@ export class WalletService {
     }
 
     // Verificar y Confirmar con PayPhone
-    const verification = await PayphoneService.confirmPayment(currentRemoteId!, rechargeId, settings.payphoneToken);
+    try {
+      console.log(`🚀 [Payphone Service] Confirmando con PayPhone ID: ${currentRemoteId} | Client ID: ${rechargeId}`);
+      const verification = await PayphoneService.confirmPayment(currentRemoteId!, rechargeId, settings.payphoneToken);
+      
+      console.log("✅ [Payphone Service] Respuesta verificación:", JSON.stringify(verification));
 
-    if (verification && (
-      verification.transactionStatus === "Approved" || 
-      verification.status === "Approved" ||
-      verification.transactionStatus === "approved" ||
-      verification.status === "approved" ||
-      Number(verification.statusCode) === 3
-    )) {
-      // Acreditar saldo directamente
-      const wallet = await Wallet.findOne({ where: { user: { id: recharge.user.id } } });
-      if (!wallet) throw CustomError.notFound("Billetera no encontrada");
+      if (verification && (
+        verification.transactionStatus === "Approved" || 
+        verification.status === "Approved" ||
+        verification.transactionStatus === "approved" ||
+        verification.status === "approved" ||
+        Number(verification.statusCode) === 3
+      )) {
+        // Acreditar saldo directamente
+        const wallet = await Wallet.findOne({ where: { user: { id: recharge.user.id } } });
+        if (!wallet) throw CustomError.notFound("Billetera no encontrada para el usuario de la recarga");
 
-      const previousBalance = Number(wallet.balance);
-      const amountToCredit = Number(recharge.baseAmount || recharge.amount);
+        const previousBalance = Number(wallet.balance || 0);
+        const amountToCredit = Number(recharge.baseAmount || recharge.amount || 0);
 
-      wallet.balance = previousBalance + amountToCredit;
-      await wallet.save();
+        console.log(`💰 [Payphone Service] Acreditando: ${amountToCredit} | Saldo previo: ${previousBalance}`);
+        
+        if (isNaN(amountToCredit) || amountToCredit <= 0) {
+            console.error("❌ [Payphone Service] Monto inválido detectado:", { amountToCredit, base: recharge.baseAmount, total: recharge.amount });
+            throw CustomError.internalServer("Error técnico: Monto de acreditación inválido");
+        }
 
-      // Actualizar solicitud
-      recharge.status = StatusRecarga.APROBADO;
-      recharge.external_transaction_id = currentRemoteId!.toString();
-      recharge.resolved_at = new Date();
-      await recharge.save();
+        wallet.balance = previousBalance + amountToCredit;
+        await wallet.save();
 
-      // Crear registro de transacción
-      const transaction = new Transaction();
-      transaction.wallet = wallet;
-      transaction.amount = amountToCredit; // Crédito Real
-      transaction.type = 'credit';
-      transaction.status = 'APPROVED';
-      transaction.reason = TransactionReason.RECHARGE;
-      transaction.origin = TransactionOrigin.USER;
-      transaction.previousBalance = previousBalance;
-      transaction.resultingBalance = Number(wallet.balance);
-      transaction.observation = "Recarga automática con PayPhone (Tarjeta)";
-      transaction.reference = recharge.id;
-      await transaction.save();
+        // Actualizar solicitud
+        recharge.status = StatusRecarga.APROBADO;
+        recharge.external_transaction_id = currentRemoteId!.toString();
+        recharge.resolved_at = new Date();
+        await recharge.save();
 
-      return { success: true, newBalance: wallet.balance };
-    } else {
-      recharge.status = StatusRecarga.RECHAZADO;
-      recharge.admin_comment = "Pago denegado por PayPhone";
-      await recharge.save();
-      throw CustomError.badRequest("El pago no fue aprobado por el banco.");
+        // Crear registro de transacción
+        console.log(`📝 [Payphone Service] Creando registro de transacción...`);
+        const transaction = new Transaction();
+        transaction.wallet = wallet;
+        transaction.amount = amountToCredit;
+        transaction.type = 'credit';
+        transaction.status = 'APPROVED';
+        transaction.reason = TransactionReason.RECHARGE;
+        transaction.origin = TransactionOrigin.USER;
+        transaction.previousBalance = previousBalance;
+        transaction.resultingBalance = Number(wallet.balance);
+        transaction.reference = recharge.id;
+        
+        await transaction.save();
+        console.log(`✨ [Payphone Service] PROCESO COMPLETADO EXITOSAMENTE`);
+
+        return { success: true, message: "Recarga confirmada y acreditada" };
+      } else {
+        const errorMsg = verification?.message || "La transacción no fue aprobada por PayPhone";
+        console.warn(`⚠️ [Payphone Service] Pago NO aprobado:`, verification);
+        
+        recharge.status = StatusRecarga.RECHAZADO;
+        recharge.admin_comment = "Pago denegado por PayPhone";
+        await recharge.save();
+        
+        throw CustomError.badRequest(errorMsg);
+      }
+    } catch (payError: any) {
+        if (payError instanceof CustomError) throw payError;
+        
+        console.error("🔥 [Payphone Service] FATAL ERROR:", payError?.response?.data || payError.message);
+        const errorMsg = payError?.response?.data?.message || payError.message || "Error en la comunicación con PayPhone";
+        throw CustomError.internalServer(`PayPhone Error: ${errorMsg}`);
     }
   }
 
