@@ -14,6 +14,9 @@ export enum StatusPost {
   FLAGGED = "FLAGGED",
   HIDDEN = "HIDDEN",
   DELETED = "DELETED",
+  SCHEDULED = "SCHEDULED",
+  CANCELLED = "CANCELLED",
+  FAILED = "FAILED",
 }
 
 @Entity()
@@ -49,6 +52,12 @@ export class Post extends BaseEntity {
 
   @CreateDateColumn({ type: 'timestamptz' }) // <-- Ahora sí es timestamp real UTC
   createdAt: Date;
+
+  @Column({ type: "timestamptz", nullable: true })
+  scheduledAt: Date; // Fecha/hora para publicación automática
+
+  @Column({ type: "timestamptz", nullable: true })
+  publishedAt: Date; // Fecha/hora real en que se publicó
 
   @Column({ type: "timestamptz", nullable: true })
   expiresAt: Date; // Fecha de expiración (solo para posts gratis)

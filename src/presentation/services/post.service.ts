@@ -373,15 +373,48 @@ export class PostService {
       post.title = postData.title.toLowerCase().trim();
       post.subtitle = postData.subtitle.toLowerCase().trim();
       post.content = postData.content.trim();
-      post.statusPost = StatusPost.PUBLISHED;
       post.user = user;
       post.isPaid = postData.isPaid || false;
       post.imgpost = keys;
       post.showWhatsApp = postData.showWhatsApp ?? true;
       post.showLikes = postData.showLikes ?? true;
 
-      // Configurar expiración para posts gratuitos
+      // --- Lógica de Programación ---
+      if (postData.scheduledAt) {
+        const scheduledDate = new Date(postData.scheduledAt);
+        const now = new Date();
+        const minDate = new Date(now.getTime() + 55 * 60 * 1000); // ~1 hora (margen de 5 min)
 
+        if (scheduledDate < minDate) {
+          throw CustomError.badRequest("La fecha programada debe ser al menos 1 hora en el futuro.");
+        }
+
+        const latestSub = await this.subscriptionService.getLatestSubscription(user.id);
+        if (!latestSub || !latestSub.isActive()) {
+          throw CustomError.forbiden("No puedes programar publicaciones sin una suscripción activa.");
+        }
+
+        if (latestSub.endDate && scheduledDate > latestSub.endDate) {
+          throw CustomError.forbiden(`No puedes programar fuera del rango de tu suscripción (Expiración: ${latestSub.endDate.toLocaleDateString()}).`);
+        }
+
+        // Límite de posts programados
+        const scheduledCount = await Post.count({
+          where: { user: { id: user.id }, statusPost: StatusPost.SCHEDULED }
+        });
+        if (scheduledCount >= 10) {
+          throw CustomError.badRequest("Has alcanzado el límite máximo de 10 publicaciones programadas.");
+        }
+
+        post.statusPost = StatusPost.SCHEDULED;
+        post.scheduledAt = scheduledDate;
+      } else {
+        post.statusPost = StatusPost.PUBLISHED;
+        post.publishedAt = new Date();
+      }
+      // ------------------------------
+
+      // Configurar expiración para posts gratuitos
       if (!post.isPaid && freePostTracker && settings) {
         const durationMs = (settings.freePostDurationDays * 24 * 60 * 60 * 1000) +
           (settings.freePostDurationHours * 60 * 60 * 1000);
@@ -403,6 +436,8 @@ export class PostService {
         imgpost: urls,
         expiresAt: postSaved.expiresAt,
         createdAt: postSaved.createdAt,
+        scheduledAt: postSaved.scheduledAt,
+        statusPost: postSaved.statusPost,
         showWhatsApp: postSaved.showWhatsApp,
         showLikes: postSaved.showLikes,
         user: {
@@ -418,7 +453,7 @@ export class PostService {
 
       // 6. Emitir evento de socket
       getIO().emit("postChanged", {
-        action: "create",
+        action: postData.scheduledAt ? "schedule" : "create",
         post: safeResponse,
       });
 
@@ -1009,5 +1044,99 @@ export class PostService {
       console.error("Error al expirar posts:", error);
       throw CustomError.internalServer("Error al procesar la expiración de posts");
     }
+  }
+  // ==========================================
+  // 📅 SCHEDULED POSTS METHODS
+  // ==========================================
+
+  async getScheduledPostsByUser(userId: string) {
+    const posts = await Post.find({
+      where: { user: { id: userId }, statusPost: StatusPost.SCHEDULED },
+      order: { scheduledAt: "ASC" },
+    });
+
+    return Promise.all(posts.map(async (post) => {
+      const imgs = await Promise.all(
+        (post.imgpost ?? []).map((img) =>
+          UploadFilesCloud.getFile({
+            bucketName: envs.AWS_BUCKET_NAME,
+            key: img,
+          }).catch(() => null)
+        )
+      );
+      return { ...post, imgpost: imgs.filter(i => i) };
+    }));
+  }
+
+  async cancelScheduledPost(id: string, userId: string) {
+    const post = await Post.findOne({ where: { id, user: { id: userId } } });
+    if (!post) throw CustomError.notFound("Post programado no encontrado");
+    if (post.statusPost !== StatusPost.SCHEDULED) {
+      throw CustomError.badRequest("Solo se pueden cancelar publicaciones programadas");
+    }
+
+    post.statusPost = StatusPost.CANCELLED;
+    await post.save();
+
+    getIO().emit("postChanged", { action: "cancel", postId: id });
+    return { message: "Publicación programada cancelada" };
+  }
+
+  async processScheduledPosts() {
+    const now = new Date();
+    const scheduledPosts = await Post.createQueryBuilder("post")
+      .leftJoinAndSelect("post.user", "user")
+      .where("post.statusPost = :status", { status: StatusPost.SCHEDULED })
+      .andWhere("post.scheduledAt <= :now", { now })
+      .getMany();
+
+    if (scheduledPosts.length === 0) return;
+
+    for (const post of scheduledPosts) {
+      try {
+        // Validar si el usuario sigue teniendo suscripción activa
+        const hasSub = await this.subscriptionService.hasActiveSubscription(post.user.id);
+        if (!hasSub) {
+          post.statusPost = StatusPost.FAILED;
+          // Tal vez añadir una observación
+          await post.save();
+          continue;
+        }
+
+        post.statusPost = StatusPost.PUBLISHED;
+        post.publishedAt = new Date();
+        post.createdAt = new Date(); // Actualizamos createdAt para que aparezca arriba en el feed
+        await post.save();
+
+        // Emitir evento de publicación
+        getIO().emit("postChanged", { action: "published", post });
+        console.log(`✅ Post ${post.id} publicado automáticamente.`);
+      } catch (error) {
+        console.error(`❌ Error procesando post programado ${post.id}:`, error);
+        post.statusPost = StatusPost.FAILED;
+        await post.save();
+      }
+    }
+  }
+
+  async updateScheduledPost(id: string, userId: string, data: { content?: string; scheduledAt?: string }) {
+    const post = await Post.findOne({ where: { id, user: { id: userId } } });
+    if (!post) throw CustomError.notFound("Post programado no encontrado");
+    if (post.statusPost !== StatusPost.SCHEDULED) {
+       throw CustomError.badRequest("Solo se pueden editar publicaciones programadas");
+    }
+
+    if (data.content) post.content = data.content;
+    if (data.scheduledAt) {
+      const scheduledDate = new Date(data.scheduledAt);
+      const now = new Date();
+      if (scheduledDate < new Date(now.getTime() + 55 * 60 * 1000)) {
+        throw CustomError.badRequest("La nueva fecha debe ser al menos 1 hora en el futuro");
+      }
+      post.scheduledAt = scheduledDate;
+    }
+
+    await post.save();
+    return post;
   }
 }

@@ -7,4 +7,5 @@ export class CreatePostDTO {
   readonly isPaid?: boolean; // Opcional (default: false)
   readonly showWhatsApp?: boolean;
   readonly showLikes?: boolean;
+  readonly scheduledAt?: string; // Fecha en formato ISO o string para parsear
 }

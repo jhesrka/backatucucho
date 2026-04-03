@@ -40,6 +40,7 @@ export class PostController {
           isPaid: isPaidBool,
           showWhatsApp: showWhatsAppBool,
           showLikes: showLikesBool,
+          scheduledAt: req.body.scheduledAt,
         },
         req.files as Express.Multer.File[]
       )
@@ -350,5 +351,47 @@ export class PostController {
       .catch(error => this.handleError(error, res));
   }
 
+
+  // ==========================================
+  // 📅 SCHEDULED POSTS
+  // ==========================================
+
+  getScheduledPostsByUser = async (req: Request, res: Response) => {
+    try {
+      const userId = req.body.sessionUser?.id;
+      if (!userId) return res.status(401).json({ message: "No autenticado" });
+
+      const data = await this.postService.getScheduledPostsByUser(userId);
+      res.status(200).json({ success: true, posts: data });
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  }
+
+  cancelScheduledPost = async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const userId = req.body.sessionUser?.id;
+      if (!userId) return res.status(401).json({ message: "No autenticado" });
+
+      const result = await this.postService.cancelScheduledPost(id, userId);
+      res.status(200).json({ success: true, ...result });
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  }
+
+  updateScheduledPost = async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const userId = req.body.sessionUser?.id;
+      if (!userId) return res.status(401).json({ message: "No autenticado" });
+
+      const post = await this.postService.updateScheduledPost(id, userId, req.body);
+      res.status(200).json({ success: true, post });
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  }
 
 }

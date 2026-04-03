@@ -16,6 +16,7 @@ import { startGlobalScheduleCron } from "./cron/global-schedule.cron";
 import { startStorieExpirationCron } from "./cron/storie-expiration.cron";
 import { startPedidoExpirationCron } from "./cron/pedidoAcceptanceExpiration.cron";
 import { startSubscriptionCleanupCron } from "./cron/subscription-cleanup.cron";
+import { startPostSchedulerCron } from "./cron/post-scheduler.cron";
 
 import { ActivityService } from "./presentation/services/activity.service";
 import { getIO } from "./config/socket";
@@ -45,6 +46,7 @@ async function main() {
   startStorieExpirationCron();
   startPedidoExpirationCron();
   startSubscriptionCleanupCron();
+  startPostSchedulerCron();
 
   console.log("🚀 Iniciando servidor...");
   await server.start();

@@ -44,6 +44,25 @@ export class PostRoutes {
     router.get("/search", AuthMiddleware.protect, postController.searchPost);
 
     // ===================================
+    // 📅 SCHEDULED POSTS ROUTES
+    // ===================================
+    router.get(
+      "/scheduled/user",
+      AuthMiddleware.protect,
+      postController.getScheduledPostsByUser
+    );
+    router.delete(
+      "/scheduled/:id",
+      AuthMiddleware.protect,
+      postController.cancelScheduledPost
+    );
+    router.patch(
+      "/scheduled/:id",
+      AuthMiddleware.protect,
+      postController.updateScheduledPost
+    );
+
+    // ===================================
     // 🛡️ NEW ADMIN DASHBOARD ROUTES
     // ===================================
     router.get(

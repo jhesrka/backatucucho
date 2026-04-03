@@ -119,6 +119,8 @@ export class PostgresDatabase {
         ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "videoId" VARCHAR DEFAULT NULL;
         ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "videoEmbedUrl" VARCHAR DEFAULT NULL;
         ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "videoOriginalUrl" VARCHAR DEFAULT NULL;
+        ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "scheduledAt" TIMESTAMPTZ DEFAULT NULL;
+        ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "publishedAt" TIMESTAMPTZ DEFAULT NULL;
         
         ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "subscriptionBasicPrice" DECIMAL(10,2) DEFAULT 5.00;
         ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "subscriptionBasicPromoPrice" DECIMAL(10,2);
@@ -448,6 +450,9 @@ export class PostgresDatabase {
         { type: 'post_statuspost_enum', label: 'FLAGGED' },
         { type: 'post_statuspost_enum', label: 'PUBLISHED' },
         { type: 'post_statuspost_enum', label: 'HIDDEN' },
+        { type: 'post_statuspost_enum', label: 'SCHEDULED' },
+        { type: 'post_statuspost_enum', label: 'CANCELLED' },
+        { type: 'post_statuspost_enum', label: 'FAILED' },
         { type: 'storie_statusstorie_enum', label: 'FLAGGED' },
         { type: 'storie_statusstorie_enum', label: 'PUBLISHED' },
         { type: 'storie_statusstorie_enum', label: 'HIDDEN' },
