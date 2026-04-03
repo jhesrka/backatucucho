@@ -477,6 +477,8 @@ export class FinancialService {
             },
             appRevenue: {
                 total: totalIngresosApp + totalRecargasManuales, 
+                directos: totalSubsUser + totalSubsBiz + totalStories,
+                comisiones: totalComisionProductos + totalComisionDomicilios,
                 breakdown: {
                     suscripciones: totalSubsUser,
                     suscripcionesNegocios: totalSubsBiz,
