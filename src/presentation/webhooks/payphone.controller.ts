@@ -10,9 +10,13 @@ export class PayphoneWebhookController {
         console.log(`🔔 [Payphone Webhook] Recibido: Transacción #${transactionId}, ID Cliente #${clientTransactionId}, Status: ${status}`);
 
         try {
+            const realOrderId = clientTransactionId?.includes('--') 
+                ? clientTransactionId.split('--')[0] 
+                : clientTransactionId;
+
             // 1. Intentar buscar si es un Pedido
             const pedido = await Pedido.findOne({
-                where: { id: clientTransactionId },
+                where: { id: realOrderId },
                 relations: ["negocio", "cliente", "productos", "productos.producto"]
             });
 
@@ -60,7 +64,7 @@ export class PayphoneWebhookController {
                 } else {
                     pedido.estadoPago = EstadoPago.FALLIDO;
                     await pedido.save();
-                    return res.status(200).json({ message: "Pago de pedido no aprobado" });
+                    return res.status(200).json({ message: "Pago de pedido no aprobado" }); // Always 200 to acknowledge webhook
                 }
             }
 
@@ -86,7 +90,7 @@ export class PayphoneWebhookController {
             }
 
             console.error(`❌ [Payphone Webhook] ID ${clientTransactionId} no reconocido como pedido ni recarga`);
-            return res.status(404).json({ message: "ID no reconocido" });
+            return res.status(200).json({ message: "Transacción no procesada pero evento recibido" }); // Must answer 200 OK so Payphone doesn't reverse
 
         } catch (error) {
             console.error("❌ [Payphone Webhook Error]:", error);

@@ -513,6 +513,8 @@ export class WalletService {
         recharge.transaction_date = new Date();
         await recharge.save();
 
+        console.log(`🚀 [Wallet PayPhone] Iniciando recarga ID: ${recharge.id} | User ID: ${userId} | Monto: ${amount}`);
+
         // 3. Crear Checkout en PayPhone
         const { PayphoneService } = await import("../payphone.service");
         
@@ -523,7 +525,11 @@ export class WalletService {
                 reference: `Recarga de Billetera - ${userId}`,
                 storeId: settings.payphoneStoreId,
                 token: settings.payphoneToken,
+                responseUrl: `${envs.WEBSERVICE_URL_FRONT}/saldo?payment=success&rechargeId=${recharge.id}`,
+                cancellationUrl: `${envs.WEBSERVICE_URL_FRONT}/saldo?payment=cancelled&rechargeId=${recharge.id}`,
             });
+
+            console.log(`✅ [Wallet PayPhone] Checkout Creado | URL: ${checkout.payUrl}`);
 
             return {
                 rechargeId: recharge.id,
@@ -554,7 +560,10 @@ export class WalletService {
 
         // Verificar con PayPhone
         const { PayphoneService } = await import("../payphone.service");
+        
+        console.log(`🔍 [Wallet PayPhone] Verificando estado | Recharge ID: ${rechargeId} | Remote ID: ${remoteId}`);
         const verification = await PayphoneService.confirmPayment(remoteId, rechargeId, settings.payphoneToken);
+        console.log(`📡 [Wallet PayPhone] Respuesta de Confirmación:`, JSON.stringify(verification));
 
         if (verification && (verification.transactionStatus === "Approved" || verification.status === "Approved")) {
             // Acreditar saldo directamente
@@ -585,11 +594,16 @@ export class WalletService {
             transaction.reference = recharge.id;
             await transaction.save();
 
+            console.log(`💰 [Wallet PayPhone] Saldo Acreditado Exitosamente | User ID: ${recharge.user.id} | Nuevo Saldo: ${wallet.balance}`);
+
             return { success: true, newBalance: wallet.balance };
         } else {
             recharge.status = StatusRecarga.RECHAZADO;
             recharge.admin_comment = "Pago denegado por PayPhone";
             await recharge.save();
+            
+            console.error(`❌ [Wallet PayPhone] Confirmación Fallida o Rechazada | Recharge ID: ${rechargeId}`);
+            
             throw CustomError.badRequest("El pago no fue aprobado por el banco.");
         }
     }
