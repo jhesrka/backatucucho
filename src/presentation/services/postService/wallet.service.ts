@@ -558,14 +558,19 @@ export class WalletService {
         const settings = await GlobalSettings.findOne({ where: {} });
         if (!settings?.payphoneToken) throw CustomError.internalServer("Error de configuración PayPhone");
 
-        // Verificar con PayPhone
+        // Verificar con PayPhone usando Get en lugar de Confirm para links de tipo Prepare
         const { PayphoneService } = await import("../payphone.service");
         
         console.log(`🔍 [Wallet PayPhone] Verificando estado | Recharge ID: ${rechargeId} | Remote ID: ${remoteId}`);
-        const verification = await PayphoneService.confirmPayment(remoteId, rechargeId, settings.payphoneToken);
-        console.log(`📡 [Wallet PayPhone] Respuesta de Confirmación:`, JSON.stringify(verification));
+        const verification = await PayphoneService.getTransactionByClientTxId(rechargeId, settings.payphoneToken);
+        console.log(`📡 [Wallet PayPhone] Respuesta de Verificación:`, JSON.stringify(verification));
 
-        if (verification && (verification.transactionStatus === "Approved" || verification.status === "Approved")) {
+        if (verification && (
+            verification.transactionStatus === "Approved" || 
+            verification.status === "Approved" ||
+            verification.transactionStatus === "approved" ||
+            verification.statusCode === 3
+        )) {
             // Acreditar saldo directamente
             const wallet = await this.getWalletByUserId(recharge.user.id);
             const previousBalance = Number(wallet.balance);
