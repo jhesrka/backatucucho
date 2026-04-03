@@ -513,34 +513,27 @@ export class WalletService {
         recharge.transaction_date = new Date();
         await recharge.save();
 
-        console.log(`🚀 [Wallet PayPhone] Iniciando recarga ID: ${recharge.id} | User ID: ${userId} | Monto: ${amount}`);
-
-        // 3. Crear Checkout en PayPhone
-        const { PayphoneService } = await import("../payphone.service");
+        console.log(`🚀 [Wallet PayPhone] Iniciando recarga`);
         
-        try {
-            const checkout = await PayphoneService.createCheckout({
-                amount,
-                clientTransactionId: recharge.id, // Usamos el ID de la solicitud como referencia
-                reference: `Recarga de Billetera - ${userId}`,
-                storeId: settings.payphoneStoreId,
-                token: settings.payphoneToken,
-                responseUrl: `${envs.WEBSERVICE_URL_FRONT}/saldo?payment=success&rechargeId=${recharge.id}`,
-                cancellationUrl: `${envs.WEBSERVICE_URL_FRONT}/saldo?payment=cancelled&rechargeId=${recharge.id}`,
-            });
+        // En lugar de llamar a createCheckout (V1), simplemente devolvemos la configuración V3 al Frontend
+        const payphoneConfig = {
+            token: settings.payphoneToken,
+            storeId: settings.payphoneStoreId,
+            clientTransactionId: recharge.id,
+            amount: Math.round(amount * 100),
+            amountWithoutTax: Math.round(amount * 100),
+            amountWithTax: 0,
+            tax: 0,
+            reference: `Recarga de Billetera - ${userId}`,
+            currency: "USD"
+        };
 
-            console.log(`✅ [Wallet PayPhone] Checkout Creado | URL: ${checkout.payUrl}`);
+        console.log(`✅ [Wallet PayPhone] Configuración Generada para frontend (Botón V3) | Amount Cents: ${payphoneConfig.amount}`);
 
-            return {
-                rechargeId: recharge.id,
-                payphoneUrl: checkout.payUrl,
-            };
-        } catch (error) {
-            // Si falla la preparación del pago, la marcamos como rechazada o la dejamos pendiente por si el usuario reintenta? 
-            // Mejor eliminarla o cancelarla para evitar solicitudes basura.
-            await recharge.remove();
-            throw error;
-        }
+        return {
+            rechargeId: recharge.id,
+            payphoneConfig
+        };
     }
 
     /**
