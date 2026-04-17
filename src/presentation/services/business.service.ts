@@ -439,10 +439,10 @@ export class BusinessService {
             
             // Usamos los mismos campos que el Historial de Pedidos (OrdersHistory.jsx)
             // para asegurar consistencia total.
-            const costoEnvio = Number(order.costoEnvio || 0);
-            const comisionProductos = Number(order.total_comision_productos || 0);
-            const totalVentaPublico = Number(order.total_precio_venta_publico || 0); // Precio productos sin envío
-            const precioParaNegocio = Number(order.total_precio_app || 0); // Lo que el negocio se queda realmente
+            const costoEnvio = Number(order.costoEnvio) || 0;
+            const comisionProductos = Number(order.total_comision_productos) || Number(order.ganancia_app_producto) || Number(order.comisionTotal) || 0;
+            const totalVentaPublico = Number(order.total_precio_venta_publico) || (Number(order.total) - costoEnvio) || 0; // Precio productos sin envío
+            const precioParaNegocio = Number(order.total_precio_app) || Number(order.totalNegocio) || (totalVentaPublico - comisionProductos) || 0; // Lo que el negocio se queda realmente
 
             if (isCanceled) {
                 if (order.metodoPago === MetodoPago.TRANSFERENCIA) {
@@ -505,10 +505,11 @@ export class BusinessService {
             const isCanceled = o.estado === "CANCELADO";
             const totalProd = Number(o.total) || 0;
             const delivery = Number(o.costoEnvio) || 0;
-            const comision = Number(o.comisionTotal) || 0;
+            const comision = Number(o.total_comision_productos) || Number(o.ganancia_app_producto) || Number(o.comisionTotal) || 0;
+            const totalVP = Number(o.total_precio_venta_publico) || (totalProd - delivery);
             
-            let precioParaNegocio = o.total_precio_app ? Number(o.total_precio_app) : (totalProd - comision);
-            let paraLaApp = (totalProd + delivery) - precioParaNegocio;
+            let precioParaNegocio = Number(o.total_precio_app) || Number(o.totalNegocio) || (totalVP - comision) || 0;
+            let paraLaApp = (totalVP + delivery) - precioParaNegocio;
 
             if (isCanceled) {
                 if (o.metodoPago === MetodoPago.TRANSFERENCIA) {

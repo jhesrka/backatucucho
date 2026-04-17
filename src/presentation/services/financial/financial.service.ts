@@ -403,7 +403,7 @@ export class FinancialService {
             if (comDom === 0 && !isCanceled) {
                 comDom = Number(order.comision_app_domicilio || 0);
                 if (comDom === 0) {
-                    comDom = (Number(order.costoEnvio || 0) * 0.20); 
+                    comDom = (Number(order.costoEnvio || 0) * 0.20);
                 }
             }
 
@@ -476,7 +476,7 @@ export class FinancialService {
                 }
             },
             appRevenue: {
-                total: totalIngresosApp + totalRecargasManuales, 
+                total: totalIngresosApp + totalRecargasManuales,
                 directos: totalSubsUser + totalSubsBiz + totalStories,
                 comisiones: totalComisionProductos + totalComisionDomicilios,
                 breakdown: {
@@ -495,8 +495,8 @@ export class FinancialService {
             liabilities: {
                 usuarios: totalSaldoUsuarios,
                 motorizados: totalPorPagarMotorizados,
-                tiendasPagar: totalPorPagarTiendas, 
-                tiendasCobrar: totalPorCobrarTiendas 
+                tiendasPagar: totalPorPagarTiendas,
+                tiendasCobrar: totalPorCobrarTiendas
             },
             expenses: {
                 motorizados: totalPagoMotorizadosArr
@@ -514,7 +514,7 @@ export class FinancialService {
             .leftJoinAndSelect("t.wallet", "wallet")
             .leftJoinAndSelect("wallet.user", "user")
             .leftJoinAndSelect("t.admin", "admin")
-            .where("(t.reason = 'ADMIN_ADJUSTMENT' OR t.reason = 'CASH_RECHARGE' OR t.reason = 'RECHARGE')", { })
+            .where("(t.reason = 'ADMIN_ADJUSTMENT' OR t.reason = 'CASH_RECHARGE' OR t.reason = 'RECHARGE')", {})
             .andWhere("t.created_at BETWEEN :start AND :end", { start, end })
             .orderBy("t.created_at", "DESC");
 
@@ -563,7 +563,7 @@ export class FinancialService {
             const reqParts = [];
             if (types.includes('payphone')) reqParts.push("r.payment_method = 'CARD'");
             if (types.includes('recarga_transferencia')) reqParts.push("r.payment_method = 'TRANSFER'");
-            
+
             if (reqParts.length > 0) {
                 requestsQuery.andWhere(`(${reqParts.join(" OR ")})`);
             } else if (!types.includes('recarga_efectivo') && !types.includes('credito_manual') && !types.includes('debito_manual')) {
@@ -638,8 +638,8 @@ export class FinancialService {
                 receipt_number: refInfo,
                 receiptImage: imageUrl,
                 type: (t.reason === 'CASH_RECHARGE') ? 'recarga_efectivo' :
-                      (t.reason === 'RECHARGE') ? 'recarga_transferencia' :
-                      (t.type === 'credit') ? 'credito_manual' : 'debito_manual',
+                    (t.reason === 'RECHARGE') ? 'recarga_transferencia' :
+                        (t.type === 'credit') ? 'credito_manual' : 'debito_manual',
                 user: {
                     name: t.wallet.user.name,
                     surname: t.wallet.user.surname,
@@ -652,7 +652,7 @@ export class FinancialService {
         }));
 
         // Combine and Sort
-        return [...formattedRequests, ...formattedManual].sort((a, b) => 
+        return [...formattedRequests, ...formattedManual].sort((a, b) =>
             new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         );
     }
@@ -790,7 +790,7 @@ export class FinancialService {
                 estado: In([EstadoPedido.ENTREGADO, EstadoPedido.CANCELADO]),
                 updatedAt: Between(start, end)
             },
-            relations: ["cliente"]
+            relations: ["cliente", "productos", "productos.producto"]
         });
 
         const transfers = [];
@@ -798,9 +798,38 @@ export class FinancialService {
 
         for (const o of orders) {
             const isCanceled = o.estado === EstadoPedido.CANCELADO;
-            let comProd = Number(o.total_comision_productos || 0);
-            let comEnvio = Number(o.costoEnvio || 0);
-            let precioApp = Number(o.total_precio_app || (Number(o.total) - comProd - comEnvio));
+            let comEnvio = Number(o.costoEnvio) || 0;
+            
+            let rawComProd = Number(o.total_comision_productos);
+            let comProd = rawComProd ? rawComProd : 0;
+            
+            let rawTotalPub = Number(o.total_precio_venta_publico);
+            let totalProducts = rawTotalPub ? rawTotalPub : (Number(o.total) - comEnvio);
+
+            // FALLBACK FOR LEGACY ORDERS THAT DON'T HAVE total_comision_productos
+            if (!rawComProd && o.productos && o.productos.length > 0) {
+                 let calcComProd = 0;
+                 let calcTotalProducts = 0;
+                 for (const pp of o.productos) {
+                      const p = pp.producto;
+                      const q = Number(pp.cantidad || 1);
+                      if (p) {
+                          calcTotalProducts += Number(p.precio_venta || 0) * q;
+                          calcComProd += (Number(p.precio_venta || 0) - Number(p.precio_app || 0)) * q;
+                      }
+                 }
+                 if (calcComProd > 0) comProd = calcComProd;
+                 if (calcTotalProducts > 0) totalProducts = calcTotalProducts;
+            }
+
+            let rawPrecioApp = Number(o.total_precio_app);
+            let precioApp = rawPrecioApp ? rawPrecioApp : (totalProducts - comProd);
+            
+            let rawGananciaMoto = Number(o.ganancia_motorizado);
+            let gananciaMoto = rawGananciaMoto ? rawGananciaMoto : Number((comEnvio * 0.8).toFixed(2));
+            
+            let rawComEnvioApp = Number(o.comision_app_domicilio);
+            let comisionAppEnvio = rawComEnvioApp ? rawComEnvioApp : Number((comEnvio - gananciaMoto).toFixed(2));
 
             // Adjust values for specialized canceled logic
             if (isCanceled) {
@@ -838,12 +867,12 @@ export class FinancialService {
                 isCanceled,
                 comprobanteUrl: resolvedComprobante,
                 breakdown: {
-                    totalProducts: isCanceled ? 0 : Number(o.total_precio_venta_publico || (Number(o.total) - comEnvio)),
+                    totalProducts: isCanceled ? 0 : totalProducts,
                     comisionProd: comProd,
                     precioApp: precioApp,
                     totalEnvio: comEnvio,
-                    gananciaMoto: isCanceled ? 0 : Number(o.ganancia_motorizado || 0),
-                    comisionAppEnvio: isCanceled ? 0 : Number(o.comision_app_domicilio || 0)
+                    gananciaMoto: isCanceled ? 0 : gananciaMoto,
+                    comisionAppEnvio: isCanceled ? 0 : comisionAppEnvio
                 }
             };
 
@@ -1233,9 +1262,9 @@ export class FinancialService {
 
             // 3. Fallback calculation
             if (gananciaMoto === 0) {
-                let comisionApp = Number((order as any).comision_moto_app || (order as any).comision_app_domicilio || 0);
-                if (comisionApp === 0) comisionApp = Number(order.costoEnvio || 0) * 0.20;
-                gananciaMoto = Number(order.costoEnvio || 0) - comisionApp;
+                let comisionApp = Number((order as any).comision_moto_app) || Number((order as any).comision_app_domicilio) || 0;
+                if (comisionApp === 0) comisionApp = Number(order.costoEnvio) * 0.20 || 0;
+                gananciaMoto = Number(order.costoEnvio) - comisionApp || 0;
             }
 
 
@@ -1265,5 +1294,5 @@ export class FinancialService {
 
         return result;
     }
-} 
+}
 

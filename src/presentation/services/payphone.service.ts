@@ -67,9 +67,12 @@ export class PayphoneService {
             console.error("❌ [Payphone] ERROR:", errorDetail);
 
             // Log to file for deep debugging
-            const fs = require('fs');
-            const logPath = 'c:/Users/jhesr/OneDrive/Escritorio/academlo/proyectReales/atucuchoShop/atucuchoFull/atucuchoBack/tmp/order_debug.log';
             try {
+                const fs = require('fs');
+                const path = require('path');
+                const logDir = path.join(__dirname, '..', '..', '..', '..', 'tmp');
+                if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+                const logPath = path.join(logDir, 'order_debug.log');
                 fs.appendFileSync(logPath, `[${new Date().toISOString()}] PAYPHONE PREPARE ERROR: ${JSON.stringify(errorDetail)}\n`);
             } catch (e) {}
 

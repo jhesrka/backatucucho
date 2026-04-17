@@ -26,4 +26,7 @@ export const envs = {
   WEBSERVICE_URL: get("WEBSERVICE_URL").required().asString(),
   WEBSERVICE_URL_FRONT: get("WEBSERVICE_URL_FRONT").required().asString(),
   GOOGLE_CLIENT_ID: get("GOOGLE_CLIENT_ID").required().asString(),
+
+  // Redis (opcional: solo requerido en producción con múltiples instancias)
+  REDIS_URL: get("REDIS_URL").default("").asString(),
 };

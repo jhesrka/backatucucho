@@ -10,6 +10,7 @@ import { CustomError } from "../../domain";
 import { CreateNegocioDTO } from "../../domain/dtos/negocios/CreateNegocioDTO";
 import { envs, regularExp } from "../../config";
 import { UploadFilesCloud } from "../../config/upload-files-cloud-adapter";
+import { getIO } from "../../config/socket";
 
 const DEFAULT_IMG_KEY = "ImgStore/imagenrota.jpg";
 
@@ -152,7 +153,7 @@ export class NegocioService {
       .where("negocio.categoriaId = :categoriaId", { categoriaId })
       .andWhere("negocio.statusNegocio = :status", { status: StatusNegocio.ACTIVO })
       .andWhere("negocio.estadoNegocio = :estado", { estado: EstadoNegocio.ABIERTO })
-      .orderBy("RANDOM()") // Orden aleatorio nativo (mucho más rápido)
+      .orderBy("RANDOM()") 
       .getMany();
 
     const negociosConUrl = await Promise.all(
@@ -204,6 +205,19 @@ export class NegocioService {
         : EstadoNegocio.ABIERTO;
 
     await negocio.save();
+
+    // 📡 Notificar por WebSockets
+    const io = getIO();
+    const statusData = {
+      businessId: negocio.id,
+      newStatus: negocio.estadoNegocio, // 'ABIERTO' | 'CERRADO'
+    };
+
+    // Emitir globalmente (para las listas de categorías)
+    io.emit("business_status_changed", statusData);
+
+    // Emitir específicamente a los que están dentro del negocio
+    io.to(negocio.id).emit("business_status_changed", statusData);
 
     return {
       message: `El negocio ahora está ${negocio.estadoNegocio.toLowerCase()}`,
@@ -558,8 +572,15 @@ export class NegocioService {
     if (!negocio) throw CustomError.notFound("Negocio no encontrado");
 
     negocio.statusNegocio = status;
-
     await negocio.save();
+
+    // 📡 Notificar por WebSockets (Cambio de estatus administrativo)
+    getIO().emit("business_status_changed", {
+      businessId: negocio.id,
+      newStatus: negocio.estadoNegocio, // ABIERTO/CERRADO
+      statusNegocio: negocio.statusNegocio, // ACTIVO/PENDIENTE/SUSPENDIDO
+    });
+
     return { message: `Estado cambiado a ${status}`, status: negocio.statusNegocio };
   }
 

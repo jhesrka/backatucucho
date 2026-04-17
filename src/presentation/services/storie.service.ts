@@ -105,10 +105,27 @@ export class StorieService {
     try {
       const savedStorie = await storie.save();
 
-      // Solo en respuesta: mostrar URL pública
-      savedStorie.imgstorie = url;
+      // Resolver URLs firmadas para la respuesta inmediata
+      const [signedImgStorie, signedPhotoPerfil] = await Promise.all([
+        UploadFilesCloud.getOptimizedUrls({
+          bucketName: envs.AWS_BUCKET_NAME,
+          key: savedStorie.imgstorie,
+        }),
+        savedStorie.user?.photoperfil
+          ? UploadFilesCloud.getOptimizedUrls({
+            bucketName: envs.AWS_BUCKET_NAME,
+            key: savedStorie.user.photoperfil,
+          })
+          : null
+      ]);
 
-      // Emitir evento de socket
+      // Asignar URLs firmadas al objeto de respuesta (sin afectar la DB)
+      savedStorie.imgstorie = signedImgStorie as any;
+      if (savedStorie.user) {
+        savedStorie.user.photoperfil = (signedPhotoPerfil as any) || savedStorie.user.photoperfil;
+      }
+
+      // Emitir evento de socket corregido con URLs utilizables
       getIO().emit("storieChanged", savedStorie);
 
       return savedStorie;
@@ -138,6 +155,7 @@ export class StorieService {
           },
         },
         order: { createdAt: "DESC" },
+        take: 50, // 🚀 Límite para evitar saturación de firmas de AWS
       });
 
       // 2️⃣ Convertir imágenes a URLs públicas con cache de usuario para optimizar firmas

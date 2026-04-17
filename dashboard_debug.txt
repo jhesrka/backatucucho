@@ -20198,3 +20198,7 @@
 }
 2026-04-02T00:50:54.328Z - CONTROLLER ERROR: Error: Error al obtener dashboard operativo
 {}
+2026-04-17T00:33:21.766Z - CONTROLLER ERROR: Error: Connection terminated due to connection timeout
+{}
+2026-04-17T00:53:46.776Z - CONTROLLER ERROR: Error: Connection terminated due to connection timeout
+{}

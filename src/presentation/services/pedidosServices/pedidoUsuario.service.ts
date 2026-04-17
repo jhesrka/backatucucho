@@ -77,7 +77,7 @@ export class PedidoUsuarioService {
   }
 
   async crearPedido(dto: CreatePedidoDTO) {
-    const { clienteId, negocioId, productos, ubicacionCliente, metodoPago } = dto;
+    const { clienteId, negocioId, productos, ubicacionCliente, metodoPago, comprobantePagoUrl } = dto;
     const cliente = await User.findOneBy({ id: clienteId });
     const negocio = await Negocio.findOneBy({ id: negocioId });
     if (!cliente || !negocio) throw CustomError.notFound("No encontrado");
@@ -106,6 +106,9 @@ export class PedidoUsuarioService {
       negocio, latCliente: ubicacionCliente.lat, lngCliente: ubicacionCliente.lng,
     });
 
+    const gananciaMoto = +(costoEnvio * (percMoto / 100)).toFixed(2);
+    const comisionAppEnvio = +(costoEnvio - gananciaMoto).toFixed(2);
+
     const total = +(totalVP + costoEnvio).toFixed(2);
     let recargo = 0;
     if (metodoPago === "TARJETA") {
@@ -122,10 +125,16 @@ export class PedidoUsuarioService {
     pedido.lngCliente = ubicacionCliente.lng;
     pedido.direccionTexto = ubicacionCliente.direccionTexto || null;
     pedido.metodoPago = metodoPago as any;
+    pedido.comprobantePagoUrl = comprobantePagoUrl || null;
     pedido.productos = items;
     // ... audit fields
     pedido.ganancia_app_producto = comAppProd;
     pedido.totalNegocio = totalApp;
+    pedido.total_precio_venta_publico = totalVP;
+    pedido.total_precio_app = totalApp;
+    pedido.total_comision_productos = comAppProd;
+    pedido.ganancia_motorizado = gananciaMoto;
+    pedido.comision_app_domicilio = comisionAppEnvio;
 
     const guardado = await pedido.save();
     
@@ -187,10 +196,11 @@ export class PedidoUsuarioService {
         createdAt: p.createdAt, fecha: p.createdAt,
         negocio: { id: p.negocio.id, nombre: p.negocio.nombre },
         productos: p.productos.map(pp => ({
-          nombre: pp.producto.nombre, cantidad: pp.cantidad, subtotal: pp.subtotal
+          nombre: pp.producto.nombre, cantidad: pp.cantidad, subtotal: pp.subtotal, precio_venta: pp.precio_venta
         })),
         metodoPago: p.metodoPago, comprobantePagoUrl: url,
-        motorizado: p.motorizado ? { name: p.motorizado.name, whatsapp: p.motorizado.whatsapp } : null
+        delivery_code: p.delivery_code, arrival_time: p.arrival_time,
+        motorizado: p.motorizado ? { name: p.motorizado.name, whatsapp: p.motorizado.whatsapp, id: p.motorizado.id } : null
       };
     }));
 

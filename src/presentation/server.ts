@@ -3,7 +3,8 @@ import express, { Router } from "express";
 import cors from "cors";
 import http from "http";
 import { Server as SocketIOServer } from "socket.io";
-import { setIO } from "../config/socket"; // Asegúrate de que la ruta sea correcta
+import { setIO, initRedisAdapter } from "../config/socket";
+import { envs } from "../config";
 import fs from "fs"; // Importa el módulo fs
 import path from "path"; // Importa el módulo path
 import helmet from "helmet";
@@ -48,6 +49,9 @@ export class Server {
     }); // Crear instancia de Socket.IO con configuración de CORS
 
     setIO(this.io); // 🔥 Guardamos la instancia globalmente
+
+    // 🔴 Redis adapter (activo solo si REDIS_URL está en el .env)
+    initRedisAdapter(envs.REDIS_URL);
   }
 
   async start() {

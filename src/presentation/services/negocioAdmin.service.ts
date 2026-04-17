@@ -16,6 +16,7 @@ import { ILike, MoreThan } from "typeorm";
 import { Parser } from "json2csv";
 import { CreateNegocioDTO } from "../../domain/dtos/negocios/CreateNegocioDTO";
 import { UpdateNegocioDTO } from "../../domain/dtos/negocios/UpdateNegocioDTO";
+import { getIO } from "../../config/socket";
 
 import { SubscriptionService } from "./subscription.service";
 
@@ -182,6 +183,13 @@ export class NegocioAdminService {
         : EstadoNegocio.ABIERTO;
 
     await negocio.save();
+
+    // 📡 Notificar por WebSockets
+    getIO().emit("business_status_changed", {
+      businessId: negocio.id,
+      newStatus: negocio.estadoNegocio, // ABIERTO/CERRADO
+      statusNegocio: negocio.statusNegocio, // ACTIVO/...
+    });
 
     return {
       message: `El negocio ahora está ${negocio.estadoNegocio.toLowerCase()}`,
@@ -354,6 +362,13 @@ export class NegocioAdminService {
 
     const saved = await negocio.save();
 
+    // 📡 Notificar por WebSockets
+    getIO().emit("business_status_changed", {
+      businessId: saved.id,
+      newStatus: saved.estadoNegocio,
+      statusNegocio: saved.statusNegocio,
+    });
+
     return {
       id: saved.id,
       nombre: saved.nombre,
@@ -499,6 +514,14 @@ export class NegocioAdminService {
 
     negocio.statusNegocio = status;
     await negocio.save();
+
+    // 📡 Notificar por WebSockets (Cambio administrativo de status)
+    getIO().emit("business_status_changed", {
+      businessId: negocio.id,
+      newStatus: negocio.estadoNegocio,
+      statusNegocio: negocio.statusNegocio,
+    });
+
     return { message: `Estado cambiado a ${status}`, status: negocio.statusNegocio };
   }
 
