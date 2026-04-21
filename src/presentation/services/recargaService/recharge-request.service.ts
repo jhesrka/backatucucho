@@ -667,30 +667,38 @@ export class RechargeRequestService {
         throw CustomError.notFound("Wallet del usuario no encontrada");
 
       const previous = Number(wallet.balance);
-      wallet.balance = Number(wallet.balance) + Number(request.amount);
-      await wallet.save();
+      
+      // 🚀 ACREDITACIÓN ATÓMICA
+      await Wallet.createQueryBuilder()
+        .update(Wallet)
+        .set({ balance: () => `balance + ${Number(request.amount)}` })
+        .where("id = :id", { id: wallet.id })
+        .execute();
+
+      // Obtener saldo actualizado para el registro de transacción
+      const updatedWallet = await Wallet.findOne({ where: { id: wallet.id } });
+      const newBalance = Number(updatedWallet?.balance || previous + Number(request.amount));
 
       if (linkedTx) {
         linkedTx.status = 'APPROVED';
-        linkedTx.previousBalance = previous; // Ahora sí tiene sentido actualizar esto para registro histórico real
-        linkedTx.resultingBalance = Number(wallet.balance);
-        linkedTx.admin = null; // Podríamos guardar el admin si lo tuviéramos
-        linkedTx.created_at = new Date(); // Opcional: ¿Actualizamos la fecha a la de aprobación o dejamos la de solicitud? Dejemos la original o actualicémosla para que salga arriba. Mejor dejar original.
+        linkedTx.previousBalance = previous; 
+        linkedTx.resultingBalance = newBalance;
+        linkedTx.admin = null; 
         await linkedTx.save();
       } else {
-        // Fallback por si la transacción no se creó (legacy data): Crear la transacción ahora APROBADA
+        // Fallback por si la transacción no se creó (legacy data)
         const transaction = new Transaction();
         transaction.wallet = wallet;
         transaction.amount = Number(request.amount);
         transaction.type = 'credit';
         transaction.reason = TransactionReason.RECHARGE;
-        transaction.origin = TransactionOrigin.ADMIN; // Fue aprobado por admin
+        transaction.origin = TransactionOrigin.ADMIN;
         transaction.status = 'APPROVED';
         transaction.reference = request.id;
         transaction.receipt_image = request.receipt_image;
         transaction.observation = `Recarga Aprobada - Banco: ${request.bank_name}`;
         transaction.previousBalance = previous;
-        transaction.resultingBalance = Number(wallet.balance);
+        transaction.resultingBalance = newBalance;
         await transaction.save();
       }
     } else if (status === StatusRecarga.RECHAZADO) {

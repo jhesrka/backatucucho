@@ -167,10 +167,9 @@ export class PedidoUsuarioService {
     query.where("pedido.clienteId = :clienteId", { clienteId });
 
     if (filters.startDate) {
-        // En Postgres, AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil' convierte el timestamp a local
-        // Usamos Double Quotes para "createdAt" para asegurar que Postgres lo identifique como columna
-        query.andWhere(`(pedido."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil')::date = :startDate::date`, {
-            startDate: filters.startDate
+        // 🚀 Filtro ultra-explícito: Forzamos el casteo en ambos lados de la igualdad
+        query.andWhere(`CAST("pedido"."createdAt" AS DATE) = :startDate::date`, { 
+            startDate: filters.startDate 
         });
     }
 

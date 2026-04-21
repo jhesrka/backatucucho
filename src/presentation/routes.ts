@@ -11,6 +11,7 @@ import { LikeRoutes } from "./likes/like.routes";
 import { WalletRoutes } from "./wallet/wallet.routes";
 import { RechargeRoutes } from "./recharge/recharge-request.routes";
 import { CategoriaRoutes } from "./categorias/categoria.routes";
+import { SubcategoriaRoutes } from "./subcategorias/routes";
 import { ProductoRoutes } from "./producto/producto.routes";
 import { NegocioRoutes } from "./negocios/negocio.routes";
 import { TipoProductoRoutes } from "./tipoProducto/tipoProducto.routes";
@@ -69,6 +70,7 @@ export class AppRoutes {
     router.use("/api/storie", StorieRoutes.routes);
 
     router.use("/api/categorias", CategoriaRoutes.routes);
+    router.use("/api/subcategorias", SubcategoriaRoutes.routes);
     router.use("/api/negocios", NegocioRoutes.routes);
     router.use("/api/negocios/admin", NegocioAdminRoutes.routes);
     router.use("/api/productos", ProductoRoutes.routes);

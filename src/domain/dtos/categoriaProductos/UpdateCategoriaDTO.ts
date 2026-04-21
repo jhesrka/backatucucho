@@ -9,13 +9,24 @@ export class UpdateCategoriaDTO {
     public readonly statusCategoria?: StatusCategoria,
     public readonly orden?: number,
     public readonly modeloBloqueado?: boolean,
-    public readonly modeloMonetizacionDefault?: string | null
+    public readonly modeloMonetizacionDefault?: string | null,
+    public readonly cover?: {
+      type: "image" | "video";
+      imageUrl?: string | null;
+      videoUrl?: string | null;
+      title?: string | null;
+      description?: string | null;
+    } | null
   ) { }
 
   static create(obj: { [key: string]: any }): [string?, UpdateCategoriaDTO?] {
-    const { name, icon, restriccionModeloMonetizacion, soloComision, statusCategoria, modeloBloqueado, modeloMonetizacionDefault } = obj;
+    let { name, icon, restriccionModeloMonetizacion, soloComision, statusCategoria, modeloBloqueado, modeloMonetizacionDefault, cover } = obj;
 
-    if (!name && !icon && !restriccionModeloMonetizacion && statusCategoria === undefined && soloComision === undefined && obj.orden === undefined && modeloBloqueado === undefined && modeloMonetizacionDefault === undefined) {
+    if (typeof cover === "string") {
+      try { cover = JSON.parse(cover); } catch (e) { return ["El campo cover no es un JSON válido"]; }
+    }
+
+    if (!name && !icon && !restriccionModeloMonetizacion && statusCategoria === undefined && soloComision === undefined && obj.orden === undefined && modeloBloqueado === undefined && modeloMonetizacionDefault === undefined && cover === undefined) {
       return [
         "Debes enviar al menos un campo para actualizar",
       ];
@@ -59,6 +70,14 @@ export class UpdateCategoriaDTO {
       updates.statusCategoria = statusCategoria;
     }
 
+    // Validación básica de cover si viene
+    if (cover !== undefined && cover !== null) {
+      if (typeof cover !== "object") return ["El campo cover debe ser un objeto o JSON válido"];
+      if (cover.type && !["image", "video"].includes(cover.type)) {
+        return ["El tipo de portada debe ser image o video"];
+      }
+    }
+
     return [
       undefined,
       new UpdateCategoriaDTO(
@@ -69,7 +88,8 @@ export class UpdateCategoriaDTO {
         updates.statusCategoria,
         obj.orden !== undefined ? Number(obj.orden) : undefined,
         modeloBloqueado === undefined ? undefined : !!modeloBloqueado,
-        modeloMonetizacionDefault
+        modeloMonetizacionDefault,
+        cover
       ),
     ];
   }

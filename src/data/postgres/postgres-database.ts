@@ -9,6 +9,7 @@ import { RechargeRequest } from "./models/rechargeStatus.model";
 import { Subscription } from "./models/subscriptionStatus.model";
 import { FreePostTracker } from "./models/freePostTracker.model";
 import { CategoriaNegocio } from "./models/CategoriaNegocio";
+import { SubcategoriaNegocio } from "./models/SubcategoriaNegocio";
 import { Negocio } from "./models/Negocio";
 import { Producto } from "./models/Producto";
 import { TipoProducto } from "./models/TipoProducto";
@@ -64,6 +65,7 @@ export class PostgresDatabase {
         FreePostTracker,
         Transaction,
         CategoriaNegocio,
+        SubcategoriaNegocio,
         Negocio,
         Producto,
         TipoProducto,
@@ -499,7 +501,38 @@ export class PostgresDatabase {
         ALTER TABLE "categoria_negocio" ADD COLUMN IF NOT EXISTS "orden" INT DEFAULT 0;
         ALTER TABLE "categoria_negocio" ADD COLUMN IF NOT EXISTS "modeloBloqueado" BOOLEAN DEFAULT false;
         ALTER TABLE "categoria_negocio" ADD COLUMN IF NOT EXISTS "modeloMonetizacionDefault" VARCHAR DEFAULT NULL;
+        ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "businessCover" JSONB;
+        ALTER TABLE "categoria_negocio" ADD COLUMN IF NOT EXISTS "cover" JSONB;
       `).catch(err => console.warn("Categoria Negocio order migration failed:", err.message));
+
+      // 6. Subcategoria Negocio Migration
+      await this.datasource.query(`
+        CREATE TABLE IF NOT EXISTS "subcategoria_negocio" (
+          "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+          "nombre" varchar(100) NOT NULL,
+          "orden" int DEFAULT 0,
+          "created_at" TIMESTAMP NOT NULL DEFAULT now(),
+          "updated_at" TIMESTAMP NOT NULL DEFAULT now(),
+          "categoriaId" uuid,
+          CONSTRAINT "PK_subcategoria_negocio" PRIMARY KEY ("id")
+        );
+
+        DO $$ 
+        BEGIN 
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_subcategoria_categoria') THEN
+                ALTER TABLE "subcategoria_negocio" ADD CONSTRAINT "FK_subcategoria_categoria" FOREIGN KEY ("categoriaId") REFERENCES "categoria_negocio"("id") ON DELETE CASCADE;
+            END IF;
+        END $$;
+
+        ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "subcategoriaId" uuid DEFAULT NULL;
+
+        DO $$ 
+        BEGIN 
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_negocio_subcategoria') THEN
+                ALTER TABLE "negocio" ADD CONSTRAINT "FK_negocio_subcategoria" FOREIGN KEY ("subcategoriaId") REFERENCES "subcategoria_negocio"("id") ON DELETE SET NULL;
+            END IF;
+        END $$;
+      `).catch(err => console.warn("Subcategoria Negocio migration failed:", err.message));
     } catch (error) {
       console.log("DB Connection Error:", error);
       throw error;

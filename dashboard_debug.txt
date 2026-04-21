@@ -20202,3 +20202,24 @@
 {}
 2026-04-17T00:53:46.776Z - CONTROLLER ERROR: Error: Connection terminated due to connection timeout
 {}
+2026-04-20T22:46:09.004Z - CONTROLLER ERROR: Error: Error al obtener dashboard operativo
+{}
+2026-04-20T22:46:09.017Z - CONTROLLER ERROR: Error: Connection terminated due to connection timeout
+{}
+2026-04-20T22:59:28.655Z - CONTROLLER ERROR: Error: Connection terminated due to connection timeout
+{}
+2026-04-20T22:59:47.004Z - CONTROLLER ERROR: Error: Error al obtener dashboard operativo
+{}
+2026-04-20T23:00:20.485Z - CONTROLLER ERROR: Error: Error al obtener dashboard operativo
+{}
+2026-04-20T23:00:20.486Z - CONTROLLER ERROR: Error: getaddrinfo ENOTFOUND ep-shrill-voice-a5t0b4r1-pooler.us-east-2.aws.neon.tech
+{
+  "errno": -3008,
+  "code": "ENOTFOUND",
+  "syscall": "getaddrinfo",
+  "hostname": "ep-shrill-voice-a5t0b4r1-pooler.us-east-2.aws.neon.tech"
+}
+2026-04-20T23:00:20.489Z - CONTROLLER ERROR: Error: Error al obtener estadísticas avanzadas
+{}
+2026-04-21T00:14:28.768Z - CONTROLLER ERROR: Error: Error al obtener dashboard operativo
+{}

@@ -10,6 +10,7 @@ import {
 } from "typeorm";
 
 import { CategoriaNegocio } from "./CategoriaNegocio";
+import { SubcategoriaNegocio } from "./SubcategoriaNegocio";
 import { User } from "./user.model";
 import { BalanceNegocio } from "./BalanceNegocio";
 import { Producto } from "./Producto";
@@ -152,6 +153,9 @@ export class Negocio extends BaseEntity {
 
   @ManyToOne(() => CategoriaNegocio, (cat) => cat.negocios)
   categoria: CategoriaNegocio;
+
+  @ManyToOne(() => SubcategoriaNegocio, (sub) => sub.negocios, { nullable: true })
+  subcategoria: SubcategoriaNegocio;
 
   @OneToMany(() => Producto, (producto) => producto.negocio, { cascade: true })
   productos: Producto[];

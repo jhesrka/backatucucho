@@ -1,5 +1,9 @@
 import { GlobalSettings } from "../../../data";
 import { CustomError } from "../../../domain";
+import { UploadFilesCloud } from "../../../config/upload-files-cloud-adapter";
+import { ImageOptimizer, ImageSize } from "../../../config/image-optimizer.adapter";
+import { envs } from "../../../config";
+import bcrypt from "bcryptjs";
 
 export class GlobalSettingsService {
     async getSettings() {
@@ -24,11 +28,30 @@ export class GlobalSettingsService {
             settings.payphoneRechargePercentage = 0.00;
             await settings.save();
         }
+
+        if (settings.businessCover?.imageUrl) {
+            try {
+                settings.businessCover.imageUrl = await UploadFilesCloud.getFile({
+                    bucketName: envs.AWS_BUCKET_NAME,
+                    key: settings.businessCover.imageUrl,
+                });
+            } catch (e) { console.error(e); }
+        }
+
         return settings;
     }
 
-    async updateSettings(data: any) { // Type with DTO later
-        let settings = await this.getSettings();
+    async updateSettings(data: any, file?: Express.Multer.File) { // Type with DTO later
+        if (data.masterPin) {
+            const currentSettings = await this.getSettings();
+            if (currentSettings.masterPin) {
+                const isMatch = await bcrypt.compare(data.masterPin, currentSettings.masterPin);
+                if (!isMatch) throw CustomError.badRequest("PIN Maestro incorrecto");
+            }
+        }
+
+        let settings = await GlobalSettings.findOne({ where: {} });
+        if (!settings) settings = new GlobalSettings();
 
         let termsChanged = false;
 
@@ -84,8 +107,50 @@ export class GlobalSettingsService {
         if (data.payphoneStoreId !== undefined) settings.payphoneStoreId = data.payphoneStoreId;
         if (data.payphoneRechargePercentage !== undefined) settings.payphoneRechargePercentage = Number(data.payphoneRechargePercentage);
 
+        const coverRaw = data.businessCover || data.cover;
+        if (coverRaw) {
+            try {
+                settings.businessCover = typeof coverRaw === 'string' 
+                    ? JSON.parse(coverRaw) 
+                    : coverRaw;
+            } catch (e) {
+                console.error("Error parsing businessCover JSON", e);
+            }
+        }
+
+        if (file) {
+            try {
+                // Delete old cover image if it exists
+                if (settings.businessCover?.imageUrl) {
+                    try {
+                        await UploadFilesCloud.deleteFile({
+                            bucketName: envs.AWS_BUCKET_NAME,
+                            key: settings.businessCover.imageUrl
+                        });
+                    } catch (e) {
+                        console.error("[GlobalSettingsService] Error deleting old cover:", e);
+                    }
+                }
+
+                // ⚡️ OPTIMIZACIÓN DE IMAGEN
+                const optimizedBuffer = await ImageOptimizer.optimize(file.buffer, ImageSize.LARGE);
+
+                const key = await UploadFilesCloud.uploadSingleFile({
+                    bucketName: envs.AWS_BUCKET_NAME,
+                    key: `settings/covers/${Date.now()}-${file.originalname.replace(/\.[^/.]+$/, "")}.webp`,
+                    body: optimizedBuffer,
+                    contentType: 'image/webp',
+                });
+
+                if (!settings.businessCover) settings.businessCover = { type: 'image', imageUrl: key };
+                else settings.businessCover = { ...settings.businessCover, imageUrl: key };
+            } catch (error) {
+                throw CustomError.internalServer("Error actualizando la imagen de portada de la sección negocios");
+            }
+        }
+
         await settings.save();
-        return settings;
+        return await this.getSettings();
     }
 
     async updateFreePostSettings(dto: {

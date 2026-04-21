@@ -14,7 +14,7 @@ export class GlobalSettingsController {
     };
 
     updateSettings = (req: Request, res: Response) => {
-        this.service.updateSettings(req.body)
+        this.service.updateSettings(req.body, req.file)
             .then(data => res.json(data))
             .catch(error => {
                 console.error("Error updating settings:", error);

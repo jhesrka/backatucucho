@@ -9,6 +9,7 @@ export * from "./postgres/models/subscriptionStatus.model";
 export * from "./postgres/models/rechargeStatus.model";
 export * from "./postgres/models/freePostTracker.model";
 export * from "./postgres/models/CategoriaNegocio";
+export * from "./postgres/models/SubcategoriaNegocio";
 export * from "./postgres/models/Negocio";
 export * from "./postgres/models/Producto";
 export * from "./postgres/models/TipoProducto";

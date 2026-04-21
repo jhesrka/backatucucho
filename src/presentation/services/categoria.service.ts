@@ -9,19 +9,35 @@ import bcrypt from "bcryptjs";
 
 export class CategoriaService {
   // Crear categoría
-  async createCategoria(dto: CreateCategoriaDTO, file: Express.Multer.File, masterPin: string) {
+  async createCategoria(dto: CreateCategoriaDTO, iconFile: Express.Multer.File, masterPin: string, coverFile?: Express.Multer.File) {
     await this.verifyMasterPin(masterPin);
     let key: string;
 
     try {
       key = await UploadFilesCloud.uploadSingleFile({
         bucketName: envs.AWS_BUCKET_NAME,
-        key: `categorias/${Date.now()}-${file.originalname}`,
-        body: file.buffer,
-        contentType: file.mimetype,
+        key: `categorias/${Date.now()}-${iconFile.originalname}`,
+        body: iconFile.buffer,
+        contentType: iconFile.mimetype,
       });
     } catch (error) {
       throw CustomError.internalServer("Error subiendo la imagen de la categoría");
+    }
+
+    let cover = dto.cover;
+    if (coverFile) {
+      try {
+        const coverKey = await UploadFilesCloud.uploadSingleFile({
+          bucketName: envs.AWS_BUCKET_NAME,
+          key: `categorias/covers/${Date.now()}-${coverFile.originalname}`,
+          body: coverFile.buffer,
+          contentType: coverFile.mimetype,
+        });
+        if (!cover) cover = { type: "image", imageUrl: coverKey };
+        else cover.imageUrl = coverKey;
+      } catch (error) {
+        throw CustomError.internalServer("Error subiendo la imagen de portada");
+      }
     }
 
     const categoria = CategoriaNegocio.create({
@@ -32,6 +48,7 @@ export class CategoriaService {
       orden: dto.orden ?? 0,
       modeloBloqueado: dto.modeloBloqueado ?? false,
       modeloMonetizacionDefault: dto.modeloMonetizacionDefault ?? null,
+      cover: cover ?? null,
     });
 
     try {
@@ -41,7 +58,17 @@ export class CategoriaService {
         key: saved.icono,
       });
 
-      return { ...saved, icono: imageUrl };
+      let coverResult = saved.cover;
+      if (coverResult?.imageUrl) {
+        try {
+          coverResult.imageUrl = await UploadFilesCloud.getFile({
+            bucketName: envs.AWS_BUCKET_NAME,
+            key: coverResult.imageUrl,
+          });
+        } catch (e) { console.error(e); }
+      }
+
+      return { ...saved, icono: imageUrl, cover: coverResult };
     } catch {
       throw CustomError.internalServer("No se pudo guardar la categoría");
     }
@@ -57,6 +84,7 @@ export class CategoriaService {
     const categorias = await CategoriaNegocio.find({
       where: whereCondition,
       order: { orden: "ASC", created_at: "ASC" },
+      relations: ["subcategorias"]
     });
 
     return await Promise.all(
@@ -91,9 +119,22 @@ export class CategoriaService {
           console.error(`Error resolving image for category ${cat.id}`, error);
         }
 
+        let coverResult = cat.cover;
+        if (coverResult?.imageUrl) {
+          try {
+            coverResult.imageUrl = await UploadFilesCloud.getFile({
+              bucketName: envs.AWS_BUCKET_NAME,
+              key: coverResult.imageUrl,
+            });
+          } catch (e) {
+            console.error(`Error resolving cover image for category ${cat.id}`, e);
+          }
+        }
+
         return {
           ...cat,
-          icono: imageUrl
+          icono: imageUrl,
+          cover: coverResult
         };
       })
     );
@@ -112,11 +153,21 @@ export class CategoriaService {
       });
     }
 
-    return { ...categoria, icono: imageUrl };
+    let coverResult = categoria.cover;
+    if (coverResult?.imageUrl) {
+      try {
+        coverResult.imageUrl = await UploadFilesCloud.getFile({
+          bucketName: envs.AWS_BUCKET_NAME,
+          key: coverResult.imageUrl,
+        });
+      } catch (e) { console.error(e); }
+    }
+
+    return { ...categoria, icono: imageUrl, cover: coverResult };
   }
 
   // Actualizar categoría
-  async updateCategoria(id: string, dto: UpdateCategoriaDTO, file: Express.Multer.File | undefined, masterPin: string) {
+  async updateCategoria(id: string, dto: UpdateCategoriaDTO, iconFile: Express.Multer.File | undefined, masterPin: string, coverFile?: Express.Multer.File) {
     await this.verifyMasterPin(masterPin);
     const categoria = await CategoriaNegocio.findOneBy({ id });
     if (!categoria) throw CustomError.notFound("Categoría no encontrada");
@@ -144,7 +195,13 @@ export class CategoriaService {
       categoria.modeloMonetizacionDefault = dto.modeloMonetizacionDefault;
     }
 
-    if (file) {
+    if (dto.cover !== undefined) {
+      // Si el DTO trae cover, lo usamos (o lo mantenemos si es string/obj parcial)
+      // Pero ojo, si coverFile viene, sobreescribiremos el imageUrl luego
+      categoria.cover = dto.cover;
+    }
+
+    if (iconFile) {
       try {
         // Borrar imagen anterior si no es legacy
         if (categoria.icono && (!categoria.icono.startsWith("Fa") || categoria.icono.includes("/"))) {
@@ -161,13 +218,41 @@ export class CategoriaService {
 
         const key = await UploadFilesCloud.uploadSingleFile({
           bucketName: envs.AWS_BUCKET_NAME,
-          key: `categorias/${Date.now()}-${file.originalname}`,
-          body: file.buffer,
-          contentType: file.mimetype,
+          key: `categorias/${Date.now()}-${iconFile.originalname}`,
+          body: iconFile.buffer,
+          contentType: iconFile.mimetype,
         });
         categoria.icono = key;
       } catch (error) {
         throw CustomError.internalServer("Error actualizando la imagen de la categoría");
+      }
+    }
+
+    if (coverFile) {
+      try {
+        // Borrar imagen de portada anterior si existe
+        if (categoria.cover?.imageUrl) {
+          try {
+            await UploadFilesCloud.deleteFile({
+              bucketName: envs.AWS_BUCKET_NAME,
+              key: categoria.cover.imageUrl
+            });
+          } catch (e) {
+            console.error("[CategoriaService] Error eliminando cover anterior:", e);
+          }
+        }
+
+        const coverKey = await UploadFilesCloud.uploadSingleFile({
+          bucketName: envs.AWS_BUCKET_NAME,
+          key: `categorias/covers/${Date.now()}-${coverFile.originalname}`,
+          body: coverFile.buffer,
+          contentType: coverFile.mimetype,
+        });
+
+        if (!categoria.cover) categoria.cover = { type: "image", imageUrl: coverKey };
+        else categoria.cover = { ...categoria.cover, imageUrl: coverKey };
+      } catch (error) {
+        throw CustomError.internalServer("Error actualizando la imagen de portada");
       }
     }
 
@@ -182,7 +267,17 @@ export class CategoriaService {
         });
       }
 
-      return { ...saved, icono: imageUrl };
+      let coverResult = saved.cover;
+      if (coverResult?.imageUrl) {
+        try {
+          coverResult.imageUrl = await UploadFilesCloud.getFile({
+            bucketName: envs.AWS_BUCKET_NAME,
+            key: coverResult.imageUrl,
+          });
+        } catch (e) { console.error(e); }
+      }
+
+      return { ...saved, icono: imageUrl, cover: coverResult };
     } catch {
       throw CustomError.internalServer("No se pudo actualizar la categoría");
     }
@@ -203,6 +298,18 @@ export class CategoriaService {
         console.log(`[CategoriaService] Imagen eliminada: ${categoria.icono}`);
       } catch (error) {
         console.error(`[CategoriaService] Error eliminando imagen ${categoria.icono}:`, error);
+      }
+    }
+
+    if (categoria.cover?.imageUrl) {
+      try {
+        await UploadFilesCloud.deleteFile({
+          bucketName: envs.AWS_BUCKET_NAME,
+          key: categoria.cover.imageUrl
+        });
+        console.log(`[CategoriaService] Cover eliminado: ${categoria.cover.imageUrl}`);
+      } catch (error) {
+        console.error(`[CategoriaService] Error eliminando cover ${categoria.cover.imageUrl}:`, error);
       }
     }
 

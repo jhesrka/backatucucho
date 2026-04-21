@@ -8,6 +8,7 @@ import {
   OneToMany,
 } from "typeorm";
 import { Negocio } from "./Negocio";
+import { SubcategoriaNegocio } from "./SubcategoriaNegocio";
 
 export enum StatusCategoria {
   ACTIVO = "ACTIVO",
@@ -58,6 +59,15 @@ export class CategoriaNegocio extends BaseEntity {
   @Column({ type: "int", default: 0 })
   orden: number;
 
+  @Column({ type: "jsonb", nullable: true, default: null })
+  cover: {
+    type: "image" | "video";
+    imageUrl?: string | null;
+    videoUrl?: string | null;
+    title?: string | null;
+    description?: string | null;
+  } | null;
+
   @CreateDateColumn({ type: "timestamp" })
   created_at: Date;
 
@@ -66,4 +76,7 @@ export class CategoriaNegocio extends BaseEntity {
 
   @OneToMany(() => Negocio, (negocio) => negocio.categoria)
   negocios: Negocio[];
+
+  @OneToMany(() => SubcategoriaNegocio, (sub) => sub.categoria)
+  subcategorias: SubcategoriaNegocio[];
 }

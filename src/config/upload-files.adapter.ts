@@ -6,3 +6,5 @@ const upload = multer({ storage });
 export const uploadSingleFile = (fileName: string) => upload.single(fileName);
 export const uploadMultipleFile = (fileName: string, maxFileNumber: number) =>
   upload.array(fileName, maxFileNumber);
+export const uploadFields = (fields: { name: string; maxCount?: number }[]) =>
+  upload.fields(fields);

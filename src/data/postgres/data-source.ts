@@ -12,6 +12,7 @@ import { RechargeRequest } from "./models/rechargeStatus.model";
 import { Subscription } from "./models/subscriptionStatus.model";
 import { FreePostTracker } from "./models/freePostTracker.model";
 import { CategoriaNegocio } from "./models/CategoriaNegocio";
+import { SubcategoriaNegocio } from "./models/SubcategoriaNegocio";
 import { Negocio } from "./models/Negocio";
 import { Producto } from "./models/Producto";
 import { TipoProducto } from "./models/TipoProducto";
@@ -45,7 +46,7 @@ export const AppDataSource = new DataSource({
     },
     entities: [
         User, Post, Useradmin, Storie, Like, Wallet, RechargeRequest, Subscription,
-        FreePostTracker, Transaction, CategoriaNegocio, Negocio, Producto, TipoProducto,
+        FreePostTracker, Transaction, CategoriaNegocio, SubcategoriaNegocio, Negocio, Producto, TipoProducto,
         UserMotorizado, ProductoPedido, Pedido, TransaccionMotorizado, BalanceNegocio,
         PriceSettings, DeliverySettings, AdminNotification, GlobalSettings, CommissionLog, Campaign,
         CampaignLog, FinancialClosing, Report

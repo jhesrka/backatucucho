@@ -96,6 +96,15 @@ export class GlobalSettings extends BaseEntity {
     @Column("decimal", { precision: 5, scale: 2, default: 0.00 })
     payphoneRechargePercentage: number;
 
+    @Column("jsonb", { nullable: true })
+    businessCover: {
+        type: "image" | "video";
+        imageUrl?: string;
+        videoUrl?: string;
+        title?: string;
+        description?: string;
+    };
+
     @UpdateDateColumn()
     updatedAt: Date;
 }

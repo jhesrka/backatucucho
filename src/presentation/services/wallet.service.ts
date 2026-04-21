@@ -69,29 +69,30 @@ export class WalletService {
       throw CustomError.internalServer("Error creando la wallet.");
     }
   }
-  // ✅ Restar saldo manualmente (solo si está ACTIVA)
+  // ✅ Restar saldo de forma ATÓMICA y SEGURA
   async subtractFromWallet(userId: string, amount: number) {
+    if (amount <= 0) throw CustomError.badRequest("El monto debe ser mayor a cero");
+
+    // 1. Verificar estado y existencia (Lock pesimista opcional, pero usaremos validación en Update)
     const wallet = await Wallet.findOne({ where: { user: { id: userId } } });
 
-    if (!wallet) {
-      throw CustomError.notFound("Wallet no encontrada");
-    }
-
+    if (!wallet) throw CustomError.notFound("Wallet no encontrada");
     if (wallet.status === WalletStatus.BLOQUEADO) {
-      throw CustomError.forbiden("Wallet bloqueada, no se puede modificar saldo");
+      throw CustomError.forbiden("Wallet bloqueada, no se puede realizar la operación");
     }
 
-    if (wallet.balance < amount) {
-      throw CustomError.badRequest("Saldo insuficiente");
+    // 2. Ejecutar resta atómica directamente en la DB para prevenirRace Conditions
+    const updateResult = await Wallet.createQueryBuilder()
+      .update(Wallet)
+      .set({ balance: () => `balance - ${amount}` })
+      .where("id = :id AND balance >= :amount", { id: wallet.id, amount })
+      .execute();
+
+    if (updateResult.affected === 0) {
+      throw CustomError.badRequest("Saldo insuficiente para completar la transacción");
     }
 
-    wallet.balance -= amount;
-
-    try {
-      return await wallet.save();
-    } catch {
-      throw CustomError.internalServer("Error al actualizar el saldo de la wallet");
-    }
+    return await Wallet.findOne({ where: { id: wallet.id } });
   }
 
 
@@ -403,8 +404,12 @@ export class WalletService {
             throw CustomError.internalServer("Error técnico: Monto de acreditación inválido");
         }
 
-        wallet.balance = previousBalance + amountToCredit;
-        await wallet.save();
+        // 🚀 ACREDITACIÓN ATÓMICA (Protección contra Race Conditions)
+        await Wallet.createQueryBuilder()
+          .update(Wallet)
+          .set({ balance: () => `balance + ${amountToCredit}` })
+          .where("id = :id", { id: wallet.id })
+          .execute();
 
         // Actualizar solicitud
         recharge.status = StatusRecarga.APROBADO;
@@ -413,6 +418,7 @@ export class WalletService {
         await recharge.save();
 
         // Crear registro de transacción
+        const updatedWallet = await Wallet.findOne({ where: { id: wallet.id } });
         console.log(`📝 [Payphone Service] Creando registro de transacción...`);
         const transaction = new Transaction();
         transaction.wallet = wallet;
@@ -422,7 +428,7 @@ export class WalletService {
         transaction.reason = TransactionReason.RECHARGE;
         transaction.origin = TransactionOrigin.USER;
         transaction.previousBalance = previousBalance;
-        transaction.resultingBalance = Number(wallet.balance);
+        transaction.resultingBalance = Number(updatedWallet?.balance || previousBalance + amountToCredit);
         transaction.reference = recharge.id;
         
         await transaction.save();

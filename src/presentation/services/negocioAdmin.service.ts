@@ -6,7 +6,8 @@ import {
   ModeloMonetizacion,
   User,
   EstadoNegocio,
-  GlobalSettings
+  GlobalSettings,
+  SubcategoriaNegocio,
 } from "../../data";
 import { UploadFilesCloud } from "../../config/upload-files-cloud-adapter";
 import { encriptAdapter } from "../../config/bcrypt.adapter";
@@ -58,7 +59,7 @@ export class NegocioAdminService {
 
     const [negocios, total] = await Negocio.findAndCount({
       where,
-      relations: ["categoria", "usuario", "usuario.wallet"],
+      relations: ["categoria", "subcategoria", "usuario", "usuario.wallet"],
       take: limit,
       skip: offset,
       order: { created_at: "DESC" },
@@ -103,7 +104,7 @@ export class NegocioAdminService {
   async getNegocioByIdAdmin(id: string) {
     const negocio = await Negocio.findOne({
       where: { id },
-      relations: ["categoria", "usuario", "usuario.wallet", "productos"],
+      relations: ["categoria", "subcategoria", "usuario", "usuario.wallet", "productos"],
     });
 
     if (!negocio) throw CustomError.notFound("Negocio no encontrado");
@@ -148,10 +149,20 @@ export class NegocioAdminService {
       });
     }
 
+    let subcategoria = null;
+    if (dto.subcategoriaId) {
+      subcategoria = await SubcategoriaNegocio.findOneBy({ 
+        id: dto.subcategoriaId, 
+        categoria: { id: categoria.id } 
+      });
+      if (!subcategoria) throw CustomError.notFound("Subcategoría no encontrada o no pertenece a la categoría");
+    }
+
     const negocio = Negocio.create({
       nombre: dto.nombre,
       descripcion: dto.descripcion,
       categoria,
+      subcategoria: subcategoria!,
       usuario,
       imagenNegocio: key,
       modeloMonetizacion: dto.modeloMonetizacion,
@@ -212,6 +223,26 @@ export class NegocioAdminService {
       });
       if (!categoria) throw CustomError.notFound("Categoría no encontrada");
       negocio.categoria = categoria;
+
+      // Si cambiamos categoria, debemos limpiar la subcategoria vieja (ya que no pertenecen) 
+      // A MENOS que el DTO también traiga una subcategoriaId nueva
+      if (!dto.subcategoriaId) {
+        negocio.subcategoria = null!;
+      }
+    }
+
+    // ========================= ACTUALIZAR SUBCATEGORÍA =========================
+    if (dto.subcategoriaId !== undefined) {
+      if (dto.subcategoriaId === null) {
+        negocio.subcategoria = null!;
+      } else {
+        const sub = await SubcategoriaNegocio.findOneBy({ 
+          id: dto.subcategoriaId,
+          categoria: { id: negocio.categoria.id }
+        });
+        if (!sub) throw CustomError.notFound("Subcategoría no encontrada o no pertenece a la categoría del negocio");
+        negocio.subcategoria = sub;
+      }
     }
 
     // ========================= ACTUALIZAR MODELO DE MONETIZACIÓN =========================
@@ -393,6 +424,10 @@ export class NegocioAdminService {
       payphone_store_id: saved.payphone_store_id,
       payphone_token: saved.payphone_token,
       porcentaje_recargo_tarjeta: Number(saved.porcentaje_recargo_tarjeta) || 0,
+      subcategoria: saved.subcategoria ? {
+        id: saved.subcategoria.id,
+        nombre: saved.subcategoria.nombre
+      } : null
     };
   }
 
@@ -541,7 +576,7 @@ export class NegocioAdminService {
 
     const [negocios, total] = await Negocio.findAndCount({
       where: { usuario: { id: userId } },
-      relations: ["categoria", "productos"], // Include products to count them
+      relations: ["categoria", "subcategoria", "productos"], // Include products to count them
       order: { created_at: "DESC" },
       take: limit,
       skip: skip,
@@ -582,6 +617,7 @@ export class NegocioAdminService {
           statusNegocio: negocio.statusNegocio,
           estadoNegocio: negocio.estadoNegocio, // Abierto/Cerrado
           categoria: negocio.categoria?.nombre,
+          subcategoria: negocio.subcategoria?.nombre,
           modeloMonetizacion: negocio.modeloMonetizacion,
           valorSuscripcion: negocio.valorSuscripcion,
           diaPago: negocio.diaPago,

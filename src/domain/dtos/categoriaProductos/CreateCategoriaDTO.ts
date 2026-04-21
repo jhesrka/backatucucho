@@ -8,11 +8,22 @@ export class CreateCategoriaDTO {
     public readonly soloComision: boolean = false,
     public readonly orden: number = 0,
     public readonly modeloBloqueado: boolean = false,
-    public readonly modeloMonetizacionDefault: string | null = null
+    public readonly modeloMonetizacionDefault: string | null = null,
+    public readonly cover?: {
+      type: "image" | "video";
+      imageUrl?: string | null;
+      videoUrl?: string | null;
+      title?: string | null;
+      description?: string | null;
+    } | null
   ) { }
 
   static create(obj: { [key: string]: any }): [string?, CreateCategoriaDTO?] {
-    const { name, icon, restriccionModeloMonetizacion, soloComision, modeloBloqueado, modeloMonetizacionDefault } = obj;
+    let { name, icon, restriccionModeloMonetizacion, soloComision, modeloBloqueado, modeloMonetizacionDefault, cover } = obj;
+
+    if (typeof cover === "string") {
+      try { cover = JSON.parse(cover); } catch (e) { return ["El campo cover no es un JSON válido"]; }
+    }
 
     if (!name || typeof name !== "string" || name.trim().length < 3) {
       return ["El nombre de la categoría debe tener al menos 3 caracteres"];
@@ -34,7 +45,8 @@ export class CreateCategoriaDTO {
         !!soloComision,
         obj.orden ? Number(obj.orden) : 0,
         !!modeloBloqueado,
-        modeloMonetizacionDefault || null
+        modeloMonetizacionDefault || null,
+        cover || null
       ),
     ];
   }

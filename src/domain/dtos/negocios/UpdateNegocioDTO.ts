@@ -20,7 +20,8 @@ export class UpdateNegocioDTO {
     public readonly pago_tarjeta_activo_negocio?: boolean,
     public readonly payphone_store_id?: string | null,
     public readonly payphone_token?: string | null,
-    public readonly porcentaje_recargo_tarjeta?: number
+    public readonly porcentaje_recargo_tarjeta?: number,
+    public readonly subcategoriaId?: string | null
   ) { }
 
   static create(obj: { [key: string]: any }): [string?, UpdateNegocioDTO?] {
@@ -40,7 +41,8 @@ export class UpdateNegocioDTO {
       pago_tarjeta_activo_negocio,
       payphone_store_id,
       payphone_token,
-      porcentaje_recargo_tarjeta
+      porcentaje_recargo_tarjeta,
+      subcategoriaId
     } = obj;
 
     // Validaciones opcionales
@@ -109,6 +111,10 @@ export class UpdateNegocioDTO {
       }
     }
 
+    if (subcategoriaId !== undefined && subcategoriaId !== null && !regularExp.uuid.test(subcategoriaId)) {
+      return ["El ID de subcategoría no es válido"];
+    }
+
     const dirTxt =
       typeof direccionTexto === "string" && direccionTexto.trim().length > 0
         ? direccionTexto.trim().slice(0, 200)
@@ -133,7 +139,8 @@ export class UpdateNegocioDTO {
         pago_tarjeta_activo_negocio,
         payphone_store_id,
         payphone_token,
-        porcentaje_recargo_tarjeta !== undefined ? Number(porcentaje_recargo_tarjeta) : undefined
+        porcentaje_recargo_tarjeta !== undefined ? Number(porcentaje_recargo_tarjeta) : undefined,
+        subcategoriaId
       ),
     ];
   }

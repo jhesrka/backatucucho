@@ -14,6 +14,7 @@ export class CreateNegocioDTO {
     public readonly tipoCuenta: string,
     public readonly numeroCuenta: string,
     public readonly titularCuenta: string,
+    public readonly subcategoriaId?: string | null,
     public readonly direccionTexto?: string | null,
     public readonly valorSuscripcion: number = 0,
     public readonly diaPago: number = 1,
@@ -34,6 +35,7 @@ export class CreateNegocioDTO {
       tipoCuenta,
       numeroCuenta,
       titularCuenta,
+      subcategoriaId,
       valorSuscripcion,
       diaPago,
       orden
@@ -110,6 +112,10 @@ export class CreateNegocioDTO {
         ? direccionTexto.trim().slice(0, 200)
         : undefined;
 
+    if (subcategoriaId && !regularExp.uuid.test(subcategoriaId)) {
+      return ["El ID de subcategoría no es válido"];
+    }
+
     return [
       undefined,
       new CreateNegocioDTO(
@@ -124,6 +130,7 @@ export class CreateNegocioDTO {
         tipoCuenta.trim(),
         numeroCuenta.trim(),
         titularCuenta.trim(),
+        subcategoriaId,
         dirTxt,
         valorSuscripcion !== undefined ? Number(valorSuscripcion) : 0,
         diaPago !== undefined ? Number(diaPago) : 1,

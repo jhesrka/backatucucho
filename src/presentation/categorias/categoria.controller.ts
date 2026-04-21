@@ -21,7 +21,11 @@ export class CategoriaController {
     const [error, dto] = CreateCategoriaDTO.create(req.body);
     if (error) return res.status(422).json({ message: error });
 
-    if (!req.file) {
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+    const iconFile = files?.imagen?.[0];
+    const coverFile = files?.coverImage?.[0];
+
+    if (!iconFile) {
       return res.status(422).json({ message: "La imagen de la categoría es obligatoria" });
     }
 
@@ -29,7 +33,7 @@ export class CategoriaController {
     if (!masterPin) return res.status(400).json({ message: "Master PIN es requerido" });
 
     this.categoriaService
-      .createCategoria(dto!, req.file, masterPin)
+      .createCategoria(dto!, iconFile, masterPin, coverFile)
       .then((categoria) => res.status(201).json(categoria))
       .catch((error) => this.handleError(error, res));
   };
@@ -66,11 +70,15 @@ export class CategoriaController {
     const [error, dto] = UpdateCategoriaDTO.create(req.body);
     if (error) return res.status(422).json({ message: error });
 
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+    const iconFile = files?.imagen?.[0];
+    const coverFile = files?.coverImage?.[0];
+
     const { masterPin } = req.body;
     if (!masterPin) return res.status(400).json({ message: "Master PIN es requerido" });
 
     this.categoriaService
-      .updateCategoria(id, dto!, req.file, masterPin)
+      .updateCategoria(id, dto!, iconFile, masterPin, coverFile)
       .then((categoria) => res.status(200).json(categoria))
       .catch((error) => this.handleError(error, res));
   };

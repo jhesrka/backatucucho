@@ -5,6 +5,7 @@ import {
   Negocio,
   StatusNegocio,
   User,
+  SubcategoriaNegocio,
 } from "../../data";
 import { CustomError } from "../../domain";
 import { CreateNegocioDTO } from "../../domain/dtos/negocios/CreateNegocioDTO";
@@ -83,11 +84,21 @@ export class NegocioService {
     // Eliminamos la linea "const modelo = dto.modeloMonetizacion;" porque ya definimos 'modelo' arriba.
 
 
+    let subcategoria = null;
+    if (dto.subcategoriaId) {
+      subcategoria = await SubcategoriaNegocio.findOneBy({ 
+        id: dto.subcategoriaId, 
+        categoria: { id: categoria.id } 
+      });
+      if (!subcategoria) throw CustomError.notFound("Subcategoría no encontrada o no pertenece a la categoría");
+    }
+
     // ⬇️ ⬇️ GUARDAMOS lat/long (y opcional direccionTexto si creas la columna)
     const negocio = Negocio.create({
       nombre: dto.nombre.trim(),
       descripcion: dto.descripcion.trim(),
       categoria,
+      subcategoria: subcategoria!,
       usuario,
       imagenNegocio: key,
       modeloMonetizacion: modelo,
@@ -150,10 +161,14 @@ export class NegocioService {
     // 1. Obtenemos los negocios activos de la categoría con QueryBuilder
     const negocios = await Negocio.createQueryBuilder("negocio")
       .leftJoinAndSelect("negocio.categoria", "categoria")
+      .leftJoinAndSelect("negocio.subcategoria", "subcategoria")
       .where("negocio.categoriaId = :categoriaId", { categoriaId })
       .andWhere("negocio.statusNegocio = :status", { status: StatusNegocio.ACTIVO })
       .andWhere("negocio.estadoNegocio = :estado", { estado: EstadoNegocio.ABIERTO })
-      .orderBy("RANDOM()") 
+      .orderBy("subcategoria.orden", "ASC")
+      .addOrderBy("subcategoria.created_at", "ASC")
+      .addOrderBy("negocio.orden", "ASC")
+      .addOrderBy("RANDOM()") 
       .getMany();
 
     const negociosConUrl = await Promise.all(
@@ -162,11 +177,10 @@ export class NegocioService {
 
         if (negocio.imagenNegocio) {
           try {
-            // OPTIMIZACIÓN: Usar tamaño CARD para el catálogo (ahorro de ~80% de ancho de banda)
             imagenUrl = await UploadFilesCloud.getFile({
               bucketName: envs.AWS_BUCKET_NAME,
               key: negocio.imagenNegocio,
-            }, 'card' as any); // Usamos versión optimizada
+            }, 'card' as any); 
           } catch (error) {
             console.error(`Error obteniendo imagen para negocio ${negocio.id}:`, error);
           }
@@ -184,6 +198,11 @@ export class NegocioService {
             nombre: negocio.categoria.nombre,
             statusCategoria: negocio.categoria.statusCategoria,
           },
+          subcategoria: negocio.subcategoria ? {
+            id: negocio.subcategoria.id,
+            nombre: negocio.subcategoria.nombre,
+            orden: negocio.subcategoria.orden,
+          } : null,
           imagenUrl,
           ratingPromedio: Number(negocio.ratingPromedio) || 0,
           totalResenas: Number(negocio.totalResenas) || 0,
@@ -360,6 +379,10 @@ export class NegocioService {
           productosCount: (negocio as any).productosCount || 0,
           ratingPromedio: Number(negocio.ratingPromedio) || 0,
           totalResenas: Number(negocio.totalResenas) || 0,
+          valorSuscripcion: Number(negocio.valorSuscripcion) || 0,
+          fechaInicioSuscripcion: negocio.fechaInicioSuscripcion,
+          fechaFinSuscripcion: negocio.fechaFinSuscripcion,
+          pago_tarjeta_habilitado_admin: negocio.pago_tarjeta_habilitado_admin,
           imagenUrl,
           categoria: {
             id: negocio.categoria.id,
