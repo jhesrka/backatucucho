@@ -87,10 +87,21 @@ export class NegocioAdminService {
           }
           : null;
 
+        // 🔒 Enmascarar Payphone (Seguridad Admin)
+        const payphone_store_id = negocio.payphone_store_id 
+          ? `${negocio.payphone_store_id.slice(0, 4)}...${negocio.payphone_store_id.slice(-4)}` 
+          : null;
+        
+        const payphone_token = negocio.payphone_token 
+          ? `****************${negocio.payphone_token.slice(-6)}` 
+          : null;
+
         return {
           ...negocio,
           usuario: usuarioSeguro,
           imagenUrl,
+          payphone_store_id,
+          payphone_token,
         };
       })
     );
@@ -125,7 +136,22 @@ export class NegocioAdminService {
       }
       : null;
 
-    return { ...negocio, usuario: usuarioSeguro, imagenUrl };
+    // 🔒 Enmascarar Payphone
+    const payphone_store_id = negocio.payphone_store_id 
+      ? `${negocio.payphone_store_id.slice(0, 4)}...${negocio.payphone_store_id.slice(-4)}` 
+      : null;
+    
+    const payphone_token = negocio.payphone_token 
+      ? `****************${negocio.payphone_token.slice(-6)}` 
+      : null;
+
+    return { 
+      ...negocio, 
+      usuario: usuarioSeguro, 
+      imagenUrl,
+      payphone_store_id,
+      payphone_token
+    };
   }
 
   // ========================= CREATE =========================
@@ -421,13 +447,17 @@ export class NegocioAdminService {
       orden: saved.orden,
       pago_tarjeta_habilitado_admin: saved.pago_tarjeta_habilitado_admin,
       pago_tarjeta_activo_negocio: saved.pago_tarjeta_activo_negocio,
-      payphone_store_id: saved.payphone_store_id,
-      payphone_token: saved.payphone_token,
-      porcentaje_recargo_tarjeta: Number(saved.porcentaje_recargo_tarjeta) || 0,
       subcategoria: saved.subcategoria ? {
         id: saved.subcategoria.id,
         nombre: saved.subcategoria.nombre
-      } : null
+      } : null,
+      // 🔒 Enmascarar resultados guardados
+      payphone_store_id: saved.payphone_store_id 
+        ? `${saved.payphone_store_id.slice(0, 4)}...${saved.payphone_store_id.slice(-4)}` 
+        : null,
+      payphone_token: saved.payphone_token 
+        ? `****************${saved.payphone_token.slice(-6)}` 
+        : null
     };
   }
 

@@ -106,8 +106,8 @@ export class UpdateNegocioDTO {
 
     if (porcentaje_recargo_tarjeta !== undefined) {
       const recargo = Number(porcentaje_recargo_tarjeta);
-      if (isNaN(recargo) || recargo < 0 || recargo > 100) {
-        return ["El porcentaje de recargo debe estar entre 0 y 100"];
+      if (isNaN(recargo) || recargo < 0 || recargo > 20) {
+        return ["El porcentaje de recargo debe estar entre 0% y 20% (máximo recomendado)"];
       }
     }
 
