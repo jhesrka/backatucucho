@@ -239,9 +239,26 @@ export class PostgresDatabase {
           UPDATE "producto" SET "comision_producto" = "precio_venta" - "precio_app" WHERE "comision_producto" = 0 AND "precio_venta" != "precio_app";
         END $$;
 
-        ALTER TABLE "producto_pedido" ADD COLUMN IF NOT EXISTS "precio_venta" DECIMAL(10,2) DEFAULT 0;
         ALTER TABLE "producto_pedido" ADD COLUMN IF NOT EXISTS "precio_app" DECIMAL(10,2) DEFAULT 0;
         ALTER TABLE "producto_pedido" ADD COLUMN IF NOT EXISTS "comision_producto" DECIMAL(10,2) DEFAULT 0;
+        ALTER TABLE "producto_pedido" ADD COLUMN IF NOT EXISTS "producto_nombre" VARCHAR(150) DEFAULT NULL;
+        ALTER TABLE "producto_pedido" ADD COLUMN IF NOT EXISTS "producto_imagen" VARCHAR(255) DEFAULT NULL;
+
+        -- 🛡️ REGLA: Permitir que el producto sea NULL al borrar (SET NULL) para no romper históricos
+        DO $FK_PP$
+        DECLARE
+            fk_pp_name TEXT;
+        BEGIN
+            SELECT conname INTO fk_pp_name
+            FROM pg_constraint 
+            WHERE confrelid = 'producto'::regclass 
+            AND conrelid = 'producto_pedido'::regclass;
+            
+            IF fk_pp_name IS NOT NULL THEN
+                EXECUTE 'ALTER TABLE producto_pedido DROP CONSTRAINT ' || quote_ident(fk_pp_name);
+            END IF;
+        END $FK_PP$;
+        ALTER TABLE producto_pedido ADD CONSTRAINT "FK_producto_pedido_producto" FOREIGN KEY ("productoId") REFERENCES "producto"("id") ON DELETE SET NULL;
 
         CREATE TABLE IF NOT EXISTS "commission_log" (
           "id" uuid NOT NULL DEFAULT uuid_generate_v4(),

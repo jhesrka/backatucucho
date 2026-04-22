@@ -1,7 +1,9 @@
-import { Producto, StatusProducto, ProductoPedido } from "../../data";
+import { Producto, StatusProducto, ProductoPedido, GlobalSettings } from "../../data";
 import { UploadFilesCloud } from "../../config/upload-files-cloud-adapter";
-import { envs } from "../../config";
+import { envs, encriptAdapter } from "../../config";
 import { ILike } from "typeorm";
+import { CustomError } from "../../domain";
+import { getIO } from "../../config/socket";
 
 export class ProductoServiceAdmin {
   async getProductosAdmin({
@@ -119,7 +121,7 @@ export class ProductoServiceAdmin {
       imagen?: Express.Multer.File;
     }
   ) {
-    const producto = await Producto.findOne({ where: { id } });
+    const producto = await Producto.findOne({ where: { id }, relations: ["negocio", "tipo"] });
     if (!producto) throw new Error("Producto no encontrado");
 
     // 🔹 Si llega una nueva imagen, eliminar la anterior y subir la nueva
@@ -140,7 +142,6 @@ export class ProductoServiceAdmin {
       });
 
       producto.imagen = savedKey;
-
     }
 
     // 🔹 Actualizar campos opcionales
@@ -164,6 +165,9 @@ export class ProductoServiceAdmin {
     }
 
     await producto.save();
+
+    // 📡 Notificar por WebSockets
+    await this.emitProductUpdate(producto);
 
     // 🔹 Obtener la URL de la imagen actualizada (si aplica)
     let imagenUrl: string | null = null;
@@ -192,21 +196,40 @@ export class ProductoServiceAdmin {
 
   // ADMIN: Change status only
   async changeStatusProductoAdmin(id: string, status: StatusProducto) {
-    const producto = await Producto.findOne({ where: { id } });
+    const producto = await Producto.findOne({ where: { id }, relations: ["negocio", "tipo"] });
     if (!producto) throw new Error("Producto no encontrado");
 
     producto.statusProducto = status;
     if (status === StatusProducto.SUSPENDIDO || status === StatusProducto.BLOQUEADO) {
       producto.disponible = false;
     }
-    await producto.save();
+    const saved = await producto.save();
+
+    // 📡 Notificar por WebSockets
+    await this.emitProductUpdate(saved);
+
     return { message: `Estado cambiado a ${status}`, status: producto.statusProducto };
   }
 
   // ADMIN: Purge definitive
-  async deleteProductoAdmin(id: string) {
-    const producto = await Producto.findOne({ where: { id } });
-    if (!producto) throw new Error("Producto no encontrado");
+  async deleteProductoAdmin(id: string, pin: string) {
+    if (!pin) throw CustomError.badRequest("El PIN maestro es obligatorio");
+
+    // 1. Obtener validación de PIN desde settings
+    const settings = await GlobalSettings.findOne({ where: {} });
+    if (!settings?.masterPin) {
+      throw CustomError.internalServer("El PIN maestro no está configurado en el sistema.");
+    }
+
+    const isPinValid = encriptAdapter.compare(pin, settings.masterPin);
+    if (!isPinValid) {
+      throw CustomError.badRequest("El PIN maestro ingresado es incorrecto.");
+    }
+
+    const producto = await Producto.findOne({ where: { id }, relations: ["negocio"] });
+    if (!producto) throw CustomError.notFound("Producto no encontrado");
+
+    const negocioId = producto.negocio.id;
 
     if (producto.imagen) {
       await UploadFilesCloud.deleteFile({
@@ -216,6 +239,52 @@ export class ProductoServiceAdmin {
     }
 
     await Producto.remove(producto);
-    return { message: "Producto eliminado correctamente" };
+
+    // 📡 Notificar por WebSockets
+    getIO().emit("product_deleted", {
+      productId: id,
+      negocioId: negocioId,
+    });
+    return { message: "Producto eliminado definitivamente del catálogo actual" };
+  }
+
+  // ========================= SOCKET UPDATE HELPER =========================
+  private async emitProductUpdate(producto: Producto) {
+    let formattedProduct = null;
+
+    if (producto.statusProducto === StatusProducto.ACTIVO) {
+      const imageUrl = await UploadFilesCloud.getFile({
+        bucketName: envs.AWS_BUCKET_NAME,
+        key: producto.imagen,
+      });
+
+      formattedProduct = {
+        id: producto.id,
+        nombre: producto.nombre,
+        descripcion: producto.descripcion,
+        precio_venta: producto.precio_venta,
+        precio_app: producto.precio_app,
+        comision_producto: producto.comision_producto,
+        imagen: imageUrl,
+        disponible: producto.disponible,
+        created_at: producto.created_at,
+        statusProducto: producto.statusProducto,
+        tipo: producto.tipo
+          ? {
+            id: producto.tipo.id,
+            nombre: producto.tipo.nombre,
+          }
+          : null,
+        negocioId: producto.negocio.id
+      };
+    }
+
+    getIO().emit("product_status_changed", {
+      productId: producto.id,
+      negocioId: producto.negocio.id,
+      disponible: producto.disponible,
+      statusProducto: producto.statusProducto,
+      product: formattedProduct, // Enviar objeto completo para inserción en vivo
+    });
   }
 }

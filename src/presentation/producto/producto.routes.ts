@@ -12,6 +12,13 @@ export class ProductoRoutes {
     const productoService = new ProductoService();
     const productoController = new ProductoController(productoService);
 
+    // NUEVO: Verificar disponibilidad masiva
+    router.post(
+      "/check-availability",
+      AuthMiddleware.protect,
+      productoController.checkAvailability
+    );
+
     // Crear producto (usuario autenticado)
     router.post(
       "/",

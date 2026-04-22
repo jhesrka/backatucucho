@@ -62,7 +62,15 @@ export class PedidoAdminService {
       relations: ["cliente", "motorizado", "negocio", "productos", "productos.producto"],
     });
 
-    return { total, pedidos };
+    const mappedPedidos = pedidos.map(p => ({
+      ...p,
+      productos: p.productos.map(pp => ({
+        ...pp,
+        producto: pp.producto || { nombre: pp.producto_nombre || "P. Eliminado", id: 'deleted' }
+      }))
+    }));
+
+    return { total, pedidos: mappedPedidos };
   }
 
   // ✅ 2. Ver pedido por ID
@@ -73,6 +81,17 @@ export class PedidoAdminService {
     });
 
     if (!pedido) throw CustomError.notFound("Pedido no encontrado");
+    
+    // ✅ Transformar para soportar productos eliminados (usando snapshot)
+    pedido.productos = pedido.productos.map(pp => ({
+      ...pp,
+      producto: pp.producto || { 
+        nombre: pp.producto_nombre || "Producto ya no disponible", 
+        id: 'deleted',
+        imagen: pp.producto_imagen 
+      }
+    })) as any;
+
     return pedido;
   }
 

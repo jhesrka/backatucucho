@@ -20223,3 +20223,11 @@
 {}
 2026-04-21T00:14:28.768Z - CONTROLLER ERROR: Error: Error al obtener dashboard operativo
 {}
+2026-04-22T21:38:03.385Z - CONTROLLER ERROR: QueryFailedError: Connection terminated unexpectedly
+{
+  "query": "SELECT COUNT(1) AS \"cnt\" FROM \"user\" \"user\" WHERE ( \"user\".\"lastSeenAt\" >= $1 ) AND ( \"user\".\"deletedAt\" IS NULL )",
+  "parameters": [
+    "2026-04-22T10:00:00.000Z"
+  ],
+  "driverError": {}
+}

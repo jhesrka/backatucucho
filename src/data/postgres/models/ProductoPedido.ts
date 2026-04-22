@@ -17,8 +17,14 @@ export class ProductoPedido extends BaseEntity {
   @ManyToOne(() => Pedido, (pedido) => pedido.productos, { onDelete: "CASCADE" })
   pedido: Pedido;
 
-  @ManyToOne(() => Producto)
-  producto: Producto;
+  @ManyToOne(() => Producto, { nullable: true, onDelete: "SET NULL" })
+  producto: Producto | null;
+
+  @Column({ type: "varchar", length: 150, nullable: true })
+  producto_nombre: string;
+
+  @Column({ type: "varchar", length: 255, nullable: true })
+  producto_imagen: string;
 
   @Column("int")
   cantidad: number;

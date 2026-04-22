@@ -95,6 +95,10 @@ export class PedidoUsuarioService {
       const pp = new ProductoPedido();
       pp.producto = p; pp.cantidad = item.cantidad;
       pp.precio_venta = p.precio_venta; pp.precio_app = p.precio_app;
+      // ✅ Snapshot para históricos invariables
+      pp.producto_nombre = p.nombre;
+      pp.producto_imagen = p.imagen;
+      
       pp.subtotal = +(pp.cantidad * p.precio_app).toFixed(2);
       totalVP += (p.precio_venta * pp.cantidad);
       totalApp += (p.precio_app * pp.cantidad);
@@ -195,7 +199,11 @@ export class PedidoUsuarioService {
         createdAt: p.createdAt, fecha: p.createdAt,
         negocio: { id: p.negocio.id, nombre: p.negocio.nombre },
         productos: p.productos.map(pp => ({
-          nombre: pp.producto.nombre, cantidad: pp.cantidad, subtotal: pp.subtotal, precio_venta: pp.precio_venta
+          nombre: pp.producto?.nombre || pp.producto_nombre || "Producto no disponible", 
+          cantidad: pp.cantidad, 
+          subtotal: pp.subtotal, 
+          precio_venta: pp.precio_venta,
+          imagen: pp.producto_imagen // Snapshot de imagen
         })),
         metodoPago: p.metodoPago, comprobantePagoUrl: url,
         delivery_code: p.delivery_code, arrival_time: p.arrival_time,

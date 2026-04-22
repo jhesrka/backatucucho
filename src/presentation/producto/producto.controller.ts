@@ -110,4 +110,16 @@ export class ProductoController {
       .then((result) => res.status(200).json(result))
       .catch((error) => this.handleError(error, res));
   };
+
+  checkAvailability = (req: Request, res: Response) => {
+    const { ids } = req.body;
+    if (!Array.isArray(ids)) {
+      return res.status(400).json({ message: "Se requiere un array de IDs de productos" });
+    }
+
+    this.productoService
+      .checkAvailability(ids)
+      .then((results) => res.status(200).json(results))
+      .catch((error) => this.handleError(error, res));
+  };
 }

@@ -114,8 +114,10 @@ export class ProductoControllerAdmin {
 
   deleteProductoAdmin = async (req: Request, res: Response) => {
     const { id } = req.params;
+    const { pin } = req.body; // Recibimos el PIN de 4 dígitos
+
     try {
-      const result = await this.productoServiceAdmin.deleteProductoAdmin(id);
+      const result = await this.productoServiceAdmin.deleteProductoAdmin(id, pin);
       return res.status(200).json(result);
     } catch (error) {
       this.handleError(error, res);

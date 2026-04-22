@@ -203,6 +203,7 @@ export class NegocioService {
             nombre: negocio.subcategoria.nombre,
             orden: negocio.subcategoria.orden,
           } : null,
+          orden: negocio.orden, // ✅ PRIORIDAD DEL NEGOCIO
           imagenUrl,
           ratingPromedio: Number(negocio.ratingPromedio) || 0,
           totalResenas: Number(negocio.totalResenas) || 0,
@@ -322,6 +323,7 @@ export class NegocioService {
               photoperfil: userProfileUrl,
             },
             imagenUrl,
+            orden: negocio.orden, // ✅ PRIORIDAD
             ratingPromedio: Number(negocio.ratingPromedio) || 0,
             totalResenas: Number(negocio.totalResenas) || 0,
           };
@@ -383,6 +385,7 @@ export class NegocioService {
           fechaInicioSuscripcion: negocio.fechaInicioSuscripcion,
           fechaFinSuscripcion: negocio.fechaFinSuscripcion,
           pago_tarjeta_habilitado_admin: negocio.pago_tarjeta_habilitado_admin,
+          orden: negocio.orden, // ✅ PRIORIDAD
           imagenUrl,
           categoria: {
             id: negocio.categoria.id,

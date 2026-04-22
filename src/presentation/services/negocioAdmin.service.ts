@@ -377,7 +377,7 @@ export class NegocioAdminService {
       }
 
       // 🔄 FLUJO ATÓMICO: Si el admin intenta poner ACTIVO y se requiere cobro:
-      const needsCharge = Number(negocio.valorSuscripcion) > 0 && (
+      const needsCharge = (
         negocio.statusNegocio === StatusNegocio.NO_PAGADO ||
         negocio.statusNegocio === StatusNegocio.PENDIENTE ||
         !negocio.fechaFinSuscripcion ||
@@ -558,7 +558,7 @@ export class NegocioAdminService {
     });
     if (!negocio) throw CustomError.notFound("Negocio no encontrado");
 
-    const needsCharge = Number(negocio.valorSuscripcion) > 0 && (
+    const needsCharge = (
       negocio.statusNegocio === StatusNegocio.NO_PAGADO ||
       negocio.statusNegocio === StatusNegocio.PENDIENTE ||
       !negocio.fechaFinSuscripcion ||

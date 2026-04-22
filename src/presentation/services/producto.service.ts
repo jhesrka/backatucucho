@@ -1,3 +1,4 @@
+import { In } from "typeorm";
 import {
   Producto,
   Negocio,
@@ -9,6 +10,7 @@ import { CustomError } from "../../domain";
 import { CreateProductoDTO } from "../../domain/dtos/productos/CreateProductoDTO";
 import { UploadFilesCloud } from "../../config/upload-files-cloud-adapter";
 import { envs } from "../../config";
+import { getIO } from "../../config/socket";
 
 export class ProductoService {
 
@@ -124,8 +126,15 @@ export class ProductoService {
       producto.comision_producto = Number(data.precio_venta) - Number(producto.precio_app || data.precio_venta);
     }
     if (typeof data.precio_app === "number") {
+      // ✅ REGLA CRÍTICA: Solo modificar precio_app si el producto sigue en PENDIENTE
+      if (producto.statusProducto !== StatusProducto.PENDIENTE) {
+        throw CustomError.badRequest(
+          "El precio para la app solo puede modificarse mientras el producto esté en estado PENDIENTE."
+        );
+      }
       producto.precio_app = data.precio_app;
-      producto.comision_producto = Number(producto.precio_venta) - Number(data.precio_app);
+      producto.comision_producto =
+        Number(producto.precio_venta) - Number(data.precio_app);
     }
 
     if (data.tipoId) {
@@ -150,6 +159,9 @@ export class ProductoService {
     }
 
     await producto.save();
+
+    // 📡 Notificar por WebSockets (con datos completos)
+    await this.emitProductUpdate(producto);
 
     const imageUrl = await UploadFilesCloud.getFile({
       bucketName: envs.AWS_BUCKET_NAME,
@@ -302,8 +314,17 @@ export class ProductoService {
 
   // ========================= DELETE =========================
   async deleteProducto(id: string) {
-    const producto = await Producto.findOneBy({ id });
+    const producto = await Producto.findOne({ where: { id }, relations: ["negocio"] });
     if (!producto) throw CustomError.notFound("Producto no encontrado");
+
+    // ✅ REGLA: Los usuarios normales solo pueden borrar productos PENDIENTES
+    if (producto.statusProducto !== StatusProducto.PENDIENTE) {
+      throw CustomError.badRequest(
+        "No puedes eliminar este producto porque ya fue procesado. Solicita al administrador su eliminación por WhatsApp."
+      );
+    }
+
+    const negocioId = producto.negocio.id;
 
     if (producto.imagen) {
       await UploadFilesCloud.deleteFile({
@@ -314,12 +335,18 @@ export class ProductoService {
 
     await Producto.remove(producto);
 
+    // 📡 Notificar por WebSockets
+    getIO().emit("product_deleted", {
+      productId: id,
+      negocioId: negocioId,
+    });
+
     return { message: "Producto eliminado correctamente" };
   }
 
   // ADMIN: Cambiar status
   async changeStatusProductoAdmin(id: string, status: StatusProducto) {
-    const producto = await Producto.findOneBy({ id });
+    const producto = await Producto.findOne({ where: { id }, relations: ["negocio", "tipo"] });
     if (!producto) throw CustomError.notFound("Producto no encontrado");
 
     producto.statusProducto = status;
@@ -328,7 +355,11 @@ export class ProductoService {
       producto.disponible = false;
     }
 
-    await producto.save();
+    const saved = await producto.save();
+
+    // 📡 Notificar por WebSockets
+    await this.emitProductUpdate(saved);
+
     return { message: `Estado cambiado a ${status}`, status: producto.statusProducto };
   }
 
@@ -339,11 +370,69 @@ export class ProductoService {
 
   // ========================= TOGGLE =========================
   async toggleDisponible(id: string, disponible: boolean) {
-    const producto = await Producto.findOneBy({ id });
+    const producto = await Producto.findOne({ where: { id }, relations: ["negocio", "tipo"] });
     if (!producto) throw CustomError.notFound("Producto no encontrado");
 
     producto.disponible = disponible;
-    return await producto.save();
+    const saved = await producto.save();
+
+    // 📡 Notificar por WebSockets
+    await this.emitProductUpdate(saved);
+
+    return saved;
+  }
+
+  async checkAvailability(ids: string[]) {
+    const products = await Producto.find({
+      where: { id: In(ids) },
+      select: ["id", "nombre", "disponible", "statusProducto"]
+    });
+
+    return products.map(p => ({
+      id: p.id,
+      nombre: p.nombre,
+      disponible: p.disponible && p.statusProducto === StatusProducto.ACTIVO
+    }));
+  }
+
+  // ========================= SOCKET UPDATE HELPER =========================
+  private async emitProductUpdate(producto: Producto) {
+    let formattedProduct = null;
+
+    if (producto.statusProducto === StatusProducto.ACTIVO) {
+      const imageUrl = await UploadFilesCloud.getFile({
+        bucketName: envs.AWS_BUCKET_NAME,
+        key: producto.imagen,
+      });
+
+      formattedProduct = {
+        id: producto.id,
+        nombre: producto.nombre,
+        descripcion: producto.descripcion,
+        precio_venta: producto.precio_venta,
+        precio_app: producto.precio_app,
+        comision_producto: producto.comision_producto,
+        imagen: imageUrl,
+        disponible: producto.disponible,
+        created_at: producto.created_at,
+        statusProducto: producto.statusProducto,
+        tipo: producto.tipo
+          ? {
+            id: producto.tipo.id,
+            nombre: producto.tipo.nombre,
+          }
+          : null,
+        negocioId: producto.negocio.id
+      };
+    }
+
+    getIO().emit("product_status_changed", {
+      productId: producto.id,
+      negocioId: producto.negocio.id,
+      disponible: producto.disponible,
+      statusProducto: producto.statusProducto,
+      product: formattedProduct, // Enviar objeto completo para inserción en vivo
+    });
   }
 
   // ========================= HELPER =========================
