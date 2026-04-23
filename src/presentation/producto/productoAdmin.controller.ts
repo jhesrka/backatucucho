@@ -20,12 +20,13 @@ export class ProductoControllerAdmin {
   // ======================== GET PRODUCTOS ADMIN ========================
   getProductosAdmin = async (req: Request, res: Response) => {
     try {
-      const { limit, offset, status, search, negocioId } = req.query;
+      const { limit, offset, status, search, negocioId, tipoId } = req.query;
 
       const parsedLimit = limit ? Number(limit) : 5;
       const parsedOffset = offset ? Number(offset) : 0;
       const parsedStatus = status ? String(status).toUpperCase() : undefined;
       const parsedNegocioId = negocioId ? String(negocioId) : undefined;
+      const parsedTipoId = tipoId ? String(tipoId) : undefined;
 
       // Validaciones básicas
       if (isNaN(parsedLimit) || parsedLimit < 0)
@@ -52,6 +53,7 @@ export class ProductoControllerAdmin {
         status: parsedStatus as StatusProducto,
         search: search ? String(search) : undefined,
         negocioId: parsedNegocioId,
+        tipoId: parsedTipoId,
       });
 
       return res.status(200).json(result);
@@ -118,6 +120,18 @@ export class ProductoControllerAdmin {
 
     try {
       const result = await this.productoServiceAdmin.deleteProductoAdmin(id, pin);
+      return res.status(200).json(result);
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  }
+
+  bulkCreateProductos = async (req: Request, res: Response) => {
+    const { negocioId } = req.params;
+    const { productos, pin } = req.body;
+
+    try {
+      const result = await this.productoServiceAdmin.bulkCreateProductosAdmin(negocioId, productos, pin);
       return res.status(200).json(result);
     } catch (error) {
       this.handleError(error, res);

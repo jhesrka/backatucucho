@@ -107,6 +107,7 @@ export class UploadFilesCloud {
 
   static async getFile(props: PropsGetFile, size: ImageSize = ImageSize.ORIGINAL): Promise<string> {
     let { bucketName, key } = props;
+    if (!key) return null as any; // 🛡️ Seguridad: Si no hay llave, no hay URL
 
     // Si ya es una URL completa (ej: Google Profile Picture), retornar tal cual
     if (key.startsWith('http')) return key;
@@ -134,7 +135,9 @@ export class UploadFilesCloud {
   /**
    * Retorna URLs firmadas para todos los tamaños de una imagen base.
    */
-  static async getOptimizedUrls(props: PropsGetFile) {
+   static async getOptimizedUrls(props: PropsGetFile) {
+    if (!props.key) return { original: null, card: null, thumb: null };
+
     const [original, card, thumb] = await Promise.all([
       this.getFile(props, ImageSize.ORIGINAL),
       this.getFile(props, ImageSize.CARD),
@@ -145,6 +148,8 @@ export class UploadFilesCloud {
   }
 
   static async deleteFile(props: PropsGetFile): Promise<void> {
+    if (!props.key) return; // 🛡️ Seguridad: Si no hay llave, no hay nada que borrar
+
     // Si es un webp, intentamos borrar también los derivados
     if (props.key.endsWith('.webp')) {
       const thumbKey = props.key.replace(".webp", "_thumb.webp");

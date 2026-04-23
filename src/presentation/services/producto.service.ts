@@ -188,9 +188,18 @@ export class ProductoService {
   }
 
   // ========================= READ =========================
-  async getProductosByNegocio(negocioId: string) {
-    const negocio = await Negocio.findOneBy({ id: negocioId });
+  async getProductosByNegocio(negocioId: string, authenticatedUserId: string = "") {
+    // 🛡️ Validar que el negocio existe y que el usuario es el dueño
+    const negocio = await Negocio.findOne({
+      where: { id: negocioId },
+      relations: ["usuario"]
+    });
+
     if (!negocio) throw CustomError.notFound("Negocio no encontrado");
+
+    if (negocio.usuario.id !== authenticatedUserId) {
+      throw CustomError.forbiden("No tienes permisos para ver los productos de este negocio");
+    }
 
     const productos = await Producto.find({
       where: { negocio: { id: negocioId } },
@@ -400,10 +409,12 @@ export class ProductoService {
     let formattedProduct = null;
 
     if (producto.statusProducto === StatusProducto.ACTIVO) {
-      const imageUrl = await UploadFilesCloud.getFile({
-        bucketName: envs.AWS_BUCKET_NAME,
-        key: producto.imagen,
-      });
+      const imageUrl = producto.imagen
+        ? await UploadFilesCloud.getFile({
+            bucketName: envs.AWS_BUCKET_NAME,
+            key: producto.imagen,
+          })
+        : null;
 
       formattedProduct = {
         id: producto.id,

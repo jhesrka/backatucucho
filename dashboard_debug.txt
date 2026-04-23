@@ -20231,3 +20231,5 @@
   ],
   "driverError": {}
 }
+2026-04-23T00:13:19.080Z - CONTROLLER ERROR: Error: Error al obtener dashboard operativo
+{}

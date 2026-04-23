@@ -1,4 +1,4 @@
-import { Producto, StatusProducto, ProductoPedido, GlobalSettings } from "../../data";
+import { Producto, StatusProducto, ProductoPedido, GlobalSettings, Negocio, TipoProducto } from "../../data";
 import { UploadFilesCloud } from "../../config/upload-files-cloud-adapter";
 import { envs, encriptAdapter } from "../../config";
 import { ILike } from "typeorm";
@@ -12,12 +12,14 @@ export class ProductoServiceAdmin {
     status,
     search,
     negocioId,
+    tipoId,
   }: {
     limit?: number;
     offset?: number;
     status?: StatusProducto;
     search?: string;
     negocioId?: string;
+    tipoId?: string;
   }) {
     const where: any = {};
 
@@ -26,6 +28,7 @@ export class ProductoServiceAdmin {
     }
 
     if (negocioId) where.negocio = { id: negocioId };
+    if (tipoId) where.tipo = { id: tipoId };
     if (search) where.nombre = ILike(`%${search}%`);
 
     const [productos, total] = await Producto.findAndCount({
@@ -229,6 +232,12 @@ export class ProductoServiceAdmin {
     const producto = await Producto.findOne({ where: { id }, relations: ["negocio"] });
     if (!producto) throw CustomError.notFound("Producto no encontrado");
 
+    // 🛑 VALIDACIÓN CRÍTICA: No borrar si tiene pedidos (Integridad Referencial)
+    const tienePedidos = await ProductoPedido.count({ where: { producto: { id: producto.id } } });
+    if (tienePedidos > 0) {
+      throw CustomError.badRequest("Este producto no puede eliminarse porque tiene historial de pedidos. Te sugerimos suspenderlo o marcarlo como agotado.");
+    }
+
     const negocioId = producto.negocio.id;
 
     if (producto.imagen) {
@@ -248,15 +257,87 @@ export class ProductoServiceAdmin {
     return { message: "Producto eliminado definitivamente del catálogo actual" };
   }
 
+  // ========================= BULK CREATE =========================
+  async bulkCreateProductosAdmin(negocioId: string, productosData: any[], pin: string) {
+    if (!pin) throw CustomError.badRequest("El PIN maestro es obligatorio");
+
+    // 1. Validar PIN
+    const settings = await GlobalSettings.findOne({ where: {} });
+    if (!settings?.masterPin) {
+      throw CustomError.internalServer("El PIN maestro no está configurado.");
+    }
+    const isPinValid = encriptAdapter.compare(pin, settings.masterPin);
+    if (!isPinValid) throw CustomError.badRequest("PIN maestro incorrecto.");
+
+    // 2. Validar Negocio
+    const negocio = await Negocio.findOneBy({ id: negocioId });
+    if (!negocio) throw CustomError.notFound("Negocio no encontrado");
+
+    const createdProducts = [];
+    const errors = [];
+
+    // 3. Procesamiento en lote
+    for (const data of productosData) {
+      try {
+        if (!data.nombre) throw new Error("Falta el nombre del producto");
+
+        // Resolver Categoría (TipoProducto)
+        let tipoId = null;
+        if (data.categoria) {
+          let tipo = await TipoProducto.findOneBy({ 
+            nombre: data.categoria.trim(), 
+            negocio: { id: negocioId } 
+          });
+          
+          if (!tipo) {
+            tipo = TipoProducto.create({ 
+              nombre: data.categoria.trim(), 
+              negocio: { id: negocioId } 
+            });
+            await tipo.save();
+          }
+          tipoId = tipo;
+        }
+
+        const precioVenta = Number(data.precio_venta) || 0;
+        const precioApp = Number(data.precio_app) || precioVenta;
+
+        const product = new Producto();
+        product.nombre = data.nombre.trim();
+        product.descripcion = data.descripcion?.trim() || "";
+        product.precio_venta = precioVenta;
+        product.precio_app = precioApp;
+        product.comision_producto = precioVenta - precioApp;
+        product.disponible = false; // 🛑 Requisito: disponible false
+        product.statusProducto = StatusProducto.ACTIVO; // Admin lo sube directo como activo
+        product.negocio = negocio!;
+        if (tipoId) product.tipo = tipoId;
+
+        await product.save();
+        createdProducts.push(product.nombre);
+      } catch (err: any) {
+        errors.push({ nombre: data.nombre || "Desconocido", error: err.message });
+      }
+    }
+
+    return {
+      message: `Proceso completado. ${createdProducts.length} productos creados.`,
+      created: createdProducts,
+      errors: errors.length > 0 ? errors : undefined
+    };
+  }
+
   // ========================= SOCKET UPDATE HELPER =========================
   private async emitProductUpdate(producto: Producto) {
     let formattedProduct = null;
 
     if (producto.statusProducto === StatusProducto.ACTIVO) {
-      const imageUrl = await UploadFilesCloud.getFile({
-        bucketName: envs.AWS_BUCKET_NAME,
-        key: producto.imagen,
-      });
+      const imageUrl = producto.imagen
+        ? await UploadFilesCloud.getFile({
+            bucketName: envs.AWS_BUCKET_NAME,
+            key: producto.imagen,
+          })
+        : null;
 
       formattedProduct = {
         id: producto.id,

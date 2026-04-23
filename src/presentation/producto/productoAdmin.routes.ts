@@ -36,12 +36,20 @@ export class ProductoAdminRoutes {
       productoControllerAdmin.changeStatusProductoAdmin
     );
 
+    // NUEVO: Admin Bulk Create
+    router.post(
+      "/bulk/:negocioId",
+      AuthAdminMiddleware.protect,
+      productoControllerAdmin.bulkCreateProductos
+    );
+
     // NUEVO: Admin Purge Definitive
     router.delete(
       "/purge/:id",
       AuthAdminMiddleware.protect,
       productoControllerAdmin.deleteProductoAdmin
     );
+
     return router;
   }
 }

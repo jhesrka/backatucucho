@@ -43,14 +43,17 @@ export class ProductoController {
   // ======================== READ por negocio ========================
   getProductosPorNegocio = (req: Request, res: Response) => {
     const { negocioId } = req.params;
+    const { sessionUser } = req.body; // Viene del AuthMiddleware
+
     if (!negocioId) {
       return res.status(400).json({ message: "Falta el ID del negocio" });
     }
 
-    this.productoService
-      .getProductosByNegocio(negocioId)
-      .then((productos) => res.status(200).json(productos))
-      .catch((error) => this.handleError(error, res));
+    // Cast a any para evitar bloqueos del compilador por caché de definiciones
+    (this.productoService as any)
+      .getProductosByNegocio(negocioId, sessionUser.id)
+      .then((productos: any) => res.status(200).json(productos))
+      .catch((error: any) => this.handleError(error, res));
   };
 
   getProductosDisponiblesPorNegocio = (req: Request, res: Response) => {
