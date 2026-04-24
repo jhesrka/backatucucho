@@ -22,3 +22,4 @@ export * from './PriceSettings';
 export * from './global-settings.model';
 export * from './CommissionLog';
 export * from './financial/FinancialClosing';
+export * from './PedidoOperativoLog';

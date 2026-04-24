@@ -81,20 +81,51 @@ export class DashboardService {
                 where: {
                     createdAt: Between(todayStart, todayEnd),
                 },
+                relations: ["negocio"]
             });
 
             const pedidosCount = {
                 total: pedidosHoy.length,
-                pendiente: pedidosHoy.filter(p => p.estado === "PENDIENTE").length,
-                aceptado: pedidosHoy.filter(p => p.estado === "ACEPTADO").length,
-                preparando: pedidosHoy.filter(p => p.estado === "PREPARANDO").length,
-                preparando_asignado: pedidosHoy.filter(p => p.estado === "PREPARANDO_ASIGNADO").length,
-                preparando_no_asignado: pedidosHoy.filter(p => p.estado === "PREPARANDO_NO_ASIGNADO").length,
-                en_camino: pedidosHoy.filter(p => p.estado === "EN_CAMINO").length,
-                entregado: pedidosHoy.filter(p => p.estado === "ENTREGADO").length,
-                cancelado: pedidosHoy.filter(p => p.estado === "CANCELADO").length,
-                efectivo: pedidosHoy.filter(p => p.metodoPago === "EFECTIVO").length,
-                transferencia: pedidosHoy.filter(p => p.metodoPago === "TRANSFERENCIA").length,
+                pendiente: {
+                    count: pedidosHoy.filter(p => p.estado === "PENDIENTE").length,
+                    items: pedidosHoy.filter(p => p.estado === "PENDIENTE").map(p => ({ id: p.id, total: p.total, createdAt: p.createdAt, negocio: p.negocio?.nombre }))
+                },
+                aceptado: {
+                    count: pedidosHoy.filter(p => p.estado === "ACEPTADO").length,
+                    items: pedidosHoy.filter(p => p.estado === "ACEPTADO").map(p => ({ id: p.id, total: p.total, createdAt: p.createdAt, negocio: p.negocio?.nombre }))
+                },
+                preparando: {
+                    count: pedidosHoy.filter(p => p.estado === "PREPARANDO").length,
+                    items: pedidosHoy.filter(p => p.estado === "PREPARANDO").map(p => ({ id: p.id, total: p.total, createdAt: p.createdAt, negocio: p.negocio?.nombre }))
+                },
+                preparando_asignado: {
+                    count: pedidosHoy.filter(p => p.estado === "PREPARANDO_ASIGNADO").length,
+                    items: pedidosHoy.filter(p => p.estado === "PREPARANDO_ASIGNADO").map(p => ({ id: p.id, total: p.total, createdAt: p.createdAt, negocio: p.negocio?.nombre }))
+                },
+                preparando_no_asignado: {
+                    count: pedidosHoy.filter(p => p.estado === "PREPARANDO_NO_ASIGNADO").length,
+                    items: pedidosHoy.filter(p => p.estado === "PREPARANDO_NO_ASIGNADO").map(p => ({ id: p.id, total: p.total, createdAt: p.createdAt, negocio: p.negocio?.nombre }))
+                },
+                en_camino: {
+                    count: pedidosHoy.filter(p => p.estado === "EN_CAMINO").length,
+                    items: pedidosHoy.filter(p => p.estado === "EN_CAMINO").map(p => ({ id: p.id, total: p.total, createdAt: p.createdAt, negocio: p.negocio?.nombre }))
+                },
+                entregado: {
+                    count: pedidosHoy.filter(p => p.estado === "ENTREGADO").length,
+                    items: pedidosHoy.filter(p => p.estado === "ENTREGADO").map(p => ({ id: p.id, total: p.total, createdAt: p.createdAt, negocio: p.negocio?.nombre }))
+                },
+                cancelado: {
+                    count: pedidosHoy.filter(p => p.estado === "CANCELADO").length,
+                    items: pedidosHoy.filter(p => p.estado === "CANCELADO").map(p => ({ id: p.id, total: p.total, createdAt: p.createdAt, negocio: p.negocio?.nombre }))
+                },
+                efectivo: {
+                    count: pedidosHoy.filter(p => p.metodoPago === "EFECTIVO").length,
+                    items: pedidosHoy.filter(p => p.metodoPago === "EFECTIVO").map(p => ({ id: p.id, total: p.total, createdAt: p.createdAt, negocio: p.negocio?.nombre }))
+                },
+                transferencia: {
+                    count: pedidosHoy.filter(p => p.metodoPago === "TRANSFERENCIA").length,
+                    items: pedidosHoy.filter(p => p.metodoPago === "TRANSFERENCIA").map(p => ({ id: p.id, total: p.total, createdAt: p.createdAt, negocio: p.negocio?.nombre }))
+                },
             };
 
             // 3. NEGOCIOS

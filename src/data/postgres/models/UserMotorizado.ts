@@ -5,6 +5,7 @@ import {
   BaseEntity,
   OneToMany,
   CreateDateColumn,
+  UpdateDateColumn,
   BeforeInsert,
 } from "typeorm";
 
@@ -113,6 +114,12 @@ export class UserMotorizado extends BaseEntity {
   // ==============================
   @CreateDateColumn({ type: "timestamp" })
   createdAt: Date;
+
+  @Column({ type: "timestamp", nullable: true })
+  lastSeenAt: Date | null;
+
+  @UpdateDateColumn({ type: "timestamp" })
+  updatedAt: Date;
 
   @Column("decimal", { precision: 2, scale: 1, default: 0.0 })
   ratingPromedio: number;

@@ -155,6 +155,8 @@ export class PedidoAdminController {
   // ======================== 4. Asignar motorizado ========================
   asignarMotorizado = (req: Request, res: Response) => {
     const { pedidoId, motorizadoId } = req.body;
+    const adminId = req.body.sessionAdmin?.id;
+
     if (!pedidoId || !motorizadoId) {
       return res
         .status(400)
@@ -162,10 +164,43 @@ export class PedidoAdminController {
     }
 
     this.pedidoAdminService
-      .asignarMotorizado({ pedidoId, motorizadoId })
+      .asignarMotorizado({ pedidoId, motorizadoId }, adminId)
       .then((pedido) => res.status(200).json(pedido))
       .catch((error) => this.handleError(error, res));
   };
+
+  // ======================== 8. Centro Operativo en Vivo ========================
+  getLiveControlData = (req: Request, res: Response) => {
+    this.pedidoAdminService
+      .getLiveControlData()
+      .then((data) => res.status(200).json(data))
+      .catch((error) => this.handleError(error, res));
+  };
+
+  liberarMotorizado = (req: Request, res: Response) => {
+    const { motorizadoId, comment } = req.body;
+    const adminId = req.body.sessionAdmin?.id;
+
+    if (!motorizadoId) {
+      return res.status(400).json({ message: "Falta motorizadoId" });
+    }
+
+    this.pedidoAdminService
+      .liberarMotorizado(motorizadoId, adminId, comment || "Acción manual desde Centro Operativo")
+      .then((resp) => res.status(200).json(resp))
+      .catch((error) => this.handleError(error, res));
+  };
+
+  getPedidoTrazabilidad = (req: Request, res: Response) => {
+    const { pedidoId } = req.params;
+    if (!pedidoId) return res.status(400).json({ message: "Falta pedidoId" });
+
+    this.pedidoAdminService
+      .getPedidoTrazabilidad(pedidoId)
+      .then((logs) => res.status(200).json(logs))
+      .catch((error) => this.handleError(error, res));
+  };
+
 
   // ======================== 5. Eliminar pedidos antiguos ========================
   eliminarPedidosAntiguos = (req: Request, res: Response) => {

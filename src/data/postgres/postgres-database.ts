@@ -34,6 +34,7 @@ import { ModerationLog } from "./models/ModerationLog";
 import { WalletMovement } from "./models/wallet-movement.model";
 import { BankAccount } from "./models/BankAccount";
 import { PushToken } from "./models/PushToken";
+import { PedidoOperativoLog } from "./models/PedidoOperativoLog";
 
 interface Options {
   host: string;
@@ -89,7 +90,8 @@ export class PostgresDatabase {
         ModerationLog,
         WalletMovement,
         BankAccount,
-        PushToken
+        PushToken,
+        PedidoOperativoLog
       ],
       synchronize: false, // PRODUCCIÓN: SIEMPRE FALSE. Usar migraciones.
       ssl: {
@@ -111,370 +113,180 @@ export class PostgresDatabase {
       await this.datasource.initialize();
       console.log("database conected - Running manual migrations check");
 
-      // 1. Core Extensions and structural changes
+      // 1. Core Extensions and structural changes (DIVIDIDO PARA EVITAR DEADLOCKS)
+      console.log("🛠️  [Migration] Step 1: Extensions and Post columns");
+      await this.datasource.query(`SET timezone = 'UTC';`);
+      await this.datasource.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`);
+      
+      await this.datasource.query(`ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "showWhatsApp" BOOLEAN DEFAULT true;`);
+      await this.datasource.query(`ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "showLikes" BOOLEAN DEFAULT true;`);
+      await this.datasource.query(`ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "contentType" VARCHAR DEFAULT 'image';`);
+      await this.datasource.query(`ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "videoUrl" VARCHAR DEFAULT NULL;`);
+      await this.datasource.query(`ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "videoPlatform" VARCHAR DEFAULT NULL;`);
+      await this.datasource.query(`ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "videoId" VARCHAR DEFAULT NULL;`);
+      await this.datasource.query(`ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "videoEmbedUrl" VARCHAR DEFAULT NULL;`);
+      await this.datasource.query(`ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "videoOriginalUrl" VARCHAR DEFAULT NULL;`);
+      await this.datasource.query(`ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "scheduledAt" TIMESTAMPTZ DEFAULT NULL;`);
+      await this.datasource.query(`ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "publishedAt" TIMESTAMPTZ DEFAULT NULL;`);
+
+      console.log("🛠️  [Migration] Step 2: Global Settings");
+      await this.datasource.query(`ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "subscriptionBasicPrice" DECIMAL(10,2) DEFAULT 5.00;`);
+      await this.datasource.query(`ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "subscriptionBasicPromoPrice" DECIMAL(10,2);`);
+      await this.datasource.query(`ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "subscriptionBasicDurationDays" INT DEFAULT 30;`);
+      await this.datasource.query(`ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "rechargeRetentionDays" INT DEFAULT 60;`);
+      await this.datasource.query(`ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "currentTermsVersion" VARCHAR(20) DEFAULT 'v1.0';`);
+      await this.datasource.query(`ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "termsUpdatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP;`);
+      await this.datasource.query(`ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "reportsRetentionDays" INT DEFAULT 30;`);
+
+      console.log("🛠️  [Migration] Step 3: Timestamps alignment");
+      await this.datasource.query(`ALTER TABLE "post" ALTER COLUMN "createdAt" TYPE timestamptz;`);
+      await this.datasource.query(`ALTER TABLE "post" ALTER COLUMN "expiresAt" TYPE timestamptz;`);
+      await this.datasource.query(`ALTER TABLE "storie" ALTER COLUMN "createdAt" TYPE timestamptz;`);
+      await this.datasource.query(`ALTER TABLE "storie" ALTER COLUMN "expires_at" TYPE timestamptz;`);
+      await this.datasource.query(`ALTER TABLE "storie" ALTER COLUMN "deletedAt" TYPE timestamptz;`);
+      await this.datasource.query(`ALTER TABLE "recharge_requests" ALTER COLUMN "created_at" TYPE timestamptz;`);
+      await this.datasource.query(`ALTER TABLE "recharge_requests" ALTER COLUMN "transaction_date" TYPE timestamptz;`);
+      await this.datasource.query(`ALTER TABLE "recharge_requests" ALTER COLUMN "resolved_at" TYPE timestamptz;`);
+      await this.datasource.query(`ALTER TABLE "subscription" ALTER COLUMN "startDate" TYPE timestamptz;`);
+      await this.datasource.query(`ALTER TABLE "subscription" ALTER COLUMN "endDate" TYPE timestamptz;`);
+      await this.datasource.query(`ALTER TABLE "subscription" ALTER COLUMN "createdAt" TYPE timestamptz;`);
+      await this.datasource.query(`ALTER TABLE "subscription" ALTER COLUMN "updatedAt" TYPE timestamptz;`);
+
+      console.log("🛠️  [Migration] Step 4: User terms and obsoletes");
+      await this.datasource.query(`ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "acceptedTermsVersion" VARCHAR(20) DEFAULT NULL;`);
+      await this.datasource.query(`ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "acceptedTermsAt" TIMESTAMP DEFAULT NULL;`);
+      await this.datasource.query(`ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "acceptedPrivacyVersion" VARCHAR(20) DEFAULT NULL;`);
+      await this.datasource.query(`ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "acceptedPrivacyAt" TIMESTAMP DEFAULT NULL;`);
       await this.datasource.query(`
-        SET timezone = 'UTC';
-        CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-        ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "showWhatsApp" BOOLEAN DEFAULT true;
-        ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "showLikes" BOOLEAN DEFAULT true;
-        ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "contentType" VARCHAR DEFAULT 'image';
-        ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "videoUrl" VARCHAR DEFAULT NULL;
-        ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "videoPlatform" VARCHAR DEFAULT NULL;
-        ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "videoId" VARCHAR DEFAULT NULL;
-        ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "videoEmbedUrl" VARCHAR DEFAULT NULL;
-        ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "videoOriginalUrl" VARCHAR DEFAULT NULL;
-        ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "scheduledAt" TIMESTAMPTZ DEFAULT NULL;
-        ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "publishedAt" TIMESTAMPTZ DEFAULT NULL;
-        
-        ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "subscriptionBasicPrice" DECIMAL(10,2) DEFAULT 5.00;
-        ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "subscriptionBasicPromoPrice" DECIMAL(10,2);
-        ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "subscriptionBasicDurationDays" INT DEFAULT 30;
-        ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "rechargeRetentionDays" INT DEFAULT 60;
-        ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "currentTermsVersion" VARCHAR(20) DEFAULT 'v1.0';
-        ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "termsUpdatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
-        ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "reportsRetentionDays" INT DEFAULT 30;
-
-        -- Garantizar timestamptz para evitar desajustes
-        ALTER TABLE "post" ALTER COLUMN "createdAt" TYPE timestamptz;
-        ALTER TABLE "post" ALTER COLUMN "expiresAt" TYPE timestamptz;
-        ALTER TABLE "storie" ALTER COLUMN "createdAt" TYPE timestamptz;
-        ALTER TABLE "storie" ALTER COLUMN "expires_at" TYPE timestamptz;
-        ALTER TABLE "storie" ALTER COLUMN "deletedAt" TYPE timestamptz;
-        
-        -- Recargas de saldo
-        ALTER TABLE "recharge_requests" ALTER COLUMN "created_at" TYPE timestamptz;
-        ALTER TABLE "recharge_requests" ALTER COLUMN "transaction_date" TYPE timestamptz;
-        ALTER TABLE "recharge_requests" ALTER COLUMN "resolved_at" TYPE timestamptz;
-
-        -- Suscripciones
-        ALTER TABLE "subscription" ALTER COLUMN "startDate" TYPE timestamptz;
-        ALTER TABLE "subscription" ALTER COLUMN "endDate" TYPE timestamptz;
-        ALTER TABLE "subscription" ALTER COLUMN "createdAt" TYPE timestamptz;
-        ALTER TABLE "subscription" ALTER COLUMN "updatedAt" TYPE timestamptz;
-
-        -- Migración para Versionado de Términos y Privacidad
-        ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "acceptedTermsVersion" VARCHAR(20) DEFAULT NULL;
-        ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "acceptedTermsAt" TIMESTAMP DEFAULT NULL;
-        ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "acceptedPrivacyVersion" VARCHAR(20) DEFAULT NULL;
-        ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "acceptedPrivacyAt" TIMESTAMP DEFAULT NULL;
-        
-        -- Eliminar columnas obsoletas
         DO $$ 
         BEGIN 
-          BEGIN
-            ALTER TABLE "user" DROP COLUMN "acceptedTerms";
-          EXCEPTION WHEN undefined_column THEN END;
-          BEGIN
-            ALTER TABLE "user" DROP COLUMN "acceptedPrivacy";
-          EXCEPTION WHEN undefined_column THEN END;
+          BEGIN ALTER TABLE "user" DROP COLUMN "acceptedTerms"; EXCEPTION WHEN undefined_column THEN END;
+          BEGIN ALTER TABLE "user" DROP COLUMN "acceptedPrivacy"; EXCEPTION WHEN undefined_column THEN END;
         END $$;
-        
-        ALTER TABLE "recharge_requests" ADD COLUMN IF NOT EXISTS "isDuplicateWarning" BOOLEAN DEFAULT false;
-        
-        -- Audit columns for transactions (subscriptions)
-        ALTER TABLE "transactions" ADD COLUMN IF NOT EXISTS "daysBought" INT;
-        ALTER TABLE "transactions" ADD COLUMN IF NOT EXISTS "prevEndDate" TIMESTAMP;
-        ALTER TABLE "transactions" ADD COLUMN IF NOT EXISTS "newEndDate" TIMESTAMP;
-        ALTER TABLE "transactions" ADD COLUMN IF NOT EXISTS "receipt_image" TEXT;
+      `);
 
-        CREATE UNIQUE INDEX IF NOT EXISTS "IDX_recharge_approved_unique" 
-        ON "recharge_requests" ("bank_name", "receipt_number", "transaction_date") 
-        WHERE "status" = 'APROBADO';
+      console.log("🛠️  [Migration] Step 5: Recharge and Transactions");
+      await this.datasource.query(`ALTER TABLE "recharge_requests" ADD COLUMN IF NOT EXISTS "isDuplicateWarning" BOOLEAN DEFAULT false;`);
+      await this.datasource.query(`ALTER TABLE "transactions" ADD COLUMN IF NOT EXISTS "daysBought" INT;`);
+      await this.datasource.query(`ALTER TABLE "transactions" ADD COLUMN IF NOT EXISTS "prevEndDate" TIMESTAMP;`);
+      await this.datasource.query(`ALTER TABLE "transactions" ADD COLUMN IF NOT EXISTS "newEndDate" TIMESTAMP;`);
+      await this.datasource.query(`ALTER TABLE "transactions" ADD COLUMN IF NOT EXISTS "receipt_image" TEXT;`);
+      await this.datasource.query(`CREATE UNIQUE INDEX IF NOT EXISTS "IDX_recharge_approved_unique" ON "recharge_requests" ("bank_name", "receipt_number", "transaction_date") WHERE "status" = 'APROBADO';`);
 
-        ALTER TABLE "price_settings" ADD COLUMN IF NOT EXISTS "motorizadoPercentage" DECIMAL(10,2) DEFAULT 80.00;
-        ALTER TABLE "price_settings" ADD COLUMN IF NOT EXISTS "appPercentage" DECIMAL(10,2) DEFAULT 20.00;
+      console.log("🛠️  [Migration] Step 6: Pricing and Orders");
+      await this.datasource.query(`ALTER TABLE "price_settings" ADD COLUMN IF NOT EXISTS "motorizadoPercentage" DECIMAL(10,2) DEFAULT 80.00;`);
+      await this.datasource.query(`ALTER TABLE "price_settings" ADD COLUMN IF NOT EXISTS "appPercentage" DECIMAL(10,2) DEFAULT 20.00;`);
+      await this.datasource.query(`ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "porcentaje_motorizado_aplicado" DECIMAL(10,2) DEFAULT 80.00;`);
+      await this.datasource.query(`ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "porcentaje_app_aplicado" DECIMAL(10,2) DEFAULT 20.00;`);
+      await this.datasource.query(`ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "ganancia_motorizado" DECIMAL(10,2) DEFAULT 0;`);
+      await this.datasource.query(`ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "comision_app_domicilio" DECIMAL(10,2) DEFAULT 0;`);
+      await this.datasource.query(`ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "ganancia_app_producto" DECIMAL(10,2) DEFAULT 0;`);
+      await this.datasource.query(`ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "total_precio_venta_publico" DECIMAL(10,2) DEFAULT 0;`);
+      await this.datasource.query(`ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "total_precio_app" DECIMAL(10,2) DEFAULT 0;`);
+      await this.datasource.query(`ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "total_comision_productos" DECIMAL(10,2) DEFAULT 0;`);
+      await this.datasource.query(`ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "pago_motorizado" DECIMAL(10,2) DEFAULT 0;`);
+      await this.datasource.query(`ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "comision_moto_app" DECIMAL(10,2) DEFAULT 0;`);
+      await this.datasource.query(`ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "noAssignedSince" TIMESTAMPTZ DEFAULT NULL;`);
+      await this.datasource.query(`ALTER TABLE "pedido" ALTER COLUMN "noAssignedSince" TYPE TIMESTAMPTZ;`);
+      await this.datasource.query(`ALTER TABLE "pedido" ALTER COLUMN "createdAt" TYPE timestamptz;`);
+      await this.datasource.query(`ALTER TABLE "pedido" ALTER COLUMN "updatedAt" TYPE timestamptz;`);
+      await this.datasource.query(`ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "motorizadosExcluidos" TEXT DEFAULT '';`);
+      await this.datasource.query(`ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "transferenciaCanceladaConfirmada" BOOLEAN DEFAULT NULL;`);
 
-        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "porcentaje_motorizado_aplicado" DECIMAL(10,2) DEFAULT 80.00;
-        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "porcentaje_app_aplicado" DECIMAL(10,2) DEFAULT 20.00;
-        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "ganancia_motorizado" DECIMAL(10,2) DEFAULT 0;
-        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "comision_app_domicilio" DECIMAL(10,2) DEFAULT 0;
-        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "ganancia_app_producto" DECIMAL(10,2) DEFAULT 0;
-        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "total_precio_venta_publico" DECIMAL(10,2) DEFAULT 0;
-        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "total_precio_app" DECIMAL(10,2) DEFAULT 0;
-        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "total_comision_productos" DECIMAL(10,2) DEFAULT 0;
-        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "pago_motorizado" DECIMAL(10,2) DEFAULT 0;
-        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "comision_moto_app" DECIMAL(10,2) DEFAULT 0;
-        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "noAssignedSince" TIMESTAMPTZ DEFAULT NULL;
-        ALTER TABLE "pedido" ALTER COLUMN "noAssignedSince" TYPE TIMESTAMPTZ;
-        ALTER TABLE "pedido" ALTER COLUMN "createdAt" TYPE timestamptz;
-        ALTER TABLE "pedido" ALTER COLUMN "updatedAt" TYPE timestamptz;
-        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "motorizadosExcluidos" TEXT DEFAULT '';
-        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "transferenciaCanceladaConfirmada" BOOLEAN DEFAULT NULL;
+      console.log("🛠️  [Migration] Step 7: Payphone and Cards");
+      await this.datasource.query(`ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "pago_tarjeta_habilitado_admin" BOOLEAN DEFAULT false;`);
+      await this.datasource.query(`ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "pago_tarjeta_activo_negocio" BOOLEAN DEFAULT false;`);
+      await this.datasource.query(`ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "payphone_store_id" VARCHAR DEFAULT NULL;`);
+      await this.datasource.query(`ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "payphone_token" TEXT DEFAULT NULL;`);
+      await this.datasource.query(`ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "porcentaje_recargo_tarjeta" DECIMAL(10,2) DEFAULT 0;`);
+      await this.datasource.query(`ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "metodoPago" VARCHAR DEFAULT 'EFECTIVO';`);
+      await this.datasource.query(`ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "estadoPago" VARCHAR DEFAULT 'PENDIENTE';`);
+      await this.datasource.query(`ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "referenciaPago" VARCHAR DEFAULT NULL;`);
+      await this.datasource.query(`ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "recargo_tarjeta" DECIMAL(10,2) DEFAULT 0;`);
 
-        -- 💳 PAYPHONE / TARJETA COLUMNS (NEGOCIO)
-        ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "pago_tarjeta_habilitado_admin" BOOLEAN DEFAULT false;
-        ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "pago_tarjeta_activo_negocio" BOOLEAN DEFAULT false;
-        ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "payphone_store_id" VARCHAR DEFAULT NULL;
-        ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "payphone_token" TEXT DEFAULT NULL;
-        ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "porcentaje_recargo_tarjeta" DECIMAL(10,2) DEFAULT 0;
-
-        -- 💳 PAYPHONE / TARJETA COLUMNS (PEDIDO)
-        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "metodoPago" VARCHAR DEFAULT 'EFECTIVO';
-        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "estadoPago" VARCHAR DEFAULT 'PENDIENTE';
-        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "referenciaPago" VARCHAR DEFAULT NULL;
-        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "recargo_tarjeta" DECIMAL(10,2) DEFAULT 0;
-
-        ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "timeoutRondaMs" INT DEFAULT 60000;
-        ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "maxRondasAsignacion" INT DEFAULT 4;
-        ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "max_wait_time_acceptance" INT DEFAULT 10;
-        ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "cleanupSubscriptionContentDays" INT DEFAULT 60;
-        ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "payphoneRechargePercentage" DECIMAL(5,2) DEFAULT 0.00;
-        
-        ALTER TABLE "recharge_requests" ADD COLUMN IF NOT EXISTS "baseAmount" DECIMAL(10,2) DEFAULT 0.00;
-        ALTER TABLE "recharge_requests" ADD COLUMN IF NOT EXISTS "feeAmount" DECIMAL(10,2) DEFAULT 0.00;
-        ALTER TABLE "recharge_requests" ADD COLUMN IF NOT EXISTS "appliedPercentage" DECIMAL(5,2) DEFAULT 0.00;
-
-        ALTER TABLE "transaccion_motorizado" ADD COLUMN IF NOT EXISTS "reintegrado" BOOLEAN DEFAULT false;
-        ALTER TABLE "transaccion_motorizado" ADD COLUMN IF NOT EXISTS "updated_at" TIMESTAMPTZ DEFAULT NOW();
-        
-        ALTER TABLE "wallet_movements" ADD COLUMN IF NOT EXISTS "reference_id" VARCHAR(255) DEFAULT NULL;
-
-        ALTER TABLE "producto" ADD COLUMN IF NOT EXISTS "precio_venta" DECIMAL(10,2) DEFAULT 0;
-        ALTER TABLE "producto" ADD COLUMN IF NOT EXISTS "precio_app" DECIMAL(10,2) DEFAULT 0;
-        ALTER TABLE "producto" ADD COLUMN IF NOT EXISTS "comision_producto" DECIMAL(10,2) DEFAULT 0;
-
-        DO $$ 
-        BEGIN 
+      console.log("🛠️  [Migration] Step 8: Products and Wallet");
+      await this.datasource.query(`ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "timeoutRondaMs" INT DEFAULT 60000;`);
+      await this.datasource.query(`ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "maxRondasAsignacion" INT DEFAULT 4;`);
+      await this.datasource.query(`ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "max_wait_time_acceptance" INT DEFAULT 10;`);
+      await this.datasource.query(`ALTER TABLE "transaccion_motorizado" ADD COLUMN IF NOT EXISTS "reintegrado" BOOLEAN DEFAULT false;`);
+      await this.datasource.query(`ALTER TABLE "transaccion_motorizado" ADD COLUMN IF NOT EXISTS "updated_at" TIMESTAMPTZ DEFAULT NOW();`);
+      await this.datasource.query(`ALTER TABLE "wallet_movements" ADD COLUMN IF NOT EXISTS "reference_id" VARCHAR(255) DEFAULT NULL;`);
+      await this.datasource.query(`ALTER TABLE "producto" ADD COLUMN IF NOT EXISTS "precio_venta" DECIMAL(10,2) DEFAULT 0;`);
+      await this.datasource.query(`ALTER TABLE "producto" ADD COLUMN IF NOT EXISTS "precio_app" DECIMAL(10,2) DEFAULT 0;`);
+      await this.datasource.query(`ALTER TABLE "producto" ADD COLUMN IF NOT EXISTS "comision_producto" DECIMAL(10,2) DEFAULT 0;`);
+      await this.datasource.query(`
+        DO $$ BEGIN 
           IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='producto' AND column_name='precio') THEN
             UPDATE "producto" SET "precio_venta" = "precio", "precio_app" = COALESCE("precioParaApp", "precio"), "comision_producto" = "precio" - COALESCE("precioParaApp", "precio") WHERE "precio_venta" = 0 AND "precio_app" = 0;
           END IF;
           UPDATE "producto" SET "comision_producto" = "precio_venta" - "precio_app" WHERE "comision_producto" = 0 AND "precio_venta" != "precio_app";
         END $$;
-
-        ALTER TABLE "producto_pedido" ADD COLUMN IF NOT EXISTS "precio_app" DECIMAL(10,2) DEFAULT 0;
-        ALTER TABLE "producto_pedido" ADD COLUMN IF NOT EXISTS "comision_producto" DECIMAL(10,2) DEFAULT 0;
-        ALTER TABLE "producto_pedido" ADD COLUMN IF NOT EXISTS "producto_nombre" VARCHAR(150) DEFAULT NULL;
-        ALTER TABLE "producto_pedido" ADD COLUMN IF NOT EXISTS "producto_imagen" VARCHAR(255) DEFAULT NULL;
-
-        -- 🛡️ REGLA: Permitir que el producto sea NULL al borrar (SET NULL) para no romper históricos
-        DO $FK_PP$
-        DECLARE
-            fk_pp_name TEXT;
-        BEGIN
-            SELECT conname INTO fk_pp_name
-            FROM pg_constraint 
-            WHERE confrelid = 'producto'::regclass 
-            AND conrelid = 'producto_pedido'::regclass;
-            
-            IF fk_pp_name IS NOT NULL THEN
-                EXECUTE 'ALTER TABLE producto_pedido DROP CONSTRAINT ' || quote_ident(fk_pp_name);
-            END IF;
-        END $FK_PP$;
-        ALTER TABLE producto_pedido ADD CONSTRAINT "FK_producto_pedido_producto" FOREIGN KEY ("productoId") REFERENCES "producto"("id") ON DELETE SET NULL;
-
-        CREATE TABLE IF NOT EXISTS "commission_log" (
-          "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-          "prevMotorizadoPercentage" decimal(10,2) NOT NULL,
-          "newMotorizadoPercentage" decimal(10,2) NOT NULL,
-          "prevAppPercentage" decimal(10,2) NOT NULL,
-          "newAppPercentage" decimal(10,2) NOT NULL,
-          "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
-          "changedById" uuid,
-          CONSTRAINT "PK_commission_log" PRIMARY KEY ("id")
-        );
-
-        CREATE TABLE IF NOT EXISTS "financial_closings" (
-          "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-          "closingDate" date NOT NULL UNIQUE,
-          "totalIncome" decimal(10,2) NOT NULL,
-          "totalExpenses" decimal(10,2) NOT NULL,
-          "backupFileUrl" varchar NOT NULL,
-          "totalRechargesCount" int NOT NULL,
-          "totalUserBalance" decimal(10,2) NOT NULL DEFAULT 0,
-          "totalMotorizadoDebt" decimal(10,2) NOT NULL DEFAULT 0,
-          "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
-          "closedById" uuid,
-          CONSTRAINT "PK_financial_closings" PRIMARY KEY ("id")
-        );
-
-        CREATE TABLE IF NOT EXISTS "balance_negocio" (
-          "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-          "fecha" date NOT NULL,
-          "totalVendido" decimal(10,2) NOT NULL DEFAULT 0,
-          "totalComisionApp" decimal(10,2) NOT NULL DEFAULT 0,
-          "totalEfectivo" decimal(10,2) NOT NULL DEFAULT 0,
-          "totalTransferencia" decimal(10,2) NOT NULL DEFAULT 0,
-          "balanceFinal" decimal(10,2) NOT NULL DEFAULT 0,
-          "estado" varchar NOT NULL DEFAULT 'PENDIENTE',
-          "comprobanteUrl" text,
-          "isClosed" boolean NOT NULL DEFAULT false,
-          "closedById" uuid,
-          "negocioId" uuid,
-          "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
-          "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
-          CONSTRAINT "PK_balance_negocio" PRIMARY KEY ("id")
-        );
-
-        -- Moderation Columns
-        ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "warnings_count" INT DEFAULT 0;
-        ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "suspension_until" TIMESTAMP DEFAULT NULL;
-        ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "isLoggedIn" BOOLEAN DEFAULT false;
-        ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "currentSessionId" VARCHAR;
-        ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "lastLoginIP" VARCHAR;
-        ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "lastLoginCountry" VARCHAR;
-        ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "lastLoginDate" TIMESTAMP;
-        ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "lastDeviceInfo" VARCHAR;
-        ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "lastSeenAt" TIMESTAMP DEFAULT NULL;
-
-        CREATE TABLE IF NOT EXISTS "moderation_log" (
-            "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-            "adminId" uuid NOT NULL,
-            "action" varchar NOT NULL,
-            "comment" text NOT NULL,
-            "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
-            "userId" uuid,
-            "postId" uuid,
-            "storieId" uuid,
-            CONSTRAINT "PK_moderation_log" PRIMARY KEY ("id")
-        );
-
-        CREATE TABLE IF NOT EXISTS "post_report" (
-            "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-            "reason" varchar NOT NULL,
-            "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
-            "reporterId" uuid,
-            "postId" uuid,
-            CONSTRAINT "PK_post_report" PRIMARY KEY ("id")
-        );
-
-        CREATE TABLE IF NOT EXISTS "storie_report" (
-            "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-            "reason" varchar NOT NULL,
-            "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
-            "reporterId" uuid,
-            "storieId" uuid,
-            CONSTRAINT "PK_storie_report" PRIMARY KEY ("id")
-        );
-
-        -- Add status column if missing (Manual Migration)
-        ALTER TABLE "post_report" ADD COLUMN IF NOT EXISTS "status" VARCHAR DEFAULT 'PENDING';
-        ALTER TABLE "storie_report" ADD COLUMN IF NOT EXISTS "status" VARCHAR DEFAULT 'PENDING';
-
-        CREATE TABLE IF NOT EXISTS "wallet_movements" (
-          "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-          "motorized_id" uuid NOT NULL,
-          "type" varchar NOT NULL,
-          "amount" decimal(10,2) NOT NULL,
-          "balance_after" decimal(10,2) NOT NULL DEFAULT 0,
-          "status" varchar NOT NULL DEFAULT 'COMPLETADO',
-          "description" varchar,
-          "order_id" uuid,
-          "admin_id" uuid,
-          "created_at" TIMESTAMP NOT NULL DEFAULT now(),
-          CONSTRAINT "PK_wallet_movements" PRIMARY KEY ("id")
-        );
-
-        -- Add balance_after if table exists but column is missing
-        ALTER TABLE "wallet_movements" ADD COLUMN IF NOT EXISTS "balance_after" decimal(10,2) DEFAULT 0;
-
-        DO $$ 
-        BEGIN 
-            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_wallet_movements_motorizado') THEN
-                ALTER TABLE "wallet_movements" ADD CONSTRAINT "FK_wallet_movements_motorizado" FOREIGN KEY ("motorized_id") REFERENCES "user_motorizado"("id") ON DELETE CASCADE;
-            END IF;
-            
-            -- Asegurar que la relación Pedido -> Wallet sea SET NULL para permitir purgas
-            IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_wallet_movements_pedido') THEN
-                ALTER TABLE "wallet_movements" DROP CONSTRAINT "FK_wallet_movements_pedido";
-            END IF;
-            ALTER TABLE "wallet_movements" ADD CONSTRAINT "FK_wallet_movements_pedido" FOREIGN KEY ("order_id") REFERENCES "pedido"("id") ON DELETE SET NULL;
-
-            -- Asegurar que la relación Pedido -> TransaccionMotorizado sea SET NULL
-            -- Buscamos el nombre de la FK dinámicamente si existe y la recreamos
-            DO $FK$
-            DECLARE
-                fk_name TEXT;
-            BEGIN
-                SELECT conname INTO fk_name
-                FROM pg_constraint 
-                WHERE confrelid = 'pedido'::regclass 
-                AND conrelid = 'transaccion_motorizado'::regclass;
-                
-                IF fk_name IS NOT NULL THEN
-                    EXECUTE 'ALTER TABLE transaccion_motorizado DROP CONSTRAINT ' || quote_ident(fk_name);
-                END IF;
-            END $FK$;
-            ALTER TABLE transaccion_motorizado ADD CONSTRAINT "FK_transaccion_motorizado_pedido" FOREIGN KEY ("pedidoId") REFERENCES "pedido"("id") ON DELETE SET NULL;
-
-            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_wallet_movements_admin') THEN
-                ALTER TABLE "wallet_movements" ADD CONSTRAINT "FK_wallet_movements_admin" FOREIGN KEY ("admin_id") REFERENCES "useradmin"("id") ON DELETE SET NULL;
-            END IF;
-            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_moderation_log_user') THEN
-                ALTER TABLE "moderation_log" ADD CONSTRAINT "FK_moderation_log_user" FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE SET NULL;
-            END IF;
-            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_moderation_log_post') THEN
-                ALTER TABLE "moderation_log" ADD CONSTRAINT "FK_moderation_log_post" FOREIGN KEY ("postId") REFERENCES "post"("id") ON DELETE SET NULL;
-            END IF;
-            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_moderation_log_storie') THEN
-                ALTER TABLE "moderation_log" ADD CONSTRAINT "FK_moderation_log_storie" FOREIGN KEY ("storieId") REFERENCES "storie"("id") ON DELETE SET NULL;
-            END IF;
-            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_post_report_user') THEN
-                ALTER TABLE "post_report" ADD CONSTRAINT "FK_post_report_user" FOREIGN KEY ("reporterId") REFERENCES "user"("id") ON DELETE SET NULL;
-            END IF;
-            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_post_report_post') THEN
-                ALTER TABLE "post_report" ADD CONSTRAINT "FK_post_report_post" FOREIGN KEY ("postId") REFERENCES "post"("id") ON DELETE CASCADE;
-            END IF;
-            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_storie_report_user') THEN
-                ALTER TABLE "storie_report" ADD CONSTRAINT "FK_storie_report_user" FOREIGN KEY ("reporterId") REFERENCES "user"("id") ON DELETE SET NULL;
-            END IF;
-            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_storie_report_storie') THEN
-                ALTER TABLE "storie_report" ADD CONSTRAINT "FK_storie_report_storie" FOREIGN KEY ("storieId") REFERENCES "storie"("id") ON DELETE CASCADE;
-            END IF;
-        END $$;
-
-        -- 👇 TABLA: Bank Accounts (Actualizada)
-        CREATE TABLE IF NOT EXISTS "bank_accounts" (
-          "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-          "bank_name" varchar(100) NOT NULL,
-          "account_type" varchar(50) NOT NULL,
-          "account_number" varchar(50) NOT NULL,
-          "account_holder" varchar(100) NOT NULL,
-          "qr_image_url" text,
-          "is_active" boolean DEFAULT true,
-          "order" int DEFAULT 0,
-          "created_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
-          "updated_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
-          CONSTRAINT "PK_bank_accounts" PRIMARY KEY ("id")
-        );
-
-        -- Migraciones seguras para compatibilidad
-        DO $$ 
-        BEGIN 
-          BEGIN ALTER TABLE "bank_accounts" RENAME COLUMN "bankName" TO "bank_name"; EXCEPTION WHEN undefined_column THEN END;
-          BEGIN ALTER TABLE "bank_accounts" RENAME COLUMN "accountType" TO "account_type"; EXCEPTION WHEN undefined_column THEN END;
-          BEGIN ALTER TABLE "bank_accounts" RENAME COLUMN "accountNumber" TO "account_number"; EXCEPTION WHEN undefined_column THEN END;
-          BEGIN ALTER TABLE "bank_accounts" RENAME COLUMN "accountHolder" TO "account_holder"; EXCEPTION WHEN undefined_column THEN END;
-          BEGIN ALTER TABLE "bank_accounts" RENAME COLUMN "qrCodeUrl" TO "qr_image_url"; EXCEPTION WHEN undefined_column THEN END;
-          BEGIN ALTER TABLE "bank_accounts" RENAME COLUMN "qr_code_url" TO "qr_image_url"; EXCEPTION WHEN undefined_column THEN END;
-          BEGIN ALTER TABLE "bank_accounts" RENAME COLUMN "isActive" TO "is_active"; EXCEPTION WHEN undefined_column THEN END;
-          BEGIN ALTER TABLE "bank_accounts" RENAME COLUMN "createdAt" TO "created_at"; EXCEPTION WHEN undefined_column THEN END;
-          BEGIN ALTER TABLE "bank_accounts" RENAME COLUMN "updatedAt" TO "updated_at"; EXCEPTION WHEN undefined_column THEN END;
-        END $$;
-
-        -- 👇 SISTEMA DE CALIFICACIONES
-        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "ratingNegocio" DECIMAL(2,1) DEFAULT NULL;
-        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "ratingMotorizado" DECIMAL(2,1) DEFAULT NULL;
-
-        ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "ratingPromedio" DECIMAL(2,1) DEFAULT 0.0;
-        ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "totalResenas" INT DEFAULT 0;
-
-        ALTER TABLE "user_motorizado" ADD COLUMN IF NOT EXISTS "ratingPromedio" DECIMAL(2,1) DEFAULT 0.0;
-        ALTER TABLE "user_motorizado" ADD COLUMN IF NOT EXISTS "totalResenas" INT DEFAULT 0;
-
-        -- 👇 REPORTES / SOPORTE (TICKETS)
-        ALTER TABLE "report" ADD COLUMN IF NOT EXISTS "resolvedAt" TIMESTAMP DEFAULT NULL;
-
-        CREATE TABLE IF NOT EXISTS "push_token" (
-          "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
-          "token" text NOT NULL UNIQUE,
-          "deviceType" varchar(50),
-          "userId" uuid,
-          "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
-          "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
-          CONSTRAINT "PK_push_token" PRIMARY KEY ("id"),
-          CONSTRAINT "FK_push_token_user" FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE CASCADE
-        );
       `);
+      await this.datasource.query(`ALTER TABLE "producto_pedido" ADD COLUMN IF NOT EXISTS "precio_app" DECIMAL(10,2) DEFAULT 0;`);
+      await this.datasource.query(`ALTER TABLE "producto_pedido" ADD COLUMN IF NOT EXISTS "comision_producto" DECIMAL(10,2) DEFAULT 0;`);
+      await this.datasource.query(`ALTER TABLE "producto_pedido" ADD COLUMN IF NOT EXISTS "producto_nombre" VARCHAR(150) DEFAULT NULL;`);
+      await this.datasource.query(`ALTER TABLE "producto_pedido" ADD COLUMN IF NOT EXISTS "producto_imagen" VARCHAR(255) DEFAULT NULL;`);
+
+      console.log("🛠️  [Migration] Step 9: FK Rules");
+      await this.datasource.query(`
+        DO $FK_PP$
+        DECLARE fk_pp_name TEXT;
+        BEGIN
+            SELECT conname INTO fk_pp_name FROM pg_constraint WHERE confrelid = 'producto'::regclass AND conrelid = 'producto_pedido'::regclass;
+            IF fk_pp_name IS NOT NULL THEN EXECUTE 'ALTER TABLE producto_pedido DROP CONSTRAINT ' || quote_ident(fk_pp_name); END IF;
+        END $FK_PP$;
+      `);
+      await this.datasource.query(`ALTER TABLE producto_pedido ADD CONSTRAINT "FK_producto_pedido_producto" FOREIGN KEY ("productoId") REFERENCES "producto"("id") ON DELETE SET NULL;`);
+
+      console.log("🛠️  [Migration] Step 10: New Tables");
+      await this.datasource.query(`
+        CREATE TABLE IF NOT EXISTS "commission_log" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "prevMotorizadoPercentage" decimal(10,2) NOT NULL, "newMotorizadoPercentage" decimal(10,2) NOT NULL, "prevAppPercentage" decimal(10,2) NOT NULL, "newAppPercentage" decimal(10,2) NOT NULL, "createdAt" TIMESTAMP NOT NULL DEFAULT now(), "changedById" uuid, CONSTRAINT "PK_commission_log" PRIMARY KEY ("id"));
+      `);
+      await this.datasource.query(`
+        CREATE TABLE IF NOT EXISTS "financial_closings" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "closingDate" date NOT NULL UNIQUE, "totalIncome" decimal(10,2) NOT NULL, "totalExpenses" decimal(10,2) NOT NULL, "backupFileUrl" varchar NOT NULL, "totalRechargesCount" int NOT NULL, "totalUserBalance" decimal(10,2) NOT NULL DEFAULT 0, "totalMotorizadoDebt" decimal(10,2) NOT NULL DEFAULT 0, "createdAt" TIMESTAMP NOT NULL DEFAULT now(), "closedById" uuid, CONSTRAINT "PK_financial_closings" PRIMARY KEY ("id"));
+      `);
+      await this.datasource.query(`
+        CREATE TABLE IF NOT EXISTS "balance_negocio" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "fecha" date NOT NULL, "totalVendido" decimal(10,2) NOT NULL DEFAULT 0, "totalComisionApp" decimal(10,2) NOT NULL DEFAULT 0, "totalEfectivo" decimal(10,2) NOT NULL DEFAULT 0, "totalTransferencia" decimal(10,2) NOT NULL DEFAULT 0, "balanceFinal" decimal(10,2) NOT NULL DEFAULT 0, "estado" varchar NOT NULL DEFAULT 'PENDIENTE', "comprobanteUrl" text, "isClosed" boolean NOT NULL DEFAULT false, "closedById" uuid, "negocioId" uuid, "createdAt" TIMESTAMP NOT NULL DEFAULT now(), "updatedAt" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "PK_balance_negocio" PRIMARY KEY ("id"));
+      `);
+
+      console.log("🛠️  [Migration] Step 11: Moderation and User updates");
+      await this.datasource.query(`ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "warnings_count" INT DEFAULT 0;`);
+      await this.datasource.query(`ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "suspension_until" TIMESTAMP DEFAULT NULL;`);
+      await this.datasource.query(`ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "isLoggedIn" BOOLEAN DEFAULT false;`);
+      await this.datasource.query(`ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "currentSessionId" VARCHAR;`);
+      await this.datasource.query(`ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "lastLoginIP" VARCHAR;`);
+      await this.datasource.query(`ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "lastLoginDate" TIMESTAMP;`);
+      await this.datasource.query(`ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "lastSeenAt" TIMESTAMP DEFAULT NULL;`);
+
+      await this.datasource.query(`CREATE TABLE IF NOT EXISTS "moderation_log" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "adminId" uuid NOT NULL, "action" varchar NOT NULL, "comment" text NOT NULL, "createdAt" TIMESTAMP NOT NULL DEFAULT now(), "userId" uuid, "postId" uuid, "storieId" uuid, CONSTRAINT "PK_moderation_log" PRIMARY KEY ("id"));`);
+      await this.datasource.query(`CREATE TABLE IF NOT EXISTS "post_report" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "reason" varchar NOT NULL, "createdAt" TIMESTAMP NOT NULL DEFAULT now(), "reporterId" uuid, "postId" uuid, CONSTRAINT "PK_post_report" PRIMARY KEY ("id"));`);
+      await this.datasource.query(`CREATE TABLE IF NOT EXISTS "storie_report" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "reason" varchar NOT NULL, "createdAt" TIMESTAMP NOT NULL DEFAULT now(), "reporterId" uuid, "storieId" uuid, CONSTRAINT "PK_storie_report" PRIMARY KEY ("id"));`);
+      await this.datasource.query(`ALTER TABLE "post_report" ADD COLUMN IF NOT EXISTS "status" VARCHAR DEFAULT 'PENDING';`);
+      await this.datasource.query(`ALTER TABLE "storie_report" ADD COLUMN IF NOT EXISTS "status" VARCHAR DEFAULT 'PENDING';`);
+
+      console.log("🛠️  [Migration] Step 12: Wallet Movements and Logs");
+      await this.datasource.query(`CREATE TABLE IF NOT EXISTS "wallet_movements" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "motorized_id" uuid NOT NULL, "type" varchar NOT NULL, "amount" decimal(10,2) NOT NULL, "balance_after" decimal(10,2) NOT NULL DEFAULT 0, "status" varchar NOT NULL DEFAULT 'COMPLETADO', "description" varchar, "order_id" uuid, "admin_id" uuid, "created_at" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "PK_wallet_movements" PRIMARY KEY ("id"));`);
+      await this.datasource.query(`ALTER TABLE "wallet_movements" ADD COLUMN IF NOT EXISTS "balance_after" decimal(10,2) DEFAULT 0;`);
+      await this.datasource.query(`
+        DO $$ BEGIN 
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_wallet_movements_motorizado') THEN ALTER TABLE "wallet_movements" ADD CONSTRAINT "FK_wallet_movements_motorizado" FOREIGN KEY ("motorized_id") REFERENCES "user_motorizado"("id") ON DELETE CASCADE; END IF;
+            IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_wallet_movements_pedido') THEN ALTER TABLE "wallet_movements" DROP CONSTRAINT "FK_wallet_movements_pedido"; END IF;
+            ALTER TABLE "wallet_movements" ADD CONSTRAINT "FK_wallet_movements_pedido" FOREIGN KEY ("order_id") REFERENCES "pedido"("id") ON DELETE SET NULL;
+            DO $FK$ DECLARE fk_name TEXT; BEGIN SELECT conname INTO fk_name FROM pg_constraint WHERE confrelid = 'pedido'::regclass AND conrelid = 'transaccion_motorizado'::regclass; IF fk_name IS NOT NULL THEN EXECUTE 'ALTER TABLE transaccion_motorizado DROP CONSTRAINT ' || quote_ident(fk_name); END IF; END $FK$;
+            ALTER TABLE transaccion_motorizado ADD CONSTRAINT "FK_transaccion_motorizado_pedido" FOREIGN KEY ("pedidoId") REFERENCES "pedido"("id") ON DELETE SET NULL;
+        END $$;
+      `);
+
+      console.log("🛠️  [Migration] Step 13: Bank and Push");
+      await this.datasource.query(`CREATE TABLE IF NOT EXISTS "bank_accounts" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "bank_name" varchar(100) NOT NULL, "account_type" varchar(50) NOT NULL, "account_number" varchar(50) NOT NULL, "account_holder" varchar(100) NOT NULL, "qr_image_url" text, "is_active" boolean DEFAULT true, "order" int DEFAULT 0, "created_at" TIMESTAMPTZ NOT NULL DEFAULT now(), "updated_at" TIMESTAMPTZ NOT NULL DEFAULT now(), CONSTRAINT "PK_bank_accounts" PRIMARY KEY ("id"));`);
+      await this.datasource.query(`CREATE TABLE IF NOT EXISTS "push_token" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "token" text NOT NULL UNIQUE, "deviceType" varchar(50), "userId" uuid, "createdAt" TIMESTAMP NOT NULL DEFAULT now(), "updatedAt" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "PK_push_token" PRIMARY KEY ("id"), CONSTRAINT "FK_push_token_user" FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE CASCADE);`);
+      await this.datasource.query(`CREATE TABLE IF NOT EXISTS "pedido_operativo_log" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "pedidoId" uuid NOT NULL, "motorizadoId" uuid, "adminId" uuid, "evento" varchar NOT NULL, "detalle" text, "createdAt" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "PK_pedido_operativo_log" PRIMARY KEY ("id"));`);
+
+      console.log("🛠️  [Migration] Step 14: Final Motorizado columns");
+      await this.datasource.query(`ALTER TABLE "user_motorizado" ADD COLUMN IF NOT EXISTS "lastSeenAt" TIMESTAMP DEFAULT NULL;`);
+      await this.datasource.query(`ALTER TABLE "user_motorizado" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP DEFAULT NOW();`);
+      await this.datasource.query(`ALTER TABLE "user_motorizado" ADD COLUMN IF NOT EXISTS "ratingPromedio" DECIMAL(2,1) DEFAULT 0.0;`);
+      await this.datasource.query(`ALTER TABLE "user_motorizado" ADD COLUMN IF NOT EXISTS "totalResenas" INT DEFAULT 0;`);
 
       // 2. Enum Additions (Individual calls to ensure they commit)
       const enums = [

@@ -9,6 +9,7 @@ import fs from "fs"; // Importa el módulo fs
 import path from "path"; // Importa el módulo path
 import helmet from "helmet";
 import hpp from "hpp";
+import { UserMotorizado } from "../data";
 
 interface Options {
   port: number;
@@ -88,8 +89,18 @@ export class Server {
     this.app.use("/comprobantes", express.static(path.join(uploadsPath, "comprobantes")));
 
     this.io.on("connection", (socket) => {
-      socket.on("join_motorizado", (motorizadoId: string) => {
+      socket.on("join_motorizado", async (motorizadoId: string) => {
         socket.join(motorizadoId);
+        try {
+          // Usamos query builder directo para evitar que se dispare @UpdateDateColumn
+          await UserMotorizado.getRepository().createQueryBuilder()
+            .update()
+            .set({ lastSeenAt: new Date() })
+            .where("id = :id", { id: motorizadoId })
+            .execute();
+        } catch (e) {
+          console.error("Error updating motorizado lastSeenAt", e);
+        }
       });
       socket.on("join_business", (businessId: string) => {
         console.log(`🏠 [Socket] Negocio unido a la sala: ${businessId}`);

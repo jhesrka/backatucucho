@@ -53,6 +53,25 @@ export class PedidoAdminRoutes {
       controller.configureRetentionDays
     );
 
+    // 🚀 CENTRO OPERATIVO EN VIVO 
+    router.get(
+      "/live/control",
+      AuthAdminMiddleware.protect,
+      controller.getLiveControlData
+    );
+
+    router.patch(
+      "/motorizado/liberar",
+      AuthAdminMiddleware.protect,
+      controller.liberarMotorizado
+    );
+
+    router.get(
+      "/trazabilidad/:pedidoId",
+      AuthAdminMiddleware.protect,
+      controller.getPedidoTrazabilidad
+    );
+
     router.patch(
       "/motorizado/estado",
       AuthMotorizadoMiddleware.protect,

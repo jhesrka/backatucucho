@@ -13,11 +13,12 @@ import {
   WalletMovementType,
   WalletMovementStatus,
 } from "../../../data";
+import { PedidoOperativoLog } from "../../../data/postgres/models/PedidoOperativoLog";
 import moment from "moment-timezone";
 
 import { getIO } from "../../../config/socket";
 import { CustomError } from "../../../domain";
-import { IsNull, Brackets, Between, LessThan } from "typeorm";
+import { IsNull, Brackets, Between, LessThan, Raw, Not } from "typeorm";
 import { NotificationService } from "../NotificationService";
 
 const notificationService = new NotificationService();
@@ -131,41 +132,90 @@ export class PedidoMotoService {
    * Ajusta el estado del motorizado cuando queda libre (sin pedido activo),
    * mandándolo al final de la cola FIFO.
    */
-  private static async normalizarEstadoLibreMotorizado(moto: UserMotorizado) {
+  public static async normalizarEstadoLibreMotorizado(moto: UserMotorizado) {
     const now = new Date();
-    const castigado =
-      moto.noDisponibleHasta &&
-      moto.noDisponibleHasta.getTime() > now.getTime();
-
-    if (moto.quiereTrabajar && !castigado) {
-      moto.estadoTrabajo = EstadoTrabajoMotorizado.DISPONIBLE;
-    } else {
-      moto.estadoTrabajo = EstadoTrabajoMotorizado.NO_TRABAJANDO;
-    }
-
+    
+    // Forzamos la intención de trabajar si el sistema lo está liberando por mantenimiento
+    // o si el motorizado simplemente terminó un pedido.
+    moto.quiereTrabajar = true; 
+    moto.estadoTrabajo = EstadoTrabajoMotorizado.DISPONIBLE;
     moto.fechaHoraDisponible = now;
+    moto.noDisponibleHasta = null; // Limpiar castigos si existen al liberar manualmente/por sistema
+    
     await moto.save();
+
+    // 📢 Notificar en tiempo real al dashboard administrativo
+    getIO().emit("admin_live_update", { 
+      type: 'MOTORIZADO_UPDATED', 
+      motorizadoId: moto.id,
+      estado: moto.estadoTrabajo,
+      quiereTrabajar: moto.quiereTrabajar
+    });
   }
 
   /**
-   * Detecta pedidos que quedaron "atascados" (en evaluación pero sin motorizado real o asignación colgada)
+   * 🛡️ Mantenimiento Operativo:
+   * - Libera pedidos bloqueados por errores de sistema.
+   * - Libera motorizados que quedaron en EN_EVALUACION sin pedido real.
+   * - Resuelve pedidos con motorizadoEnEvaluacion que expiraron (Fail-safe del CRON).
    */
-  private static async rescatarPedidosCongelados() {
+  private static async mantenimientoOperativo() {
     const timeout = await this.getTimeout();
-    const cutoff = new Date(Date.now() - timeout * 2); // Un margen de seguridad adicional
+    const cutoff = new Date(Date.now() - timeout);
+    const extremeCutoff = new Date(Date.now() - timeout * 3);
 
-    const pedidosCongelados = await Pedido.find({
-      where: {
-        estado: EstadoPedido.PREPARANDO,
-        asignacionBloqueada: true,
-        updatedAt: LessThan(cutoff) as any // Cast for old TypeORM versions if needed
+    // 1. Rescatar pedidos bloqueados por flags de asignación (Deadlocks lógicos)
+    const pedidosBloqueados = await Pedido.find({
+      where: { asignacionBloqueada: true, updatedAt: LessThan(cutoff) as any }
+    });
+    for (const p of pedidosBloqueados) {
+      console.log(`[RESCATE] Desbloqueando asignación de pedido ${p.id}`);
+      p.asignacionBloqueada = false;
+      await p.save();
+    }
+
+    // 2. Rescatar motorizados en "evaluación" fantasma
+    const motosStuck = await UserMotorizado.find({
+      where: { estadoTrabajo: EstadoTrabajoMotorizado.EN_EVALUACION }
+    });
+
+    for (const moto of motosStuck) {
+      // Buscamos si existe ALGÚN pedido que lo tenga como evaluador actual
+      const pedidoActivoEvaluando = await Pedido.findOne({
+        where: { motorizadoEnEvaluacion: moto.id, estado: EstadoPedido.PREPARANDO }
+      });
+
+      if (!pedidoActivoEvaluando) {
+        // Doble check: ¿Lleva más de 3 segundos en este estado? (Para evitar colisiones con transacciones en curso)
+        const diffMs = Date.now() - new Date(moto.updatedAt).getTime();
+        if (diffMs > 3000) {
+          console.log(`[RESCATE] Liberando motorizado ${moto.name} (${moto.id}) - No tiene pedido en evaluación.`);
+          
+          // Usamos el método normalizado que garantiza quiereTrabajar = true y DISPONIBLE
+          await this.normalizarEstadoLibreMotorizado(moto);
+          
+          getIO().to(moto.id).emit("evaluacion_terminada", { 
+            mensaje: "Se ha restaurado tu disponibilidad automáticamente.",
+            code: 'AUTO_RELEASE'
+          });
+          // Notificar al dashboard admin
+          getIO().emit("admin_live_update", { type: 'MOTORIZADO_UPDATED', motorizadoId: moto.id });
+        }
+      }
+    }
+
+    // 3. Rescatar pedidos con motorizado asignado pero sin actividad (Timeouts no procesados)
+    const pedidosStuck = await Pedido.find({
+      where: { 
+        estado: EstadoPedido.PREPARANDO, 
+        motorizadoEnEvaluacion: Not(IsNull()), 
+        fechaInicioRonda: LessThan(cutoff) as any 
       }
     });
 
-    for (const pedido of pedidosCongelados) {
-      console.log(`[RESCATE] Liberando pedido ${pedido.id} por inactividad prolongada`);
-      this.limpiarCamposRonda(pedido);
-      await pedido.save();
+    for (const p of pedidosStuck) {
+      console.log(`[RESCATE] Forzando timeout de pedido ${p.id} (Ronda: ${p.rondaAsignacion})`);
+      await this.finalizarRondaTimeout(p);
     }
   }
 
@@ -173,35 +223,27 @@ export class PedidoMotoService {
   // 🟢 ASIGNACIÓN AUTOMÁTICA (LLAMADO POR EL CRON)
   // ============================================================
   static async asignarPedidosAutomaticamente() {
-    // 1. Mantenimiento preventivo
-    await this.rescatarPedidosCongelados();
+    // 1. Ejecutar autolimpieza
+    try {
+      await this.mantenimientoOperativo();
+    } catch (error) {
+      console.error("Error en mantenimiento operativo:", error);
+    }
 
-    // 2. Obtener pedidos prioritarios (Batch de 20 para evitar saturación)
-    /**
-     * Prioridad:
-     * 1. Pedidos que ya están en evaluación (revisar expiración)
-     * 2. Pedidos en PREPARANDO sin asignar (más antiguos primero)
-     */
+    // 2. Obtener pedidos prioritarios
     const pedidos = await Pedido.find({
       where: { estado: EstadoPedido.PREPARANDO },
       order: {
-        // Priorizamos pedidos que tienen motorizadoEnEvaluacion para resolver sus timeouts rápido
-        motorizadoEnEvaluacion: "DESC", // Los null van al final en Postgres si usamos NULLS LAST, pero TypeORM sorting es más simple
+        rondaAsignacion: "DESC", // Prioridad a los que llevan más rondas (o al revés según política)
         createdAt: "ASC"
       },
       relations: ["negocio", "cliente"],
-      take: 20
+      take: 30
     });
 
     for (const pedido of pedidos) {
-      if (pedido.asignacionBloqueada) continue;
-
-      if (pedido.motorizadoEnEvaluacion) {
-        if (!await this.isRondaExpirada(pedido)) continue;
-
-        const continuar = await this.finalizarRondaTimeout(pedido);
-        if (!continuar) continue;
-      }
+      // Si ya tiene un motorizado evaluando, saltar (ya lo manejó el mantenimiento o está en tiempo)
+      if (pedido.motorizadoEnEvaluacion || pedido.asignacionBloqueada) continue;
 
       // Intentar procesar asignación
       await this.procesarPedido(pedido.id);
@@ -250,6 +292,14 @@ export class PedidoMotoService {
       // Liberar lock lógico
       pedido.asignacionBloqueada = false;
       await manager.save(pedido);
+
+      // Registrar propuesta
+      await PedidoOperativoLog.registrarEvento({
+        pedidoId: pedido.id,
+        motorizadoId: moto.id,
+        evento: "PROPUESTA_ENVIADA",
+        detalle: `Ronda ${pedido.rondaAsignacion}, Intento ${pedido.intentosEnRonda}`
+      });
 
       // Preparar datos para notificar fuera de la transacción
       const timeout = await this.getTimeout();
@@ -320,6 +370,12 @@ export class PedidoMotoService {
       getIO().emit("pedido_actualizado", {
         pedidoId: pedido.id,
         estado: pedido.estado,
+      });
+
+      // 📢 Notificar a todos los motorizados que hay un pedido en espera manual
+      getIO().emit("tablero_operativo_update", { 
+        type: 'PEDIDO_DISPONIBLE_MANUAL', 
+        pedidoId: pedido.id 
       });
 
       return false;
@@ -411,6 +467,13 @@ export class PedidoMotoService {
       await this.normalizarEstadoLibreMotorizado(moto);
     }
 
+    await PedidoOperativoLog.registrarEvento({
+      pedidoId,
+      motorizadoId,
+      evento: "MOTORIZADO_RECHAZO",
+      detalle: "El motorizado rechazó manualmente la propuesta"
+    });
+
     const rondaActual = pedido.rondaAsignacion || 1;
     const maxRondas = await this.getMaxRondas();
 
@@ -464,6 +527,13 @@ export class PedidoMotoService {
     pedido.delivery_verified = false;
     await pedido.save();
 
+    await PedidoOperativoLog.registrarEvento({
+      pedidoId,
+      motorizadoId,
+      evento: "PEDIDO_EN_CAMINO",
+      detalle: "El motorizado recogió el pedido y marcó inicio de ruta"
+    });
+
     const io = getIO();
     const updateData = {
       pedidoId,
@@ -500,6 +570,13 @@ export class PedidoMotoService {
     pedido.estado = EstadoPedido.ENTREGADO;
     pedido.delivery_verified = true;
     await pedido.save();
+
+    await PedidoOperativoLog.registrarEvento({
+      pedidoId,
+      motorizadoId,
+      evento: "PEDIDO_ENTREGADO",
+      detalle: "Pedido finalizado exitosamente"
+    });
 
     const ps = await this.getPriceSettings();
     const porcentaje = Number(ps.motorizadoPercentage || 80);

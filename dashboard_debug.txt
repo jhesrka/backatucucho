@@ -20237,3 +20237,55 @@
 {}
 2026-04-23T00:48:18.509Z - CONTROLLER ERROR: Error: Connection terminated due to connection timeout
 {}
+2026-04-24T21:55:59.686Z - CONTROLLER ERROR: QueryFailedError: column UserMotorizado.lastSeenAt does not exist
+{
+  "query": "SELECT \"UserMotorizado\".\"id\" AS \"UserMotorizado_id\", \"UserMotorizado\".\"name\" AS \"UserMotorizado_name\", \"UserMotorizado\".\"surname\" AS \"UserMotorizado_surname\", \"UserMotorizado\".\"whatsapp\" AS \"UserMotorizado_whatsapp\", \"UserMotorizado\".\"cedula\" AS \"UserMotorizado_cedula\", \"UserMotorizado\".\"password\" AS \"UserMotorizado_password\", \"UserMotorizado\".\"tokenVersion\" AS \"UserMotorizado_tokenVersion\", \"UserMotorizado\".\"saldo\" AS \"UserMotorizado_saldo\", \"UserMotorizado\".\"bancoNombre\" AS \"UserMotorizado_bancoNombre\", \"UserMotorizado\".\"bancoTipoCuenta\" AS \"UserMotorizado_bancoTipoCuenta\", \"UserMotorizado\".\"bancoNumeroCuenta\" AS \"UserMotorizado_bancoNumeroCuenta\", \"UserMotorizado\".\"bancoTitular\" AS \"UserMotorizado_bancoTitular\", \"UserMotorizado\".\"bancoIdentificacion\" AS \"UserMotorizado_bancoIdentificacion\", \"UserMotorizado\".\"estadoCuenta\" AS \"UserMotorizado_estadoCuenta\", \"UserMotorizado\".\"estadoTrabajo\" AS \"UserMotorizado_estadoTrabajo\", \"UserMotorizado\".\"quiereTrabajar\" AS \"UserMotorizado_quiereTrabajar\", \"UserMotorizado\".\"noDisponibleHasta\" AS \"UserMotorizado_noDisponibleHasta\", \"UserMotorizado\".\"fechaHoraDisponible\" AS \"UserMotorizado_fechaHoraDisponible\", \"UserMotorizado\".\"createdAt\" AS \"UserMotorizado_createdAt\", \"UserMotorizado\".\"lastSeenAt\" AS \"UserMotorizado_lastSeenAt\", \"UserMotorizado\".\"updatedAt\" AS \"UserMotorizado_updatedAt\", \"UserMotorizado\".\"ratingPromedio\" AS \"UserMotorizado_ratingPromedio\", \"UserMotorizado\".\"totalResenas\" AS \"UserMotorizado_totalResenas\", \"UserMotorizado\".\"resetTokenVersion\" AS \"UserMotorizado_resetTokenVersion\" FROM \"user_motorizado\" \"UserMotorizado\" WHERE ((\"UserMotorizado\".\"estadoTrabajo\" = $1) AND (\"UserMotorizado\".\"quiereTrabajar\" = $2) AND (\"UserMotorizado\".\"estadoCuenta\" = $3)) ORDER BY \"UserMotorizado\".\"fechaHoraDisponible\" ASC",
+  "parameters": [
+    "DISPONIBLE",
+    true,
+    "ACTIVO"
+  ],
+  "driverError": {
+    "length": 125,
+    "name": "error",
+    "severity": "ERROR",
+    "code": "42703",
+    "position": "1226",
+    "file": "parse_relation.c",
+    "line": "3722",
+    "routine": "errorMissingColumn"
+  },
+  "length": 125,
+  "severity": "ERROR",
+  "code": "42703",
+  "position": "1226",
+  "file": "parse_relation.c",
+  "line": "3722",
+  "routine": "errorMissingColumn"
+}
+2026-04-24T21:56:04.054Z - CONTROLLER ERROR: QueryFailedError: column UserMotorizado.lastSeenAt does not exist
+{
+  "query": "SELECT \"UserMotorizado\".\"id\" AS \"UserMotorizado_id\", \"UserMotorizado\".\"name\" AS \"UserMotorizado_name\", \"UserMotorizado\".\"surname\" AS \"UserMotorizado_surname\", \"UserMotorizado\".\"whatsapp\" AS \"UserMotorizado_whatsapp\", \"UserMotorizado\".\"cedula\" AS \"UserMotorizado_cedula\", \"UserMotorizado\".\"password\" AS \"UserMotorizado_password\", \"UserMotorizado\".\"tokenVersion\" AS \"UserMotorizado_tokenVersion\", \"UserMotorizado\".\"saldo\" AS \"UserMotorizado_saldo\", \"UserMotorizado\".\"bancoNombre\" AS \"UserMotorizado_bancoNombre\", \"UserMotorizado\".\"bancoTipoCuenta\" AS \"UserMotorizado_bancoTipoCuenta\", \"UserMotorizado\".\"bancoNumeroCuenta\" AS \"UserMotorizado_bancoNumeroCuenta\", \"UserMotorizado\".\"bancoTitular\" AS \"UserMotorizado_bancoTitular\", \"UserMotorizado\".\"bancoIdentificacion\" AS \"UserMotorizado_bancoIdentificacion\", \"UserMotorizado\".\"estadoCuenta\" AS \"UserMotorizado_estadoCuenta\", \"UserMotorizado\".\"estadoTrabajo\" AS \"UserMotorizado_estadoTrabajo\", \"UserMotorizado\".\"quiereTrabajar\" AS \"UserMotorizado_quiereTrabajar\", \"UserMotorizado\".\"noDisponibleHasta\" AS \"UserMotorizado_noDisponibleHasta\", \"UserMotorizado\".\"fechaHoraDisponible\" AS \"UserMotorizado_fechaHoraDisponible\", \"UserMotorizado\".\"createdAt\" AS \"UserMotorizado_createdAt\", \"UserMotorizado\".\"lastSeenAt\" AS \"UserMotorizado_lastSeenAt\", \"UserMotorizado\".\"updatedAt\" AS \"UserMotorizado_updatedAt\", \"UserMotorizado\".\"ratingPromedio\" AS \"UserMotorizado_ratingPromedio\", \"UserMotorizado\".\"totalResenas\" AS \"UserMotorizado_totalResenas\", \"UserMotorizado\".\"resetTokenVersion\" AS \"UserMotorizado_resetTokenVersion\" FROM \"user_motorizado\" \"UserMotorizado\" WHERE ((\"UserMotorizado\".\"estadoTrabajo\" = $1) AND (\"UserMotorizado\".\"quiereTrabajar\" = $2) AND (\"UserMotorizado\".\"estadoCuenta\" = $3)) ORDER BY \"UserMotorizado\".\"fechaHoraDisponible\" ASC",
+  "parameters": [
+    "DISPONIBLE",
+    true,
+    "ACTIVO"
+  ],
+  "driverError": {
+    "length": 125,
+    "name": "error",
+    "severity": "ERROR",
+    "code": "42703",
+    "position": "1226",
+    "file": "parse_relation.c",
+    "line": "3722",
+    "routine": "errorMissingColumn"
+  },
+  "length": 125,
+  "severity": "ERROR",
+  "code": "42703",
+  "position": "1226",
+  "file": "parse_relation.c",
+  "line": "3722",
+  "routine": "errorMissingColumn"
+}

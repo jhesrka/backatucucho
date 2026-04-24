@@ -6,8 +6,10 @@ import {
   Negocio,
   ProductoPedido,
   EstadoTrabajoMotorizado,
+  EstadoCuentaMotorizado,
 } from "../../../data";
 import { GlobalSettings } from "../../../data/postgres/models/global-settings.model";
+import { PedidoOperativoLog } from "../../../data/postgres/models/PedidoOperativoLog";
 import { getIO } from "../../../config/socket";
 import {
   AsignarMotorizadoDTO,
@@ -139,7 +141,7 @@ export class PedidoAdminService {
    * ✅ 4. Asignar motorizado (MANUAL ADMIN)
    * Usa transacciones para asegurar compatibilidad con el algoritmo automático
    */
-  async asignarMotorizado(dto: AsignarMotorizadoDTO) {
+  async asignarMotorizado(dto: AsignarMotorizadoDTO, adminId?: string) {
     return await Pedido.getRepository().manager.transaction(async (manager) => {
       // 1. Bloquear pedido para evitar conflicto con el Cron
       const pedido = await manager.findOne(Pedido, {
@@ -159,12 +161,10 @@ export class PedidoAdminService {
         throw CustomError.badRequest("El motorizado no está activo administrativamente");
       }
 
-      // En asignación manual permitimos reasignar aunque no esté estrictamente "DISPONIBLE" 
-      // si el admin así lo decide (por ejemplo, si se quedó atascado en EN_EVALUACION)
       const estadosPermitidos = [
         EstadoTrabajoMotorizado.DISPONIBLE,
         EstadoTrabajoMotorizado.EN_EVALUACION,
-        EstadoTrabajoMotorizado.NO_TRABAJANDO // El admin puede forzarlo
+        EstadoTrabajoMotorizado.NO_TRABAJANDO
       ];
 
       if (motorizado.estadoTrabajo === EstadoTrabajoMotorizado.ENTREGANDO) {
@@ -183,6 +183,7 @@ export class PedidoAdminService {
       }
 
       // 4. Ejecutar Asignación
+      const motorizadoAnteriorId = pedido.motorizado?.id;
       pedido.motorizado = motorizado;
 
       if (pedido.estado === EstadoPedido.PREPARANDO || pedido.estado === EstadoPedido.PREPARANDO_NO_ASIGNADO) {
@@ -200,6 +201,15 @@ export class PedidoAdminService {
       motorizado.estadoTrabajo = EstadoTrabajoMotorizado.ENTREGANDO;
       await manager.save(motorizado);
 
+      // Registrar evento
+      await PedidoOperativoLog.registrarEvento({
+        pedidoId: pedido.id,
+        motorizadoId: motorizado.id,
+        adminId,
+        evento: "ASIGNADO_MANUAL",
+        detalle: `Asignado por administrador${motorizadoAnteriorId ? `. Reemplaza a motorizado ${motorizadoAnteriorId}` : ''}`
+      });
+
       // Notificar a las partes
       const io = getIO();
       const updateData = {
@@ -209,9 +219,6 @@ export class PedidoAdminService {
         timestamp: new Date().toISOString(),
       };
 
-      // Tenemos relaciones en el pedido (cargadas vía manager si fuera necesario, 
-      // pero aquí el pedido viene del transaction)
-      // Necesitamos cargar relaciones para las salas
       const pRel = await manager.findOne(Pedido, { 
         where: { id: pedido.id }, 
         relations: ["cliente", "negocio"] 
@@ -222,6 +229,7 @@ export class PedidoAdminService {
         io.to(pRel.negocio.id).emit("pedido_actualizado", updateData);
       }
       io.emit("pedido_actualizado", updateData);
+      io.emit("admin_live_update", { type: 'ORDER_UPDATED', pedidoId: pedido.id });
 
       // Notificar específicamente al motorizado
       getIO().to(motorizado.id).emit("nueva_asignacion_manual", {
@@ -229,7 +237,6 @@ export class PedidoAdminService {
         mensaje: "Un administrador te ha asignado un pedido directamente."
       });
 
-      // 🔔 Notificación Push al Motorizado
       await notificationService.sendPushNotification(
         motorizado.id,
         "¡Nueva Asignación Manual!",
@@ -239,6 +246,194 @@ export class PedidoAdminService {
 
       return pedido;
     });
+  }
+
+  // ✅ 7. Liberar motorizado atascado
+  async liberarMotorizado(motorizadoId: string, adminId: string, comment: string) {
+    const motorizado = await UserMotorizado.findOneBy({ id: motorizadoId });
+    if (!motorizado) throw CustomError.notFound("Motorizado no encontrado");
+
+    const estadoAnterior = motorizado.estadoTrabajo;
+    motorizado.estadoTrabajo = motorizado.quiereTrabajar 
+      ? EstadoTrabajoMotorizado.DISPONIBLE 
+      : EstadoTrabajoMotorizado.NO_TRABAJANDO;
+    
+    motorizado.fechaHoraDisponible = new Date();
+    await motorizado.save();
+
+    // Buscamos si tenía un pedido "fantasma" asignado
+    const pedidoFantasma = await Pedido.findOne({
+      where: [
+        { motorizado: { id: motorizadoId }, estado: EstadoPedido.PREPARANDO_ASIGNADO },
+        { motorizado: { id: motorizadoId }, estado: EstadoPedido.EN_CAMINO }
+      ]
+    });
+
+    await PedidoOperativoLog.registrarEvento({
+      pedidoId: pedidoFantasma?.id || '00000000-0000-0000-0000-000000000000',
+      motorizadoId,
+      adminId,
+      evento: "LIBERADO_MANUAL",
+      detalle: `Liberado por admin. Estado anterior: ${estadoAnterior}. Comentario: ${comment}`
+    });
+
+    const io = getIO();
+    io.emit("admin_live_update", { type: 'MOTORIZADO_UPDATED', motorizadoId });
+    io.to(motorizadoId).emit("estado_reset", { mensaje: "Tu estado ha sido restablecido por un administrador." });
+
+    return { message: "Motorizado liberado correctamente" };
+  }
+
+  // ✅ 8. Obtener datos en vivo del Centro Operativo
+  async getLiveControlData() {
+    const now = new Date();
+    const oneHourAgo = new Date(now.getTime() - (60 * 60 * 1000));
+    const fifteenMinAgo = new Date(now.getTime() - (15 * 60 * 1000));
+    
+    // Configurar inicio de hoy en la zona horaria de la DB (asumimos local o UTC estable)
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    // 1. Pedidos Activos (No terminados ni cancelados)
+    const pedidosActivos = await Pedido.find({
+      where: [
+        { estado: EstadoPedido.PENDIENTE },
+        { estado: EstadoPedido.ACEPTADO },
+        { estado: EstadoPedido.PREPARANDO },
+        { estado: EstadoPedido.PREPARANDO_ASIGNADO },
+        { estado: EstadoPedido.PREPARANDO_NO_ASIGNADO },
+        { estado: EstadoPedido.EN_CAMINO },
+        { estado: EstadoPedido.PENDIENTE_PAGO },
+      ],
+      relations: ["cliente", "motorizado", "negocio", "productos", "productos.producto"],
+      order: { createdAt: "ASC" }
+    });
+
+    // 2. Motorizados Conectados / Activos
+    const motorizados = await UserMotorizado.find({
+      where: {
+        estadoCuenta: EstadoCuentaMotorizado.ACTIVO
+      },
+      select: ["id", "name", "surname", "whatsapp", "estadoTrabajo", "quiereTrabajar", "fechaHoraDisponible", "ratingPromedio", "lastSeenAt"]
+    });
+
+    // 3. Enriquecer motorizados con su pedido actual, pedido en evaluación y métricas del día
+    const motorizadosFull = await Promise.all(motorizados.map(async (m) => {
+      let pedidoActualId = null;
+      let pedidoEnEvaluacionId = null;
+
+      if (m.estadoTrabajo === EstadoTrabajoMotorizado.ENTREGANDO) {
+        const p = await Pedido.findOne({
+          where: [
+            { motorizado: { id: m.id }, estado: EstadoPedido.PREPARANDO_ASIGNADO },
+            { motorizado: { id: m.id }, estado: EstadoPedido.EN_CAMINO }
+          ],
+          select: ["id"]
+        });
+        pedidoActualId = p?.id || null;
+      }
+
+      if (m.estadoTrabajo === EstadoTrabajoMotorizado.EN_EVALUACION) {
+        const pEval = pedidosActivos.find(pa => pa.motorizadoEnEvaluacion === m.id);
+        pedidoEnEvaluacionId = pEval?.id || null;
+      }
+
+      const entregasHoy = await Pedido.count({
+        where: {
+          motorizado: { id: m.id },
+          estado: EstadoPedido.ENTREGADO,
+          updatedAt: Between(startOfToday, new Date())
+        }
+      });
+
+      return { ...m, pedidoActualId, pedidoEnEvaluacionId, entregasHoy };
+    }));
+
+    // Enriquecer pedidos con nombre del motorizado en evaluación
+    const pedidosEnriquecidos = pedidosActivos.map(p => {
+      let motorizadoEvalNombre = null;
+      if (p.motorizadoEnEvaluacion) {
+        const moto = motorizados.find(m => m.id === p.motorizadoEnEvaluacion);
+        motorizadoEvalNombre = moto ? `${moto.name} ${moto.surname}` : "Desconocido";
+      }
+      return { ...p, motorizadoEvalNombre };
+    });
+
+    // 4. Calcular Métricas de Resumen
+    const sinMotorizado = pedidosActivos.filter(p => p.estado === EstadoPedido.PREPARANDO_NO_ASIGNADO).length;
+    const motorizadosDisponibles = motorizadosFull.filter(m => m.estadoTrabajo === EstadoTrabajoMotorizado.DISPONIBLE && m.quiereTrabajar).length;
+    const motorizadosEntregando = motorizadosFull.filter(m => m.estadoTrabajo === EstadoTrabajoMotorizado.ENTREGANDO).length;
+    const pedidosTrabados = pedidosActivos.filter(p => p.updatedAt < fifteenMinAgo).length;
+
+    const rechazosRecientes = await PedidoOperativoLog.count({
+      where: {
+        evento: "MOTORIZADO_RECHAZO",
+        createdAt: Between(oneHourAgo, new Date())
+      }
+    });
+
+    // Tiempo promedio de asignación aproximado (últimos 10 éxitos)
+    const ultimasAceptaciones = await PedidoOperativoLog.find({
+      where: { evento: "MOTORIZADO_ACEPTO" },
+      take: 10,
+      order: { createdAt: "DESC" }
+    });
+
+    let avgAssignmentTime = 0;
+    if (ultimasAceptaciones.length > 0) {
+      const times = await Promise.all(ultimasAceptaciones.map(async log => {
+        const ped = await Pedido.findOne({ where: { id: log.pedidoId }, select: ["createdAt"] });
+        return ped ? (log.createdAt.getTime() - ped.createdAt.getTime()) : 0;
+      }));
+      const validTimes = times.filter(t => t > 0);
+      if (validTimes.length > 0) {
+        avgAssignmentTime = validTimes.reduce((a, b) => a + b, 0) / validTimes.length / 1000 / 60;
+      }
+    }
+
+    // 5. Generar Alertas
+    const alertas: any[] = [];
+    motorizadosFull.forEach((m: any) => {
+      if (m.estadoTrabajo === EstadoTrabajoMotorizado.ENTREGANDO && !m.pedidoActualId) {
+        alertas.push({ type: 'INCONSISTENCY', severity: 'CRITICAL', message: `Motorizado ${m.name} figura "Entregando" sin pedido activo.` });
+      }
+      const lastSeen = m.lastSeenAt ? new Date(m.lastSeenAt).getTime() : 0;
+      if (m.quiereTrabajar && (Date.now() - lastSeen > 10 * 60 * 1000)) {
+        alertas.push({ type: 'OFFLINE', severity: 'WARNING', message: `${m.name} está activo pero no reporta ubicación hace >10 min.` });
+      }
+    });
+
+    pedidosActivos.forEach(p => {
+      if (p.estado === EstadoPedido.PREPARANDO_NO_ASIGNADO && p.createdAt < fifteenMinAgo) {
+        alertas.push({ type: 'STUCK', severity: 'CRITICAL', message: `Pedido #${p.id.slice(-6)} lleva >15 min sin motorizado.` });
+      }
+    });
+
+    return {
+      pedidos: pedidosEnriquecidos,
+      motorizados: motorizadosFull,
+      summary: {
+        totalActivos: pedidosActivos.length,
+        sinMotorizado,
+        motorizadosDisponibles,
+        motorizadosEntregando,
+        pedidosTrabados,
+        rechazosRecientes,
+        avgAssignmentTime: Math.round(avgAssignmentTime)
+      },
+      alertas
+    };
+  }
+
+  // ✅ 9. Obtener trazabilidad completa de un pedido
+  async getPedidoTrazabilidad(pedidoId: string) {
+    const logs = await PedidoOperativoLog.find({
+      where: { pedidoId },
+      order: { createdAt: "ASC" },
+      relations: ["motorizado"]
+    });
+
+    return logs;
   }
 
   // ✅ 5. Eliminar pedidos finalizados antiguos (Configurable)
