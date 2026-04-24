@@ -22,6 +22,7 @@ import {
 } from "../../index";
 import { Negocio } from "./Negocio";
 import { Pedido } from "./Pedido";
+import { PushToken } from "./PushToken";
 
 export enum Status {
   ACTIVE = "ACTIVE",
@@ -182,6 +183,9 @@ export class User extends BaseEntity {
 
   @Column("timestamp", { nullable: true })
   lastSeenAt: Date;
+
+  @OneToMany(() => PushToken, (pushToken) => pushToken.user)
+  pushTokens: PushToken[];
 
   @BeforeInsert()
   encryptedPassword() {

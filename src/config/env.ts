@@ -29,4 +29,5 @@ export const envs = {
 
   // Redis (opcional: solo requerido en producción con múltiples instancias)
   REDIS_URL: get("REDIS_URL").default("").asString(),
+  FIREBASE_SERVICE_ACCOUNT: get("FIREBASE_SERVICE_ACCOUNT").asString(),
 };

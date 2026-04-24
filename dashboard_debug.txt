@@ -20233,3 +20233,7 @@
 }
 2026-04-23T00:13:19.080Z - CONTROLLER ERROR: Error: Error al obtener dashboard operativo
 {}
+2026-04-23T00:41:19.130Z - CONTROLLER ERROR: Error: Error al obtener dashboard operativo
+{}
+2026-04-23T00:48:18.509Z - CONTROLLER ERROR: Error: Connection terminated due to connection timeout
+{}

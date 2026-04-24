@@ -33,6 +33,7 @@ import { StorieReport } from "./models/StorieReport";
 import { ModerationLog } from "./models/ModerationLog";
 import { WalletMovement } from "./models/wallet-movement.model";
 import { BankAccount } from "./models/BankAccount";
+import { PushToken } from "./models/PushToken";
 
 interface Options {
   host: string;
@@ -87,7 +88,8 @@ export class PostgresDatabase {
         StorieReport,
         ModerationLog,
         WalletMovement,
-        BankAccount
+        BankAccount,
+        PushToken
       ],
       synchronize: false, // PRODUCCIÓN: SIEMPRE FALSE. Usar migraciones.
       ssl: {
@@ -461,6 +463,17 @@ export class PostgresDatabase {
 
         -- 👇 REPORTES / SOPORTE (TICKETS)
         ALTER TABLE "report" ADD COLUMN IF NOT EXISTS "resolvedAt" TIMESTAMP DEFAULT NULL;
+
+        CREATE TABLE IF NOT EXISTS "push_token" (
+          "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+          "token" text NOT NULL UNIQUE,
+          "deviceType" varchar(50),
+          "userId" uuid,
+          "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+          "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+          CONSTRAINT "PK_push_token" PRIMARY KEY ("id"),
+          CONSTRAINT "FK_push_token_user" FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE CASCADE
+        );
       `);
 
       // 2. Enum Additions (Individual calls to ensure they commit)

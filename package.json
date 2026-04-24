@@ -48,6 +48,7 @@
     "dotenv": "16.4.7",
     "env-var": "7.5.0",
     "express": "4.21.2",
+    "firebase-admin": "^13.8.0",
     "geoip-lite": "^1.4.10",
     "google-auth-library": "^10.5.0",
     "helmet": "8.1.0",

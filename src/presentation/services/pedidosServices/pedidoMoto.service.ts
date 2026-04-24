@@ -17,7 +17,10 @@ import moment from "moment-timezone";
 
 import { getIO } from "../../../config/socket";
 import { CustomError } from "../../../domain";
-import { IsNull, Brackets, Between } from "typeorm";
+import { IsNull, Brackets, Between, LessThan } from "typeorm";
+import { NotificationService } from "../NotificationService";
+
+const notificationService = new NotificationService();
 
 export class PedidoMotoService {
   private static settings: GlobalSettings | null = null;
@@ -276,6 +279,14 @@ export class PedidoMotoService {
       // Notificar al motorizado
       io.to(notifyData.motoId).emit("pedido_para_ti", notifyData.pedidoParaTi);
 
+      // 🔔 Notificación Push al Motorizado
+      await notificationService.sendPushNotification(
+        notifyData.motoId,
+        "¡Nuevo Pedido Disponible!",
+        `Tienes un nuevo pedido por $${notifyData.pedidoParaTi.total}. Tienes ${Math.round(notifyData.pedidoParaTi.duration / 1000)}s para aceptar.`,
+        { url: '/motorizado' }
+      );
+
       // Notificar actualizaciones
       if (notifyData.clienteId) io.to(notifyData.clienteId).emit("pedido_actualizado", notifyData.updateData);
       if (notifyData.negocioId) io.to(notifyData.negocioId).emit("pedido_actualizado", notifyData.updateData);
@@ -373,6 +384,14 @@ export class PedidoMotoService {
     io.to(pedido.negocio.id).emit("pedido_actualizado", updateData);
     io.emit("pedido_actualizado", updateData); // BROADCAST for counts
 
+    // 🔔 Notificación Push al Cliente
+    await notificationService.sendPushNotification(
+      pedido.cliente.id,
+      "¡Pedido Aceptado!",
+      `Tu pedido #${pedido.id.split('-')[0]} ha sido aceptado por el repartidor.`,
+      { url: '/mis-pedidos' }
+    );
+
     return pedido;
   }
 
@@ -455,6 +474,14 @@ export class PedidoMotoService {
     io.to(pedido.cliente.id).emit("pedido_actualizado", updateData);
     io.to(pedido.negocio.id).emit("pedido_actualizado", updateData);
 
+    // 🔔 Notificación Push al Cliente
+    await notificationService.sendPushNotification(
+      pedido.cliente.id,
+      "¡Pedido en Camino!",
+      `Tu pedido #${pedido.id.split('-')[0]} ya va en camino a tu ubicación.`,
+      { url: '/mis-pedidos' }
+    );
+
     return pedido;
   }
 
@@ -517,6 +544,14 @@ export class PedidoMotoService {
     io.to(pedido.cliente.id).emit("pedido_actualizado", updateData);
     io.to(pedido.negocio.id).emit("pedido_actualizado", updateData);
 
+    // 🔔 Notificación Push al Cliente
+    await notificationService.sendPushNotification(
+      pedido.cliente.id,
+      "¡Pedido Entregado!",
+      `¡Buen provecho! Tu pedido #${pedido.id.split('-')[0]} ha sido entregado.`,
+      { url: '/mis-pedidos' }
+    );
+
     return pedido;
   }
 
@@ -572,6 +607,14 @@ export class PedidoMotoService {
       pedidoId: pedido.id,
       mensaje: "El motorizado está afuera",
     });
+
+    // 🔔 Notificación Push al Cliente
+    await notificationService.sendPushNotification(
+      pedido.cliente.id,
+      "¡El repartidor ha llegado!",
+      `Tu repartidor está afuera con tu pedido #${pedido.id.split('-')[0]}.`,
+      { url: '/mis-pedidos' }
+    );
 
     return { arrival_time: pedido.arrival_time };
   }
@@ -972,4 +1015,3 @@ export class PedidoMotoService {
     return pedido;
   }
 }
-import { LessThan } from "typeorm";

@@ -8,6 +8,9 @@ import { encriptAdapter, envs, JwtAdapter } from "../../config";
 import { UploadFilesCloud } from "../../config/upload-files-cloud-adapter";
 import { getIO } from "../../config/socket";
 import { PedidoExpirationService } from "./pedidosServices/pedidoExpiration.service";
+import { NotificationService } from "./NotificationService";
+
+const notificationService = new NotificationService();
 
 export class BusinessService {
     constructor() { }
@@ -355,6 +358,25 @@ export class BusinessService {
         }
 
         await order.save();
+
+        // 🔔 Notificaciones Push al Cliente
+        if (order.cliente?.id) {
+            let title = "Actualización de Pedido";
+            let body = `Tu pedido #${order.id.split('-')[0]} ha cambiado de estado.`;
+            
+            if (status === EstadoPedido.ACEPTADO) {
+                title = "¡Pedido Aceptado!";
+                body = `Tu pedido #${order.id.split('-')[0]} ha sido aceptado por el negocio.`;
+            } else if (status === EstadoPedido.PREPARANDO) {
+                title = "Pedido en Preparación";
+                body = `Tu pedido #${order.id.split('-')[0]} ya se está preparando.`;
+            } else if (status === EstadoPedido.CANCELADO) {
+                title = "Pedido Cancelado";
+                body = `Lo sentimos, tu pedido #${order.id.split('-')[0]} fue rechazado: ${motivoCancelacion}`;
+            }
+
+            await notificationService.sendPushNotification(order.cliente.id, title, body, { url: '/mis-pedidos' });
+        }
 
         // Disparar socket en tiempo real al cliente y negocio
         const io = getIO();

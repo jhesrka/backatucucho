@@ -16,6 +16,9 @@ import {
 } from "../../../domain";
 import { Between, ILike, LessThan, Raw } from "typeorm";
 import { PedidoMotoService } from "./pedidoMoto.service";
+import { NotificationService } from "../NotificationService";
+
+const notificationService = new NotificationService();
 
 export class PedidoAdminService {
   // ✅ 1. Obtener todos los pedidos con filtros
@@ -225,6 +228,14 @@ export class PedidoAdminService {
         pedidoId: pedido.id,
         mensaje: "Un administrador te ha asignado un pedido directamente."
       });
+
+      // 🔔 Notificación Push al Motorizado
+      await notificationService.sendPushNotification(
+        motorizado.id,
+        "¡Nueva Asignación Manual!",
+        `Un administrador te ha asignado el pedido #${pedido.id.split('-')[0]} directamente.`,
+        { url: '/motorizado' }
+      );
 
       return pedido;
     });

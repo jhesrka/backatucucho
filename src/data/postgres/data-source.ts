@@ -31,6 +31,7 @@ import { PriceSettings } from "./models/PriceSettings";
 import { DeliverySettings } from "./models/DeliverySettings";
 import { GlobalSettings } from "./models/global-settings.model";
 import { CommissionLog } from "./models/CommissionLog";
+import { PushToken } from "./models/PushToken";
 
 export const AppDataSource = new DataSource({
     type: "postgres",
@@ -49,7 +50,7 @@ export const AppDataSource = new DataSource({
         FreePostTracker, Transaction, CategoriaNegocio, SubcategoriaNegocio, Negocio, Producto, TipoProducto,
         UserMotorizado, ProductoPedido, Pedido, TransaccionMotorizado, BalanceNegocio,
         PriceSettings, DeliverySettings, AdminNotification, GlobalSettings, CommissionLog, Campaign,
-        CampaignLog, FinancialClosing, Report
+        CampaignLog, FinancialClosing, Report, PushToken
     ],
     migrations: ["src/data/postgres/migrations/*.ts"],
     subscribers: [],

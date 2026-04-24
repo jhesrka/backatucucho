@@ -40,6 +40,7 @@ import { BankAccountRoutes } from "./bank-account/bank-account.routes";
 import { PayphoneWebhookRoutes } from "./webhooks/payphone.routes";
 
 import { ActivityRoutes } from "./activity/activity.routes";
+import { NotificationRoutes } from "./notifications/routes";
 
 export class AppRoutes {
   //cuando hay metodoos estaticos no necesitams instanciar
@@ -126,6 +127,7 @@ export class AppRoutes {
 
     // ACTIVITY TRACKING
     router.use("/api/activity", ActivityRoutes.routes);
+    router.use("/api/notifications", NotificationRoutes.routes);
 
     return router;
 

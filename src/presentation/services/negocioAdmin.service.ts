@@ -20,6 +20,9 @@ import { UpdateNegocioDTO } from "../../domain/dtos/negocios/UpdateNegocioDTO";
 import { getIO } from "../../config/socket";
 
 import { SubscriptionService } from "./subscription.service";
+import { NotificationService } from "./NotificationService";
+
+const notificationService = new NotificationService();
 
 export class NegocioAdminService {
   constructor(private readonly subscriptionService?: SubscriptionService) { }
@@ -426,6 +429,19 @@ export class NegocioAdminService {
       statusNegocio: saved.statusNegocio,
     });
 
+    // 🔔 Notificación Push al Dueño de Negocio
+    if (saved.usuario) {
+      let title = "Actualización de Negocio";
+      let body = `El estado de tu negocio '${saved.nombre}' ha cambiado a ${saved.statusNegocio}.`;
+      
+      if (saved.statusNegocio === StatusNegocio.ACTIVO) {
+        title = "¡Negocio Aprobado!";
+        body = `Tu negocio '${saved.nombre}' ha sido aprobado y ya puede operar en Atucucho Shop.`;
+      }
+
+      await notificationService.sendPushNotification(saved.usuario.id, title, body, { url: '/user/mis-negocios' });
+    }
+
     return {
       id: saved.id,
       nombre: saved.nombre,
@@ -586,6 +602,19 @@ export class NegocioAdminService {
       newStatus: negocio.estadoNegocio,
       statusNegocio: negocio.statusNegocio,
     });
+
+    // 🔔 Notificación Push al Dueño de Negocio
+    if (negocio.usuario) {
+      let title = "Actualización de Negocio";
+      let body = `El estado de tu negocio '${negocio.nombre}' ha cambiado a ${negocio.statusNegocio}.`;
+      
+      if (negocio.statusNegocio === StatusNegocio.ACTIVO) {
+        title = "¡Negocio Aprobado!";
+        body = `Tu negocio '${negocio.nombre}' ha sido aprobado y ya puede operar.`;
+      }
+
+      await notificationService.sendPushNotification(negocio.usuario.id, title, body, { url: '/user/mis-negocios' });
+    }
 
     return { message: `Estado cambiado a ${status}`, status: negocio.statusNegocio };
   }

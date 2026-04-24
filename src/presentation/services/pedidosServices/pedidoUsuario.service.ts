@@ -24,6 +24,9 @@ import { envs } from "../../../config/env";
 import { CalcularEnvioService } from "./calcularEnvio.service";
 import { PedidoMotoService } from "./pedidoMoto.service";
 import { PayphoneService } from "../payphone.service";
+import { NotificationService } from "../NotificationService";
+
+const notificationService = new NotificationService();
 
 export class PedidoUsuarioService {
   static async calcularEnvio(dto: {
@@ -71,6 +74,17 @@ export class PedidoUsuarioService {
         cliente: { id: pedido.cliente.id, name: pedido.cliente.name, surname: pedido.cliente.surname },
         createdAt: pedido.createdAt
       });
+
+      // 🔔 Notificación Push al Dueño de Negocio
+      if (pedido.negocio.usuario) {
+        await notificationService.sendPushNotification(
+          pedido.negocio.usuario.id,
+          "¡Nuevo Pedido Recibido!",
+          `Has recibido un nuevo pedido (#${pedido.id.split('-')[0]}) por $${pedido.total}`,
+          { url: `/business/dashboard/${pedido.negocio.id}/orders/pending` }
+        );
+      }
+
       return { success: true, status: result.transactionStatus || result.status };
     }
     return { success: false, status: result.transactionStatus || result.status, message: "El pago no fue aprobado por el banco." };
@@ -153,6 +167,16 @@ export class PedidoUsuarioService {
 
     if (metodoPago !== "TARJETA") {
       getIO().to(negocio.id).emit("nuevo_pedido", { id: guardado.id, estado: guardado.estado, total: guardado.total });
+      
+      // 🔔 Notificación Push al Dueño de Negocio
+      if (negocio.usuario) {
+        await notificationService.sendPushNotification(
+          negocio.usuario.id,
+          "¡Nuevo Pedido Recibido!",
+          `Has recibido un nuevo pedido (#${guardado.id.split('-')[0]}) por $${pedido.total}`,
+          { url: `/business/dashboard/${negocio.id}/orders/pending` }
+        );
+      }
     }
 
     return { id: guardado.id, estado: guardado.estado, total: guardado.total, payphoneConfig: payphone };
@@ -247,6 +271,18 @@ export class PedidoUsuarioService {
   async eliminarPedidoCliente(pedidoId: string, clienteId: string) {
     const p = await Pedido.findOne({ where: { id: pedidoId, cliente: { id: clienteId } } });
     if (!p || p.estado !== EstadoPedido.PENDIENTE) throw CustomError.notFound("No encontrado o no cancelable");
+    
+    // 🔔 Notificación Push al Negocio (Cancelación por Cliente)
+    const orderWithBusiness = await Pedido.findOne({ where: { id: pedidoId }, relations: ["negocio", "negocio.usuario"] });
+    if (orderWithBusiness?.negocio?.usuario) {
+      await notificationService.sendPushNotification(
+        orderWithBusiness.negocio.usuario.id,
+        "Pedido Cancelado por Cliente",
+        `El cliente ha cancelado el pedido #${pedidoId.split('-')[0]}.`,
+        { url: `/business/dashboard/${orderWithBusiness.negocio.id}/orders/history` }
+      );
+    }
+
     await Pedido.remove(p);
     return { ok: true };
   }

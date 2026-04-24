@@ -4,6 +4,9 @@ import { envs, encriptAdapter } from "../../config";
 import { ILike } from "typeorm";
 import { CustomError } from "../../domain";
 import { getIO } from "../../config/socket";
+import { NotificationService } from "./NotificationService";
+
+const notificationService = new NotificationService();
 
 export class ProductoServiceAdmin {
   async getProductosAdmin({
@@ -367,5 +370,23 @@ export class ProductoServiceAdmin {
       statusProducto: producto.statusProducto,
       product: formattedProduct, // Enviar objeto completo para inserción en vivo
     });
+
+    // 🔔 Notificación Push al Dueño de Negocio
+    if (producto.negocio?.usuario) {
+      let title = "Actualización de Producto";
+      let body = `El estado de tu producto '${producto.nombre}' ha cambiado a ${producto.statusProducto}.`;
+      
+      if (producto.statusProducto === StatusProducto.ACTIVO) {
+        title = "¡Producto Aprobado!";
+        body = `Tu producto '${producto.nombre}' ha sido aprobado y ya está visible en tu negocio.`;
+      }
+
+      await notificationService.sendPushNotification(
+        producto.negocio.usuario.id, 
+        title, 
+        body, 
+        { url: `/business/dashboard/${producto.negocio.id}/products` }
+      );
+    }
   }
 }

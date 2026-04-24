@@ -32,3 +32,4 @@ export * from './postgres/models/report.model';
 export * from './postgres/models/ModerationLog';
 export * from './postgres/models/PostReport';
 export * from './postgres/models/StorieReport';
+export * from './postgres/models/PushToken';
