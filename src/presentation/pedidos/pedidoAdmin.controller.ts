@@ -201,6 +201,24 @@ export class PedidoAdminController {
       .catch((error) => this.handleError(error, res));
   };
 
+  getGlobalTrazabilidad = (req: Request, res: Response) => {
+    const { limit, offset, fecha, exclude } = req.query;
+
+    const excludeEvents = exclude
+      ? (exclude as string).split(",")
+      : ["PROPUESTA_ENVIADA", "REASIGNACION_AUTOMATICA"]; // Exclusiones por defecto solicitadas
+
+    this.pedidoAdminService
+      .getGlobalTrazabilidad({
+        limit: limit ? parseInt(limit as string, 10) : 15,
+        offset: offset ? parseInt(offset as string, 10) : 0,
+        fecha: fecha as string | undefined,
+        excludeEvents
+      })
+      .then((result) => res.status(200).json(result))
+      .catch((error) => this.handleError(error, res));
+  };
+
 
   // ======================== 5. Eliminar pedidos antiguos ========================
   eliminarPedidosAntiguos = (req: Request, res: Response) => {

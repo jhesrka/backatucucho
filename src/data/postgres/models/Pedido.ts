@@ -26,6 +26,8 @@ export enum EstadoPedido {
   ENTREGADO = "ENTREGADO",
   CANCELADO = "CANCELADO",
   PENDIENTE_PAGO = "PENDIENTE_PAGO",
+  RETORNO_PENDIENTE = "RETORNO_PENDIENTE",
+  DEVUELTO_A_LOCAL = "DEVUELTO_A_LOCAL",
 }
 
 export enum MetodoPago {
@@ -189,9 +191,18 @@ export class Pedido extends BaseEntity {
 
   @Column({ type: "boolean", default: false })
   delivery_verified: boolean;
+  
+  @Column({ type: "boolean", default: false })
+  cliente_confirmo_llegada: boolean;
 
   @Column({ type: "timestamp", nullable: true })
   arrival_time: Date | null;
+  
+  @Column({ type: "varchar", nullable: true })
+  evidence_at_delivery: string | null;
+
+  @Column({ type: "varchar", nullable: true })
+  evidence_at_return: string | null;
 
   @Column("decimal", { precision: 2, scale: 1, nullable: true })
   ratingNegocio: number | null;

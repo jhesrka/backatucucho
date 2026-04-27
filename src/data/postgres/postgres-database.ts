@@ -301,6 +301,8 @@ export class PostgresDatabase {
         { type: 'storie_statusstorie_enum', label: 'PUBLISHED' },
         { type: 'storie_statusstorie_enum', label: 'HIDDEN' },
         { type: 'pedido_estado_enum', label: 'PENDIENTE_PAGO' },
+        { type: 'pedido_estado_enum', label: 'RETORNO_PENDIENTE' },
+        { type: 'pedido_estado_enum', label: 'DEVUELTO_A_LOCAL' },
         { type: 'transactions_reason_enum', label: 'CASH_RECHARGE' },
       ];
 
@@ -375,6 +377,11 @@ export class PostgresDatabase {
             END IF;
         END $$;
       `).catch(err => console.warn("Subcategoria Negocio migration failed:", err.message));
+
+      console.log("🛠️  [Migration] Step 15: Absence/Cancellation flow columns");
+      await this.datasource.query(`ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "evidence_at_delivery" VARCHAR DEFAULT NULL;`);
+      await this.datasource.query(`ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "evidence_at_return" VARCHAR DEFAULT NULL;`);
+      await this.datasource.query(`ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "cancellation_strikes" INT DEFAULT 0;`);
     } catch (error) {
       console.log("DB Connection Error:", error);
       throw error;

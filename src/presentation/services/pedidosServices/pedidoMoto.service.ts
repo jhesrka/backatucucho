@@ -9,6 +9,8 @@ import {
   EstadoTransaccion,
   GlobalSettings,
   PriceSettings,
+  User,
+  Status,
   WalletMovement,
   WalletMovementType,
   WalletMovementStatus,
@@ -311,6 +313,7 @@ export class PedidoMotoService {
           total: pedido.total,
           expiresAt: Date.now() + timeout,
           duration: timeout,
+          rondaAsignacion: pedido.rondaAsignacion || 1,
         },
         updateData: {
           pedidoId: pedido.id,
@@ -432,7 +435,12 @@ export class PedidoMotoService {
     const updateData = {
       pedidoId,
       estado: pedido.estado,
-      motorizadoId,
+      motorizado: {
+        id: moto.id,
+        name: moto.name,
+        surname: moto.surname,
+        whatsapp: moto.whatsapp
+      },
       pickup_code: pedido.pickup_code,
     };
 
@@ -593,7 +601,7 @@ export class PedidoMotoService {
     movement.type = WalletMovementType.GANANCIA_ENVIO;
     movement.amount = gananciaMoto;
     movement.balanceAfter = saldoNuevo;
-    movement.description = `Ganancia envío #${pedido.id.slice(0, 8)}`;
+    movement.description = `Ganancia envío #${pedido.id.slice(-6).toUpperCase()}`;
     movement.status = WalletMovementStatus.COMPLETADO;
     await movement.save();
 
@@ -603,7 +611,7 @@ export class PedidoMotoService {
     tx.pedido = pedido;
     tx.tipo = TipoTransaccion.GANANCIA_ENVIO;
     tx.monto = gananciaMoto;
-    tx.descripcion = `Ganancia envío #${pedido.id.slice(0, 8)}`;
+    tx.descripcion = `Ganancia envío #${pedido.id.slice(-6).toUpperCase()}`;
     tx.estado = EstadoTransaccion.COMPLETADA;
     tx.saldoAnterior = saldoAnterior;
     tx.saldoNuevo = saldoNuevo;
@@ -676,7 +684,10 @@ export class PedidoMotoService {
       throw CustomError.badRequest("Solo puedes marcar llegada cuando estás en camino");
     }
 
-    pedido.arrival_time = new Date();
+    // Solo establecer la fecha de llegada la primera vez para no reiniciar el cronómetro de espera
+    if (!pedido.arrival_time) {
+      pedido.arrival_time = new Date();
+    }
     await pedido.save();
 
     // Notificar al cliente (PWA)
@@ -796,39 +807,56 @@ export class PedidoMotoService {
     page: number = 1,
     limit: number = 10
   ) {
+    // 1. Buscamos qué pedidos tuvieron movimiento de billetera hoy para este motorizado
+    const movementQuery = WalletMovement.createQueryBuilder("m")
+      .select("m.orderId", "orderId")
+      .where("m.motorizedId = :motorizadoId", { motorizadoId })
+      .andWhere("m.type = :type", { type: WalletMovementType.GANANCIA_ENVIO });
+
+    if (fecha) {
+      const start = moment.tz(fecha, 'America/Guayaquil').startOf('day').toDate();
+      const end = moment.tz(fecha, 'America/Guayaquil').endOf('day').toDate();
+      movementQuery.andWhere("m.createdAt BETWEEN :start AND :end", { start, end });
+    }
+
+    const movementsToday = await movementQuery.getRawMany();
+    const orderIds = movementsToday.map(m => m.orderId).filter(id => !!id);
+
+    // 2. Si no hay movimientos, no hay nada que mostrar en el historial de hoy
+    if (orderIds.length === 0) {
+      return {
+        pedidos: [],
+        totalPages: 0,
+        totalItems: 0,
+        gananciaDelDia: "0.00",
+      };
+    }
+
+    // 3. Traemos solo los pedidos que coinciden con esos movimientos
     const query = Pedido.createQueryBuilder("pedido")
       .leftJoinAndSelect("pedido.negocio", "negocio")
       .leftJoinAndSelect("pedido.cliente", "cliente")
-      .where("pedido.motorizadoId = :motorizadoId", { motorizadoId })
-      .andWhere("pedido.estado IN (:...estados)", {
-        estados: [EstadoPedido.ENTREGADO, EstadoPedido.CANCELADO],
-      });
-
-    if (fecha) {
-      const start = new Date(`${fecha}T00:00:00-05:00`);
-      const end = new Date(`${fecha}T23:59:59.999-05:00`);
-      query.andWhere("pedido.updatedAt BETWEEN :start AND :end", { start, end });
-    }
-
-    query.orderBy("pedido.updatedAt", "DESC");
+      .where("pedido.id IN (:...orderIds)", { orderIds })
+      .orderBy("pedido.updatedAt", "DESC");
 
     const [pedidos, totalItems] = await query
       .skip((page - 1) * limit)
       .take(limit)
       .getManyAndCount();
 
-    const dailyEarningsQuery = Pedido.createQueryBuilder("pedido")
-      .where("pedido.motorizadoId = :motorizadoId", { motorizadoId })
-      .andWhere("pedido.estado = :estado", { estado: EstadoPedido.ENTREGADO });
+    const dailyEarningsQuery = WalletMovement.createQueryBuilder("movement")
+      .where("movement.motorizedId = :motorizadoId", { motorizadoId })
+      .andWhere("movement.type = :type", { type: WalletMovementType.GANANCIA_ENVIO })
+      .andWhere("movement.status = :status", { status: WalletMovementStatus.COMPLETADO });
 
     if (fecha) {
-      const start = new Date(`${fecha}T00:00:00-05:00`);
-      const end = new Date(`${fecha}T23:59:59.999-05:00`);
-      dailyEarningsQuery.andWhere("pedido.updatedAt BETWEEN :start AND :end", { start, end });
+      const start = moment.tz(fecha, 'America/Guayaquil').startOf('day').toDate();
+      const end = moment.tz(fecha, 'America/Guayaquil').endOf('day').toDate();
+      dailyEarningsQuery.andWhere("movement.createdAt BETWEEN :start AND :end", { start, end });
     }
 
     const dailyEarningsResult = await dailyEarningsQuery
-      .select("SUM(pedido.ganancia_motorizado)", "total")
+      .select("SUM(movement.amount)", "total")
       .getRawOne();
 
     const gananciaDelDia = Number(dailyEarningsResult?.total || 0).toFixed(2);
@@ -866,8 +894,8 @@ export class PedidoMotoService {
       queryDate = new Date();
     }
 
-    const startOfDay = new Date(queryDate.getFullYear(), queryDate.getMonth(), queryDate.getDate(), 0, 0, 0);
-    const endOfDay = new Date(queryDate.getFullYear(), queryDate.getMonth(), queryDate.getDate(), 23, 59, 59, 999);
+    const startOfDay = moment.tz(fecha, 'America/Guayaquil').startOf('day').toDate();
+    const endOfDay = moment.tz(fecha, 'America/Guayaquil').endOf('day').toDate();
 
     const skip = (page - 1) * limit;
 
@@ -891,18 +919,24 @@ export class PedidoMotoService {
     });
 
     // 3 & 4. PEDIDOS HOY E INGRESOS HOY
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfToday = moment.tz('America/Guayaquil').startOf('day').toDate();
 
-    const statsHoy = await Pedido.createQueryBuilder("p")
-      .where("p.motorizadoId = :id", { id: motorizadoId })
-      .andWhere("p.estado = :estado", { estado: EstadoPedido.ENTREGADO })
-      .andWhere("p.updatedAt >= :today", { today: startOfToday })
-      .select("COUNT(p.id)", "count")
-      .addSelect("SUM(p.ganancia_motorizado)", "total")
+    const statsHoy = await WalletMovement.createQueryBuilder("m")
+      .where("m.motorizedId = :id", { id: motorizadoId })
+      .andWhere("m.type = :type", { type: WalletMovementType.GANANCIA_ENVIO })
+      .andWhere("m.status = :status", { status: WalletMovementStatus.COMPLETADO })
+      .andWhere("m.createdAt >= :today", { today: startOfToday })
+      .select("COUNT(m.id)", "count")
+      .addSelect("SUM(m.amount)", "total")
       .getRawOne();
 
     const ps = await PedidoMotoService.getPriceSettings();
+
+    // Forzamos la interpretación como UTC puro para evitar que Node lo confunda con hora local
+    const movementsMapped = movements.map(m => ({
+      ...m,
+      createdAt: moment.utc(moment(m.createdAt).format('YYYY-MM-DD HH:mm:ss')).toDate()
+    }));
 
     return {
       saldo: moto.saldo,
@@ -914,7 +948,7 @@ export class PedidoMotoService {
         titular: moto.bancoTitular,
         identificacion: moto.bancoIdentificacion,
       },
-      movements,
+      movements: movementsMapped,
       totalMovements,
       currentPage: page,
       totalPages: Math.ceil(totalMovements / limit),
@@ -1081,7 +1115,12 @@ export class PedidoMotoService {
     const updateData = {
       pedidoId,
       estado: pedido.estado,
-      motorizadoId,
+      motorizado: {
+        id: moto.id,
+        name: moto.name,
+        surname: moto.surname,
+        whatsapp: moto.whatsapp
+      },
       pickup_code: pedido.pickup_code,
     };
 
@@ -1090,5 +1129,97 @@ export class PedidoMotoService {
     io.emit("pedido_actualizado", updateData);
 
     return pedido;
+  }
+
+  static async cancelarPedidoPorAusencia(pedidoId: string, motorizadoId: string, evidenceKey: string) {
+    const pedido = await this.obtenerPedidoOrFail(pedidoId, ["motorizado", "cliente", "negocio"]);
+    const moto = await this.obtenerMotorizadoOrFail(motorizadoId);
+
+    if (!pedido.motorizado || pedido.motorizado.id !== motorizadoId) throw CustomError.badRequest("No autorizado");
+    if (pedido.estado !== EstadoPedido.EN_CAMINO) throw CustomError.badRequest("Solo puedes reportar ausencia si estás en camino");
+    if (!pedido.arrival_time) throw CustomError.badRequest("Primero debes marcar que has llegado");
+
+    // Verificar tiempo de espera (10 min)
+    const settings = await this.getSettings();
+    const waitTimeMinutes = settings.driver_cancel_wait_time || 10;
+    const now = new Date();
+    const diffMinutes = (now.getTime() - pedido.arrival_time.getTime()) / (1000 * 60);
+
+    if (diffMinutes < waitTimeMinutes) {
+      throw CustomError.badRequest(`Debes esperar el tiempo mínimo (${waitTimeMinutes} min) antes de cancelar`);
+    }
+
+    // 1. Guardar evidencia y cambiar estado
+    pedido.estado = EstadoPedido.RETORNO_PENDIENTE;
+    pedido.evidence_at_delivery = evidenceKey;
+    pedido.motivoCancelacion = "CLIENTE_NO_RESPONDE";
+    
+    // 2. Incrementar Strikes al Cliente
+    const cliente = pedido.cliente;
+    cliente.cancellation_strikes = (Number(cliente.cancellation_strikes) || 0) + 1;
+    
+    let isBlocked = false;
+    if (cliente.cancellation_strikes >= 3) {
+      cliente.status = Status.BANNED;
+      isBlocked = true;
+    }
+    await cliente.save();
+
+    // 3. Lógica Financiera (Anular ganancias motorizado/domicilio)
+    pedido.ganancia_motorizado = 0;
+    pedido.comision_app_domicilio = 0;
+    pedido.costoEnvio = 0;
+    
+    await pedido.save();
+
+    // 4. Notificar a todos
+    const io = getIO();
+    const updateData = { 
+        pedidoId, 
+        estado: pedido.estado, 
+        strikes: cliente.cancellation_strikes,
+        isBlocked,
+        motivo: pedido.motivoCancelacion
+    };
+    
+    io.to(pedido.cliente.id).emit("pedido_actualizado", updateData);
+    io.to(pedido.negocio.id).emit("pedido_actualizado", updateData);
+    io.emit("pedido_actualizado", updateData);
+
+    // Notificar strike al cliente por PWA
+    await notificationService.sendPushNotification(
+      cliente.id,
+      isBlocked ? "🚫 Cuenta Bloqueada" : "⚠️ Aviso de Cancelación",
+      isBlocked 
+        ? "Tu cuenta ha sido bloqueada tras 3 pedidos no recibidos." 
+        : `No recibiste tu pedido. Tienes ${cliente.cancellation_strikes} avisos. Al llegar a 3, tu cuenta será bloqueada.`,
+      { url: '/mis-pedidos' }
+    );
+
+    return { strikes: cliente.cancellation_strikes, isBlocked };
+  }
+
+  static async confirmarRetornoLocal(pedidoId: string, motorizadoId: string, evidenceKey: string) {
+    const pedido = await this.obtenerPedidoOrFail(pedidoId, ["motorizado", "negocio", "cliente"]);
+    const moto = await this.obtenerMotorizadoOrFail(motorizadoId);
+
+    if (pedido.estado !== EstadoPedido.RETORNO_PENDIENTE) {
+        throw CustomError.badRequest("El pedido no está en espera de retorno");
+    }
+    
+    pedido.estado = EstadoPedido.DEVUELTO_A_LOCAL;
+    pedido.evidence_at_return = evidenceKey;
+    await pedido.save();
+
+    // Liberar motorizado RECIÉN AQUÍ
+    await this.normalizarEstadoLibreMotorizado(moto);
+
+    const io = getIO();
+    const updateData = { pedidoId, estado: pedido.estado };
+    io.to(pedido.cliente.id).emit("pedido_actualizado", updateData);
+    io.to(pedido.negocio.id).emit("pedido_actualizado", updateData);
+    io.emit("pedido_actualizado", updateData);
+
+    return { ok: true };
   }
 }

@@ -17,6 +17,7 @@ import {
   UpdateEstadoPedidoDTO,
 } from "../../../domain";
 import { Between, ILike, LessThan, Raw } from "typeorm";
+import moment from "moment-timezone";
 import { PedidoMotoService } from "./pedidoMoto.service";
 import { NotificationService } from "../NotificationService";
 
@@ -290,20 +291,24 @@ export class PedidoAdminService {
     const oneHourAgo = new Date(now.getTime() - (60 * 60 * 1000));
     const fifteenMinAgo = new Date(now.getTime() - (15 * 60 * 1000));
     
-    // Configurar inicio de hoy en la zona horaria de la DB (asumimos local o UTC estable)
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
+    // Configurar rango de hoy en la zona horaria de Guayaquil
+    const startOfToday = moment.tz('America/Guayaquil').startOf('day').toDate();
+    const endOfToday = moment.tz('America/Guayaquil').endOf('day').toDate();
 
-    // 1. Pedidos Activos (No terminados ni cancelados)
+    // 1. Pedidos del día (Activos y Finalizados)
     const pedidosActivos = await Pedido.find({
       where: [
-        { estado: EstadoPedido.PENDIENTE },
-        { estado: EstadoPedido.ACEPTADO },
-        { estado: EstadoPedido.PREPARANDO },
-        { estado: EstadoPedido.PREPARANDO_ASIGNADO },
-        { estado: EstadoPedido.PREPARANDO_NO_ASIGNADO },
-        { estado: EstadoPedido.EN_CAMINO },
-        { estado: EstadoPedido.PENDIENTE_PAGO },
+        { estado: EstadoPedido.PENDIENTE, createdAt: Between(startOfToday, endOfToday) },
+        { estado: EstadoPedido.ACEPTADO, createdAt: Between(startOfToday, endOfToday) },
+        { estado: EstadoPedido.PREPARANDO, createdAt: Between(startOfToday, endOfToday) },
+        { estado: EstadoPedido.PREPARANDO_ASIGNADO, createdAt: Between(startOfToday, endOfToday) },
+        { estado: EstadoPedido.PREPARANDO_NO_ASIGNADO, createdAt: Between(startOfToday, endOfToday) },
+        { estado: EstadoPedido.EN_CAMINO, createdAt: Between(startOfToday, endOfToday) },
+        { estado: EstadoPedido.PENDIENTE_PAGO, createdAt: Between(startOfToday, endOfToday) },
+        { estado: EstadoPedido.RETORNO_PENDIENTE, createdAt: Between(startOfToday, endOfToday) },
+        { estado: EstadoPedido.DEVUELTO_A_LOCAL, createdAt: Between(startOfToday, endOfToday) },
+        { estado: EstadoPedido.ENTREGADO, createdAt: Between(startOfToday, endOfToday) },
+        { estado: EstadoPedido.CANCELADO, createdAt: Between(startOfToday, endOfToday) },
       ],
       relations: ["cliente", "motorizado", "negocio", "productos", "productos.producto"],
       order: { createdAt: "ASC" }
@@ -356,7 +361,13 @@ export class PedidoAdminService {
         const moto = motorizados.find(m => m.id === p.motorizadoEnEvaluacion);
         motorizadoEvalNombre = moto ? `${moto.name} ${moto.surname}` : "Desconocido";
       }
-      return { ...p, motorizadoEvalNombre };
+      return { 
+        ...p, 
+        motorizadoEvalNombre,
+        negocio: p.negocio,
+        motorizado: p.motorizado,
+        cliente: p.cliente
+      };
     });
 
     // 4. Calcular Métricas de Resumen
@@ -409,6 +420,9 @@ export class PedidoAdminService {
       }
     });
 
+    const retornosActivos = pedidosActivos.filter(p => [EstadoPedido.RETORNO_PENDIENTE, EstadoPedido.DEVUELTO_A_LOCAL].includes(p.estado)).length;
+    const finalizadosHoy = pedidosActivos.filter(p => [EstadoPedido.ENTREGADO, EstadoPedido.CANCELADO].includes(p.estado)).length;
+
     return {
       pedidos: pedidosEnriquecidos,
       motorizados: motorizadosFull,
@@ -419,6 +433,8 @@ export class PedidoAdminService {
         motorizadosEntregando,
         pedidosTrabados,
         rechazosRecientes,
+        retornosActivos,
+        finalizadosHoy,
         avgAssignmentTime: Math.round(avgAssignmentTime)
       },
       alertas
@@ -429,11 +445,48 @@ export class PedidoAdminService {
   async getPedidoTrazabilidad(pedidoId: string) {
     const logs = await PedidoOperativoLog.find({
       where: { pedidoId },
-      order: { createdAt: "ASC" },
+      order: { createdAt: "DESC" },
       relations: ["motorizado"]
     });
 
     return logs;
+  }
+
+  // ✅ 10. Obtener trazabilidad global (últimos logs operativos con filtros)
+  async getGlobalTrazabilidad(options: { 
+    limit?: number; 
+    offset?: number; 
+    fecha?: string; 
+    excludeEvents?: string[] 
+  }) {
+    const { limit = 15, offset = 0, fecha, excludeEvents = [] } = options;
+
+    const queryBuilder = PedidoOperativoLog.createQueryBuilder("log")
+      .leftJoinAndSelect("log.motorizado", "motorizado")
+      .orderBy("log.createdAt", "DESC")
+      .take(limit)
+      .skip(offset);
+
+    if (excludeEvents.length > 0) {
+      queryBuilder.andWhere("log.evento NOT IN (:...excludeEvents)", { excludeEvents });
+    }
+
+    if (fecha) {
+      // Ajustar para cubrir todo el día especificado
+      const startOfDay = new Date(fecha);
+      startOfDay.setHours(0, 0, 0, 0);
+      
+      const endOfDay = new Date(fecha);
+      endOfDay.setHours(23, 59, 59, 999);
+      
+      queryBuilder.andWhere("log.createdAt BETWEEN :start AND :end", { 
+        start: startOfDay, 
+        end: endOfDay 
+      });
+    }
+
+    const [logs, total] = await queryBuilder.getManyAndCount();
+    return { logs, total };
   }
 
   // ✅ 5. Eliminar pedidos finalizados antiguos (Configurable)
@@ -445,18 +498,35 @@ export class PedidoAdminService {
     }
 
     const retentionDays = settings.orderRetentionDays;
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
+    const cutoffDateOrders = new Date();
+    cutoffDateOrders.setDate(cutoffDateOrders.getDate() - retentionDays);
 
+    // Los reportes operativos se borran cada 30 días (solicitud user)
+    const cutoffDateLogs = new Date();
+    cutoffDateLogs.setDate(cutoffDateLogs.getDate() - 30);
+
+    // 1. Purgar Logs Operativos antiguos
+    const oldLogs = await PedidoOperativoLog.find({
+      where: {
+        createdAt: LessThan(cutoffDateLogs)
+      }
+    });
+
+    if (oldLogs.length > 0) {
+      await PedidoOperativoLog.remove(oldLogs);
+      console.log(`🧹 Auditoría: ${oldLogs.length} registros operativos eliminados (+30 días).`);
+    }
+
+    // 2. Purgar Pedidos antiguos
     const pedidos = await Pedido.find({
       where: [
         {
           estado: EstadoPedido.ENTREGADO,
-          createdAt: LessThan(cutoffDate),
+          createdAt: LessThan(cutoffDateOrders),
         },
         {
           estado: EstadoPedido.CANCELADO,
-          createdAt: LessThan(cutoffDate),
+          createdAt: LessThan(cutoffDateOrders),
         },
       ],
     });

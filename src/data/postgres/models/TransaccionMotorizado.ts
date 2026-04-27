@@ -43,10 +43,10 @@ export class TransaccionMotorizado extends BaseEntity {
     @Column("varchar", { nullable: true })
     descripcion: string;
 
-    @CreateDateColumn()
+    @CreateDateColumn({ type: "timestamptz" })
     createdAt: Date;
 
-    @UpdateDateColumn({ name: 'updated_at' })
+    @UpdateDateColumn({ name: 'updated_at', type: "timestamptz" })
     updatedAt: Date;
 
     @Column({ type: "enum", enum: EstadoTransaccion, default: EstadoTransaccion.COMPLETADA })

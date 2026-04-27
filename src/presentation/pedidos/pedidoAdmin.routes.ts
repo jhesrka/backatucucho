@@ -18,13 +18,6 @@ export class PedidoAdminRoutes {
       controller.obtenerPedidosAdmin
     );
 
-    // 2. Obtener pedido por ID (GET /:id)
-    router.get(
-      "/:id",
-      AuthAdminMiddleware.protect,
-      controller.obtenerPedidoById
-    );
-
     // 3. Cambiar estado de pedido (PATCH /estado)
     router.patch(
       "/estado",
@@ -67,6 +60,12 @@ export class PedidoAdminRoutes {
     );
 
     router.get(
+      "/trazabilidad-global",
+      AuthAdminMiddleware.protect,
+      controller.getGlobalTrazabilidad
+    );
+
+    router.get(
       "/trazabilidad/:pedidoId",
       AuthAdminMiddleware.protect,
       controller.getPedidoTrazabilidad
@@ -76,6 +75,13 @@ export class PedidoAdminRoutes {
       "/motorizado/estado",
       AuthMotorizadoMiddleware.protect,
       controller.cambiarEstadoPorMotorizado
+    );
+
+    // 2. Obtener pedido por ID (GET /:id) - Movido al final para evitar colisión
+    router.get(
+      "/:id",
+      AuthAdminMiddleware.protect,
+      controller.obtenerPedidoById
     );
 
     return router;

@@ -368,7 +368,7 @@ export class FinancialService {
         // We look at ENTREGADO and CANCELADO orders in the period
         const orders = await Pedido.find({
             where: {
-                estado: In([EstadoPedido.ENTREGADO, EstadoPedido.CANCELADO]),
+                estado: In([EstadoPedido.ENTREGADO, EstadoPedido.CANCELADO, EstadoPedido.RETORNO_PENDIENTE, EstadoPedido.DEVUELTO_A_LOCAL]),
                 updatedAt: Between(start, end)
             },
             relations: ["productos"]
@@ -704,7 +704,12 @@ export class FinancialService {
             const orders = await Pedido.find({
                 where: {
                     negocio: { id: biz.id },
-                    estado: In([EstadoPedido.ENTREGADO, EstadoPedido.CANCELADO]),
+                    estado: In([
+                        EstadoPedido.ENTREGADO, 
+                        EstadoPedido.CANCELADO, 
+                        EstadoPedido.RETORNO_PENDIENTE, 
+                        EstadoPedido.DEVUELTO_A_LOCAL
+                    ]),
                     updatedAt: Between(start, end)
                 }
             });
@@ -723,7 +728,7 @@ export class FinancialService {
                 // precioApp is what shop should get for products
                 const precioApp = Number(order.total_precio_app || (total - comProd - comEnvio));
 
-                if (order.estado === EstadoPedido.CANCELADO) {
+                if ([EstadoPedido.CANCELADO, EstadoPedido.RETORNO_PENDIENTE, EstadoPedido.DEVUELTO_A_LOCAL].includes(order.estado)) {
                     if (order.metodoPago === MetodoPago.TRANSFERENCIA) {
                         // User Rule: If canceled transfer, local has the money and owes 100% to App (App returns it to client)
                         totalTransfer += total;

@@ -3,6 +3,7 @@ import { Router } from "express";
 import { PedidoMotoController } from "./pedidoMoto.controller";
 import { PedidoMotoService } from "../services/pedidosServices/pedidoMoto.service";
 import { AuthMotorizadoMiddleware } from "../../middlewares";
+import { uploadSingleFile } from "../../config";
 
 export class PedidoMotoRoutes {
   static get routes(): Router {
@@ -117,6 +118,26 @@ export class PedidoMotoRoutes {
       "/aceptar-espera",
       AuthMotorizadoMiddleware.protect,
       pedidoMotoController.aceptarPedidoEnEspera
+    );
+
+    // ===================== FLUJO DE CANCELACIÓN ESPECIAL =====================
+    router.post(
+      "/cancelar-ausencia",
+      AuthMotorizadoMiddleware.protect,
+      pedidoMotoController.cancelarPedidoPorAusencia
+    );
+
+    router.post(
+      "/confirmar-retorno",
+      AuthMotorizadoMiddleware.protect,
+      pedidoMotoController.confirmarRetornoLocal
+    );
+
+    router.post(
+      "/upload-evidence",
+      AuthMotorizadoMiddleware.protect,
+      uploadSingleFile("file"),
+      pedidoMotoController.uploadEvidence
     );
 
     return router;

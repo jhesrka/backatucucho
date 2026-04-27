@@ -77,6 +77,6 @@ export class WalletMovement extends BaseEntity {
     @JoinColumn({ name: "admin_id" })
     admin: Useradmin | null;
 
-    @CreateDateColumn({ name: "created_at" })
+    @CreateDateColumn({ name: "created_at", type: "timestamptz" })
     createdAt: Date;
 }

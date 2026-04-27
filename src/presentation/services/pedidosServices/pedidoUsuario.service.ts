@@ -189,6 +189,7 @@ export class PedidoUsuarioService {
       .leftJoinAndSelect("pedido.negocio", "negocio")
       .leftJoinAndSelect("pedido.productos", "productos")
       .leftJoinAndSelect("productos.producto", "producto")
+      .leftJoinAndSelect("pedido.cliente", "cliente")
       .leftJoinAndSelect("pedido.motorizado", "motorizado");
 
     // 🛡️ FILTRO PRINCIPAL: CLIENTE + FECHA (Prioritario)
@@ -231,7 +232,15 @@ export class PedidoUsuarioService {
         })),
         metodoPago: p.metodoPago, comprobantePagoUrl: url,
         delivery_code: p.delivery_code, arrival_time: p.arrival_time,
-        motorizado: p.motorizado ? { name: p.motorizado.name, whatsapp: p.motorizado.whatsapp, id: p.motorizado.id } : null
+        pickup_code: p.pickup_code,
+        cliente: p.cliente ? { 
+          id: p.cliente.id, 
+          name: p.cliente.name, 
+          surname: p.cliente.surname, 
+          whatsapp: p.cliente.whatsapp,
+          strikes: p.cliente.cancellation_strikes || 0 
+        } : null,
+        motorizado: p.motorizado ? { name: p.motorizado.name, surname: p.motorizado.surname, whatsapp: p.motorizado.whatsapp, id: p.motorizado.id } : null
       };
     }));
 
@@ -241,14 +250,19 @@ export class PedidoUsuarioService {
   async notificarYaVoy(pedidoId: string, clienteId: string) {
     const pedido = await Pedido.findOne({
       where: { id: pedidoId, cliente: { id: clienteId } },
-      relations: ["cliente"]
+      relations: ["cliente", "motorizado"]
     });
     if (!pedido) throw CustomError.notFound("Pedido no encontrado");
 
-    getIO().to(pedido.cliente.id).emit("ya_voy", {
-      pedidoId: pedido.id,
-      mensaje: "¡Ya voy en camino!"
-    });
+    pedido.cliente_confirmo_llegada = true;
+    await pedido.save();
+
+    if (pedido.motorizado) {
+      getIO().to(pedido.motorizado.id).emit("cliente_ya_va", {
+        pedidoId: pedido.id,
+        mensaje: "¡El cliente ya confirmó que sale a recibirte!"
+      });
+    }
 
     return { success: true };
   }

@@ -465,13 +465,6 @@ export class UserMotorizadoService {
       motorizado.quiereTrabajar = (q === true || q === 'true');
     }
 
-    console.log("Updating Motorizado:", {
-      id,
-      recibido: data,
-      estadoCuenta: motorizado.estadoCuenta,
-      estadoTrabajo: motorizado.estadoTrabajo,
-      quiereTrabajar: motorizado.quiereTrabajar
-    });
 
     // 🔒 Limitaciones de Seguridad: El admin no puede asignar estados automáticos
     if (
@@ -508,10 +501,6 @@ export class UserMotorizadoService {
       }
     }
 
-    console.log("Saving Motorizado (Normalized):", {
-      estadoTrabajo: motorizado.estadoTrabajo,
-      quiereTrabajar: motorizado.quiereTrabajar
-    });
 
     try {
       const actualizado = await motorizado.save();

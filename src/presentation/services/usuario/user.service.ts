@@ -817,7 +817,8 @@ export class UserService {
         acceptedPrivacyAt: userWithRelations.acceptedPrivacyAt,
         hasPassword: !!userWithRelations.password,
         isProfileComplete: !!(userWithRelations.whatsapp && userWithRelations.password && userWithRelations.acceptedTermsVersion && userWithRelations.acceptedPrivacyVersion),
-        googleId: userWithRelations.googleId
+        googleId: userWithRelations.googleId,
+        cancellation_strikes: userWithRelations.cancellation_strikes ?? 0,
       };
     } catch (error) {
       throw CustomError.internalServer("Error obteniendo perfil completo");
@@ -1083,7 +1084,11 @@ export class UserService {
         posts,
         stories,
         negocios,
-        subscriptions: user.subscriptions || []
+        subscriptions: user.subscriptions || [],
+        // 🚨 Strikes de cancelación por ausencia
+        cancellation_strikes: user.cancellation_strikes ?? 0,
+        warnings_count: user.warnings_count ?? 0,
+        suspension_until: user.suspension_until ?? null,
       };
     } catch (error) {
       throw CustomError.internalServer(
