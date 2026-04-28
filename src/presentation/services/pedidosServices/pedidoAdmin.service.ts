@@ -7,6 +7,12 @@ import {
   ProductoPedido,
   EstadoTrabajoMotorizado,
   EstadoCuentaMotorizado,
+  WalletMovement,
+  WalletMovementType,
+  WalletMovementStatus,
+  TransaccionMotorizado,
+  TipoTransaccion,
+  EstadoTransaccion,
 } from "../../../data";
 import { GlobalSettings } from "../../../data/postgres/models/global-settings.model";
 import { PedidoOperativoLog } from "../../../data/postgres/models/PedidoOperativoLog";
@@ -65,7 +71,7 @@ export class PedidoAdminService {
       take: limit,
       skip: offset,
       order: { createdAt: "DESC" },
-      relations: ["cliente", "motorizado", "negocio", "productos", "productos.producto"],
+      relations: ["cliente", "motorizado", "negocio", "negocio.usuario", "productos", "productos.producto"],
     });
 
     const mappedPedidos = pedidos.map(p => ({
@@ -83,7 +89,7 @@ export class PedidoAdminService {
   async getPedidoById(id: string) {
     const pedido = await Pedido.findOne({
       where: { id },
-      relations: ["cliente", "motorizado", "negocio", "productos", "productos.producto"],
+      relations: ["cliente", "motorizado", "negocio", "negocio.usuario", "productos", "productos.producto"],
     });
 
     if (!pedido) throw CustomError.notFound("Pedido no encontrado");
@@ -103,10 +109,33 @@ export class PedidoAdminService {
 
   // ✅ 3. Cambiar estado de pedido
   async cambiarEstado(dto: UpdateEstadoPedidoDTO) {
-    const pedido = await Pedido.findOneBy({ id: dto.pedidoId });
+    const pedido = await Pedido.findOne({
+      where: { id: dto.pedidoId },
+      relations: ["motorizado"]
+    });
     if (!pedido) throw CustomError.notFound("Pedido no encontrado");
 
+    const estadoAnterior = pedido.estado;
     pedido.estado = dto.nuevoEstado;
+
+    // Si hay motivo de cancelación (Emergencia Admin)
+    if (dto.nuevoEstado === EstadoPedido.CANCELADO && dto.motivoCancelacion) {
+      pedido.motivoCancelacion = dto.motivoCancelacion;
+      
+      // Detener cualquier algoritmo automático
+      PedidoMotoService.limpiarCamposRonda(pedido);
+
+      // Si tenía motorizado asignado, liberarlo (opcional, pero buena práctica si ya estaba en PREPARANDO_ASIGNADO)
+      if (pedido.motorizado) {
+        const motorizado = pedido.motorizado;
+        motorizado.estadoTrabajo = motorizado.quiereTrabajar ? EstadoTrabajoMotorizado.DISPONIBLE : EstadoTrabajoMotorizado.NO_TRABAJANDO;
+        motorizado.fechaHoraDisponible = new Date();
+        await motorizado.save();
+        
+        // Notificar al motorizado
+        getIO().to(motorizado.id).emit("estado_reset", { mensaje: "El pedido asignado ha sido cancelado por la administración." });
+      }
+    }
 
     // Generar códigos si faltan al cambiar de estado manualmente
     if (pedido.estado === EstadoPedido.PREPARANDO_ASIGNADO && !pedido.pickup_code) {
@@ -119,6 +148,15 @@ export class PedidoAdminService {
     }
 
     await pedido.save();
+
+    // Registrar en Log Operativo
+    await PedidoOperativoLog.registrarEvento({
+      pedidoId: pedido.id,
+      motorizadoId: pedido.motorizado?.id,
+      adminId: dto.userId, // ID del admin que hizo la acción
+      evento: "CAMBIO_ESTADO_ADMIN",
+      detalle: `Admin cambió estado de ${estadoAnterior} a ${dto.nuevoEstado}.${dto.motivoCancelacion ? ` Motivo: ${dto.motivoCancelacion}` : ''}`
+    });
 
     const pRel = await Pedido.findOne({ where: { id: pedido.id }, relations: ["cliente", "negocio"] });
     
@@ -134,6 +172,102 @@ export class PedidoAdminService {
         io.to(pRel.negocio.id).emit("pedido_actualizado", updateData);
     }
     io.emit("pedido_actualizado", updateData);
+
+    return pedido;
+  }
+
+  /**
+   * ✅ 3.5. Entregar pedido (EMERGENCIA ADMIN)
+   * Fuerza el estado a ENTREGADO sin necesidad del código PIN,
+   * y ejecuta la misma liquidación de comisiones que la app del motorizado.
+   */
+  async entregarPedidoEmergencia(pedidoId: string, adminId: string) {
+    const pedido = await Pedido.findOne({
+      where: { id: pedidoId },
+      relations: ["motorizado", "cliente", "negocio"]
+    });
+
+    if (!pedido) throw CustomError.notFound("Pedido no encontrado");
+
+    if (!pedido.motorizado) {
+      throw CustomError.badRequest("El pedido no tiene un motorizado asignado");
+    }
+
+    if (pedido.estado !== EstadoPedido.EN_CAMINO && pedido.estado !== EstadoPedido.PREPARANDO_ASIGNADO) {
+      throw CustomError.badRequest(`El pedido no se puede entregar desde el estado ${pedido.estado}`);
+    }
+
+    const moto = await UserMotorizado.findOneBy({ id: pedido.motorizado.id });
+    if (!moto) throw CustomError.notFound("Motorizado no encontrado");
+
+    pedido.estado = EstadoPedido.ENTREGADO;
+    pedido.delivery_verified = true; // Forzado por admin
+    await pedido.save();
+
+    await PedidoOperativoLog.registrarEvento({
+      pedidoId,
+      motorizadoId: moto.id,
+      adminId,
+      evento: "PEDIDO_ENTREGADO_EMERGENCIA",
+      detalle: "El administrador forzó la entrega de emergencia del pedido"
+    });
+
+    // 1. Calcular Ganancia
+    const ps = await PedidoMotoService.getPriceSettings();
+    const porcentaje = Number(ps.motorizadoPercentage || 80);
+
+    const gananciaMoto = Number(pedido.ganancia_motorizado || (pedido.costoEnvio * (porcentaje / 100)).toFixed(2));
+    const saldoAnterior = Number(moto.saldo);
+    const saldoNuevo = saldoAnterior + gananciaMoto;
+
+    // 2. Acreditar Billetera
+    moto.saldo = saldoNuevo;
+
+    const movement = new WalletMovement();
+    movement.motorizado = moto;
+    movement.pedido = pedido;
+    movement.type = WalletMovementType.GANANCIA_ENVIO;
+    movement.amount = gananciaMoto;
+    movement.balanceAfter = saldoNuevo;
+    movement.description = `Ganancia envío (Admin Force) #${pedido.id.slice(-6).toUpperCase()}`;
+    movement.status = WalletMovementStatus.COMPLETADO;
+    await movement.save();
+
+    const tx = new TransaccionMotorizado();
+    tx.motorizado = moto;
+    tx.pedido = pedido;
+    tx.tipo = TipoTransaccion.GANANCIA_ENVIO;
+    tx.monto = gananciaMoto;
+    tx.descripcion = `Ganancia envío (Admin Force) #${pedido.id.slice(-6).toUpperCase()}`;
+    tx.estado = EstadoTransaccion.COMPLETADA;
+    tx.saldoAnterior = saldoAnterior;
+    tx.saldoNuevo = saldoNuevo;
+    await tx.save();
+
+    await moto.save();
+    
+    // 3. Liberar al Motorizado
+    await PedidoMotoService.normalizarEstadoLibreMotorizado(moto);
+
+    // 4. Notificaciones
+    const io = getIO();
+    const updateData = {
+      pedidoId,
+      estado: pedido.estado,
+      timestamp: new Date().toISOString(),
+    };
+
+    io.to(pedido.cliente.id).emit("pedido_actualizado", updateData);
+    io.to(pedido.negocio.id).emit("pedido_actualizado", updateData);
+    io.emit("pedido_actualizado", updateData);
+    io.emit("admin_live_update", { type: 'ORDER_UPDATED', pedidoId: pedido.id });
+
+    await notificationService.sendPushNotification(
+      pedido.cliente.id,
+      "¡Pedido Entregado!",
+      `¡Buen provecho! Tu pedido #${pedido.id.split('-')[0]} ha sido entregado (Confirmación Admin).`,
+      { url: '/mis-pedidos' }
+    );
 
     return pedido;
   }
@@ -310,7 +444,7 @@ export class PedidoAdminService {
         { estado: EstadoPedido.ENTREGADO, createdAt: Between(startOfToday, endOfToday) },
         { estado: EstadoPedido.CANCELADO, createdAt: Between(startOfToday, endOfToday) },
       ],
-      relations: ["cliente", "motorizado", "negocio", "productos", "productos.producto"],
+      relations: ["cliente", "motorizado", "negocio", "negocio.usuario", "productos", "productos.producto"],
       order: { createdAt: "ASC" }
     });
 
@@ -319,7 +453,7 @@ export class PedidoAdminService {
       where: {
         estadoCuenta: EstadoCuentaMotorizado.ACTIVO
       },
-      select: ["id", "name", "surname", "whatsapp", "estadoTrabajo", "quiereTrabajar", "fechaHoraDisponible", "ratingPromedio", "lastSeenAt"]
+      select: ["id", "name", "surname", "whatsapp", "estadoTrabajo", "quiereTrabajar", "fechaHoraDisponible", "ratingPromedio", "lastSeenAt", "estadoCuenta"]
     });
 
     // 3. Enriquecer motorizados con su pedido actual, pedido en evaluación y métricas del día

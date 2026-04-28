@@ -169,6 +169,21 @@ export class PedidoAdminController {
       .catch((error) => this.handleError(error, res));
   };
 
+  // ======================== 4.5. Entregar pedido (EMERGENCIA ADMIN) ========================
+  entregarPedidoEmergencia = (req: Request, res: Response) => {
+    const { pedidoId } = req.body;
+    const adminId = req.body.sessionAdmin?.id;
+
+    if (!pedidoId) {
+      return res.status(400).json({ message: "Falta el parámetro: pedidoId" });
+    }
+
+    this.pedidoAdminService
+      .entregarPedidoEmergencia(pedidoId, adminId)
+      .then((pedido) => res.status(200).json(pedido))
+      .catch((error) => this.handleError(error, res));
+  };
+
   // ======================== 8. Centro Operativo en Vivo ========================
   getLiveControlData = (req: Request, res: Response) => {
     this.pedidoAdminService

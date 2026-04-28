@@ -32,6 +32,13 @@ export class PedidoAdminRoutes {
       controller.asignarMotorizado
     );
 
+    // 4.5. Entregar pedido (EMERGENCIA ADMIN) (PATCH /entrega-emergencia)
+    router.patch(
+      "/entrega-emergencia",
+      AuthAdminMiddleware.protect,
+      controller.entregarPedidoEmergencia
+    );
+
     // 5. Eliminar pedidos antiguos (DELETE /antiguos)
     router.delete(
       "/antiguos",

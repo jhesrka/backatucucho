@@ -233,6 +233,7 @@ export class PedidoUsuarioService {
         metodoPago: p.metodoPago, comprobantePagoUrl: url,
         delivery_code: p.delivery_code, arrival_time: p.arrival_time,
         pickup_code: p.pickup_code,
+        motivoCancelacion: p.motivoCancelacion,
         cliente: p.cliente ? { 
           id: p.cliente.id, 
           name: p.cliente.name, 

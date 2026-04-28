@@ -40,7 +40,7 @@ export class PedidoMotoService {
     return s;
   }
 
-  private static async getPriceSettings(): Promise<PriceSettings> {
+  public static async getPriceSettings(): Promise<PriceSettings> {
     if (this.priceSettings) return this.priceSettings;
     let s = await PriceSettings.findOne({ where: {} });
     if (!s) {
