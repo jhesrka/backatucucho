@@ -218,6 +218,11 @@ export class NegocioService {
           imagenUrl,
           ratingPromedio: Number(negocio.ratingPromedio) || 0,
           totalResenas: Number(negocio.totalResenas) || 0,
+          tiempoPreparacionMin: negocio.tiempoPreparacionMin,
+          tiempoPreparacionMax: negocio.tiempoPreparacionMax,
+          permiteProductosProgramados: negocio.permiteProductosProgramados,
+          tiempoProgramadoMin: negocio.tiempoProgramadoMin,
+          tiempoProgramadoMax: negocio.tiempoProgramadoMax,
         };
       })
     );
@@ -341,6 +346,11 @@ export class NegocioService {
             orden: negocio.orden, // ✅ PRIORIDAD
             ratingPromedio: Number(negocio.ratingPromedio) || 0,
             totalResenas: Number(negocio.totalResenas) || 0,
+            tiempoPreparacionMin: negocio.tiempoPreparacionMin,
+            tiempoPreparacionMax: negocio.tiempoPreparacionMax,
+            permiteProductosProgramados: negocio.permiteProductosProgramados,
+            tiempoProgramadoMin: negocio.tiempoProgramadoMin,
+            tiempoProgramadoMax: negocio.tiempoProgramadoMax,
           };
         })
       );

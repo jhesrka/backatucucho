@@ -78,7 +78,11 @@ export class PedidoAdminService {
       ...p,
       productos: p.productos.map(pp => ({
         ...pp,
-        producto: pp.producto || { nombre: pp.producto_nombre || "P. Eliminado", id: 'deleted' }
+        producto: pp.producto || { 
+          nombre: pp.producto_nombre || "P. Eliminado", 
+          id: 'deleted',
+          tipoProducto: 'NORMAL' // 👈 Aseguramos que no se oculte el timer por falta de info
+        }
       }))
     }));
 
@@ -100,7 +104,8 @@ export class PedidoAdminService {
       producto: pp.producto || { 
         nombre: pp.producto_nombre || "Producto ya no disponible", 
         id: 'deleted',
-        imagen: pp.producto_imagen 
+        imagen: pp.producto_imagen,
+        tipoProducto: 'NORMAL' // 👈 Fallback
       }
     })) as any;
 

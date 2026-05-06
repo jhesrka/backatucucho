@@ -91,6 +91,9 @@ export class PedidoAdminRoutes {
       controller.obtenerPedidoById
     );
 
+    router.get('/stats', controller.getStatsAdmin);
+    router.post('/cleanup', controller.manualCleanup); // 🧹 Limpieza manual de expirados
+
     return router;
   }
 }

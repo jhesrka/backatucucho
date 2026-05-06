@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import { CustomError } from "../../domain";
 import { EstadoPedido } from "../../data";
 import { PedidoAdminService } from "../services/pedidosServices/pedidoAdmin.service";
+import { PedidoUsuarioService } from "../services/pedidosServices/pedidoUsuario.service";
+import { Pedido } from "../../data";
 
 export class PedidoAdminController {
   constructor(private readonly pedidoAdminService: PedidoAdminService) { }
@@ -287,5 +289,32 @@ export class PedidoAdminController {
       })
       .then((pedido) => res.status(200).json(pedido))
       .catch((error) => this.handleError(error, res));
+  };
+
+  // ======================== 7. Estadísticas Admin ========================
+  getStatsAdmin = async (req: Request, res: Response) => {
+    try {
+      const stats = await Pedido.createQueryBuilder("pedido")
+        .select("estado")
+        .addSelect("COUNT(*)", "count")
+        .groupBy("estado")
+        .getRawMany();
+      
+      const totalPedidos = await Pedido.count();
+      
+      return res.status(200).json({
+        total: totalPedidos,
+        byStatus: stats
+      });
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  };
+
+  // ======================== 8. Limpieza Manual ========================
+  manualCleanup = (req: Request, res: Response) => {
+    PedidoUsuarioService.manualCleanup()
+      .then(result => res.json(result))
+      .catch(error => this.handleError(error, res));
   };
 }

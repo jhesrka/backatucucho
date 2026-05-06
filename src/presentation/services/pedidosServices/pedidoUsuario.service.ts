@@ -242,7 +242,8 @@ export class PedidoUsuarioService {
           cantidad: pp.cantidad, 
           subtotal: pp.subtotal, 
           precio_venta: pp.precio_venta,
-          imagen: pp.producto_imagen // Snapshot de imagen
+          imagen: pp.producto_imagen, // Snapshot de imagen
+          tipoProducto: pp.producto?.tipoProducto || 'NORMAL'
         })),
         metodoPago: p.metodoPago, comprobantePagoUrl: url,
         delivery_code: p.delivery_code, arrival_time: p.arrival_time,
@@ -334,11 +335,11 @@ export class PedidoUsuarioService {
       throw CustomError.badRequest("Los pedidos con productos programados no permiten cancelación por demora");
     }
 
-    // Validar tiempo
+    // Validar tiempo (Eliminado tiempo de gracia de 10 min a petición del usuario)
     const fechaBase = pedido.fecha_aceptado || pedido.createdAt;
-    const tiempoMax = (pedido.negocio?.tiempoPreparacionMax || 30) + 10;
+    const prepTimeMax = pedido.tiempoPreparacionElegido || pedido.negocio?.tiempoPreparacionMax || 30;
     const ahora = new Date();
-    const limite = new Date(fechaBase.getTime() + tiempoMax * 60000);
+    const limite = new Date(fechaBase.getTime() + prepTimeMax * 60000);
 
     if (ahora < limite) {
       throw CustomError.badRequest("Aún no se ha cumplido el tiempo de gracia para cancelar por demora");
@@ -437,16 +438,73 @@ export class PedidoUsuarioService {
   }
 
   static startMaintenanceJob() {
-    // Tarea 1: Limpieza de pedidos (Cada minuto)
+    console.log("🕒 [Mantenimiento] Iniciando vigilante de pedidos...");
+    
+    // Tarea 1: Auto-cancelación de pedidos (Cada 1 minuto)
     setInterval(async () => {
       try {
-        await Pedido.getRepository().query(`UPDATE pedido SET estado = 'CANCELADO' WHERE estado = 'PENDIENTE_PAGO' AND "createdAt" < NOW() - INTERVAL '6 minutes'`);
-      } catch (e) {
-        console.error("[Maintenance] Error limpiando pedidos pendientes:", e);
+        const ahora = new Date();
+        const horaEcuador = ahora.toLocaleTimeString('en-US', { hour12: false, timeZone: 'America/Guayaquil' });
+        
+        // 1. Limpieza rápida de PENDIENTE_PAGO (6 minutos)
+        await Pedido.getRepository().query(`UPDATE pedido SET estado = 'CANCELADO', "motivoCancelacion" = 'Pago no registrado en el tiempo límite.' WHERE estado = 'PENDIENTE_PAGO' AND "createdAt" < NOW() - INTERVAL '6 minutes'`);
+
+        // 2. Vigilante de ACEPTADOS
+        const pedidosExpirados = await Pedido.find({
+          where: { estado: EstadoPedido.ACEPTADO },
+          relations: ["negocio", "negocio.usuario", "productos", "productos.producto"]
+        });
+
+        const io = getIO();
+        const notificationService = new NotificationService();
+
+        for (const pedido of pedidosExpirados) {
+          try {
+            // 🚨 PROTECCIÓN TOTAL: Si es programado, NUNCA se toca automáticamente
+            const tieneProgramados = pedido.productos?.some(p => p.producto?.tipoProducto === 'PROGRAMADO');
+            if (tieneProgramados) continue;
+
+            const fechaBase = pedido.fecha_aceptado || pedido.createdAt;
+            if (!fechaBase) continue;
+
+            const prepTimeMax = Number(pedido.tiempoPreparacionElegido || pedido.negocio?.tiempoPreparacionMax || 30);
+            const totalLimitMinutes = prepTimeMax + 10;
+            const limiteAutoCancel = new Date(fechaBase.getTime() + totalLimitMinutes * 60000);
+
+            if (ahora > limiteAutoCancel) {
+              // Si es medianoche (23:30 - 23:59), es un barrido nocturno
+              const isNightSweepTime = horaEcuador.startsWith("23:3") || horaEcuador.startsWith("23:4") || horaEcuador.startsWith("23:5");
+
+              console.log(`[Auto-Cancel] 🚨 Pedido ${pedido.id} excedió límite (${totalLimitMinutes}m). Cancelando...`);
+              
+              pedido.estado = EstadoPedido.CANCELADO;
+              pedido.motivoCancelacion = isNightSweepTime 
+                ? "Cierre operativo nocturno: Pedido expirado sin finalizar."
+                : "Cancelación automática por demora excesiva en la preparación sin respuesta del cliente.";
+              await pedido.save();
+
+              io.emit("pedido_actualizado", { id: pedido.id, estado: pedido.estado });
+              io.emit("admin_live_update", { type: 'ORDER_UPDATED', pedidoId: pedido.id });
+              
+              if (pedido.negocio?.usuario?.id) {
+                 await notificationService.sendPushNotification(
+                    pedido.negocio.usuario.id,
+                    "🚨 Pedido Auto-Cancelado",
+                    `El pedido #${pedido.id.substring(0,8)} fue cancelado por demora excesiva.`,
+                    { url: `/business/dashboard/${pedido.negocio.id}/orders/history` }
+                 );
+              }
+            }
+          } catch (err) {
+            console.error(`[Auto-Cancel] Error procesando pedido ${pedido?.id}:`, err);
+          }
+        }
+      } catch (error) {
+        console.error("❌ [Mantenimiento] Error en tarea de auto-cancelación:", error);
       }
     }, 60000);
 
-    // Tarea 2: Cobro de Suscripciones (Cada hora para mayor seguridad, aunque procesa una vez al día por negocio)
+    // Tarea 2: Cobro de Suscripciones (Cada hora)
     setInterval(async () => {
       try {
         const { SubscriptionService } = await import("../subscription.service");
@@ -458,6 +516,34 @@ export class PedidoUsuarioService {
       } catch (e) {
         console.error("[Maintenance] Error procesando suscripciones:", e);
       }
-    }, 3600000); // 1 hora
+    }, 3600000); 
+  }
+
+  static async manualCleanup() {
+      console.log("🧹 [Mantenimiento] Ejecutando limpieza manual de pedidos...");
+      const pedidosExpirados = await Pedido.find({
+        where: { estado: EstadoPedido.ACEPTADO },
+        relations: ["negocio", "negocio.usuario", "productos", "productos.producto"]
+      });
+
+      let cancelados = 0;
+      const ahora = new Date();
+      const io = getIO();
+
+      for (const pedido of pedidosExpirados) {
+        const fechaBase = pedido.fecha_aceptado || pedido.createdAt;
+        const prepTimeMax = Number(pedido.tiempoPreparacionElegido || pedido.negocio?.tiempoPreparacionMax || 30);
+        const totalLimitMinutes = prepTimeMax + 10;
+        const limiteAutoCancel = new Date(fechaBase.getTime() + totalLimitMinutes * 60000);
+
+        if (ahora > limiteAutoCancel) {
+            pedido.estado = EstadoPedido.CANCELADO;
+            pedido.motivoCancelacion = "Limpieza manual de pedidos expirados.";
+            await pedido.save();
+            io.emit("pedido_actualizado", { id: pedido.id, estado: pedido.estado });
+            cancelados++;
+        }
+      }
+      return { success: true, count: cancelados };
   }
 }

@@ -20,6 +20,7 @@ import { startPostSchedulerCron } from "./cron/post-scheduler.cron";
 
 import { ActivityService } from "./presentation/services/activity.service";
 import { getIO } from "./config/socket";
+import { PedidoUsuarioService } from "./presentation/services/pedidosServices/pedidoUsuario.service";
 
 async function main() {
   const postgres = new PostgresDatabase({
@@ -47,6 +48,7 @@ async function main() {
   startPedidoExpirationCron();
   startSubscriptionCleanupCron();
   startPostSchedulerCron();
+  PedidoUsuarioService.startMaintenanceJob(); // 🚀 Activar limpieza de pedidos y auto-cancelación
 
   console.log("🚀 Iniciando servidor...");
   await server.start();
