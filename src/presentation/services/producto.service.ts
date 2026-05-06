@@ -73,6 +73,7 @@ export class ProductoService {
       disponible: true,
       negocio,
       tipo,
+      tipoProducto: dto.tipoProducto,
     });
 
     try {
@@ -92,6 +93,7 @@ export class ProductoService {
           id: tipo.id,
           nombre: tipo.nombre,
         },
+        tipoProducto: saved.tipoProducto,
       };
     } catch (error) {
       if (typeof error === "object" && error !== null && "code" in error) {
@@ -126,8 +128,8 @@ export class ProductoService {
       producto.comision_producto = Number(data.precio_venta) - Number(producto.precio_app || data.precio_venta);
     }
     if (typeof data.precio_app === "number") {
-      // ✅ REGLA CRÍTICA: Solo modificar precio_app si el producto sigue en PENDIENTE
-      if (producto.statusProducto !== StatusProducto.PENDIENTE) {
+      // ✅ REGLA CRÍTICA: Solo bloquear si el precio REALMENTE cambia y no está PENDIENTE
+      if (producto.statusProducto !== StatusProducto.PENDIENTE && Number(data.precio_app) !== Number(producto.precio_app)) {
         throw CustomError.badRequest(
           "El precio para la app solo puede modificarse mientras el producto esté en estado PENDIENTE."
         );
@@ -140,6 +142,10 @@ export class ProductoService {
     if (data.tipoId) {
       const tipo = await this.resolveTipo(data.tipoId);
       producto.tipo = tipo;
+    }
+
+    if (data.tipoProducto) {
+      producto.tipoProducto = data.tipoProducto;
     }
 
     if (file) {
@@ -184,6 +190,7 @@ export class ProductoService {
           nombre: producto.tipo.nombre,
         }
         : null,
+      tipoProducto: producto.tipoProducto,
     };
   }
 
@@ -231,6 +238,7 @@ export class ProductoService {
               nombre: p.tipo.nombre,
             }
             : null,
+          tipoProducto: p.tipoProducto,
         };
       })
     );
@@ -284,6 +292,7 @@ export class ProductoService {
               nombre: p.tipo.nombre,
             }
             : null,
+          tipoProducto: p.tipoProducto,
         };
       })
     );
@@ -311,6 +320,11 @@ export class ProductoService {
         totalResenas: Number(negocio.totalResenas) || 0,
         pago_tarjeta_habilitado_admin: negocio.pago_tarjeta_habilitado_admin,
         porcentaje_recargo_tarjeta: Number(negocio.porcentaje_recargo_tarjeta) || 0,
+        tiempoPreparacionMin: negocio.tiempoPreparacionMin,
+        tiempoPreparacionMax: negocio.tiempoPreparacionMax,
+        permiteProductosProgramados: negocio.permiteProductosProgramados,
+        tiempoProgramadoMin: negocio.tiempoProgramadoMin,
+        tiempoProgramadoMax: negocio.tiempoProgramadoMax,
       },
       usuario: {
         id: negocio.usuario.id,
@@ -433,6 +447,7 @@ export class ProductoService {
             nombre: producto.tipo.nombre,
           }
           : null,
+        tipoProducto: producto.tipoProducto,
         negocioId: producto.negocio.id
       };
     }

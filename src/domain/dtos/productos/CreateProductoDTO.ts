@@ -1,4 +1,5 @@
 import { regularExp } from "../../../config";
+import { TipoProductoEnum } from "../../../data";
 
 export class CreateProductoDTO {
   private constructor(
@@ -8,7 +9,8 @@ export class CreateProductoDTO {
     public readonly precio_app: number | null,
     public readonly negocioId: string,
     public readonly modeloMonetizacion: "SUSCRIPCION" | "COMISION_SUSCRIPCION",
-    public readonly tipoId: string
+    public readonly tipoId: string,
+    public readonly tipoProducto: TipoProductoEnum = TipoProductoEnum.NORMAL
   ) { }
 
   static create(obj: {
@@ -19,6 +21,7 @@ export class CreateProductoDTO {
     negocioId: string;
     modeloMonetizacion: "SUSCRIPCION" | "COMISION_SUSCRIPCION";
     tipoId?: string; // ya no es opcional en lógica, pero puede venir undefined desde el cliente
+    tipoProducto?: TipoProductoEnum;
   }): [string?, CreateProductoDTO?] {
     const {
       nombre,
@@ -28,6 +31,7 @@ export class CreateProductoDTO {
       negocioId,
       modeloMonetizacion,
       tipoId,
+      tipoProducto
     } = obj;
 
     if (!nombre || typeof nombre !== "string" || nombre.trim().length < 3) {
@@ -68,6 +72,10 @@ export class CreateProductoDTO {
       return ["Debes seleccionar un tipo válido"];
     }
 
+    if (tipoProducto && !Object.values(TipoProductoEnum).includes(tipoProducto)) {
+      return ["Tipo de producto inválido"];
+    }
+
     return [
       undefined,
       new CreateProductoDTO(
@@ -77,7 +85,8 @@ export class CreateProductoDTO {
         modeloMonetizacion === "COMISION_SUSCRIPCION" ? Number(precio_app) : Number(precio_venta),
         negocioId,
         modeloMonetizacion,
-        tipoId.trim()
+        tipoId.trim(),
+        tipoProducto || TipoProductoEnum.NORMAL
       ),
     ];
   }

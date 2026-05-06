@@ -14,6 +14,11 @@ export class CreateNegocioDTO {
     public readonly tipoCuenta: string,
     public readonly numeroCuenta: string,
     public readonly titularCuenta: string,
+    public readonly tiempoPreparacionMin: number,
+    public readonly tiempoPreparacionMax: number,
+    public readonly permiteProductosProgramados: boolean = false,
+    public readonly tiempoProgramadoMin?: number | null,
+    public readonly tiempoProgramadoMax?: number | null,
     public readonly subcategoriaId?: string | null,
     public readonly direccionTexto?: string | null,
     public readonly valorSuscripcion: number = 0,
@@ -35,6 +40,11 @@ export class CreateNegocioDTO {
       tipoCuenta,
       numeroCuenta,
       titularCuenta,
+      tiempoPreparacionMin,
+      tiempoPreparacionMax,
+      permiteProductosProgramados,
+      tiempoProgramadoMin,
+      tiempoProgramadoMax,
       subcategoriaId,
       valorSuscripcion,
       diaPago,
@@ -73,6 +83,28 @@ export class CreateNegocioDTO {
     }
     if (!titularCuenta || typeof titularCuenta !== "string" || titularCuenta.trim().length < 3) {
       return ["El titular de la cuenta es obligatorio"];
+    }
+
+    // Validar Tiempos de Preparación
+    const tMin = Number(tiempoPreparacionMin);
+    const tMax = Number(tiempoPreparacionMax);
+
+    if (isNaN(tMin) || tMin <= 0) return ["tiempoPreparacionMin debe ser un número positivo"];
+    if (isNaN(tMax) || tMax <= 0) return ["tiempoPreparacionMax debe ser un número positivo"];
+    if (tMin >= tMax) return ["tiempoPreparacionMin debe ser menor que tiempoPreparacionMax"];
+
+    // Validar Tiempos Programados (si están habilitados)
+    const pEnabled = !!permiteProductosProgramados;
+    let tpMin = undefined;
+    let tpMax = undefined;
+
+    if (pEnabled) {
+      tpMin = Number(tiempoProgramadoMin);
+      tpMax = Number(tiempoProgramadoMax);
+
+      if (isNaN(tpMin) || tpMin <= 0) return ["tiempoProgramadoMin debe ser un número positivo"];
+      if (isNaN(tpMax) || tpMax <= 0) return ["tiempoProgramadoMax debe ser un número positivo"];
+      if (tpMin >= tpMax) return ["tiempoProgramadoMin debe ser menor que tiempoProgramadoMax"];
     }
 
     // ✅ Ubicación obligatoria para crear
@@ -130,6 +162,11 @@ export class CreateNegocioDTO {
         tipoCuenta.trim(),
         numeroCuenta.trim(),
         titularCuenta.trim(),
+        tMin,
+        tMax,
+        pEnabled,
+        tpMin,
+        tpMax,
         subcategoriaId,
         dirTxt,
         valorSuscripcion !== undefined ? Number(valorSuscripcion) : 0,

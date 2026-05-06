@@ -17,11 +17,24 @@ export enum StatusProducto {
   SUSPENDIDO = "SUSPENDIDO",
   BLOQUEADO = "BLOQUEADO",
 }
+
+export enum TipoProductoEnum {
+  NORMAL = "NORMAL",
+  PROGRAMADO = "PROGRAMADO",
+}
+
 @Entity()
 @Unique(["nombre", "negocio"]) // ✅ El nombre será único solo dentro del mismo negocio
 export class Producto extends BaseEntity {
   @PrimaryGeneratedColumn("uuid")
   id: string;
+
+  @Column({
+    type: "enum",
+    enum: TipoProductoEnum,
+    default: TipoProductoEnum.NORMAL,
+  })
+  tipoProducto: TipoProductoEnum;
 
   @Column({ type: "varchar", length: 100 })
   nombre: string;

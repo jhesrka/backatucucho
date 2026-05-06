@@ -21,7 +21,12 @@ export class UpdateNegocioDTO {
     public readonly payphone_store_id?: string | null,
     public readonly payphone_token?: string | null,
     public readonly porcentaje_recargo_tarjeta?: number,
-    public readonly subcategoriaId?: string | null
+    public readonly subcategoriaId?: string | null,
+    public readonly tiempoPreparacionMin?: number,
+    public readonly tiempoPreparacionMax?: number,
+    public readonly permiteProductosProgramados?: boolean,
+    public readonly tiempoProgramadoMin?: number | null,
+    public readonly tiempoProgramadoMax?: number | null
   ) { }
 
   static create(obj: { [key: string]: any }): [string?, UpdateNegocioDTO?] {
@@ -42,7 +47,12 @@ export class UpdateNegocioDTO {
       payphone_store_id,
       payphone_token,
       porcentaje_recargo_tarjeta,
-      subcategoriaId
+      subcategoriaId,
+      tiempoPreparacionMin,
+      tiempoPreparacionMax,
+      permiteProductosProgramados,
+      tiempoProgramadoMin,
+      tiempoProgramadoMax
     } = obj;
 
     // Validaciones opcionales
@@ -111,6 +121,27 @@ export class UpdateNegocioDTO {
       }
     }
 
+    // Validar Tiempos (si vienen)
+    if (tiempoPreparacionMin !== undefined) {
+      if (isNaN(Number(tiempoPreparacionMin)) || Number(tiempoPreparacionMin) <= 0) return ["tiempoPreparacionMin debe ser un número positivo"];
+    }
+    if (tiempoPreparacionMax !== undefined) {
+      if (isNaN(Number(tiempoPreparacionMax)) || Number(tiempoPreparacionMax) <= 0) return ["tiempoPreparacionMax debe ser un número positivo"];
+    }
+    if (tiempoPreparacionMin !== undefined && tiempoPreparacionMax !== undefined) {
+      if (Number(tiempoPreparacionMin) >= Number(tiempoPreparacionMax)) return ["tiempoPreparacionMin debe ser menor que tiempoPreparacionMax"];
+    }
+
+    if (tiempoProgramadoMin !== undefined && tiempoProgramadoMin !== null) {
+      if (isNaN(Number(tiempoProgramadoMin)) || Number(tiempoProgramadoMin) <= 0) return ["tiempoProgramadoMin debe ser un número positivo"];
+    }
+    if (tiempoProgramadoMax !== undefined && tiempoProgramadoMax !== null) {
+      if (isNaN(Number(tiempoProgramadoMax)) || Number(tiempoProgramadoMax) <= 0) return ["tiempoProgramadoMax debe ser un número positivo"];
+    }
+    if (tiempoProgramadoMin !== undefined && tiempoProgramadoMin !== null && tiempoProgramadoMax !== undefined && tiempoProgramadoMax !== null) {
+      if (Number(tiempoProgramadoMin) >= Number(tiempoProgramadoMax)) return ["tiempoProgramadoMin debe ser menor que tiempoProgramadoMax"];
+    }
+
     if (subcategoriaId !== undefined && subcategoriaId !== null && !regularExp.uuid.test(subcategoriaId)) {
       return ["El ID de subcategoría no es válido"];
     }
@@ -140,7 +171,12 @@ export class UpdateNegocioDTO {
         payphone_store_id,
         payphone_token,
         porcentaje_recargo_tarjeta !== undefined ? Number(porcentaje_recargo_tarjeta) : undefined,
-        subcategoriaId
+        subcategoriaId,
+        tiempoPreparacionMin !== undefined ? Number(tiempoPreparacionMin) : undefined,
+        tiempoPreparacionMax !== undefined ? Number(tiempoPreparacionMax) : undefined,
+        permiteProductosProgramados !== undefined ? !!permiteProductosProgramados : undefined,
+        tiempoProgramadoMin !== undefined && tiempoProgramadoMin !== null ? Number(tiempoProgramadoMin) : (tiempoProgramadoMin === null ? null : undefined),
+        tiempoProgramadoMax !== undefined && tiempoProgramadoMax !== null ? Number(tiempoProgramadoMax) : (tiempoProgramadoMax === null ? null : undefined)
       ),
     ];
   }

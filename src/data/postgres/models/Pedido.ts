@@ -210,6 +210,12 @@ export class Pedido extends BaseEntity {
   @Column("decimal", { precision: 2, scale: 1, nullable: true })
   ratingMotorizado: number | null;
 
+  @Column("int", { nullable: true })
+  tiempoPreparacionElegido: number | null;
+
+  @Column({ type: "timestamptz", nullable: true })
+  fecha_aceptado: Date | null;
+
   @BeforeInsert()
   @BeforeUpdate()
   updateNoAssignedSince() {

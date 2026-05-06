@@ -1,4 +1,5 @@
 import { regularExp } from "../../../config";
+import { TipoProductoEnum } from "../../../data";
 
 export class UpdateProductoDTO {
   private constructor(
@@ -7,7 +8,8 @@ export class UpdateProductoDTO {
     public readonly precio_venta?: number,
     public readonly precio_app?: number | null,
     public readonly tipoId?: string,
-    public readonly modeloMonetizacion?: "SUSCRIPCION" | "COMISION_SUSCRIPCION"
+    public readonly modeloMonetizacion?: "SUSCRIPCION" | "COMISION_SUSCRIPCION",
+    public readonly tipoProducto?: TipoProductoEnum
   ) { }
 
   static create(obj: {
@@ -17,6 +19,7 @@ export class UpdateProductoDTO {
     precio_app?: number;
     tipoId?: string;
     modeloMonetizacion?: "SUSCRIPCION" | "COMISION_SUSCRIPCION";
+    tipoProducto?: TipoProductoEnum;
   }): [string?, UpdateProductoDTO?] {
     const {
       nombre,
@@ -25,6 +28,7 @@ export class UpdateProductoDTO {
       precio_app,
       tipoId,
       modeloMonetizacion,
+      tipoProducto
     } = obj;
 
     if (nombre && (typeof nombre !== "string" || nombre.trim().length < 3)) {
@@ -60,6 +64,10 @@ export class UpdateProductoDTO {
       return ["El tipoId no es un UUID válido"];
     }
 
+    if (tipoProducto && !Object.values(TipoProductoEnum).includes(tipoProducto)) {
+      return ["Tipo de producto inválido"];
+    }
+
     return [
       undefined,
       new UpdateProductoDTO(
@@ -68,7 +76,8 @@ export class UpdateProductoDTO {
         precio_venta !== undefined ? Number(precio_venta) : undefined,
         precio_app !== undefined ? Number(precio_app) : undefined,
         tipoId?.trim(),
-        modeloMonetizacion
+        modeloMonetizacion,
+        tipoProducto
       ),
     ];
   }

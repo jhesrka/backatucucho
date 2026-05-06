@@ -95,6 +95,11 @@ export class BusinessService {
                 porcentaje_recargo_tarjeta: Number(n.porcentaje_recargo_tarjeta) || 0,
                 payphone_store_id: n.payphone_store_id,
                 payphone_token: n.payphone_token,
+                tiempoPreparacionMin: n.tiempoPreparacionMin,
+                tiempoPreparacionMax: n.tiempoPreparacionMax,
+                permiteProductosProgramados: n.permiteProductosProgramados,
+                tiempoProgramadoMin: n.tiempoProgramadoMin,
+                tiempoProgramadoMax: n.tiempoProgramadoMax,
             };
         }));
 
@@ -146,6 +151,11 @@ export class BusinessService {
                 porcentaje_recargo_tarjeta: Number(n.porcentaje_recargo_tarjeta) || 0,
                 payphone_store_id: n.payphone_store_id,
                 payphone_token: n.payphone_token,
+                tiempoPreparacionMin: n.tiempoPreparacionMin,
+                tiempoPreparacionMax: n.tiempoPreparacionMax,
+                permiteProductosProgramados: n.permiteProductosProgramados,
+                tiempoProgramadoMin: n.tiempoProgramadoMin,
+                tiempoProgramadoMax: n.tiempoProgramadoMax,
             };
         }));
 
@@ -256,7 +266,11 @@ export class BusinessService {
                         console.error(`Error resolving URL for order ${order.id}:`, error);
                     }
                 }
-                return order;
+
+                return {
+                    ...Object.assign({}, order),
+                    fecha_aceptado: order.fecha_aceptado
+                };
             }));
 
             // 💰 Añadir Resumen Financiero DIARIO (Para unificar con Finance)
@@ -333,6 +347,7 @@ export class BusinessService {
             }
 
             order.estado = EstadoPedido.ACEPTADO;
+            order.fecha_aceptado = new Date();
         } else if (status === EstadoPedido.PREPARANDO) {
             // Permitir paso directo de PENDIENTE a PREPARANDO por compatibilidad o solo de ACEPTADO? 
             // Usuario dice: "Al presionar Listo (en estado Aceptado): El pedido pasa a PREPARANDO".

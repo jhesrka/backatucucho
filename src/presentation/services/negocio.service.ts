@@ -94,23 +94,27 @@ export class NegocioService {
     }
 
     // ⬇️ ⬇️ GUARDAMOS lat/long (y opcional direccionTexto si creas la columna)
-    const negocio = Negocio.create({
-      nombre: dto.nombre.trim(),
-      descripcion: dto.descripcion.trim(),
-      categoria,
-      subcategoria: subcategoria!,
-      usuario,
-      imagenNegocio: key,
-      modeloMonetizacion: modelo,
-      latitud: dto.latitud,
-      longitud: dto.longitud,
-      direccionTexto: dto.direccionTexto ?? null,
-      banco: dto.banco,
-      tipoCuenta: dto.tipoCuenta,
-      numeroCuenta: dto.numeroCuenta,
-      titularCuenta: dto.titularCuenta,
-      statusNegocio: StatusNegocio.PENDIENTE, // 🔒 Regla 2: SIEMPRE inicia en pendiente
-    });
+    const negocio = new Negocio();
+    negocio.nombre = dto.nombre.trim();
+    negocio.descripcion = dto.descripcion.trim();
+    negocio.categoria = categoria;
+    negocio.subcategoria = subcategoria;
+    negocio.usuario = usuario;
+    negocio.imagenNegocio = key;
+    negocio.modeloMonetizacion = modelo;
+    negocio.latitud = dto.latitud;
+    negocio.longitud = dto.longitud;
+    negocio.direccionTexto = dto.direccionTexto ?? null;
+    negocio.banco = dto.banco;
+    negocio.tipoCuenta = dto.tipoCuenta;
+    negocio.numeroCuenta = dto.numeroCuenta;
+    negocio.titularCuenta = dto.titularCuenta;
+    negocio.tiempoPreparacionMin = dto.tiempoPreparacionMin;
+    negocio.tiempoPreparacionMax = dto.tiempoPreparacionMax;
+    negocio.permiteProductosProgramados = dto.permiteProductosProgramados;
+    negocio.tiempoProgramadoMin = dto.tiempoProgramadoMin ?? null;
+    negocio.tiempoProgramadoMax = dto.tiempoProgramadoMax ?? null;
+    negocio.statusNegocio = StatusNegocio.PENDIENTE;
 
     try {
       const saved = await negocio.save();
@@ -135,6 +139,11 @@ export class NegocioService {
         tipoCuenta: saved.tipoCuenta,
         numeroCuenta: saved.numeroCuenta,
         titularCuenta: saved.titularCuenta,
+        tiempoPreparacionMin: saved.tiempoPreparacionMin,
+        tiempoPreparacionMax: saved.tiempoPreparacionMax,
+        permiteProductosProgramados: saved.permiteProductosProgramados,
+        tiempoProgramadoMin: saved.tiempoProgramadoMin,
+        tiempoProgramadoMax: saved.tiempoProgramadoMax,
         imagenUrl,
         categoria: {
           id: categoria.id,
@@ -165,6 +174,8 @@ export class NegocioService {
       .where("negocio.categoriaId = :categoriaId", { categoriaId })
       .andWhere("negocio.statusNegocio = :status", { status: StatusNegocio.ACTIVO })
       .andWhere("negocio.estadoNegocio = :estado", { estado: EstadoNegocio.ABIERTO })
+      // FILTRO AL VUELO: No mostrar si la suscripción ya venció
+      .andWhere("(negocio.fechaFinSuscripcion IS NULL OR negocio.fechaFinSuscripcion > :now)", { now: new Date() })
       .orderBy("subcategoria.orden", "ASC")
       .addOrderBy("subcategoria.created_at", "ASC")
       .addOrderBy("negocio.orden", "ASC")
@@ -217,6 +228,10 @@ export class NegocioService {
     const negocio = await Negocio.findOneBy({ id: negocioId });
 
     if (!negocio) throw CustomError.notFound("Negocio no encontrado");
+
+    if (negocio.statusNegocio === StatusNegocio.NO_PAGADO && negocio.estadoNegocio === EstadoNegocio.CERRADO) {
+      throw CustomError.badRequest("No puedes abrir el negocio porque tienes una suscripción pendiente de pago. Recarga tu wallet para reactivarlo.");
+    }
 
     // Cambiar el estado
     negocio.estadoNegocio =
@@ -343,6 +358,8 @@ export class NegocioService {
 
     const negocios = await Negocio.createQueryBuilder("negocio")
       .leftJoinAndSelect("negocio.categoria", "categoria")
+      .leftJoinAndSelect("negocio.subcategoria", "subcategoria")
+
       .loadRelationCountAndMap("negocio.productosCount", "negocio.productos")
       .where("negocio.usuarioId = :userId", { userId })
       .orderBy("negocio.created_at", "DESC")
@@ -378,6 +395,11 @@ export class NegocioService {
           tipoCuenta: negocio.tipoCuenta,
           numeroCuenta: negocio.numeroCuenta,
           titularCuenta: negocio.titularCuenta,
+          tiempoPreparacionMin: negocio.tiempoPreparacionMin,
+          tiempoPreparacionMax: negocio.tiempoPreparacionMax,
+          permiteProductosProgramados: negocio.permiteProductosProgramados,
+          tiempoProgramadoMin: negocio.tiempoProgramadoMin,
+          tiempoProgramadoMax: negocio.tiempoProgramadoMax,
           productosCount: (negocio as any).productosCount || 0,
           ratingPromedio: Number(negocio.ratingPromedio) || 0,
           totalResenas: Number(negocio.totalResenas) || 0,
@@ -394,6 +416,10 @@ export class NegocioService {
             restriccionModeloMonetizacion:
               negocio.categoria.restriccionModeloMonetizacion,
           },
+          subcategoria: negocio.subcategoria ? {
+            id: negocio.subcategoria.id,
+            nombre: negocio.subcategoria.nombre
+          } : null,
         };
       })
     );
@@ -411,7 +437,7 @@ export class NegocioService {
   ) {
     const negocio = await Negocio.findOne({
       where: { id },
-      relations: ["categoria"],
+      relations: ["categoria", "subcategoria"],
     });
     if (!negocio) throw CustomError.notFound("Negocio no encontrado");
 
@@ -494,6 +520,12 @@ export class NegocioService {
     if (data.numeroCuenta) negocio.numeroCuenta = data.numeroCuenta.trim();
     if (data.titularCuenta) negocio.titularCuenta = data.titularCuenta.trim();
 
+    if (data.tiempoPreparacionMin !== undefined) negocio.tiempoPreparacionMin = data.tiempoPreparacionMin;
+    if (data.tiempoPreparacionMax !== undefined) negocio.tiempoPreparacionMax = data.tiempoPreparacionMax;
+    if (data.permiteProductosProgramados !== undefined) negocio.permiteProductosProgramados = data.permiteProductosProgramados;
+    if (data.tiempoProgramadoMin !== undefined) negocio.tiempoProgramadoMin = data.tiempoProgramadoMin;
+    if (data.tiempoProgramadoMax !== undefined) negocio.tiempoProgramadoMax = data.tiempoProgramadoMax;
+
     if (img) {
       const validMimeTypes = [
         "image/jpeg",
@@ -542,6 +574,11 @@ export class NegocioService {
       tipoCuenta: saved.tipoCuenta,
       numeroCuenta: saved.numeroCuenta,
       titularCuenta: saved.titularCuenta,
+      tiempoPreparacionMin: saved.tiempoPreparacionMin,
+      tiempoPreparacionMax: saved.tiempoPreparacionMax,
+      permiteProductosProgramados: saved.permiteProductosProgramados,
+      tiempoProgramadoMin: saved.tiempoProgramadoMin,
+      tiempoProgramadoMax: saved.tiempoProgramadoMax,
       categoria: {
         id: saved.categoria.id,
         nombre: saved.categoria.nombre,
@@ -549,6 +586,10 @@ export class NegocioService {
         restriccionModeloMonetizacion: saved.categoria.restriccionModeloMonetizacion,
         soloComision: saved.categoria.soloComision,
       },
+      subcategoria: saved.subcategoria ? {
+        id: saved.subcategoria.id,
+        nombre: saved.subcategoria.nombre
+      } : null,
       imagenUrl,
     };
   }

@@ -7,71 +7,41 @@ export class SubscriptionService {
 
     async processDailySubscriptions() {
         const today = new Date();
-        today.setHours(0, 0, 0, 0); // Normalizar para comparar solo fecha
+        today.setHours(23, 59, 59, 999); // Al final del día para cubrir todo el rango
 
-        const negocios = await Negocio.find({
-            where: [
-                { statusNegocio: StatusNegocio.ACTIVO },
-                { statusNegocio: StatusNegocio.NO_PAGADO }
-            ],
-            relations: ["usuario"]
-        });
+        // OPTIMIZACIÓN: Solo traer negocios que necesitan atención
+        // 1. Los que no tienen fecha de fin (nuevos)
+        // 2. Los que ya vencieron
+        const negocios = await Negocio.createQueryBuilder("negocio")
+            .leftJoinAndSelect("negocio.usuario", "usuario")
+            .where("negocio.statusNegocio IN (:...statuses)", { 
+                statuses: [StatusNegocio.ACTIVO, StatusNegocio.NO_PAGADO] 
+            })
+            .andWhere("(negocio.fechaFinSuscripcion IS NULL OR negocio.fechaFinSuscripcion <= :today)", { 
+                today 
+            })
+            .getMany();
 
         const results = {
-            totalProcessed: 0,
+            totalProcessed: negocios.length,
             successful: 0,
             failed: 0,
             skipped: 0
         };
 
         for (const negocio of negocios) {
-            if (Number(negocio.valorSuscripcion) <= 0) continue;
-
-            let shouldCharge = false;
-
-            // 1. Caso: Nunca ha tenido suscripción (primer cobro)
-            if (!negocio.fechaFinSuscripcion) {
-                shouldCharge = true;
-            }
-            // 2. Caso: Período vencido hoy o antes
-            else {
-                const fechaFin = new Date(negocio.fechaFinSuscripcion);
-                fechaFin.setHours(0, 0, 0, 0);
-
-                if (today >= fechaFin) {
-                    // Si ya está en NO_PAGADO, revisamos los intentos
-                    if (negocio.statusNegocio === StatusNegocio.NO_PAGADO) {
-                        // Solo reintentar si no ha superado los 3 intentos
-                        if (negocio.intentosCobro < 3) {
-                            // Solo intentar una vez al día (comparando fecha del último intento)
-                            if (negocio.fechaUltimoCobro) {
-                                const lastCharge = new Date(negocio.fechaUltimoCobro);
-                                lastCharge.setHours(0, 0, 0, 0);
-                                if (today.getTime() > lastCharge.getTime()) {
-                                    shouldCharge = true;
-                                }
-                            } else {
-                                shouldCharge = true;
-                            }
-                        }
-                    } else {
-                        // Si está ACTIVO pero ya venció, intentar cobrar renovación
-                        shouldCharge = true;
-                    }
-                }
-            }
-
-            if (shouldCharge) {
-                results.totalProcessed++;
-                try {
-                    await this.chargeSubscription(negocio);
-                    results.successful++;
-                } catch (error) {
-                    console.error(`Error cobrando suscripción a negocio ${negocio.nombre}:`, error);
-                    results.failed++;
-                }
-            } else {
+            if (Number(negocio.valorSuscripcion) <= 0) {
                 results.skipped++;
+                continue;
+            }
+
+            try {
+                // El método chargeSubscription ya tiene su propia lógica de reintentos e intentos de cobro
+                await this.chargeSubscription(negocio);
+                results.successful++;
+            } catch (error) {
+                console.error(`[Subscription] Error en negocio ${negocio.nombre}:`, error);
+                results.failed++;
             }
         }
 
@@ -89,12 +59,16 @@ export class SubscriptionService {
         const newEndDate = new Date();
         newEndDate.setDate(today.getDate() + 30);
 
+        // Formatear fechas para la descripción del movimiento
+        const options: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'short', year: 'numeric' };
+        const periodDesc = `(${today.toLocaleDateString('es-ES', options)} - ${newEndDate.toLocaleDateString('es-ES', options)})`;
+
         try {
             // Intentar descontar de la wallet
             await this.walletService.subtractFromWallet(
                 negocio.usuario.id,
                 amount,
-                `Pago de suscripción: ${negocio.nombre}`,
+                `Pago de suscripción: ${negocio.nombre} ${periodDesc}`,
                 TransactionReason.SUBSCRIPTION,
                 {
                     daysBought: 30,

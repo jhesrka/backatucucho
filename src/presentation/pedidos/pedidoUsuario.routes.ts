@@ -59,11 +59,22 @@ export class PedidoUsuarioRoutes {
       AuthMiddleware.protect,
       pedidoUsuarioController.calificarPedido
     );
+    
+    router.post(
+      "/cancelar-por-demora",
+      AuthMiddleware.protect,
+      (req, res) => pedidoUsuarioController.cancelarPedidoPorDemora(req, res)
+    );
 
 
     router.get(
       "/run-sql-update",
       pedidoUsuarioController.runSqlUpdate
+    );
+
+    router.get(
+      "/process-subscriptions",
+      pedidoUsuarioController.processSubscriptions
     );
 
     router.post(

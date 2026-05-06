@@ -118,6 +118,10 @@ export class PedidoAdminService {
     const estadoAnterior = pedido.estado;
     pedido.estado = dto.nuevoEstado;
 
+    if (dto.nuevoEstado === EstadoPedido.ACEPTADO && !pedido.fecha_aceptado) {
+      pedido.fecha_aceptado = new Date();
+    }
+
     // Si hay motivo de cancelación (Emergencia Admin)
     if (dto.nuevoEstado === EstadoPedido.CANCELADO && dto.motivoCancelacion) {
       pedido.motivoCancelacion = dto.motivoCancelacion;

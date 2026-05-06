@@ -196,9 +196,15 @@ export class PedidoUsuarioService {
     query.where("pedido.clienteId = :clienteId", { clienteId });
 
     if (filters.startDate) {
-        // 🚀 Filtro ultra-explícito: Forzamos el casteo en ambos lados de la igualdad
-        query.andWhere(`CAST("pedido"."createdAt" AS DATE) = :startDate::date`, { 
-            startDate: filters.startDate 
+        // 🚀 Búsqueda optimizada por rango (Index-Friendly)
+        // Esto permite que Postgres use el índice de createdAt y responda al instante
+        const nextDay = new Date(filters.startDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+        const nextDayStr = nextDay.toISOString().split('T')[0];
+
+        query.andWhere(`pedido.createdAt >= :startDate AND pedido.createdAt < :endDate`, { 
+            startDate: `${filters.startDate} 00:00:00`,
+            endDate: `${nextDayStr} 00:00:00`
         });
     }
 
@@ -221,9 +227,16 @@ export class PedidoUsuarioService {
 
       return {
         id: p.id, estado: p.estado, total: p.total, costoEnvio: p.costoEnvio,
-        createdAt: p.createdAt, fecha: p.createdAt,
+        createdAt: p.createdAt, fecha: p.createdAt, fecha_aceptado: p.fecha_aceptado,
+        tiempoPreparacionElegido: p.tiempoPreparacionElegido,
         latCliente: p.latCliente, lngCliente: p.lngCliente,
-        negocio: { id: p.negocio.id, nombre: p.negocio.nombre, latitud: p.negocio?.latitud, longitud: p.negocio?.longitud },
+        negocio: { 
+          id: p.negocio.id, 
+          nombre: p.negocio.nombre, 
+          latitud: p.negocio?.latitud, 
+          longitud: p.negocio?.longitud,
+          tiempoPreparacionMax: p.negocio?.tiempoPreparacionMax
+        },
         productos: p.productos.map(pp => ({
           nombre: pp.producto?.nombre || pp.producto_nombre || "Producto no disponible", 
           cantidad: pp.cantidad, 
@@ -303,10 +316,115 @@ export class PedidoUsuarioService {
     return { ok: true };
   }
 
-  async refreshTimer(id: string) {
-    const p = await Pedido.findOneBy({ id });
-    if (p) { p.createdAt = new Date(); await p.save(); }
-    return { success: true };
+  async cancelarPedidoPorDemora(pedidoId: string, clienteId: string) {
+    const pedido = await Pedido.findOne({
+      where: { id: pedidoId, cliente: { id: clienteId } },
+      relations: ["negocio", "negocio.usuario", "productos", "productos.producto"]
+    });
+
+    if (!pedido) throw CustomError.notFound("Pedido no encontrado");
+
+    if (pedido.estado !== EstadoPedido.ACEPTADO) {
+      throw CustomError.badRequest("Solo se pueden cancelar por demora los pedidos en estado ACEPTADO");
+    }
+
+    // Validar si tiene productos programados
+    const tieneProgramados = pedido.productos.some(p => p.producto?.tipoProducto === 'PROGRAMADO');
+    if (tieneProgramados) {
+      throw CustomError.badRequest("Los pedidos con productos programados no permiten cancelación por demora");
+    }
+
+    // Validar tiempo
+    const fechaBase = pedido.fecha_aceptado || pedido.createdAt;
+    const tiempoMax = (pedido.negocio?.tiempoPreparacionMax || 30) + 10;
+    const ahora = new Date();
+    const limite = new Date(fechaBase.getTime() + tiempoMax * 60000);
+
+    if (ahora < limite) {
+      throw CustomError.badRequest("Aún no se ha cumplido el tiempo de gracia para cancelar por demora");
+    }
+
+    // Proceder con cancelación
+    pedido.estado = EstadoPedido.CANCELADO;
+    pedido.motivoCancelacion = "Cancelación por demora excesiva en la preparación";
+    await pedido.save();
+
+    // Notificar al Negocio
+    const io = getIO();
+    const updateData = {
+      pedidoId: pedido.id,
+      estado: pedido.estado,
+      motivoCancelacion: pedido.motivoCancelacion,
+      timestamp: ahora.toISOString()
+    };
+
+    io.to(pedido.negocio.id).emit("pedido_actualizado", updateData);
+    io.to(clienteId).emit("pedido_actualizado", updateData);
+
+    if (pedido.negocio.usuario) {
+      await notificationService.sendPushNotification(
+        pedido.negocio.usuario.id,
+        "Pedido Cancelado por Demora",
+        `El cliente canceló el pedido #${pedido.id.split('-')[0]} debido a demora en la preparación.`,
+        { url: `/business/dashboard/${pedido.negocio.id}/orders/history` }
+      );
+    }
+
+    return { ok: true };
+  }
+
+  async refreshTimer(id: string, minutosExtras: number = 0) {
+    const pedido = await Pedido.findOne({ 
+      where: { id },
+      relations: ['negocio', 'cliente'] 
+    });
+
+    if (!pedido) return { success: false, message: "Pedido no encontrado" };
+
+    // 1. Obtener horario de cierre global
+    const { GlobalSettings } = require("../../../data");
+    const settings = await GlobalSettings.findOne({ where: {}, order: { updatedAt: 'DESC' } });
+    const horaCierreStr = settings?.hora_cierre || "22:00:00"; // Fallback 10 PM
+
+    // 2. Validar que no pase la hora de cierre
+    const ahora = new Date();
+    const [h, m, s] = horaCierreStr.split(':').map(Number);
+    const limiteCierre = new Date();
+    limiteCierre.setHours(h, m, s, 0);
+
+    const nuevaFechaExpira = new Date(ahora.getTime() + (minutosExtras * 60000));
+
+    if (nuevaFechaExpira > limiteCierre) {
+      return { 
+        success: false, 
+        message: `No puedes extender el tiempo más allá de la hora de cierre (${horaCierreStr.substring(0, 5)})` 
+      };
+    }
+
+    // 3. Actualizar tiempos y elección del usuario
+    const nuevaFechaBase = new Date();
+    pedido.createdAt = nuevaFechaBase;
+    pedido.fecha_aceptado = nuevaFechaBase;
+    pedido.tiempoPreparacionElegido = minutosExtras; // Guardamos la elección del usuario
+    await pedido.save();
+
+    // 4. Notificar vía Sockets
+    const io = require("../../../config/socket").getIO();
+    const updateData = {
+      pedidoId: pedido.id,
+      id: pedido.id,
+      newCreatedAt: nuevaFechaBase.toISOString(),
+      fecha_aceptado: nuevaFechaBase.toISOString(),
+      tiempoPreparacionElegido: minutosExtras
+    };
+
+    io.to(pedido.negocio.id).emit("pedido_actualizado", updateData);
+    io.to(pedido.cliente.id).emit("pedido_actualizado", updateData);
+
+    return { 
+      success: true, 
+      newCreatedAt: nuevaFechaBase.toISOString() 
+    };
   }
 
   async subirComprobante(file: any) {
@@ -319,10 +437,27 @@ export class PedidoUsuarioService {
   }
 
   static startMaintenanceJob() {
+    // Tarea 1: Limpieza de pedidos (Cada minuto)
     setInterval(async () => {
       try {
         await Pedido.getRepository().query(`UPDATE pedido SET estado = 'CANCELADO' WHERE estado = 'PENDIENTE_PAGO' AND "createdAt" < NOW() - INTERVAL '6 minutes'`);
-      } catch (e) {}
+      } catch (e) {
+        console.error("[Maintenance] Error limpiando pedidos pendientes:", e);
+      }
     }, 60000);
+
+    // Tarea 2: Cobro de Suscripciones (Cada hora para mayor seguridad, aunque procesa una vez al día por negocio)
+    setInterval(async () => {
+      try {
+        const { SubscriptionService } = await import("../subscription.service");
+        const subService = new SubscriptionService();
+        const results = await subService.processDailySubscriptions();
+        if (results.totalProcessed > 0) {
+            console.log(`[Maintenance] Suscripciones procesadas: ${results.successful} exitosas, ${results.failed} fallidas.`);
+        }
+      } catch (e) {
+        console.error("[Maintenance] Error procesando suscripciones:", e);
+      }
+    }, 3600000); // 1 hora
   }
 }

@@ -148,6 +148,22 @@ export class Negocio extends BaseEntity {
   @Column("int", { default: 0 })
   totalResenas: number;
 
+  // --- CONFIGURACIÓN DE TIEMPOS (NUEVO) ---
+  @Column("int", { default: 15 })
+  tiempoPreparacionMin: number;
+
+  @Column("int", { default: 30 })
+  tiempoPreparacionMax: number;
+
+  @Column("boolean", { default: false })
+  permiteProductosProgramados: boolean;
+
+  @Column("int", { nullable: true })
+  tiempoProgramadoMin: number | null;
+
+  @Column("int", { nullable: true })
+  tiempoProgramadoMax: number | null;
+
   @ManyToOne(() => User, (user) => user.negocios)
   usuario: User;
 
@@ -155,7 +171,7 @@ export class Negocio extends BaseEntity {
   categoria: CategoriaNegocio;
 
   @ManyToOne(() => SubcategoriaNegocio, (sub) => sub.negocios, { nullable: true })
-  subcategoria: SubcategoriaNegocio;
+  subcategoria: SubcategoriaNegocio | null;
 
   @OneToMany(() => Producto, (producto) => producto.negocio, { cascade: true })
   productos: Producto[];

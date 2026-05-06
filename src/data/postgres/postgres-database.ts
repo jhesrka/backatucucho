@@ -382,10 +382,18 @@ export class PostgresDatabase {
         END $$;
       `).catch(err => console.warn("Subcategoria Negocio migration failed:", err.message));
 
-      console.log("🛠️  [Migration] Step 15: Absence/Cancellation flow columns");
-      await this.datasource.query(`ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "evidence_at_delivery" VARCHAR DEFAULT NULL;`);
-      await this.datasource.query(`ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "evidence_at_return" VARCHAR DEFAULT NULL;`);
       await this.datasource.query(`ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "cancellation_strikes" INT DEFAULT 0;`);
+
+      console.log("🛠️  [Migration] Step 16: Business Prep Times and Order Acceptance");
+      await this.datasource.query(`ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "tiempoPreparacionMin" INT DEFAULT 15;`);
+      await this.datasource.query(`ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "tiempoPreparacionMax" INT DEFAULT 30;`);
+      await this.datasource.query(`ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "permiteProductosProgramados" BOOLEAN DEFAULT false;`);
+      await this.datasource.query(`ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "tiempoProgramadoMin" INT DEFAULT NULL;`);
+      await this.datasource.query(`ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "tiempoProgramadoMax" INT DEFAULT NULL;`);
+      
+      await this.datasource.query(`ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "fecha_aceptado" TIMESTAMP DEFAULT NULL;`);
+      
+      await this.datasource.query(`ALTER TABLE "producto" ADD COLUMN IF NOT EXISTS "tipoProducto" VARCHAR DEFAULT 'NORMAL';`);
     } catch (error) {
       console.log("DB Connection Error:", error);
       throw error;

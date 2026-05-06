@@ -205,6 +205,11 @@ export class NegocioAdminService {
       valorSuscripcion: dto.valorSuscripcion,
       diaPago: dto.diaPago,
       orden: dto.orden ?? 0, // Nuevo campo, default 0
+      tiempoPreparacionMin: dto.tiempoPreparacionMin,
+      tiempoPreparacionMax: dto.tiempoPreparacionMax,
+      permiteProductosProgramados: dto.permiteProductosProgramados,
+      tiempoProgramadoMin: dto.tiempoProgramadoMin,
+      tiempoProgramadoMax: dto.tiempoProgramadoMax,
     });
 
     const saved = await negocio.save();
@@ -324,6 +329,12 @@ export class NegocioAdminService {
     if (dto.orden !== undefined) {
       negocio.orden = dto.orden;
     }
+
+    if (dto.tiempoPreparacionMin !== undefined) negocio.tiempoPreparacionMin = dto.tiempoPreparacionMin;
+    if (dto.tiempoPreparacionMax !== undefined) negocio.tiempoPreparacionMax = dto.tiempoPreparacionMax;
+    if (dto.permiteProductosProgramados !== undefined) negocio.permiteProductosProgramados = dto.permiteProductosProgramados;
+    if (dto.tiempoProgramadoMin !== undefined) negocio.tiempoProgramadoMin = dto.tiempoProgramadoMin;
+    if (dto.tiempoProgramadoMax !== undefined) negocio.tiempoProgramadoMax = dto.tiempoProgramadoMax;
 
     // ========================= ACTUALIZAR PAYPHONE =========================
     if (dto.pago_tarjeta_habilitado_admin !== undefined) {
@@ -461,6 +472,11 @@ export class NegocioAdminService {
       fechaUltimoCobro: saved.fechaUltimoCobro,
       intentosCobro: saved.intentosCobro,
       orden: saved.orden,
+      tiempoPreparacionMin: saved.tiempoPreparacionMin,
+      tiempoPreparacionMax: saved.tiempoPreparacionMax,
+      permiteProductosProgramados: saved.permiteProductosProgramados,
+      tiempoProgramadoMin: saved.tiempoProgramadoMin,
+      tiempoProgramadoMax: saved.tiempoProgramadoMax,
       pago_tarjeta_habilitado_admin: saved.pago_tarjeta_habilitado_admin,
       pago_tarjeta_activo_negocio: saved.pago_tarjeta_activo_negocio,
       subcategoria: saved.subcategoria ? {
@@ -683,6 +699,11 @@ export class NegocioAdminService {
           fechaUltimoCobro: negocio.fechaUltimoCobro,
           intentosCobro: negocio.intentosCobro,
           orden: negocio.orden,
+          tiempoPreparacionMin: negocio.tiempoPreparacionMin,
+          tiempoPreparacionMax: negocio.tiempoPreparacionMax,
+          permiteProductosProgramados: negocio.permiteProductosProgramados,
+          tiempoProgramadoMin: negocio.tiempoProgramadoMin,
+          tiempoProgramadoMax: negocio.tiempoProgramadoMax,
           fechaInicioSuscripcion: negocio.fechaInicioSuscripcion,
           fechaFinSuscripcion: negocio.fechaFinSuscripcion,
           direccion: negocio.direccionTexto,

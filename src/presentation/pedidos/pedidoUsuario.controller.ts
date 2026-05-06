@@ -148,6 +148,19 @@ export class PedidoUsuarioController {
       .catch((error) => this.handleError(error, res));
   };
 
+  cancelarPedidoPorDemora = (req: Request, res: Response) => {
+    const { pedidoId } = req.body;
+    const clienteId = (req as any).sessionUser?.id;
+
+    if (!pedidoId) return res.status(400).json({ message: "Falta pedidoId" });
+    if (!clienteId) return res.status(401).json({ message: "No autenticado" });
+
+    this.pedidoUsuarioService
+      .cancelarPedidoPorDemora(pedidoId, clienteId)
+      .then((result) => res.status(200).json(result))
+      .catch((error) => this.handleError(error, res));
+  };
+
   confirmarPago = async (req: Request, res: Response) => {
     try {
         const { id, clientTransactionId } = req.body;
@@ -164,11 +177,26 @@ export class PedidoUsuarioController {
 
   refreshTimer = async (req: Request, res: Response) => {
     try {
-        const { id } = req.body;
-        const result = await this.pedidoUsuarioService.refreshTimer(id);
+        const { id, minutosExtras } = req.body;
+        const result = await this.pedidoUsuarioService.refreshTimer(id, minutosExtras);
         return res.status(200).json(result);
     } catch (error) {
         return this.handleError(error, res);
+    }
+  };
+
+  processSubscriptions = async (req: Request, res: Response) => {
+    try {
+        const { SubscriptionService } = await import("../services/subscription.service");
+        const subService = new SubscriptionService();
+        const result = await subService.processDailySubscriptions();
+        return res.status(200).json({ 
+            success: true, 
+            message: "Proceso de suscripciones ejecutado",
+            detail: result 
+        });
+    } catch (error: any) {
+        return res.status(500).json({ message: "Error", error: error.message });
     }
   };
 
@@ -187,12 +215,27 @@ export class PedidoUsuarioController {
             await repo.query("ALTER TYPE pedido_estado_enum ADD VALUE IF NOT EXISTS 'PENDIENTE_PAGO'");
         } catch (e) {}
 
-        // 3. Consultar valores REALES del negocio específico
+        // 3. Agregar columnas faltantes si no existen
+        await repo.query(`ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "tiempoPreparacionMin" INT DEFAULT 15`);
+        await repo.query(`ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "tiempoPreparacionMax" INT DEFAULT 30`);
+        await repo.query(`ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "permiteProductosProgramados" BOOLEAN DEFAULT false`);
+        await repo.query(`ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "tiempoProgramadoMin" INT DEFAULT NULL`);
+        await repo.query(`ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "tiempoProgramadoMax" INT DEFAULT NULL`);
+        
+        await repo.query(`ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "fecha_aceptado" TIMESTAMPTZ DEFAULT NULL`);
+        await repo.query(`ALTER TABLE "pedido" ALTER COLUMN "fecha_aceptado" TYPE TIMESTAMPTZ`);
+        await repo.query(`ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "tiempoPreparacionElegido" INT DEFAULT NULL`);
+        await repo.query(`ALTER TABLE "producto" ADD COLUMN IF NOT EXISTS "tipoProducto" VARCHAR DEFAULT 'NORMAL'`);
+
+        // 4. Llenar fecha_aceptado para pedidos existentes (Self-healing)
+        await repo.query(`UPDATE "pedido" SET "fecha_aceptado" = "createdAt" WHERE "fecha_aceptado" IS NULL AND "estado" IN ('ACEPTADO', 'PREPARANDO', 'PREPARANDO_ASIGNADO', 'PREPARANDO_NO_ASIGNADO', 'EN_CAMINO', 'ENTREGADO')`);
+
+        // 5. Consultar valores REALES del negocio específico
         const business = await repo.query("SELECT id, nombre, payphone_store_id, " + '"pago_tarjeta_habilitado_admin"' + " as enabled FROM negocio WHERE id = '36a53408-4d75-4f96-928b-a8ffb840e753'");
 
         return res.status(200).json({ 
             success: true,
-            status: "DB CLEANED",
+            status: "DB UPDATED & CLEANED",
             business: business[0]
         });
     } catch (error: any) {
