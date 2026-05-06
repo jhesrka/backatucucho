@@ -222,7 +222,8 @@ export class PedidoUsuarioService {
       return {
         id: p.id, estado: p.estado, total: p.total, costoEnvio: p.costoEnvio,
         createdAt: p.createdAt, fecha: p.createdAt,
-        negocio: { id: p.negocio.id, nombre: p.negocio.nombre },
+        latCliente: p.latCliente, lngCliente: p.lngCliente,
+        negocio: { id: p.negocio.id, nombre: p.negocio.nombre, latitud: p.negocio?.latitud, longitud: p.negocio?.longitud },
         productos: p.productos.map(pp => ({
           nombre: pp.producto?.nombre || pp.producto_nombre || "Producto no disponible", 
           cantidad: pp.cantidad, 
