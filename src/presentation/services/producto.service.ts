@@ -145,6 +145,12 @@ export class ProductoService {
     }
 
     if (data.tipoProducto) {
+      // ✅ REGLA CRÍTICA: Solo bloquear si el tipo REALMENTE cambia y no está PENDIENTE
+      if (producto.statusProducto !== StatusProducto.PENDIENTE && data.tipoProducto !== producto.tipoProducto) {
+        throw CustomError.badRequest(
+          "El tipo de despacho (Normal/Programado) solo puede modificarse mientras el producto esté en estado PENDIENTE."
+        );
+      }
       producto.tipoProducto = data.tipoProducto;
     }
 

@@ -438,18 +438,21 @@ export class PedidoAdminService {
     const startOfToday = moment.tz('America/Guayaquil').startOf('day').toDate();
     const endOfToday = moment.tz('America/Guayaquil').endOf('day').toDate();
 
-    // 1. Pedidos del día (Activos y Finalizados)
+    // 1. Pedidos del día (Activos sin límite de tiempo, Finalizados solo HOY)
     const pedidosActivos = await Pedido.find({
       where: [
-        { estado: EstadoPedido.PENDIENTE, createdAt: Between(startOfToday, endOfToday) },
-        { estado: EstadoPedido.ACEPTADO, createdAt: Between(startOfToday, endOfToday) },
-        { estado: EstadoPedido.PREPARANDO, createdAt: Between(startOfToday, endOfToday) },
-        { estado: EstadoPedido.PREPARANDO_ASIGNADO, createdAt: Between(startOfToday, endOfToday) },
-        { estado: EstadoPedido.PREPARANDO_NO_ASIGNADO, createdAt: Between(startOfToday, endOfToday) },
-        { estado: EstadoPedido.EN_CAMINO, createdAt: Between(startOfToday, endOfToday) },
-        { estado: EstadoPedido.PENDIENTE_PAGO, createdAt: Between(startOfToday, endOfToday) },
-        { estado: EstadoPedido.RETORNO_PENDIENTE, createdAt: Between(startOfToday, endOfToday) },
-        { estado: EstadoPedido.DEVUELTO_A_LOCAL, createdAt: Between(startOfToday, endOfToday) },
+        // Estados ACTIVOS: Mostrar todos los que existan en el sistema (no importa la fecha)
+        { estado: EstadoPedido.PENDIENTE },
+        { estado: EstadoPedido.ACEPTADO },
+        { estado: EstadoPedido.PREPARANDO },
+        { estado: EstadoPedido.PREPARANDO_ASIGNADO },
+        { estado: EstadoPedido.PREPARANDO_NO_ASIGNADO },
+        { estado: EstadoPedido.EN_CAMINO },
+        { estado: EstadoPedido.PENDIENTE_PAGO },
+        { estado: EstadoPedido.RETORNO_PENDIENTE },
+        { estado: EstadoPedido.DEVUELTO_A_LOCAL },
+        
+        // Estados FINALIZADOS: Mostrar solo los de HOY para no saturar el tablero
         { estado: EstadoPedido.ENTREGADO, createdAt: Between(startOfToday, endOfToday) },
         { estado: EstadoPedido.CANCELADO, createdAt: Between(startOfToday, endOfToday) },
       ],

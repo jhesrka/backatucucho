@@ -106,6 +106,12 @@ export class PedidoUsuarioService {
     const items = productos.map(item => {
       const p = dbStore.find(db => db.id === item.productoId);
       if (!p) throw CustomError.notFound("Producto no encontrado");
+
+      // 🛡️ Regla de Negocio: Pedidos Programados no aceptan EFECTIVO
+      if (p.tipoProducto === 'PROGRAMADO' && metodoPago === 'EFECTIVO') {
+        throw CustomError.badRequest("Los pedidos programados solo aceptan Transferencia o Tarjeta. No se permite efectivo.");
+      }
+
       const pp = new ProductoPedido();
       pp.producto = p; pp.cantidad = item.cantidad;
       pp.precio_venta = p.precio_venta; pp.precio_app = p.precio_app;
@@ -449,51 +455,55 @@ export class PedidoUsuarioService {
         // 1. Limpieza rápida de PENDIENTE_PAGO (6 minutos)
         await Pedido.getRepository().query(`UPDATE pedido SET estado = 'CANCELADO', "motivoCancelacion" = 'Pago no registrado en el tiempo límite.' WHERE estado = 'PENDIENTE_PAGO' AND "createdAt" < NOW() - INTERVAL '6 minutes'`);
 
-        // 2. Vigilante de ACEPTADOS
-        const pedidosExpirados = await Pedido.find({
-          where: { estado: EstadoPedido.ACEPTADO },
-          relations: ["negocio", "negocio.usuario", "productos", "productos.producto"]
-        });
+        // 2. Vigilante de ACEPTADOS (Optimizado: Query Filtering + Lazy Loading)
+        const pedidosExpirados = await Pedido.createQueryBuilder('p')
+          .leftJoinAndSelect('p.negocio', 'n')
+          .leftJoinAndSelect('n.usuario', 'u')
+          .where('p.estado = :estado', { estado: EstadoPedido.ACEPTADO })
+          // 🛡️ Filtro 1: Excluir pedidos con productos PROGRAMADOS (Subquery para no cargar relaciones innecesarias)
+          .andWhere((qb) => {
+            const subQuery = qb.subQuery()
+              .select('1')
+              .from(ProductoPedido, 'pp')
+              .innerJoin('pp.producto', 'prod')
+              .where('pp."pedidoId" = p.id')
+              .andWhere('prod."tipoProducto" = :tipo', { tipo: 'PROGRAMADO' })
+              .getQuery();
+            return `NOT EXISTS ${subQuery}`;
+          })
+          // 🛡️ Filtro 2: Solo pedidos cuya fecha (aceptado o creado) + tiempo de preparación + 10 min sea menor a NOW()
+          .andWhere(`
+            (COALESCE(p.fecha_aceptado, p.createdAt) + 
+            (COALESCE(p.tiempoPreparacionElegido, n.tiempoPreparacionMax, 30) + 10) * INTERVAL '1 minute') < NOW()
+          `)
+          .getMany();
 
         const io = getIO();
         const notificationService = new NotificationService();
 
         for (const pedido of pedidosExpirados) {
           try {
-            // 🚨 PROTECCIÓN TOTAL: Si es programado, NUNCA se toca automáticamente
-            const tieneProgramados = pedido.productos?.some(p => p.producto?.tipoProducto === 'PROGRAMADO');
-            if (tieneProgramados) continue;
+            // Si es medianoche (23:30 - 23:59), es un barrido nocturno
+            const isNightSweepTime = horaEcuador.startsWith("23:3") || horaEcuador.startsWith("23:4") || horaEcuador.startsWith("23:5");
 
-            const fechaBase = pedido.fecha_aceptado || pedido.createdAt;
-            if (!fechaBase) continue;
+            console.log(`[Auto-Cancel] 🚨 Pedido ${pedido.id} cancelando por expiración...`);
+            
+            pedido.estado = EstadoPedido.CANCELADO;
+            pedido.motivoCancelacion = isNightSweepTime 
+              ? "Cierre operativo nocturno: Pedido expirado sin finalizar."
+              : "Cancelación automática por demora excesiva en la preparación sin respuesta del cliente.";
+            await pedido.save();
 
-            const prepTimeMax = Number(pedido.tiempoPreparacionElegido || pedido.negocio?.tiempoPreparacionMax || 30);
-            const totalLimitMinutes = prepTimeMax + 10;
-            const limiteAutoCancel = new Date(fechaBase.getTime() + totalLimitMinutes * 60000);
-
-            if (ahora > limiteAutoCancel) {
-              // Si es medianoche (23:30 - 23:59), es un barrido nocturno
-              const isNightSweepTime = horaEcuador.startsWith("23:3") || horaEcuador.startsWith("23:4") || horaEcuador.startsWith("23:5");
-
-              console.log(`[Auto-Cancel] 🚨 Pedido ${pedido.id} excedió límite (${totalLimitMinutes}m). Cancelando...`);
-              
-              pedido.estado = EstadoPedido.CANCELADO;
-              pedido.motivoCancelacion = isNightSweepTime 
-                ? "Cierre operativo nocturno: Pedido expirado sin finalizar."
-                : "Cancelación automática por demora excesiva en la preparación sin respuesta del cliente.";
-              await pedido.save();
-
-              io.emit("pedido_actualizado", { id: pedido.id, estado: pedido.estado });
-              io.emit("admin_live_update", { type: 'ORDER_UPDATED', pedidoId: pedido.id });
-              
-              if (pedido.negocio?.usuario?.id) {
-                 await notificationService.sendPushNotification(
-                    pedido.negocio.usuario.id,
-                    "🚨 Pedido Auto-Cancelado",
-                    `El pedido #${pedido.id.substring(0,8)} fue cancelado por demora excesiva.`,
-                    { url: `/business/dashboard/${pedido.negocio.id}/orders/history` }
-                 );
-              }
+            io.emit("pedido_actualizado", { id: pedido.id, estado: pedido.estado });
+            io.emit("admin_live_update", { type: 'ORDER_UPDATED', pedidoId: pedido.id });
+            
+            if (pedido.negocio?.usuario?.id) {
+               await notificationService.sendPushNotification(
+                  pedido.negocio.usuario.id,
+                  "🚨 Pedido Auto-Cancelado",
+                  `El pedido #${pedido.id.substring(0,8)} fue cancelado por demora excesiva.`,
+                  { url: `/business/dashboard/${pedido.negocio.id}/orders/history` }
+               );
             }
           } catch (err) {
             console.error(`[Auto-Cancel] Error procesando pedido ${pedido?.id}:`, err);
@@ -531,6 +541,10 @@ export class PedidoUsuarioService {
       const io = getIO();
 
       for (const pedido of pedidosExpirados) {
+        // 🛡️ Saltar pedidos programados (ellos no expiran por tiempo de aceptación normal)
+        const esProgramado = pedido.productos?.some(p => p.producto?.tipoProducto === 'PROGRAMADO');
+        if (esProgramado) continue;
+
         const fechaBase = pedido.fecha_aceptado || pedido.createdAt;
         const prepTimeMax = Number(pedido.tiempoPreparacionElegido || pedido.negocio?.tiempoPreparacionMax || 30);
         const totalLimitMinutes = prepTimeMax + 10;
