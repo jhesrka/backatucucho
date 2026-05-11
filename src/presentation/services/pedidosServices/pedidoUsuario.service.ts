@@ -262,7 +262,9 @@ export class PedidoUsuarioService {
           whatsapp: p.cliente.whatsapp,
           strikes: p.cliente.cancellation_strikes || 0 
         } : null,
-        motorizado: p.motorizado ? { name: p.motorizado.name, surname: p.motorizado.surname, whatsapp: p.motorizado.whatsapp, id: p.motorizado.id } : null
+        motorizado: p.motorizado ? { name: p.motorizado.name, surname: p.motorizado.surname, whatsapp: p.motorizado.whatsapp, id: p.motorizado.id } : null,
+        ratingNegocio: p.ratingNegocio,
+        ratingMotorizado: p.ratingMotorizado
       };
     }));
 

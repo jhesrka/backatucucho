@@ -36,11 +36,17 @@ export class NotificationService {
   }
 
   async sendPushNotification(userId: string, title: string, body: string, data: any = {}) {
-    if (!NotificationService.instance) return;
+    if (!NotificationService.instance) {
+      console.warn('⚠️ Intentando enviar notificación pero FCM no está inicializado.');
+      return;
+    }
 
     try {
       const tokens = await PushToken.find({ where: { user: { id: userId } } });
-      if (tokens.length === 0) return;
+      if (tokens.length === 0) {
+        console.log(`ℹ️ No hay tokens registrados para el usuario ${userId}. Saltando notificación.`);
+        return;
+      }
 
       const registrationTokens = tokens.map(t => t.token);
 
@@ -53,13 +59,16 @@ export class NotificationService {
         tokens: registrationTokens,
       };
 
+      console.log(`📡 Enviando notificación push a ${registrationTokens.length} dispositivos del usuario ${userId}...`);
       const response = await admin.messaging().sendEachForMulticast(message);
+      console.log(`✅ Resultado del envío: ${response.successCount} exitosos, ${response.failureCount} fallidos.`);
       
       // Limpiar tokens inválidos
       if (response.failureCount > 0) {
         const failedTokens: string[] = [];
         response.responses.forEach((resp, idx) => {
           if (!resp.success) {
+            console.error(`❌ Error en token [${idx}]:`, resp.error?.code, resp.error?.message);
             const code = resp.error?.code;
             if (code === 'messaging/invalid-registration-token' || code === 'messaging/registration-token-not-registered') {
               failedTokens.push(registrationTokens[idx]);
@@ -68,6 +77,7 @@ export class NotificationService {
         });
         
         if (failedTokens.length > 0) {
+          console.log(`🧹 Limpiando ${failedTokens.length} tokens inválidos de la base de datos...`);
           await PushToken.createQueryBuilder()
             .delete()
             .where("token IN (:...tokens)", { tokens: failedTokens })
@@ -75,7 +85,7 @@ export class NotificationService {
         }
       }
     } catch (error) {
-      console.error('❌ Error sending push notification:', error);
+      console.error('❌ Error crítico enviando notificación push:', error);
     }
   }
 }

@@ -99,9 +99,10 @@ export class PostgresDatabase {
       },
       // Configuración de pool para mayor estabilidad en Neon
       extra: {
-        max: 20, // Límite de conexiones para evitar agotar el plan (Neon free tier)
-        idleTimeoutMillis: 30000, // Cerrar conexiones ociosas
-        connectionTimeoutMillis: 10000, // Tiempo máximo de espera para abrir conexión
+        max: 5, // Reducido para evitar agotar el límite de Neon free tier (usualmente 10)
+        idleTimeoutMillis: 30000, 
+        connectionTimeoutMillis: 30000, 
+        keepalives: true,
       },
       // Eliminamos el forzado de timezone de sesión para que el driver pg
       // maneje todo en UTC de forma nativa y TypeORM no se confunda.

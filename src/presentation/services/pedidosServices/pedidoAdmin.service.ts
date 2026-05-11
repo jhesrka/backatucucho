@@ -26,6 +26,7 @@ import { Between, ILike, LessThan, Raw } from "typeorm";
 import moment from "moment-timezone";
 import { PedidoMotoService } from "./pedidoMoto.service";
 import { NotificationService } from "../NotificationService";
+import bcrypt from "bcryptjs";
 
 const notificationService = new NotificationService();
 
@@ -319,6 +320,7 @@ export class PedidoAdminService {
       const estadosAsignables = [
         EstadoPedido.PREPARANDO,
         EstadoPedido.PREPARANDO_NO_ASIGNADO,
+        EstadoPedido.PREPARANDO_ASIGNADO, // Reasignación
         EstadoPedido.EN_CAMINO // Reasignación
       ];
 
@@ -328,12 +330,43 @@ export class PedidoAdminService {
 
       // 4. Ejecutar Asignación
       const motorizadoAnteriorId = pedido.motorizado?.id;
+
+      // SI HABÍA UN MOTORIZADO ANTERIOR, LIBERARLO
+      if (motorizadoAnteriorId) {
+        const motorizadoAnterior = await manager.findOne(UserMotorizado, { where: { id: motorizadoAnteriorId } });
+        if (motorizadoAnterior) {
+          motorizadoAnterior.quiereTrabajar = true;
+          motorizadoAnterior.estadoTrabajo = EstadoTrabajoMotorizado.DISPONIBLE;
+          motorizadoAnterior.fechaHoraDisponible = new Date();
+          motorizadoAnterior.noDisponibleHasta = null;
+          await manager.save(motorizadoAnterior);
+          
+          // Notificar al motorizado anterior que ya no tiene el pedido
+          getIO().to(motorizadoAnterior.id).emit("pedido_desvinculado", {
+            pedidoId: pedido.id,
+            mensaje: "El administrador ha reasignado este pedido a otro repartidor. Ya no es tu responsabilidad."
+          });
+        }
+      }
+
+      const estadoOriginal = pedido.estado;
       pedido.motorizado = motorizado;
 
-      if (pedido.estado === EstadoPedido.PREPARANDO || pedido.estado === EstadoPedido.PREPARANDO_NO_ASIGNADO) {
+      // ESCENARIO A: Estaba asignado pero no retirado del local (o sin asignar)
+      if (estadoOriginal === EstadoPedido.PREPARANDO || 
+          estadoOriginal === EstadoPedido.PREPARANDO_NO_ASIGNADO || 
+          estadoOriginal === EstadoPedido.PREPARANDO_ASIGNADO) {
+        
         pedido.estado = EstadoPedido.PREPARANDO_ASIGNADO;
+        // SEGURIDAD: Generar NUEVO código de retiro para el nuevo motorizado
         pedido.pickup_code = Math.floor(1000 + Math.random() * 9000).toString();
         pedido.pickup_verified = false;
+      } 
+      // ESCENARIO B: Estaba EN_CAMINO (Ya retiró, traspaso físico entre motos)
+      else if (estadoOriginal === EstadoPedido.EN_CAMINO) {
+        // Mantenemos el estado EN_CAMINO para que le aparezca directo en la app al nuevo
+        // Mantenemos el delivery_code que ya tiene el cliente para no generar confusión
+        // pickup_verified sigue siendo true porque el pedido ya está en la calle
       }
 
       // Limpiar campos de ronda para que el algoritmo automático no lo toque más
@@ -341,17 +374,17 @@ export class PedidoAdminService {
 
       await manager.save(pedido);
 
-      // Actualizar estado del motorizado
+      // Actualizar estado del motorizado nuevo
       motorizado.estadoTrabajo = EstadoTrabajoMotorizado.ENTREGANDO;
       await manager.save(motorizado);
 
-      // Registrar evento
+      // Registrar evento con detalle del cambio de estado
       await PedidoOperativoLog.registrarEvento({
         pedidoId: pedido.id,
         motorizadoId: motorizado.id,
         adminId,
         evento: "ASIGNADO_MANUAL",
-        detalle: `Asignado por administrador${motorizadoAnteriorId ? `. Reemplaza a motorizado ${motorizadoAnteriorId}` : ''}`
+        detalle: `Reasignación Admin (${estadoOriginal}). ${motorizadoAnteriorId ? `Reemplaza a motorizado ${motorizadoAnteriorId}.` : ''}`
       });
 
       // Notificar a las partes
@@ -449,15 +482,15 @@ export class PedidoAdminService {
         { estado: EstadoPedido.PREPARANDO_NO_ASIGNADO },
         { estado: EstadoPedido.EN_CAMINO },
         { estado: EstadoPedido.PENDIENTE_PAGO },
-        { estado: EstadoPedido.RETORNO_PENDIENTE },
-        { estado: EstadoPedido.DEVUELTO_A_LOCAL },
         
-        // Estados FINALIZADOS: Mostrar solo los de HOY para no saturar el tablero
+        // Estados FINALIZADOS o INCIDENCIAS: Mostrar solo los de HOY para no saturar el tablero
         { estado: EstadoPedido.ENTREGADO, createdAt: Between(startOfToday, endOfToday) },
         { estado: EstadoPedido.CANCELADO, createdAt: Between(startOfToday, endOfToday) },
+        { estado: EstadoPedido.RETORNO_PENDIENTE, createdAt: Between(startOfToday, endOfToday) },
+        { estado: EstadoPedido.DEVUELTO_A_LOCAL, createdAt: Between(startOfToday, endOfToday) },
       ],
       relations: ["cliente", "motorizado", "negocio", "negocio.usuario", "productos", "productos.producto"],
-      order: { createdAt: "ASC" }
+      order: { createdAt: "DESC" }
     });
 
     // 2. Motorizados Conectados / Activos
@@ -465,7 +498,7 @@ export class PedidoAdminService {
       where: {
         estadoCuenta: EstadoCuentaMotorizado.ACTIVO
       },
-      select: ["id", "name", "surname", "whatsapp", "estadoTrabajo", "quiereTrabajar", "fechaHoraDisponible", "ratingPromedio", "lastSeenAt", "estadoCuenta"]
+      select: ["id", "name", "surname", "whatsapp", "estadoTrabajo", "quiereTrabajar", "fechaHoraDisponible", "ratingPromedio", "lastSeenAt", "estadoCuenta", "noDisponibleHasta"]
     });
 
     // 3. Enriquecer motorizados con su pedido actual, pedido en evaluación y métricas del día
@@ -518,7 +551,11 @@ export class PedidoAdminService {
 
     // 4. Calcular Métricas de Resumen
     const sinMotorizado = pedidosActivos.filter(p => p.estado === EstadoPedido.PREPARANDO_NO_ASIGNADO).length;
-    const motorizadosDisponibles = motorizadosFull.filter(m => m.estadoTrabajo === EstadoTrabajoMotorizado.DISPONIBLE && m.quiereTrabajar).length;
+    const motorizadosDisponibles = motorizadosFull.filter(m => 
+      m.estadoTrabajo === EstadoTrabajoMotorizado.DISPONIBLE && 
+      m.quiereTrabajar && 
+      (!m.noDisponibleHasta || new Date(m.noDisponibleHasta) <= now)
+    ).length;
     const motorizadosEntregando = motorizadosFull.filter(m => m.estadoTrabajo === EstadoTrabajoMotorizado.ENTREGANDO).length;
     const pedidosTrabados = pedidosActivos.filter(p => p.updatedAt < fifteenMinAgo).length;
 
@@ -635,8 +672,22 @@ export class PedidoAdminService {
     return { logs, total };
   }
 
+  // ✅ Helper: Verificar PIN Maestro
+  async verifyMasterPin(pin: string) {
+    const settings = await GlobalSettings.findOne({ where: {} });
+    if (!settings || !settings.masterPin) return true; // Si no hay PIN configurado, permitir (o podrías bloquearlo)
+    
+    const isMatch = await bcrypt.compare(pin, settings.masterPin);
+    if (!isMatch) throw CustomError.badRequest("PIN Maestro incorrecto");
+    return true;
+  }
+
   // ✅ 5. Eliminar pedidos finalizados antiguos (Configurable)
-  async purgeOldOrders() {
+  async purgeOldOrders(masterPin?: string) {
+    if (masterPin) {
+        await this.verifyMasterPin(masterPin);
+    }
+
     let settings = await GlobalSettings.findOne({ where: {} });
     if (!settings) {
       settings = new GlobalSettings();
@@ -684,7 +735,9 @@ export class PedidoAdminService {
   }
 
   // ✅ 6. Actualizar Configuración de Purga
-  async updateRetentionDays(days: number) {
+  async updateRetentionDays(days: number, masterPin: string) {
+    await this.verifyMasterPin(masterPin);
+
     let settings = await GlobalSettings.findOne({ where: {} });
     if (!settings) {
       settings = new GlobalSettings();

@@ -239,8 +239,9 @@ export class PedidoAdminController {
 
   // ======================== 5. Eliminar pedidos antiguos ========================
   eliminarPedidosAntiguos = (req: Request, res: Response) => {
+    const { masterPin } = req.body;
     this.pedidoAdminService
-      .purgeOldOrders()
+      .purgeOldOrders(masterPin)
       .then(({ deletedCount }) =>
         res.status(200).json({ message: `Purga completada. Pedidos eliminados: ${deletedCount}` })
       )
@@ -249,13 +250,16 @@ export class PedidoAdminController {
 
   // ======================== 7. Configurar días de retención ========================
   configureRetentionDays = (req: Request, res: Response) => {
-    const { days } = req.body;
+    const { days, masterPin } = req.body;
     if (!days || isNaN(days)) {
       return res.status(400).json({ message: "Debe proporcionar un número válido de días" });
     }
+    if (!masterPin) {
+      return res.status(400).json({ message: "Falta el PIN Maestro" });
+    }
 
     this.pedidoAdminService
-      .updateRetentionDays(Number(days))
+      .updateRetentionDays(Number(days), masterPin)
       .then((settings) => res.status(200).json(settings))
       .catch((error) => this.handleError(error, res));
   };

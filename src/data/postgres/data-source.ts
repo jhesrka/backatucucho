@@ -43,7 +43,10 @@ export const AppDataSource = new DataSource({
     synchronize: false, // SIEMPRE FALSE EN MIGRACIONES
     logging: false,
     extra: {
-        options: '-c timezone=UTC', // Fuerza UTC en cada sesión de PostgreSQL
+        max: 5,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 30000,
+        keepalives: true,
     },
     entities: [
         User, Post, Useradmin, Storie, Like, Wallet, RechargeRequest, Subscription,

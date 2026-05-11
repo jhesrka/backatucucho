@@ -530,6 +530,33 @@ export class NegocioService {
     if (data.numeroCuenta) negocio.numeroCuenta = data.numeroCuenta.trim();
     if (data.titularCuenta) negocio.titularCuenta = data.titularCuenta.trim();
 
+    // 🛡️ RESTRICCIÓN: No permitir cambiar tiempos si hay pedidos activos (CRÍTICOS)
+    // Solo bloqueamos si el valor enviado es REALMENTE diferente al actual
+    const isChangingPrepTimes = 
+      (data.tiempoPreparacionMin !== undefined && data.tiempoPreparacionMin !== negocio.tiempoPreparacionMin) || 
+      (data.tiempoPreparacionMax !== undefined && data.tiempoPreparacionMax !== negocio.tiempoPreparacionMax) ||
+      (data.permiteProductosProgramados !== undefined && data.permiteProductosProgramados !== negocio.permiteProductosProgramados) ||
+      (data.tiempoProgramadoMin !== undefined && data.tiempoProgramadoMin !== negocio.tiempoProgramadoMin) ||
+      (data.tiempoProgramadoMax !== undefined && data.tiempoProgramadoMax !== negocio.tiempoProgramadoMax);
+
+    if (isChangingPrepTimes) {
+      const { Pedido, EstadoPedido } = await import("../../data");
+      const { Not, In } = await import("typeorm");
+      
+      const activeOrdersCount = await Pedido.count({
+        where: {
+          negocio: { id: id },
+          estado: Not(In([EstadoPedido.ENTREGADO, EstadoPedido.CANCELADO]))
+        }
+      });
+
+      if (activeOrdersCount > 0) {
+        throw CustomError.badRequest(
+          `No puedes cambiar los tiempos de preparación o configuración de pedidos programados mientras tengas ${activeOrdersCount} pedido(s) activo(s) en curso. Finaliza tus pedidos actuales primero.`
+        );
+      }
+    }
+
     if (data.tiempoPreparacionMin !== undefined) negocio.tiempoPreparacionMin = data.tiempoPreparacionMin;
     if (data.tiempoPreparacionMax !== undefined) negocio.tiempoPreparacionMax = data.tiempoPreparacionMax;
     if (data.permiteProductosProgramados !== undefined) negocio.permiteProductosProgramados = data.permiteProductosProgramados;
