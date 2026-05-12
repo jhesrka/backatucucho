@@ -1,4 +1,5 @@
 import { BaseEntity, Column, Entity, ManyToOne, PrimaryGeneratedColumn, CreateDateColumn, JoinColumn } from "typeorm";
+// Entity for forensic order traceability logs
 import { Pedido } from "./Pedido";
 import { UserMotorizado } from "./UserMotorizado";
 
@@ -22,10 +23,22 @@ export class PedidoOperativoLog extends BaseEntity {
     motorizado: UserMotorizado;
 
     @Column("uuid", { nullable: true })
-    adminId: string; // El admin que realizó la acción manual
+    adminId: string; 
+
+    @Column("varchar", { nullable: true })
+    actorTipo: 'SISTEMA' | 'CLIENTE' | 'NEGOCIO' | 'MOTORIZADO' | 'ADMIN';
+
+    @Column("uuid", { nullable: true })
+    actorId: string;
+
+    @Column("varchar", { nullable: true })
+    estadoAnterior: string;
+
+    @Column("varchar", { nullable: true })
+    estadoNuevo: string;
 
     @Column("varchar")
-    evento: string; // e.g., "PEDIDO_CREADO", "NEGOCIO_ACEPTO", "PROPUESTA_ENVIADA", "MOTORIZADO_ACEPTO", "MOTORIZADO_RECHAZO", "ASIGNADO_MANUAL", "LIBERADO_MANUAL", "CANCELADO_ADMIN"
+    evento: string; 
 
     @Column("text", { nullable: true })
     detalle: string;
@@ -37,12 +50,20 @@ export class PedidoOperativoLog extends BaseEntity {
         pedidoId,
         motorizadoId,
         adminId,
+        actorTipo = 'SISTEMA',
+        actorId,
+        estadoAnterior,
+        estadoNuevo,
         evento,
         detalle
     }: {
         pedidoId: string;
         motorizadoId?: string;
         adminId?: string;
+        actorTipo?: 'SISTEMA' | 'CLIENTE' | 'NEGOCIO' | 'MOTORIZADO' | 'ADMIN';
+        actorId?: string;
+        estadoAnterior?: string;
+        estadoNuevo?: string;
         evento: string;
         detalle?: string;
     }) {
@@ -50,6 +71,10 @@ export class PedidoOperativoLog extends BaseEntity {
         log.pedidoId = pedidoId;
         log.motorizadoId = motorizadoId || null as any;
         log.adminId = adminId || null as any;
+        log.actorTipo = actorTipo;
+        log.actorId = actorId || null as any;
+        log.estadoAnterior = estadoAnterior || null as any;
+        log.estadoNuevo = estadoNuevo || null as any;
         log.evento = evento;
         log.detalle = detalle || null as any;
         await log.save();

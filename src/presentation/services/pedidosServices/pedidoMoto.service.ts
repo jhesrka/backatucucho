@@ -299,6 +299,8 @@ export class PedidoMotoService {
       await PedidoOperativoLog.registrarEvento({
         pedidoId: pedido.id,
         motorizadoId: moto.id,
+        actorTipo: 'SISTEMA',
+        estadoNuevo: EstadoPedido.PREPARANDO,
         evento: "PROPUESTA_ENVIADA",
         detalle: `Ronda ${pedido.rondaAsignacion}, Intento ${pedido.intentosEnRonda}`
       });
@@ -431,6 +433,17 @@ export class PedidoMotoService {
     moto.estadoTrabajo = EstadoTrabajoMotorizado.ENTREGANDO;
     await moto.save();
 
+    await PedidoOperativoLog.registrarEvento({
+      pedidoId,
+      motorizadoId,
+      actorTipo: 'MOTORIZADO',
+      actorId: motorizadoId,
+      estadoAnterior: EstadoPedido.PREPARANDO,
+      estadoNuevo: EstadoPedido.PREPARANDO_ASIGNADO,
+      evento: "MOTORIZADO_ACEPTO",
+      detalle: "El motorizado aceptó la propuesta de entrega"
+    });
+
     const io = getIO();
     const updateData = {
       pedidoId,
@@ -478,6 +491,8 @@ export class PedidoMotoService {
     await PedidoOperativoLog.registrarEvento({
       pedidoId,
       motorizadoId,
+      actorTipo: 'MOTORIZADO',
+      actorId: motorizadoId,
       evento: "MOTORIZADO_RECHAZO",
       detalle: "El motorizado rechazó manualmente la propuesta"
     });
@@ -538,6 +553,10 @@ export class PedidoMotoService {
     await PedidoOperativoLog.registrarEvento({
       pedidoId,
       motorizadoId,
+      actorTipo: 'MOTORIZADO',
+      actorId: motorizadoId,
+      estadoAnterior: EstadoPedido.PREPARANDO_ASIGNADO,
+      estadoNuevo: EstadoPedido.EN_CAMINO,
       evento: "PEDIDO_EN_CAMINO",
       detalle: "El motorizado recogió el pedido y marcó inicio de ruta"
     });
@@ -582,6 +601,10 @@ export class PedidoMotoService {
     await PedidoOperativoLog.registrarEvento({
       pedidoId,
       motorizadoId,
+      actorTipo: 'MOTORIZADO',
+      actorId: motorizadoId,
+      estadoAnterior: EstadoPedido.EN_CAMINO,
+      estadoNuevo: EstadoPedido.ENTREGADO,
       evento: "PEDIDO_ENTREGADO",
       detalle: "Pedido finalizado exitosamente"
     });
@@ -741,6 +764,13 @@ export class PedidoMotoService {
     pedido.comision_app_domicilio = 0;
     pedido.costoEnvio = 0;
     await pedido.save();
+
+    await PedidoOperativoLog.registrarEvento({
+      pedidoId,
+      motorizadoId,
+      evento: "MOTORIZADO_CANCELO",
+      detalle: `El motorizado canceló el pedido en ruta. Motivo: ${motivo}`
+    });
 
     await this.normalizarEstadoLibreMotorizado(moto);
 

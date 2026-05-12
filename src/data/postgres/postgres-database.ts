@@ -303,6 +303,18 @@ export class PostgresDatabase {
         ALTER TABLE "producto" ADD COLUMN IF NOT EXISTS "tipoProducto" VARCHAR DEFAULT 'NORMAL';
       `);
 
+      await runMigrationStep("Step 17: Forensic Audit Columns", `
+        ALTER TABLE "pedido_operativo_log" ADD COLUMN IF NOT EXISTS "actorTipo" VARCHAR DEFAULT NULL;
+        ALTER TABLE "pedido_operativo_log" ADD COLUMN IF NOT EXISTS "actorId" UUID DEFAULT NULL;
+        ALTER TABLE "pedido_operativo_log" ADD COLUMN IF NOT EXISTS "estadoAnterior" VARCHAR DEFAULT NULL;
+        ALTER TABLE "pedido_operativo_log" ADD COLUMN IF NOT EXISTS "estadoNuevo" VARCHAR DEFAULT NULL;
+      `);
+
+      await runMigrationStep("Step 18: Audit Log Timestamps alignment", async () => {
+        await this.datasource.query(`SET timezone = 'UTC';`);
+        await this.datasource.query(`ALTER TABLE "pedido_operativo_log" ALTER COLUMN "createdAt" TYPE timestamptz;`);
+      });
+
       console.log("✅ Safety check completed. All manual migrations are synced.");
     } catch (error) {
       console.log("DB Connection Error:", error);

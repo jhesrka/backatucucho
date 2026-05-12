@@ -1,7 +1,9 @@
 import {
     Negocio,
-    Status,
+    EstadoPedido,
     User,
+    PedidoOperativoLog,
+    Status,
 } from "../../data";
 import { CustomError, LoginUserDTO } from "../../domain";
 import { encriptAdapter, envs, JwtAdapter } from "../../config";
@@ -321,6 +323,7 @@ export class BusinessService {
         // 2. ACEPTADO -> PREPARANDO
         // 3. PENDIENTE -> CANCELADO (Rechazo)
 
+
         if (status === EstadoPedido.ACEPTADO) {
             if (order.estado !== EstadoPedido.PENDIENTE) {
                 throw CustomError.badRequest("Solo se pueden aceptar pedidos en estado PENDIENTE");
@@ -343,23 +346,45 @@ export class BusinessService {
                     });
                 }
 
+                await PedidoOperativoLog.registrarEvento({
+                    pedidoId: order.id,
+                    actorTipo: 'SISTEMA',
+                    estadoAnterior: EstadoPedido.PENDIENTE,
+                    estadoNuevo: EstadoPedido.CANCELADO,
+                    evento: "PEDIDO_AUTO_CANCELADO",
+                    detalle: "El tiempo para aceptar el pedido expiró en el servidor"
+                });
+
                 throw CustomError.badRequest("El tiempo para aceptar este pedido ha expirado y ha sido cancelado automáticamente");
             }
 
             order.estado = EstadoPedido.ACEPTADO;
             order.fecha_aceptado = new Date();
-        } else if (status === EstadoPedido.PREPARANDO) {
-            // Permitir paso directo de PENDIENTE a PREPARANDO por compatibilidad o solo de ACEPTADO? 
-            // Usuario dice: "Al presionar Listo (en estado Aceptado): El pedido pasa a PREPARANDO".
-            // Asumimos flujo estricto: PENDIENTE -> ACEPTADO -> PREPARANDO.
-            // Pero mantendremos PENDIENTE -> PREPARANDO por si acaso el frontend antiguo sigue enviando directo, 
-            // aunque el usuario solicita el nuevo flujo.
-            // Update: User request implicit "Al presionar Aceptar... pasa a ACEPTADO". 
 
+            await PedidoOperativoLog.registrarEvento({
+                pedidoId: order.id,
+                actorTipo: 'NEGOCIO',
+                actorId: businessId,
+                estadoAnterior: EstadoPedido.PENDIENTE,
+                estadoNuevo: EstadoPedido.ACEPTADO,
+                evento: "NEGOCIO_ACEPTO",
+                detalle: "El restaurante aceptó el pedido e inició el cronómetro de preparación"
+            });
+        } else if (status === EstadoPedido.PREPARANDO) {
             if (order.estado !== EstadoPedido.ACEPTADO && order.estado !== EstadoPedido.PENDIENTE) {
                 throw CustomError.badRequest("El pedido debe estar ACEPTADO para pasar a PREPARANDO");
             }
             order.estado = EstadoPedido.PREPARANDO;
+
+            await PedidoOperativoLog.registrarEvento({
+                pedidoId: order.id,
+                actorTipo: 'NEGOCIO',
+                actorId: businessId,
+                estadoAnterior: EstadoPedido.ACEPTADO,
+                estadoNuevo: EstadoPedido.PREPARANDO,
+                evento: "NEGOCIO_LISTO",
+                detalle: "El restaurante marcó el pedido como 'Listo para Recoger' (Inicia búsqueda de motorizado)"
+            });
         } else if (status === EstadoPedido.CANCELADO) {
             // Regla 4: "Un pedido solo puede ser rechazado en estado PENDIENTE"
             if (order.estado !== EstadoPedido.PENDIENTE) {
@@ -368,6 +393,16 @@ export class BusinessService {
             if (!motivoCancelacion) throw CustomError.badRequest("Se requiere un motivo para cancelar");
             order.estado = EstadoPedido.CANCELADO;
             order.motivoCancelacion = motivoCancelacion;
+
+            await PedidoOperativoLog.registrarEvento({
+                pedidoId: order.id,
+                actorTipo: 'NEGOCIO',
+                actorId: businessId,
+                estadoAnterior: EstadoPedido.PENDIENTE,
+                estadoNuevo: EstadoPedido.CANCELADO,
+                evento: "NEGOCIO_RECHAZO",
+                detalle: `El restaurante rechazó el pedido. Motivo: ${motivoCancelacion}`
+            });
         } else {
             throw CustomError.badRequest("Estado no permitido para el negocio");
         }

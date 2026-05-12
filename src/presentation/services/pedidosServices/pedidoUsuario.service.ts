@@ -12,6 +12,7 @@ import {
   PriceSettings,
   Producto,
   UserMotorizado,
+  PedidoOperativoLog,
 } from "../../../data";
 import {
   CreatePedidoDTO,
@@ -68,6 +69,15 @@ export class PedidoUsuarioService {
       pedido.estadoPago = "PAGADO" as any;
       pedido.referenciaPago = id.toString();
       await pedido.save();
+
+      await PedidoOperativoLog.registrarEvento({
+        pedidoId: pedido.id,
+        actorTipo: 'CLIENTE',
+        actorId: pedido.cliente.id,
+        estadoNuevo: EstadoPedido.PENDIENTE,
+        evento: "PEDIDO_CREADO",
+        detalle: `Pedido creado y pagado vía Tarjeta/Payphone. Ref: ${id}`
+      });
       
       getIO().to(pedido.negocio.id).emit("nuevo_pedido", {
         id: pedido.id, estado: pedido.estado, total: pedido.total, productos: pedido.productos,
@@ -161,6 +171,15 @@ export class PedidoUsuarioService {
     pedido.comision_app_domicilio = comisionAppEnvio;
 
     const guardado = await pedido.save();
+
+    await PedidoOperativoLog.registrarEvento({
+      pedidoId: guardado.id,
+      actorTipo: 'CLIENTE',
+      actorId: clienteId,
+      estadoNuevo: pedido.estado,
+      evento: "PEDIDO_CREADO",
+      detalle: `Pedido creado vía ${metodoPago}`
+    });
     
     let payphone = null;
     if (metodoPago === "TARJETA") {
@@ -495,6 +514,13 @@ export class PedidoUsuarioService {
               ? "Cierre operativo nocturno: Pedido expirado sin finalizar."
               : "Cancelación automática por demora excesiva en la preparación sin respuesta del cliente.";
             await pedido.save();
+
+            const { PedidoOperativoLog } = await import("../../../data/postgres/models/PedidoOperativoLog");
+            await PedidoOperativoLog.registrarEvento({
+              pedidoId: pedido.id,
+              evento: "PEDIDO_AUTO_CANCELADO",
+              detalle: pedido.motivoCancelacion
+            });
 
             io.emit("pedido_actualizado", { id: pedido.id, estado: pedido.estado });
             io.emit("admin_live_update", { type: 'ORDER_UPDATED', pedidoId: pedido.id });

@@ -102,10 +102,11 @@ export class PedidoAdminController {
             },
             productos: p.productos.map((prod) => ({
               id: prod.id,
-              nombre: prod.producto.nombre,
+              nombre: prod.producto?.nombre || prod.producto_nombre,
               cantidad: prod.cantidad,
               precio_unitario: prod.precio_venta,
               precio_venta: prod.precio_venta,
+              precio_app: prod.precio_app,
               subtotal: prod.subtotal,
             })),
           }));

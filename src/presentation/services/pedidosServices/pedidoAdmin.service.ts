@@ -163,7 +163,10 @@ export class PedidoAdminService {
     await PedidoOperativoLog.registrarEvento({
       pedidoId: pedido.id,
       motorizadoId: pedido.motorizado?.id,
-      adminId: dto.userId, // ID del admin que hizo la acción
+      actorTipo: 'ADMIN',
+      actorId: dto.userId,
+      estadoAnterior,
+      estadoNuevo: dto.nuevoEstado,
       evento: "CAMBIO_ESTADO_ADMIN",
       detalle: `Admin cambió estado de ${estadoAnterior} a ${dto.nuevoEstado}.${dto.motivoCancelacion ? ` Motivo: ${dto.motivoCancelacion}` : ''}`
     });
@@ -217,7 +220,10 @@ export class PedidoAdminService {
     await PedidoOperativoLog.registrarEvento({
       pedidoId,
       motorizadoId: moto.id,
-      adminId,
+      actorTipo: 'ADMIN',
+      actorId: adminId,
+      estadoAnterior: pedido.estado,
+      estadoNuevo: EstadoPedido.ENTREGADO,
       evento: "PEDIDO_ENTREGADO_EMERGENCIA",
       detalle: "El administrador forzó la entrega de emergencia del pedido"
     });
@@ -382,7 +388,10 @@ export class PedidoAdminService {
       await PedidoOperativoLog.registrarEvento({
         pedidoId: pedido.id,
         motorizadoId: motorizado.id,
-        adminId,
+        actorTipo: 'ADMIN',
+        actorId: adminId,
+        estadoAnterior: estadoOriginal,
+        estadoNuevo: pedido.estado,
         evento: "ASIGNADO_MANUAL",
         detalle: `Reasignación Admin (${estadoOriginal}). ${motorizadoAnteriorId ? `Reemplaza a motorizado ${motorizadoAnteriorId}.` : ''}`
       });
@@ -449,7 +458,8 @@ export class PedidoAdminService {
     await PedidoOperativoLog.registrarEvento({
       pedidoId: pedidoFantasma?.id || '00000000-0000-0000-0000-000000000000',
       motorizadoId,
-      adminId,
+      actorTipo: 'ADMIN',
+      actorId: adminId,
       evento: "LIBERADO_MANUAL",
       detalle: `Liberado por admin. Estado anterior: ${estadoAnterior}. Comentario: ${comment}`
     });
@@ -770,8 +780,20 @@ export class PedidoAdminService {
       throw CustomError.badRequest("El pedido no está en estado EN_CAMINO");
     }
 
+    const estadoAnterior = pedido.estado;
     pedido.estado = nuevoEstado;
     await pedido.save();
+
+    await PedidoOperativoLog.registrarEvento({
+      pedidoId: pedido.id,
+      motorizadoId: motorizadoId,
+      actorTipo: 'MOTORIZADO',
+      actorId: motorizadoId,
+      estadoAnterior: estadoAnterior,
+      estadoNuevo: nuevoEstado,
+      evento: nuevoEstado === EstadoPedido.ENTREGADO ? "PEDIDO_ENTREGADO" : "MOTORIZADO_CANCELO",
+      detalle: nuevoEstado === EstadoPedido.ENTREGADO ? "El motorizado entregó el pedido" : "El motorizado canceló el pedido"
+    });
 
     const pRel = await Pedido.findOne({ where: { id: pedido.id }, relations: ["cliente", "negocio"] });
 
