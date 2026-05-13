@@ -15,7 +15,6 @@ import {
   EstadoTransaccion,
 } from "../../../data";
 import { GlobalSettings } from "../../../data/postgres/models/global-settings.model";
-import { PedidoOperativoLog } from "../../../data/postgres/models/PedidoOperativoLog";
 import { getIO } from "../../../config/socket";
 import {
   AsignarMotorizadoDTO,
@@ -159,18 +158,6 @@ export class PedidoAdminService {
 
     await pedido.save();
 
-    // Registrar en Log Operativo
-    await PedidoOperativoLog.registrarEvento({
-      pedidoId: pedido.id,
-      motorizadoId: pedido.motorizado?.id,
-      actorTipo: 'ADMIN',
-      actorId: dto.userId,
-      estadoAnterior,
-      estadoNuevo: dto.nuevoEstado,
-      evento: "CAMBIO_ESTADO_ADMIN",
-      detalle: `Admin cambió estado de ${estadoAnterior} a ${dto.nuevoEstado}.${dto.motivoCancelacion ? ` Motivo: ${dto.motivoCancelacion}` : ''}`
-    });
-
     const pRel = await Pedido.findOne({ where: { id: pedido.id }, relations: ["cliente", "negocio"] });
     
     const io = getIO();
@@ -216,17 +203,6 @@ export class PedidoAdminService {
     pedido.estado = EstadoPedido.ENTREGADO;
     pedido.delivery_verified = true; // Forzado por admin
     await pedido.save();
-
-    await PedidoOperativoLog.registrarEvento({
-      pedidoId,
-      motorizadoId: moto.id,
-      actorTipo: 'ADMIN',
-      actorId: adminId,
-      estadoAnterior: pedido.estado,
-      estadoNuevo: EstadoPedido.ENTREGADO,
-      evento: "PEDIDO_ENTREGADO_EMERGENCIA",
-      detalle: "El administrador forzó la entrega de emergencia del pedido"
-    });
 
     // 1. Calcular Ganancia
     const ps = await PedidoMotoService.getPriceSettings();
@@ -384,18 +360,6 @@ export class PedidoAdminService {
       motorizado.estadoTrabajo = EstadoTrabajoMotorizado.ENTREGANDO;
       await manager.save(motorizado);
 
-      // Registrar evento con detalle del cambio de estado
-      await PedidoOperativoLog.registrarEvento({
-        pedidoId: pedido.id,
-        motorizadoId: motorizado.id,
-        actorTipo: 'ADMIN',
-        actorId: adminId,
-        estadoAnterior: estadoOriginal,
-        estadoNuevo: pedido.estado,
-        evento: "ASIGNADO_MANUAL",
-        detalle: `Reasignación Admin (${estadoOriginal}). ${motorizadoAnteriorId ? `Reemplaza a motorizado ${motorizadoAnteriorId}.` : ''}`
-      });
-
       // Notificar a las partes
       const io = getIO();
       const updateData = {
@@ -446,23 +410,6 @@ export class PedidoAdminService {
     
     motorizado.fechaHoraDisponible = new Date();
     await motorizado.save();
-
-    // Buscamos si tenía un pedido "fantasma" asignado
-    const pedidoFantasma = await Pedido.findOne({
-      where: [
-        { motorizado: { id: motorizadoId }, estado: EstadoPedido.PREPARANDO_ASIGNADO },
-        { motorizado: { id: motorizadoId }, estado: EstadoPedido.EN_CAMINO }
-      ]
-    });
-
-    await PedidoOperativoLog.registrarEvento({
-      pedidoId: pedidoFantasma?.id || '00000000-0000-0000-0000-000000000000',
-      motorizadoId,
-      actorTipo: 'ADMIN',
-      actorId: adminId,
-      evento: "LIBERADO_MANUAL",
-      detalle: `Liberado por admin. Estado anterior: ${estadoAnterior}. Comentario: ${comment}`
-    });
 
     const io = getIO();
     io.emit("admin_live_update", { type: 'MOTORIZADO_UPDATED', motorizadoId });
@@ -569,32 +516,6 @@ export class PedidoAdminService {
     const motorizadosEntregando = motorizadosFull.filter(m => m.estadoTrabajo === EstadoTrabajoMotorizado.ENTREGANDO).length;
     const pedidosTrabados = pedidosActivos.filter(p => p.updatedAt < fifteenMinAgo).length;
 
-    const rechazosRecientes = await PedidoOperativoLog.count({
-      where: {
-        evento: "MOTORIZADO_RECHAZO",
-        createdAt: Between(oneHourAgo, new Date())
-      }
-    });
-
-    // Tiempo promedio de asignación aproximado (últimos 10 éxitos)
-    const ultimasAceptaciones = await PedidoOperativoLog.find({
-      where: { evento: "MOTORIZADO_ACEPTO" },
-      take: 10,
-      order: { createdAt: "DESC" }
-    });
-
-    let avgAssignmentTime = 0;
-    if (ultimasAceptaciones.length > 0) {
-      const times = await Promise.all(ultimasAceptaciones.map(async log => {
-        const ped = await Pedido.findOne({ where: { id: log.pedidoId }, select: ["createdAt"] });
-        return ped ? (log.createdAt.getTime() - ped.createdAt.getTime()) : 0;
-      }));
-      const validTimes = times.filter(t => t > 0);
-      if (validTimes.length > 0) {
-        avgAssignmentTime = validTimes.reduce((a, b) => a + b, 0) / validTimes.length / 1000 / 60;
-      }
-    }
-
     // 5. Generar Alertas
     const alertas: any[] = [];
     motorizadosFull.forEach((m: any) => {
@@ -625,62 +546,14 @@ export class PedidoAdminService {
         motorizadosDisponibles,
         motorizadosEntregando,
         pedidosTrabados,
-        rechazosRecientes,
         retornosActivos,
-        finalizadosHoy,
-        avgAssignmentTime: Math.round(avgAssignmentTime)
+        finalizadosHoy
       },
       alertas
     };
   }
 
-  // ✅ 9. Obtener trazabilidad completa de un pedido
-  async getPedidoTrazabilidad(pedidoId: string) {
-    const logs = await PedidoOperativoLog.find({
-      where: { pedidoId },
-      order: { createdAt: "DESC" },
-      relations: ["motorizado"]
-    });
 
-    return logs;
-  }
-
-  // ✅ 10. Obtener trazabilidad global (últimos logs operativos con filtros)
-  async getGlobalTrazabilidad(options: { 
-    limit?: number; 
-    offset?: number; 
-    fecha?: string; 
-    excludeEvents?: string[] 
-  }) {
-    const { limit = 15, offset = 0, fecha, excludeEvents = [] } = options;
-
-    const queryBuilder = PedidoOperativoLog.createQueryBuilder("log")
-      .leftJoinAndSelect("log.motorizado", "motorizado")
-      .orderBy("log.createdAt", "DESC")
-      .take(limit)
-      .skip(offset);
-
-    if (excludeEvents.length > 0) {
-      queryBuilder.andWhere("log.evento NOT IN (:...excludeEvents)", { excludeEvents });
-    }
-
-    if (fecha) {
-      // Ajustar para cubrir todo el día especificado
-      const startOfDay = new Date(fecha);
-      startOfDay.setHours(0, 0, 0, 0);
-      
-      const endOfDay = new Date(fecha);
-      endOfDay.setHours(23, 59, 59, 999);
-      
-      queryBuilder.andWhere("log.createdAt BETWEEN :start AND :end", { 
-        start: startOfDay, 
-        end: endOfDay 
-      });
-    }
-
-    const [logs, total] = await queryBuilder.getManyAndCount();
-    return { logs, total };
-  }
 
   // ✅ Helper: Verificar PIN Maestro
   async verifyMasterPin(pin: string) {
@@ -707,22 +580,6 @@ export class PedidoAdminService {
     const retentionDays = settings.orderRetentionDays;
     const cutoffDateOrders = new Date();
     cutoffDateOrders.setDate(cutoffDateOrders.getDate() - retentionDays);
-
-    // Los reportes operativos se borran cada 30 días (solicitud user)
-    const cutoffDateLogs = new Date();
-    cutoffDateLogs.setDate(cutoffDateLogs.getDate() - 30);
-
-    // 1. Purgar Logs Operativos antiguos
-    const oldLogs = await PedidoOperativoLog.find({
-      where: {
-        createdAt: LessThan(cutoffDateLogs)
-      }
-    });
-
-    if (oldLogs.length > 0) {
-      await PedidoOperativoLog.remove(oldLogs);
-      console.log(`🧹 Auditoría: ${oldLogs.length} registros operativos eliminados (+30 días).`);
-    }
 
     // 2. Purgar Pedidos antiguos
     const pedidos = await Pedido.find({
@@ -783,17 +640,6 @@ export class PedidoAdminService {
     const estadoAnterior = pedido.estado;
     pedido.estado = nuevoEstado;
     await pedido.save();
-
-    await PedidoOperativoLog.registrarEvento({
-      pedidoId: pedido.id,
-      motorizadoId: motorizadoId,
-      actorTipo: 'MOTORIZADO',
-      actorId: motorizadoId,
-      estadoAnterior: estadoAnterior,
-      estadoNuevo: nuevoEstado,
-      evento: nuevoEstado === EstadoPedido.ENTREGADO ? "PEDIDO_ENTREGADO" : "MOTORIZADO_CANCELO",
-      detalle: nuevoEstado === EstadoPedido.ENTREGADO ? "El motorizado entregó el pedido" : "El motorizado canceló el pedido"
-    });
 
     const pRel = await Pedido.findOne({ where: { id: pedido.id }, relations: ["cliente", "negocio"] });
 

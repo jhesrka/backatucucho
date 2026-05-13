@@ -46,38 +46,8 @@ export class PedidoOperativoLog extends BaseEntity {
     @CreateDateColumn()
     createdAt: Date;
 
-    static async registrarEvento({
-        pedidoId,
-        motorizadoId,
-        adminId,
-        actorTipo = 'SISTEMA',
-        actorId,
-        estadoAnterior,
-        estadoNuevo,
-        evento,
-        detalle
-    }: {
-        pedidoId: string;
-        motorizadoId?: string;
-        adminId?: string;
-        actorTipo?: 'SISTEMA' | 'CLIENTE' | 'NEGOCIO' | 'MOTORIZADO' | 'ADMIN';
-        actorId?: string;
-        estadoAnterior?: string;
-        estadoNuevo?: string;
-        evento: string;
-        detalle?: string;
-    }) {
-        const log = new PedidoOperativoLog();
-        log.pedidoId = pedidoId;
-        log.motorizadoId = motorizadoId || null as any;
-        log.adminId = adminId || null as any;
-        log.actorTipo = actorTipo;
-        log.actorId = actorId || null as any;
-        log.estadoAnterior = estadoAnterior || null as any;
-        log.estadoNuevo = estadoNuevo || null as any;
-        log.evento = evento;
-        log.detalle = detalle || null as any;
-        await log.save();
-        return log;
+    static async registrarEvento(_data: any) {
+        // Auditoría desactivada por requerimiento de administrador para evitar acumulación de datos.
+        return null;
     }
 }

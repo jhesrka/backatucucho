@@ -66,17 +66,9 @@ export class PedidoAdminRoutes {
       controller.liberarMotorizado
     );
 
-    router.get(
-      "/trazabilidad-global",
-      AuthAdminMiddleware.protect,
-      controller.getGlobalTrazabilidad
-    );
 
-    router.get(
-      "/trazabilidad/:pedidoId",
-      AuthAdminMiddleware.protect,
-      controller.getPedidoTrazabilidad
-    );
+
+
 
     router.patch(
       "/motorizado/estado",

@@ -227,8 +227,13 @@ export class MotorizadoController {
   // 📜 Obtener historial de transacciones (Admin)
   getTransactions = (req: Request, res: Response) => {
     const { id } = req.params;
-    const { page = 1, limit = 20 } = req.query;
-    this.motorizadoService.getTransactions(id, Number(page), Number(limit))
+    const { page = 1, limit = 20, startDate, endDate } = req.query;
+    this.motorizadoService.getTransactions(id, {
+      page: Number(page),
+      limit: Number(limit),
+      startDate: startDate as string,
+      endDate: endDate as string
+    })
       .then(data => res.json(data))
       .catch(error => this.handleError(error, res));
   };

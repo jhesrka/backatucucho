@@ -582,16 +582,35 @@ export class UserMotorizadoService {
   }
 
   // ✅ Historial de transacciones de billetera (Admin)
-  async getTransactions(motorizadoId: string, page: number = 1, limit: number = 20) {
+  async getTransactions(
+    motorizadoId: string,
+    options: {
+      page?: number;
+      limit?: number;
+      startDate?: string;
+      endDate?: string;
+    }
+  ) {
+    const { page = 1, limit = 20, startDate, endDate } = options;
     const skip = (page - 1) * limit;
 
-    const [transactions, total] = await TransaccionMotorizado.findAndCount({
-      where: { motorizado: { id: motorizadoId } },
-      order: { createdAt: "DESC" },
-      skip,
-      take: limit,
-      relations: ['pedido'] // Incluir pedido si existe
-    });
+    const query = TransaccionMotorizado.createQueryBuilder("t")
+      .leftJoinAndSelect("t.pedido", "pedido")
+      .where("t.motorizadoId = :id", { id: motorizadoId });
+
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      query.andWhere("t.createdAt BETWEEN :start AND :end", { start, end });
+    }
+
+    query.orderBy("t.createdAt", "DESC")
+      .skip(skip)
+      .take(limit);
+
+    const [transactions, total] = await query.getManyAndCount();
 
     return {
       transactions,

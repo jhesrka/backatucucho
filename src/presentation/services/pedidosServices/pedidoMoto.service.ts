@@ -15,7 +15,6 @@ import {
   WalletMovementType,
   WalletMovementStatus,
 } from "../../../data";
-import { PedidoOperativoLog } from "../../../data/postgres/models/PedidoOperativoLog";
 import moment from "moment-timezone";
 
 import { getIO } from "../../../config/socket";
@@ -291,19 +290,8 @@ export class PedidoMotoService {
       moto.estadoTrabajo = EstadoTrabajoMotorizado.EN_EVALUACION;
       await manager.save(moto);
 
-      // Liberar lock lógico
       pedido.asignacionBloqueada = false;
       await manager.save(pedido);
-
-      // Registrar propuesta
-      await PedidoOperativoLog.registrarEvento({
-        pedidoId: pedido.id,
-        motorizadoId: moto.id,
-        actorTipo: 'SISTEMA',
-        estadoNuevo: EstadoPedido.PREPARANDO,
-        evento: "PROPUESTA_ENVIADA",
-        detalle: `Ronda ${pedido.rondaAsignacion}, Intento ${pedido.intentosEnRonda}`
-      });
 
       // Preparar datos para notificar fuera de la transacción
       const timeout = await this.getTimeout();
@@ -433,17 +421,6 @@ export class PedidoMotoService {
     moto.estadoTrabajo = EstadoTrabajoMotorizado.ENTREGANDO;
     await moto.save();
 
-    await PedidoOperativoLog.registrarEvento({
-      pedidoId,
-      motorizadoId,
-      actorTipo: 'MOTORIZADO',
-      actorId: motorizadoId,
-      estadoAnterior: EstadoPedido.PREPARANDO,
-      estadoNuevo: EstadoPedido.PREPARANDO_ASIGNADO,
-      evento: "MOTORIZADO_ACEPTO",
-      detalle: "El motorizado aceptó la propuesta de entrega"
-    });
-
     const io = getIO();
     const updateData = {
       pedidoId,
@@ -487,15 +464,6 @@ export class PedidoMotoService {
     if (moto) {
       await this.normalizarEstadoLibreMotorizado(moto);
     }
-
-    await PedidoOperativoLog.registrarEvento({
-      pedidoId,
-      motorizadoId,
-      actorTipo: 'MOTORIZADO',
-      actorId: motorizadoId,
-      evento: "MOTORIZADO_RECHAZO",
-      detalle: "El motorizado rechazó manualmente la propuesta"
-    });
 
     const rondaActual = pedido.rondaAsignacion || 1;
     const maxRondas = await this.getMaxRondas();
@@ -550,17 +518,6 @@ export class PedidoMotoService {
     pedido.delivery_verified = false;
     await pedido.save();
 
-    await PedidoOperativoLog.registrarEvento({
-      pedidoId,
-      motorizadoId,
-      actorTipo: 'MOTORIZADO',
-      actorId: motorizadoId,
-      estadoAnterior: EstadoPedido.PREPARANDO_ASIGNADO,
-      estadoNuevo: EstadoPedido.EN_CAMINO,
-      evento: "PEDIDO_EN_CAMINO",
-      detalle: "El motorizado recogió el pedido y marcó inicio de ruta"
-    });
-
     const io = getIO();
     const updateData = {
       pedidoId,
@@ -597,17 +554,6 @@ export class PedidoMotoService {
     pedido.estado = EstadoPedido.ENTREGADO;
     pedido.delivery_verified = true;
     await pedido.save();
-
-    await PedidoOperativoLog.registrarEvento({
-      pedidoId,
-      motorizadoId,
-      actorTipo: 'MOTORIZADO',
-      actorId: motorizadoId,
-      estadoAnterior: EstadoPedido.EN_CAMINO,
-      estadoNuevo: EstadoPedido.ENTREGADO,
-      evento: "PEDIDO_ENTREGADO",
-      detalle: "Pedido finalizado exitosamente"
-    });
 
     const ps = await this.getPriceSettings();
     const porcentaje = Number(ps.motorizadoPercentage || 80);
@@ -764,13 +710,6 @@ export class PedidoMotoService {
     pedido.comision_app_domicilio = 0;
     pedido.costoEnvio = 0;
     await pedido.save();
-
-    await PedidoOperativoLog.registrarEvento({
-      pedidoId,
-      motorizadoId,
-      evento: "MOTORIZADO_CANCELO",
-      detalle: `El motorizado canceló el pedido en ruta. Motivo: ${motivo}`
-    });
 
     await this.normalizarEstadoLibreMotorizado(moto);
 

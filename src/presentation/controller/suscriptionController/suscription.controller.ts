@@ -188,7 +188,7 @@ export class SubscriptionController {
    */
   activateSubscriptionWithoutCharge = async (req: Request, res: Response) => {
     try {
-      const { userId, masterPin, plan } = req.body;
+      const { userId, masterPin, plan, days } = req.body;
 
       if (!userId || !masterPin) {
         return res.status(400).json({ message: "userId y masterPin son requeridos" });
@@ -197,7 +197,8 @@ export class SubscriptionController {
       const subscription = await this.subscriptionService.activateSubscriptionWithoutCharge(
         userId,
         masterPin,
-        plan
+        plan,
+        days ? Number(days) : undefined
       );
 
       res.json({
@@ -302,6 +303,32 @@ export class SubscriptionController {
       res.json({
         success: true,
         message: "PIN maestro actualizado correctamente"
+      });
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  };
+
+  /**
+   * 🔐 Verificar Master PIN
+   */
+  verifyMasterPin = async (req: Request, res: Response) => {
+    try {
+      const { masterPin } = req.body;
+
+      if (!masterPin) {
+        return res.status(400).json({ message: "masterPin es requerido" });
+      }
+
+      const isValid = await this.subscriptionService.validateMasterPin(masterPin);
+
+      if (!isValid) {
+        return res.status(403).json({ message: "PIN Maestro incorrecto" });
+      }
+
+      res.json({
+        success: true,
+        message: "PIN validado correctamente"
       });
     } catch (error) {
       this.handleError(error, res);

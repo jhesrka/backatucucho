@@ -701,6 +701,18 @@ export class RechargeRequestService {
         transaction.resultingBalance = newBalance;
         await transaction.save();
       }
+
+      // 🚀 RECUPERACIÓN DE SUSCRIPCIÓN EN TIEMPO REAL
+      // Si el usuario tenía una membresía vencida con autorenovación, 
+      // intentamos cobrarla inmediatamente ahora que tiene saldo.
+      try {
+        const { SubscriptionService } = require("../postService/subscription.service");
+        const subService = new SubscriptionService();
+        await subService.checkAndRecoverSubscription(request.user.id);
+      } catch (subError) {
+        console.error("[Recharge-SubRecovery] Error al intentar recuperar suscripción:", subError);
+        // No lanzamos error aquí para no revertir la recarga aprobada
+      }
     } else if (status === StatusRecarga.RECHAZADO) {
       if (linkedTx) {
         linkedTx.status = 'REJECTED';

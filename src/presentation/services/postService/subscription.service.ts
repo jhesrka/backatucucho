@@ -59,13 +59,15 @@ export class SubscriptionService {
   }
 
   /**
-   * Activa o renueva una suscripción (30 días calendario, lunes a domingo).
+   * Activa o renueva una suscripción.
+   * Si se provee durationDays, se asume activación de cortesía (Costo $0).
    */
   async activateOrRenewSubscription(
     userId: string,
-    plan: SubscriptionPlan = SubscriptionPlan.BASIC
+    plan: SubscriptionPlan = SubscriptionPlan.BASIC,
+    durationDays?: number
   ): Promise<Subscription> {
-    // Buscar usuario
+    // Buscar usuario y su wallet
     const user = await User.findOne({
       where: { id: userId },
       relations: ["wallet"],
@@ -77,92 +79,69 @@ export class SubscriptionService {
       throw CustomError.badRequest("Wallet no disponible o bloqueada");
     }
 
-    // Buscar suscripción por usuario y plan
-    let subscription = await Subscription.findOne({
-      where: { user: { id: userId }, plan },
-    });
-
     const now = new Date();
-    let newStartDate = now;
-    let newEndDate: Date = now; // inicialización obligatoria
+    let daysToAdd = durationDays || 30;
+    let finalCost = 0;
+    const isCourtesy = !!durationDays;
 
-    // Dynamic Settings Retrieval
-    const settings = await GlobalSettings.findOne({ where: {} });
-    let finalCost = 5.00;
-    let daysToAdd = 30;
-
-    if (settings) {
-      daysToAdd = settings.subscriptionBasicDurationDays || 30;
-      const promo = settings.subscriptionBasicPromoPrice ? Number(settings.subscriptionBasicPromoPrice) : 0;
-      const normal = Number(settings.subscriptionBasicPrice) || 5.00;
-      finalCost = promo > 0 ? promo : normal;
-    }
-
-    if (!subscription) {
-      // Crear nueva suscripción si no existía
-      subscription = new Subscription();
-      subscription.user = user;
-      subscription.plan = plan;
-      subscription.status = SubscriptionStatus.PENDIENTE;
-
-      // Fechas por calendario
-      subscription.startDate = now;
-      subscription.endDate = addDays(now, daysToAdd);
-
-      // Alinear con la actualización final (sin cambiar la lógica existente)
-      newStartDate = subscription.startDate;
-      newEndDate = subscription.endDate!;
-    } else {
-      if (subscription.isActive()) {
-        // Renovación: sumar días restantes
-        const remainingDays = Math.ceil(
-          (subscription.endDate!.getTime() - now.getTime()) /
-          (1000 * 60 * 60 * 24)
-        );
-        newStartDate = subscription.startDate!;
-        newEndDate = addDays(now, daysToAdd + Math.max(remainingDays, 0));
+    // Si no es cortesía, obtenemos el precio real
+    if (!isCourtesy) {
+      const settings = await GlobalSettings.findOne({ where: {} });
+      if (settings) {
+        daysToAdd = settings.subscriptionBasicDurationDays || 30;
+        const promo = settings.subscriptionBasicPromoPrice ? Number(settings.subscriptionBasicPromoPrice) : 0;
+        const normal = Number(settings.subscriptionBasicPrice) || 5.00;
+        finalCost = promo > 0 ? promo : normal;
       } else {
-        // Suscripción expirada: nueva activación (calendario)
-        newStartDate = now;
-        newEndDate = addDays(now, daysToAdd);
+        finalCost = 5.00;
+      }
+
+      if (Number(wallet.balance) < finalCost) {
+        throw CustomError.badRequest(`Saldo insuficiente. Requieres $${finalCost.toFixed(2)}`);
       }
     }
 
-    // Validar saldo
-    if (wallet.balance < finalCost) {
-      throw CustomError.badRequest(
-        `Saldo insuficiente para activar la suscripción. Costo: $${finalCost.toFixed(2)}`
-      );
-    }
+    // Buscar suscripción actual para extenderla si está activa
+    let subscription = await Subscription.findOne({ where: { user: { id: userId }, plan } });
 
-    // Create Transaction for Audit
+    let baseDate = (subscription && subscription.endDate && subscription.endDate > now) ? subscription.endDate : now;
+    const newEndDate = addDays(baseDate, daysToAdd);
+    newEndDate.setHours(23, 59, 59, 999);
+
+    // Auditoría en Wallet
     const transaction = new Transaction();
     transaction.wallet = wallet;
     transaction.amount = finalCost;
-    transaction.type = 'debit';
+    transaction.type = isCourtesy ? 'credit' : 'debit'; // Regalo es informativo
     transaction.reason = TransactionReason.SUBSCRIPTION;
-    transaction.origin = TransactionOrigin.USER;
+    transaction.status = 'APPROVED';
     transaction.previousBalance = Number(wallet.balance);
-    transaction.resultingBalance = Number(wallet.balance) - finalCost;
-    transaction.observation = `Pago de suscripción: ${plan}`;
-    transaction.daysBought = daysToAdd;
-    transaction.prevEndDate = subscription.endDate || null;
-    transaction.newEndDate = newEndDate;
-    transaction.reference = subscription.id || null;
+    transaction.resultingBalance = isCourtesy ? Number(wallet.balance) : Number(wallet.balance) - finalCost;
+    transaction.observation = isCourtesy 
+      ? `CORTESÍA ADMINISTRATIVA: ${durationDays} días concedidos sin costo.` 
+      : `Pago de suscripción plan ${plan} (${daysToAdd} días)`;
 
     await transaction.save();
 
-    // Debitar Wallet
-    wallet.balance -= finalCost;
-    await wallet.save();
+    // Actualizar Wallet si hubo cobro
+    if (finalCost > 0) {
+      wallet.balance = Number(wallet.balance) - finalCost;
+      await wallet.save();
+    }
 
-    // Actualizar suscripción
-    subscription.startDate = newStartDate;
+    // Actualizar o crear suscripción
+    if (!subscription) {
+      subscription = new Subscription();
+      subscription.user = user;
+      subscription.plan = plan;
+    }
+
+    subscription.startDate = subscription.startDate || now;
     subscription.endDate = newEndDate;
     subscription.status = SubscriptionStatus.ACTIVA;
-    subscription.autoRenewal = true; // activar auto-renovación
+    subscription.autoRenewal = true;
+    
     await subscription.save();
-
     return subscription;
   }
 
@@ -245,11 +224,32 @@ export class SubscriptionService {
   /**
    * Actualizar suscripción (Admin)
    */
-  async updateSubscriptionAdmin(id: string, dto: { endDate?: Date; status?: SubscriptionStatus; autoRenewal?: boolean }) {
+  async updateSubscriptionAdmin(id: string, dto: { endDate?: string | Date; status?: SubscriptionStatus; autoRenewal?: boolean }) {
     const subscription = await Subscription.findOneBy({ id });
     if (!subscription) throw CustomError.notFound("Suscripción no encontrada");
 
-    if (dto.endDate) subscription.endDate = new Date(dto.endDate);
+    if (dto.endDate) {
+      // 🛡️ SOLUCIÓN DEFINITIVA: Extraer solo la parte de la fecha (YYYY-MM-DD) 
+      // ignorando cualquier desfase que traiga el string original.
+      const datePart = dto.endDate.toString().split('T')[0];
+      const parts = datePart.split('-');
+
+      if (parts.length === 3) {
+        const year = parseInt(parts[0]);
+        const month = parseInt(parts[1]);
+        const day = parseInt(parts[2]);
+
+        // Crear la fecha en la zona horaria local del servidor (Ecuador)
+        // Forzamos el día exacto seleccionado en el formulario
+        const date = new Date(year, month - 1, day, 23, 59, 59, 999);
+        subscription.endDate = date;
+      } else {
+        // Fallback de seguridad
+        const date = new Date(dto.endDate);
+        date.setHours(23, 59, 59, 999);
+        subscription.endDate = date;
+      }
+    }
     if (dto.status) subscription.status = dto.status;
     if (typeof dto.autoRenewal === 'boolean') subscription.autoRenewal = dto.autoRenewal;
 
@@ -288,7 +288,8 @@ export class SubscriptionService {
   async activateSubscriptionWithoutCharge(
     userId: string,
     masterPin: string,
-    plan: SubscriptionPlan = SubscriptionPlan.BASIC // Usa el enum correcto
+    plan: SubscriptionPlan = SubscriptionPlan.BASIC,
+    days?: number
   ): Promise<Subscription> {
     try {
       // Validar PIN
@@ -297,11 +298,15 @@ export class SubscriptionService {
         throw CustomError.badRequest("PIN maestro incorrecto");
       }
 
-      // Buscar usuario
+      // Buscar usuario y su wallet (para auditoría)
       const user = await User.findOne({
         where: { id: userId },
+        relations: ["wallet"]
       });
       if (!user) throw CustomError.notFound("Usuario no encontrado");
+
+      const wallet = user.wallet;
+      if (!wallet) throw CustomError.notFound("Billetera no encontrada");
 
       // Buscar o crear suscripción
       let subscription = await Subscription.findOne({
@@ -309,37 +314,39 @@ export class SubscriptionService {
       });
 
       const now = new Date();
-
       const settings = await GlobalSettings.findOne({ where: {} });
-      const daysToAdd = settings?.subscriptionBasicDurationDays || 30;
+      const daysToAdd = days || settings?.subscriptionBasicDurationDays || 30;
+
+      // Calcular nueva fecha de vencimiento
+      let baseDate = (subscription && subscription.endDate && subscription.endDate > now) ? subscription.endDate : now;
+      const newEndDate = addDays(baseDate, daysToAdd);
+      newEndDate.setHours(23, 59, 59, 999);
 
       if (!subscription) {
-        // Crear nueva suscripción
         subscription = new Subscription();
         subscription.user = user;
         subscription.plan = plan;
-        subscription.startDate = now;
-        subscription.endDate = addDays(now, daysToAdd);
-      } else {
-        // Si ya existe, extender o reactivar
-        if (subscription.isActive()) {
-          // Extender desde la fecha actual de expiración
-          const remainingDays = Math.ceil(
-            (subscription.endDate!.getTime() - now.getTime()) /
-            (1000 * 60 * 60 * 24)
-          );
-          subscription.endDate = addDays(now, daysToAdd + Math.max(remainingDays, 0));
-        } else {
-          // Reactivar desde ahora
-          subscription.startDate = now;
-          subscription.endDate = addDays(now, daysToAdd);
-        }
       }
 
-      // Activar sin cobro
+      subscription.startDate = subscription.startDate || now;
+      subscription.endDate = newEndDate;
       subscription.status = SubscriptionStatus.ACTIVA;
-      subscription.autoRenewal = false; // No auto-renovar suscripciones gratuitas
+      subscription.autoRenewal = true;
+      
       await subscription.save();
+
+      // 📝 AUDITORÍA: Crear transacción de cortesía ($0.00)
+      const transaction = new Transaction();
+      transaction.wallet = wallet;
+      transaction.amount = 0;
+      transaction.type = 'credit'; 
+      transaction.reason = TransactionReason.SUBSCRIPTION;
+      transaction.status = 'APPROVED';
+      transaction.previousBalance = Number(wallet.balance);
+      transaction.resultingBalance = Number(wallet.balance);
+      transaction.observation = `ACTIVACIÓN DE CORTESÍA: ${daysToAdd} días otorgados por administración sin cargo.`;
+      
+      await transaction.save();
 
       return subscription;
     } catch (error) {
@@ -431,5 +438,73 @@ export class SubscriptionService {
     const hashedPin = encriptAdapter.hash(newPin);
     settings.masterPin = hashedPin;
     await settings.save();
+  }
+
+  /**
+   * 🔄 Procesar renovaciones automáticas de usuarios (BASIC plans)
+   * Se ejecuta mediante un CRON job diariamente.
+   */
+  async processUserAutoRenewals() {
+    const now = new Date();
+
+    // Buscar suscripciones que necesiten atención:
+    // 1. ACTIVAS que ya vencieron
+    // 2. EXPIRADAS que aún tienen autorenovación encendida
+    const toRenew = await Subscription.find({
+      where: [
+        { status: SubscriptionStatus.ACTIVA, endDate: LessThanOrEqual(now), autoRenewal: true },
+        { status: SubscriptionStatus.EXPIRADA, autoRenewal: true }
+      ],
+      relations: ["user"]
+    });
+
+    const results = {
+      total: toRenew.length,
+      success: 0,
+      failed: 0
+    };
+
+    if (results.total === 0) return results;
+
+    for (const sub of toRenew) {
+      try {
+        await this.activateOrRenewSubscription(sub.user.id, sub.plan);
+        results.success++;
+      } catch (error) {
+        // Persistencia: Cambiamos a EXPIRADA pero DEJAMOS autoRenewal en true
+        // para que el CRON o una recarga futura lo vuelvan a intentar.
+        sub.status = SubscriptionStatus.EXPIRADA;
+        await sub.save();
+        results.failed++;
+        console.error(`[AutoRenewal-User] Falló reintento para usuario ${sub.user.id}:`, error);
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * 🎯 Intento de recuperación inmediata (Real-time)
+   * Se llama cuando el usuario recarga su billetera.
+   */
+  async checkAndRecoverSubscription(userId: string) {
+    const now = new Date();
+
+    const sub = await Subscription.findOne({
+      where: [
+        { user: { id: userId }, status: SubscriptionStatus.ACTIVA, endDate: LessThanOrEqual(now), autoRenewal: true },
+        { user: { id: userId }, status: SubscriptionStatus.EXPIRADA, autoRenewal: true }
+      ]
+    });
+
+    if (!sub) return null;
+
+    try {
+      // Intentamos renovar. Si tiene saldo de la recarga, se activará.
+      return await this.activateOrRenewSubscription(userId, sub.plan);
+    } catch (error) {
+      // Si aún no alcanza el saldo, se queda como está para el próximo intento.
+      return null;
+    }
   }
 }

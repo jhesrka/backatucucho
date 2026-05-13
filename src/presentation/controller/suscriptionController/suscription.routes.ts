@@ -64,6 +64,9 @@ export class SubscriptionRoutes {
     // Verificar estado del Master PIN
     router.get("/admin/master-pin/status", [AuthAdminMiddleware.protect], subscriptionController.getMasterPinStatus);
 
+    // Verificar Master PIN (solo verificación)
+    router.post("/admin/master-pin/verify", [AuthAdminMiddleware.protect], subscriptionController.verifyMasterPin);
+
     return router;
   }
 }
