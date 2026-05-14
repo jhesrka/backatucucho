@@ -25,6 +25,12 @@ export class PriceSettings extends BaseEntity {
   @Column('decimal', { precision: 10, scale: 2, default: 20.00 })
   appPercentage: number; // Porcentaje que se lleva la app (ej. 20%)
 
+  @Column('int', { default: 30 })
+  storyPurgeDays: number; // Días para purgar historias
+
+  @Column('boolean', { default: false })
+  storyAutoPurge: boolean; // ¿Purga automática activada?
+
   @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;
 

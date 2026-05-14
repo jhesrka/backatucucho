@@ -315,6 +315,17 @@ export class PostgresDatabase {
         await this.datasource.query(`ALTER TABLE "pedido_operativo_log" ALTER COLUMN "createdAt" TYPE timestamptz;`);
       });
 
+      await runMigrationStep("Step 19: Post Soft Delete support", `
+        ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "deletedAt" TIMESTAMPTZ DEFAULT NULL;
+      `);
+
+      await runMigrationStep("Step 20: Intelligent Purge Settings", `
+        ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "postsRetentionDays" INT DEFAULT 30;
+        ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "paidPostsRetentionDays" INT DEFAULT 90;
+        ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "paidPurgeInactivityMonths" INT DEFAULT 6;
+        ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "autoPurgeEnabled" BOOLEAN DEFAULT true;
+      `);
+
       console.log("✅ Safety check completed. All manual migrations are synced.");
     } catch (error) {
       console.log("DB Connection Error:", error);

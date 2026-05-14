@@ -7,6 +7,7 @@ import {
   JoinColumn,
   OneToMany,
   CreateDateColumn,
+  DeleteDateColumn,
 } from "typeorm";
 import { FreePostTracker, Like, User } from "../../index";
 export enum StatusPost {
@@ -67,6 +68,9 @@ export class Post extends BaseEntity {
     default: StatusPost.PUBLISHED,
   })
   statusPost: StatusPost;
+
+  @Column({ type: "timestamptz", nullable: true })
+  deletedAt: Date;
   @Column({ type: "int", default: 0 })
   likesCount: number;
 

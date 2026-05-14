@@ -3,7 +3,7 @@ import { ILike, LessThan, MoreThan } from "typeorm";
 import { envs } from "../../config";
 import { getIO } from "../../config/socket";
 import { UploadFilesCloud } from "../../config/upload-files-cloud-adapter";
-import { Post, StatusPost, Like } from "../../data";
+import { Post, StatusPost, Like, Storie, StatusStorie, Subscription } from "../../data";
 import { CreateDTO, CreatePostDTO, CustomError, UpdateDTO } from "../../domain";
 import { UserService } from "./usuario/user.service";
 import { SubscriptionService } from "./postService/subscription.service";
@@ -648,7 +648,13 @@ export class PostService {
     if (post.user.id !== userId)
       throw CustomError.forbiden("No autorizado para eliminar este post");
 
-    return await this.hardDeletePost(post);
+    // Soft delete: Cambiar estado y marcar fecha
+    post.statusPost = StatusPost.DELETED;
+    post.deletedAt = new Date();
+    await post.save();
+    
+    getIO().emit("postChanged", { action: "delete", postId: id });
+    return { message: "Post movido a la papelera" };
   }
 
   public async hardDeletePost(post: Post): Promise<{ message: string }> {
@@ -710,12 +716,52 @@ export class PostService {
   }
 
   // ==========================================
-  // 🛡️ ADMIN METHODS (Advanced Management)
+  // 🛡️ ADMIN DASHBOARD METHODS
   // ==========================================
+
+  async getUnifiedSummary() {
+    const [postStats, storieStats] = await Promise.all([
+      this.getAdminStats(),
+      this.storieStats() // Assuming I add this or call storie service
+    ]);
+
+    return {
+      posts: postStats,
+      stories: storieStats,
+      timestamp: new Date()
+    };
+  }
+
+  // Helper inside PostService or similar
+  private async storieStats() {
+    const now = new Date();
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+    const [totalStories, published, deleted, blocked, expiringSoon, purgeCandidates] = await Promise.all([
+      Storie.count(),
+      Storie.count({ where: { statusStorie: StatusStorie.PUBLISHED } }),
+      Storie.count({ where: { statusStorie: StatusStorie.DELETED } }),
+      Storie.count({ where: { statusStorie: StatusStorie.FLAGGED } }),
+      Storie.count({ where: { statusStorie: StatusStorie.PUBLISHED, expires_at: LessThan(tomorrow) } }),
+      Storie.count({ where: { statusStorie: StatusStorie.DELETED, deletedAt: LessThan(thirtyDaysAgo) } })
+    ]);
+
+    return {
+      totalStories,
+      published,
+      deleted,
+      blocked,
+      expiringSoon,
+      purgeCandidates
+    };
+  }
 
   async getAdminStats() {
     const totalPosts = await Post.count();
     const activePosts = await Post.count({ where: { statusPost: StatusPost.PUBLISHED } });
+    const deletedPosts = await Post.count({ where: { statusPost: StatusPost.DELETED } });
     const paidPosts = await Post.count({ where: { isPaid: true } });
     const freePosts = await Post.count({ where: { isPaid: false } });
 
@@ -726,13 +772,12 @@ export class PostService {
     return {
       totalPosts,
       activePosts,
+      deletedPosts,
       paidPosts,
       freePosts,
       last30Days,
-      revenue: 0 // Placeholder
     };
   }
-
 
 
   async getAdminPosts(filters: any, page: number = 1, limit: number = 20) {
@@ -745,7 +790,8 @@ export class PostService {
       .take(limit);
 
     if (id) {
-      query.andWhere("post.id = :id", { id });
+      // Si hay ID, ignoramos otros filtros para búsqueda global
+      query.where("post.id = :id", { id });
     } else {
       if (status) {
         query.andWhere("post.statusPost = :status", { status });
@@ -754,7 +800,8 @@ export class PostService {
         const isPaid = type === 'PAGADO';
         query.andWhere("post.isPaid = :isPaid", { isPaid });
       }
-      if (startDate && endDate) {
+      
+      if (startDate && startDate !== "") {
         const { start, end } = DateUtils.getDayRange(startDate);
         query.andWhere("post.createdAt BETWEEN :start AND :end", { start, end });
       }
@@ -766,7 +813,7 @@ export class PostService {
       posts.map(async (post) => {
         const resolvedImgs = await Promise.all(
           (post.imgpost ?? []).map((img) =>
-            UploadFilesCloud.getFile({
+            UploadFilesCloud.getOptimizedUrls({
               bucketName: envs.AWS_BUCKET_NAME,
               key: img,
             }).catch(() => null)
@@ -774,7 +821,7 @@ export class PostService {
         );
 
         const userImage = post.user?.photoperfil
-          ? await UploadFilesCloud.getFile({ bucketName: envs.AWS_BUCKET_NAME, key: post.user.photoperfil }).catch(() => null)
+          ? await UploadFilesCloud.getOptimizedUrls({ bucketName: envs.AWS_BUCKET_NAME, key: post.user.photoperfil }).catch(() => null)
           : null;
 
         return {
@@ -794,6 +841,176 @@ export class PostService {
       totalPages: Math.ceil(total / limit),
       currentPage: page
     };
+  }
+
+  /**
+   * Ejecución de purga inteligente con filtro opcional
+   */
+  async executeIntelligentPurge(type: 'FREE' | 'PAID' | 'ALL' = 'ALL') {
+    const settings = await this.globalSettingsService.getSettings();
+    if (type === 'ALL' && !settings.autoPurgeEnabled) {
+      console.log("[INTELLIGENT-PURGE] Purga automática desactivada.");
+      return { deletedCount: 0 };
+    }
+
+    const now = new Date();
+    let totalDeleted = 0;
+
+    // --- FASE 1: POSTS GRATUITOS ---
+    if (type === 'ALL' || type === 'FREE') {
+        const freeRetentionDays = settings.postsRetentionDays || 30;
+        const freeLimit = new Date();
+        freeLimit.setDate(freeLimit.getDate() - freeRetentionDays);
+
+        const freeCandidates = await Post.find({
+            where: {
+                isPaid: false,
+                createdAt: LessThan(freeLimit)
+            }
+        });
+
+        for (const post of freeCandidates) {
+            try {
+              await this.hardDeletePost(post);
+              totalDeleted++;
+            } catch (e) { console.error(`Error purgando post gratis ${post.id}:`, e); }
+        }
+    }
+
+    // --- FASE 2: POSTS PAGADOS (ABANDONO) ---
+    if (type === 'ALL' || type === 'PAID') {
+        const paidRetentionDays = settings.paidPostsRetentionDays || 90;
+        const paidLimit = new Date();
+        paidLimit.setDate(paidLimit.getDate() - paidRetentionDays);
+
+        const paidCandidates = await Post.find({
+            where: {
+                isPaid: true,
+                createdAt: LessThan(paidLimit)
+            },
+            relations: ["user"]
+        });
+
+        const userInactivityMonths = settings.paidPurgeInactivityMonths || 6;
+        const abandonmentThreshold = new Date();
+        abandonmentThreshold.setMonth(abandonmentThreshold.getMonth() - userInactivityMonths);
+        
+        const userAbandonmentCache = new Map<string, boolean>();
+
+        for (const post of paidCandidates) {
+            if (!post.user) continue;
+            const userId = post.user.id;
+
+            if (!userAbandonmentCache.has(userId)) {
+                const latestSub = await Subscription.findOne({
+                    where: { user: { id: userId } },
+                    order: { endDate: "DESC" }
+                });
+
+                // Si no tiene NINGUNA suscripción, está abandonado
+                if (!latestSub) {
+                    userAbandonmentCache.set(userId, true);
+                } else {
+                    // Si tiene suscripción, solo está abandonado si la fecha de fin existe Y es anterior al umbral
+                    // Si endDate es NULL, asumimos que NO está abandonado (suscripción activa/especial)
+                    const isAbandoned = latestSub.endDate ? latestSub.endDate < abandonmentThreshold : false;
+                    userAbandonmentCache.set(userId, isAbandoned);
+                }
+            }
+
+            if (userAbandonmentCache.get(userId)) {
+                try {
+                  await this.hardDeletePost(post);
+                  totalDeleted++;
+                } catch (e) { console.error(`Error purgando post pagado ${post.id}:`, e); }
+            }
+        }
+    }
+
+    console.log(`[INTELLIGENT-PURGE] [Type: ${type}] Ejecución completada. Total eliminados: ${totalDeleted}`);
+    return { deletedCount: totalDeleted };
+  }
+
+  async autoPurgeOldPosts() {
+    return await this.executeIntelligentPurge('ALL');
+  }
+
+  async purgeOldPosts(adminId: string, pin: string, type: 'FREE' | 'PAID' | 'ALL' = 'ALL') {
+    const isPinValid = await this.globalSettingsService.validateMasterPin(pin);
+    if (!isPinValid) throw CustomError.badRequest("El PIN Maestro ingresado es incorrecto.");
+
+    const result = await this.executeIntelligentPurge(type);
+    console.log(`[PURGE] Admin ${adminId} executed mass ${type} purge. Deleted: ${result.deletedCount}`);
+    return result;
+  }
+
+  /**
+   * Obtiene el conteo de posts que serían eliminados en una purga
+   */
+  async getPurgePreview(type: 'FREE' | 'PAID' | 'ALL' = 'ALL') {
+    const settings = await this.globalSettingsService.getSettings();
+    let count = 0;
+
+    // --- CONTEO GRATUITOS ---
+    if (type === 'ALL' || type === 'FREE') {
+      const freeRetentionDays = settings.postsRetentionDays || 30;
+      const freeLimit = new Date();
+      freeLimit.setDate(freeLimit.getDate() - freeRetentionDays);
+
+      count += await Post.count({
+        where: {
+          isPaid: false,
+          createdAt: LessThan(freeLimit)
+        }
+      });
+    }
+
+    // --- CONTEO PAGADOS (ABANDONO) ---
+    if (type === 'ALL' || type === 'PAID') {
+      const paidRetentionDays = settings.paidPostsRetentionDays || 90;
+      const paidLimit = new Date();
+      paidLimit.setDate(paidLimit.getDate() - paidRetentionDays);
+
+      const paidCandidates = await Post.find({
+        where: {
+          isPaid: true,
+          createdAt: LessThan(paidLimit)
+        },
+        relations: ["user"]
+      });
+
+      const userInactivityMonths = settings.paidPurgeInactivityMonths || 6;
+      const abandonmentThreshold = new Date();
+      abandonmentThreshold.setMonth(abandonmentThreshold.getMonth() - userInactivityMonths);
+      
+      const userAbandonmentCache = new Map<string, boolean>();
+
+      for (const post of paidCandidates) {
+        if (!post.user) continue;
+        const userId = post.user.id;
+
+        if (!userAbandonmentCache.has(userId)) {
+          const latestSub = await Subscription.findOne({
+            where: { user: { id: userId } },
+            order: { endDate: "DESC" }
+          });
+          
+          if (!latestSub) {
+            userAbandonmentCache.set(userId, true);
+          } else {
+            // Solo abandonado si tiene fecha y es vieja. Si es NULL, no se purga.
+            const isAbandoned = latestSub.endDate ? latestSub.endDate < abandonmentThreshold : false;
+            userAbandonmentCache.set(userId, isAbandoned);
+          }
+        }
+
+        if (userAbandonmentCache.get(userId)) {
+          count++;
+        }
+      }
+    }
+
+    return { count };
   }
 
 

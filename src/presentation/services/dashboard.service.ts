@@ -18,6 +18,30 @@ import { Producto } from "../../data/postgres/models/Producto";
 import { GlobalSettings } from "../../data/postgres/models/global-settings.model";
 
 export class DashboardService {
+    async getUnifiedDashboard() {
+        try {
+            console.log(`[AUDIT] Dashboard access by Admin at ${new Date().toISOString()}`);
+            
+            // Resolve all main sections in parallel for maximum performance
+            const [basicStats, weeklyPosts, advancedStats, operationalToday] = await Promise.all([
+                this.getAdminStats(),
+                this.getWeeklyPostStats(),
+                this.getAdvancedStats7Days(),
+                this.getOperationalDashboardToday()
+            ]);
+
+            return {
+                ...basicStats,
+                weeklyPosts,
+                advancedStats,
+                operationalToday
+            };
+        } catch (error) {
+            console.error("Error in Unified Dashboard:", error);
+            throw error;
+        }
+    }
+
     async getAdminStats() {
         try {
             // Timezone Fix
@@ -29,7 +53,7 @@ export class DashboardService {
             const todayEnd = new Date(localEnd.getTime() + (5 * 60 * 60 * 1000));
 
             // ============================================
-            // 1. FINANCIALS (INGRESOS REFINADOS)
+            // 1. FINANCIALS (OPTIMIZED AGGREGATIONS)
             // ============================================
             const SUBSCRIPTION_PRICE = 1.0;
 
@@ -52,80 +76,50 @@ export class DashboardService {
 
             const ingresosAppTotal = ingresosSuscripciones + ingresosStories;
 
-            // Delivery Revenues
-            const pedidosEntregadosHoy = await Pedido.find({
-                where: {
-                    estado: "ENTREGADO" as any,
-                    updatedAt: Between(todayStart, todayEnd),
-                },
-                relations: ["productos"]
-            });
+            // Delivery Revenues (Optimized to avoid fetching all columns)
+            const deliveryStats = await Pedido.createQueryBuilder("p")
+                .leftJoin("p.productos", "pp")
+                .select("SUM(pp.comision_producto * pp.cantidad)", "comisionProductos")
+                .addSelect("SUM(CAST(p.costoEnvio AS DECIMAL) * 0.2)", "comisionDomicilios")
+                .where("p.estado = :estado", { estado: "ENTREGADO" })
+                .andWhere("p.updatedAt BETWEEN :start AND :end", { start: todayStart, end: todayEnd })
+                .getRawOne();
 
-            const comisionProductos = pedidosEntregadosHoy.reduce((total, pedido) => {
-                const comisionPedido = pedido.productos.reduce((subtotal, pp) => {
-                    return subtotal + (Number(pp.comision_producto) * pp.cantidad);
-                }, 0);
-                return total + comisionPedido;
-            }, 0);
-
-            const comisionDomicilios = pedidosEntregadosHoy.reduce(
-                (acc, p) => acc + (Number(p.costoEnvio) * 0.2),
-                0
-            );
+            const comisionProductos = Number(deliveryStats.comisionProductos) || 0;
+            const comisionDomicilios = Number(deliveryStats.comisionDomicilios) || 0;
 
             const ingresosDeliveryTotal = comisionProductos + comisionDomicilios;
             const totalIngresosHoy = ingresosAppTotal + ingresosDeliveryTotal;
 
-            // 2. PEDIDOS (NEW BREAKDOWN)
-            const pedidosHoy = await Pedido.find({
-                where: {
-                    createdAt: Between(todayStart, todayEnd),
-                },
-                relations: ["negocio"]
-            });
+            // 2. PEDIDOS (OPTIMIZED GROUP BY)
+            const pedidosStatusRaw = await Pedido.createQueryBuilder("p")
+                .select("p.estado", "estado")
+                .addSelect("COUNT(*)", "count")
+                .where("p.createdAt BETWEEN :start AND :end", { start: todayStart, end: todayEnd })
+                .groupBy("p.estado")
+                .getRawMany();
 
-            const pedidosCount = {
-                total: pedidosHoy.length,
-                pendiente: {
-                    count: pedidosHoy.filter(p => p.estado === "PENDIENTE").length,
-                    items: pedidosHoy.filter(p => p.estado === "PENDIENTE").map(p => ({ id: p.id, total: p.total, createdAt: p.createdAt, negocio: p.negocio?.nombre }))
-                },
-                aceptado: {
-                    count: pedidosHoy.filter(p => p.estado === "ACEPTADO").length,
-                    items: pedidosHoy.filter(p => p.estado === "ACEPTADO").map(p => ({ id: p.id, total: p.total, createdAt: p.createdAt, negocio: p.negocio?.nombre }))
-                },
-                preparando: {
-                    count: pedidosHoy.filter(p => p.estado === "PREPARANDO").length,
-                    items: pedidosHoy.filter(p => p.estado === "PREPARANDO").map(p => ({ id: p.id, total: p.total, createdAt: p.createdAt, negocio: p.negocio?.nombre }))
-                },
-                preparando_asignado: {
-                    count: pedidosHoy.filter(p => p.estado === "PREPARANDO_ASIGNADO").length,
-                    items: pedidosHoy.filter(p => p.estado === "PREPARANDO_ASIGNADO").map(p => ({ id: p.id, total: p.total, createdAt: p.createdAt, negocio: p.negocio?.nombre }))
-                },
-                preparando_no_asignado: {
-                    count: pedidosHoy.filter(p => p.estado === "PREPARANDO_NO_ASIGNADO").length,
-                    items: pedidosHoy.filter(p => p.estado === "PREPARANDO_NO_ASIGNADO").map(p => ({ id: p.id, total: p.total, createdAt: p.createdAt, negocio: p.negocio?.nombre }))
-                },
-                en_camino: {
-                    count: pedidosHoy.filter(p => p.estado === "EN_CAMINO").length,
-                    items: pedidosHoy.filter(p => p.estado === "EN_CAMINO").map(p => ({ id: p.id, total: p.total, createdAt: p.createdAt, negocio: p.negocio?.nombre }))
-                },
-                entregado: {
-                    count: pedidosHoy.filter(p => p.estado === "ENTREGADO").length,
-                    items: pedidosHoy.filter(p => p.estado === "ENTREGADO").map(p => ({ id: p.id, total: p.total, createdAt: p.createdAt, negocio: p.negocio?.nombre }))
-                },
-                cancelado: {
-                    count: pedidosHoy.filter(p => p.estado === "CANCELADO").length,
-                    items: pedidosHoy.filter(p => p.estado === "CANCELADO").map(p => ({ id: p.id, total: p.total, createdAt: p.createdAt, negocio: p.negocio?.nombre }))
-                },
-                efectivo: {
-                    count: pedidosHoy.filter(p => p.metodoPago === "EFECTIVO").length,
-                    items: pedidosHoy.filter(p => p.metodoPago === "EFECTIVO").map(p => ({ id: p.id, total: p.total, createdAt: p.createdAt, negocio: p.negocio?.nombre }))
-                },
-                transferencia: {
-                    count: pedidosHoy.filter(p => p.metodoPago === "TRANSFERENCIA").length,
-                    items: pedidosHoy.filter(p => p.metodoPago === "TRANSFERENCIA").map(p => ({ id: p.id, total: p.total, createdAt: p.createdAt, negocio: p.negocio?.nombre }))
-                },
+            const pedidosMetodoRaw = await Pedido.createQueryBuilder("p")
+                .select("p.metodoPago", "metodo")
+                .addSelect("COUNT(*)", "count")
+                .where("p.createdAt BETWEEN :start AND :end", { start: todayStart, end: todayEnd })
+                .groupBy("p.metodoPago")
+                .getRawMany();
+
+            const getCount = (arr: any[], key: string, val: string) => Number(arr.find(i => i[key] === val)?.count || 0);
+
+            const pedidosCount: any = {
+                total: pedidosStatusRaw.reduce((acc, curr) => acc + Number(curr.count), 0),
+                pendiente: { count: getCount(pedidosStatusRaw, "estado", "PENDIENTE") },
+                aceptado: { count: getCount(pedidosStatusRaw, "estado", "ACEPTADO") },
+                preparando: { count: getCount(pedidosStatusRaw, "estado", "PREPARANDO") },
+                preparando_asignado: { count: getCount(pedidosStatusRaw, "estado", "PREPARANDO_ASIGNADO") },
+                preparando_no_asignado: { count: getCount(pedidosStatusRaw, "estado", "PREPARANDO_NO_ASIGNADO") },
+                en_camino: { count: getCount(pedidosStatusRaw, "estado", "EN_CAMINO") },
+                entregado: { count: getCount(pedidosStatusRaw, "estado", "ENTREGADO") },
+                cancelado: { count: getCount(pedidosStatusRaw, "estado", "CANCELADO") },
+                efectivo: { count: getCount(pedidosMetodoRaw, "metodo", "EFECTIVO") },
+                transferencia: { count: getCount(pedidosMetodoRaw, "metodo", "TRANSFERENCIA") },
             };
 
             // 3. NEGOCIOS
@@ -156,11 +150,12 @@ export class DashboardService {
                 .where("user.lastSeenAt >= :minAgo", { minAgo: twoMinutesAgo })
                 .getCount();
 
-            // 6. ACTIVIDAD RECIENTE
+            // 6. ACTIVIDAD RECIENTE (LIMIT COLUMNS)
             const lastOrders = await Pedido.find({
                 take: 5,
                 order: { createdAt: "DESC" },
-                relations: ['negocio']
+                relations: ['negocio'],
+                select: { id: true, createdAt: true, estado: true, negocio: { nombre: true } }
             }).then(orders => orders.map(o => ({
                 type: 'ORDER',
                 id: o.id,
@@ -173,7 +168,8 @@ export class DashboardService {
                 take: 5,
                 where: { isPaid: true },
                 order: { createdAt: "DESC" },
-                relations: ['user']
+                relations: ['user'],
+                select: { id: true, createdAt: true, user: { name: true } }
             }).then(posts => posts.map(p => ({
                 type: 'POST',
                 id: p.id,
@@ -186,27 +182,13 @@ export class DashboardService {
                 .slice(0, 10);
 
             // 7. LOGISTICS
-            const availableMotorizados = await UserMotorizado.find({
+            const availableMotorizados = await UserMotorizado.count({
                 where: {
                     estadoTrabajo: "DISPONIBLE" as any,
                     quiereTrabajar: true,
                     estadoCuenta: "ACTIVO" as any
-                },
-                order: {
-                    fechaHoraDisponible: "ASC"
                 }
             });
-
-            const logistics = {
-                availableCount: availableMotorizados.length,
-                list: availableMotorizados.map(m => ({
-                    id: m.id,
-                    name: `${m.name} ${m.surname}`,
-                    phone: m.whatsapp,
-                    availableSince: m.fechaHoraDisponible,
-                    status: "DISPONIBLE"
-                }))
-            };
 
             return {
                 financials: {
@@ -234,7 +216,7 @@ export class DashboardService {
                     onlineNow: onlineNow
                 },
                 activityFeed,
-                logistics
+                logistics: { availableCount: availableMotorizados }
             };
         } catch (error) {
             console.error(`ERROR CRITICO EN SERVICIO: ${String(error)}`);

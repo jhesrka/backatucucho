@@ -28,6 +28,6 @@ export class PostReport extends BaseEntity {
     @Column("enum", { enum: ReportStatus, default: ReportStatus.PENDING })
     status: ReportStatus;
 
-    @CreateDateColumn()
+    @CreateDateColumn({ type: 'timestamptz' })
     createdAt: Date;
 }

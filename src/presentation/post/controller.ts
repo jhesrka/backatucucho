@@ -13,7 +13,7 @@ export class PostController {
 
     console.error("Unhandled error:", error);
     return res.status(500).json({ message: "Something went very wrong" });
-  };
+  }; // Forcing reload
 
   //revisado y aprobado
 
@@ -344,10 +344,34 @@ export class PostController {
       endDate: req.query.endDate
     };
     const page = Number(req.query.page) || 1;
-    const limit = Number(req.query.limit) || 20;
+    const limit = Number(req.query.limit) || 15; // Set to match frontend itemsPerPage
 
     this.postService.getAdminPosts(filters, page, limit)
       .then(data => res.status(200).json(data))
+      .catch(error => this.handleError(error, res));
+  }
+
+  getUnifiedSummary = (_req: Request, res: Response) => {
+    this.postService.getUnifiedSummary()
+      .then(data => res.status(200).json(data))
+      .catch(error => this.handleError(error, res));
+  }
+
+  purgeOldPosts = (req: Request, res: Response) => {
+    const { pin, type } = req.body;
+    const adminId = req.body.sessionUser?.id;
+
+    if (!pin) return res.status(400).json({ message: "El PIN Maestro es obligatorio para esta acción." });
+
+    this.postService.purgeOldPosts(adminId, pin, type || 'ALL')
+      .then(data => res.status(200).json(data))
+      .catch(error => this.handleError(error, res));
+  }
+
+  previewPurgeAdmin = (req: Request, res: Response) => {
+    const { type } = req.query;
+    this.postService.getPurgePreview((type as any) || 'ALL')
+      .then(data => res.status(200).json({ success: true, ...data }))
       .catch(error => this.handleError(error, res));
   }
 

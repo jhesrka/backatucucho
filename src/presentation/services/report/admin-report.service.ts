@@ -60,8 +60,8 @@ export class AdminReportService {
         u.photoperfil as "authorPhoto",
         u.status as "authorStatus",
         COUNT(r.id) as "reportCount",
-        MIN(r."createdAt") as "firstReportDate",
-        MAX(r."createdAt") as "lastReportDate",
+        EXTRACT(EPOCH FROM MIN(r."createdAt")) as "firstReportDate",
+        EXTRACT(EPOCH FROM MAX(r."createdAt")) as "lastReportDate",
         COUNT(CASE WHEN r.status = 'PENDING' THEN 1 END) as "pendingCount"
       FROM post_report r
       JOIN post p ON r."postId" = p.id
@@ -82,8 +82,8 @@ export class AdminReportService {
         u.photoperfil as "authorPhoto",
         u.status as "authorStatus",
         COUNT(r.id) as "reportCount",
-        MIN(r."createdAt") as "firstReportDate",
-        MAX(r."createdAt") as "lastReportDate",
+        EXTRACT(EPOCH FROM MIN(r."createdAt")) as "firstReportDate",
+        EXTRACT(EPOCH FROM MAX(r."createdAt")) as "lastReportDate",
         COUNT(CASE WHEN r.status = 'PENDING' THEN 1 END) as "pendingCount"
       FROM storie_report r
       JOIN storie s ON r."storieId" = s.id
@@ -203,8 +203,8 @@ export class AdminReportService {
                         status: row.authorStatus
                     },
                     reportCount: Number(row.reportCount),
-                    firstReportDate: row.firstReportDate,
-                    lastReportDate: row.lastReportDate,
+                    firstReportDate: row.firstReportDate ? new Date(Number(row.firstReportDate) * 1000).toISOString() : null,
+                    lastReportDate: row.lastReportDate ? new Date(Number(row.lastReportDate) * 1000).toISOString() : null,
                     // Inference of "Case Status": If any report is PENDING, the case is PENDING.
                     caseStatus: Number(row.pendingCount) > 0 ? 'PENDING' : 'RESOLVED'
                 };
@@ -237,18 +237,69 @@ export class AdminReportService {
 
             if (type === 'POST') {
                 content = await Post.findOne({ where: { id: contentId }, relations: ['user'] });
-                reports = await PostReport.find({
-                    where: { post: { id: contentId } },
-                    relations: ['reporter'],
-                    order: { createdAt: 'DESC' }
-                });
+                reports = await PostReport.createQueryBuilder('r')
+                    .leftJoinAndSelect('r.reporter', 'reporter')
+                    .where('r.postId = :contentId', { contentId })
+                    .select([
+                        'r.id',
+                        'r.reason',
+                        'reporter.id',
+                        'reporter.name',
+                        'reporter.surname',
+                        'reporter.email',
+                        'reporter.whatsapp',
+                        'reporter.status'
+                    ])
+                    .addSelect('EXTRACT(EPOCH FROM r."createdAt")', 'r_createdAt_epoch')
+                    .orderBy('r.createdAt', 'DESC')
+                    .getRawMany();
+                
+                // Map raw results back to expected structure
+                reports = reports.map(row => ({
+                    id: row.r_id,
+                    reason: row.r_reason,
+                    createdAt: row.r_createdAt_epoch ? new Date(Number(row.r_createdAt_epoch) * 1000).toISOString() : null,
+                    reporter: {
+                        id: row.reporter_id,
+                        name: row.reporter_name,
+                        surname: row.reporter_surname,
+                        email: row.reporter_email,
+                        phone: row.reporter_whatsapp,
+                        status: row.reporter_status
+                    }
+                }));
             } else {
                 content = await Storie.findOne({ where: { id: contentId }, relations: ['user'] });
-                reports = await StorieReport.find({
-                    where: { storie: { id: contentId } },
-                    relations: ['reporter'],
-                    order: { createdAt: 'DESC' }
-                });
+                reports = await StorieReport.createQueryBuilder('r')
+                    .leftJoinAndSelect('r.reporter', 'reporter')
+                    .where('r.storieId = :contentId', { contentId })
+                    .select([
+                        'r.id',
+                        'r.reason',
+                        'reporter.id',
+                        'reporter.name',
+                        'reporter.surname',
+                        'reporter.email',
+                        'reporter.whatsapp',
+                        'reporter.status'
+                    ])
+                    .addSelect('EXTRACT(EPOCH FROM r."createdAt")', 'r_createdAt_epoch')
+                    .orderBy('r.createdAt', 'DESC')
+                    .getRawMany();
+
+                reports = reports.map(row => ({
+                    id: row.r_id,
+                    reason: row.r_reason,
+                    createdAt: row.r_createdAt_epoch ? new Date(Number(row.r_createdAt_epoch) * 1000).toISOString() : null,
+                    reporter: {
+                        id: row.reporter_id,
+                        name: row.reporter_name,
+                        surname: row.reporter_surname,
+                        email: row.reporter_email,
+                        phone: row.reporter_whatsapp,
+                        status: row.reporter_status
+                    }
+                }));
             }
 
             if (!content) throw CustomError.notFound("Contenido no encontrado");
@@ -278,8 +329,10 @@ export class AdminReportService {
                     status: type === 'POST' ? content.statusPost : content.statusStorie,
                     title: type === 'POST' ? content.title : 'Historia',
                     text: type === 'POST' ? content.content : content.description,
-                    createdAt: content.createdAt,
+                    createdAt: content.createdAt ? new Date(content.createdAt).toISOString() : null,
                     images: images, // Use resolved images
+                    isPaid: type === 'POST' ? content.isPaid : (content.total_pagado > 0),
+                    expiresAt: type === 'POST' ? content.expiresAt : content.expires_at,
                     author: {
                         id: content.user.id,
                         name: content.user.name,
@@ -289,18 +342,7 @@ export class AdminReportService {
                         status: content.user.status
                     }
                 },
-                reports: reports.map(r => ({
-                    id: r.id,
-                    reason: r.reason,
-                    createdAt: r.createdAt,
-                    reporter: {
-                        id: r.reporter.id,
-                        name: r.reporter.name,
-                        surname: r.reporter.surname,
-                        email: r.reporter.email,
-                        status: r.reporter.status
-                    }
-                }))
+                reports: reports
             };
 
         } catch (error) {

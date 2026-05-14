@@ -33,6 +33,7 @@ export class DeliverySettingsController {
         extraStepKm,
         extraStepFee,
         isActive, // opcional; si no viene, se asume true en el service
+        masterPin,
       } = req.body ?? {};
 
       // Validaciones mínimas (opcionales; el service también valida)
@@ -43,6 +44,7 @@ export class DeliverySettingsController {
         extraStepKm: toNum(extraStepKm),
         extraStepFee: toNum(extraStepFee),
         isActive: typeof isActive === "boolean" ? isActive : true,
+        masterPin,
       };
 
       const created = await this.service.createOrActivate(payload);
@@ -64,6 +66,7 @@ export class DeliverySettingsController {
         extraStepKm,
         extraStepFee,
         isActive,
+        masterPin,
       } = req.body ?? {};
 
       const toNum = (v: any) => (v === undefined ? undefined : Number(v));
@@ -73,6 +76,7 @@ export class DeliverySettingsController {
         extraStepKm: toNum(extraStepKm),
         extraStepFee: toNum(extraStepFee),
         isActive: typeof isActive === "boolean" ? isActive : undefined,
+        masterPin,
       };
 
       const updated = await this.service.update(id, payload);

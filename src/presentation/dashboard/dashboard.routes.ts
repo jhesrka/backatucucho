@@ -23,6 +23,9 @@ export class DashboardRoutes {
         // 👇 Nuevo Dashboard Operativo Diario (Tiempo Real)
         router.get("/dashboard-operativo-hoy", controller.getOperationalDashboardToday);
 
+        // 🚀 Resumen Unificado (Optimizado)
+        router.get("/unified-summary", controller.getUnifiedSummary);
+
         return router;
     }
 }

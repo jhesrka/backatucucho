@@ -240,8 +240,12 @@ export class StorieController {
   // 6) Purge Old Deleted Stories (+30 days default or specified)
   purgeOldStories = async (req: Request, res: Response) => {
     try {
-      const { days } = req.body; // Optional override
-      const result = await this.storieService.purgeOldDeletedStories(days ? Number(days) : 30);
+      const { days, pin } = req.body;
+      const adminId = req.body.sessionUser?.id;
+
+      if (!pin) return res.status(400).json({ message: "El PIN Maestro es obligatorio." });
+
+      const result = await this.storieService.purgeOldDeletedStories(adminId, pin, days ? Number(days) : 30);
       return res.json({ success: true, ...result });
     } catch (error) {
       return this.handleError(error, res);

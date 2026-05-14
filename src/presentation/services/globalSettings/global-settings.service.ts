@@ -18,6 +18,10 @@ export class GlobalSettingsService {
             settings.subscriptionBasicPrice = 5.00;
             settings.subscriptionBasicDurationDays = 30;
             settings.reportsRetentionDays = 30;
+            settings.postsRetentionDays = 30;
+            settings.paidPostsRetentionDays = 90;
+            settings.paidPurgeInactivityMonths = 6;
+            settings.autoPurgeEnabled = true;
             settings.currentTermsVersion = "v1.0";
             settings.hora_apertura = "08:00:00";
             settings.hora_cierre = "22:00:00";
@@ -27,6 +31,17 @@ export class GlobalSettingsService {
             settings.cleanupSubscriptionContentDays = 60;
             settings.payphoneRechargePercentage = 0.00;
             await settings.save();
+        }
+
+        // Asegurar valores por defecto para registros existentes tras migración
+        if (settings.autoPurgeEnabled === null || settings.autoPurgeEnabled === undefined) {
+            settings.autoPurgeEnabled = true;
+        }
+        if (settings.paidPostsRetentionDays === null || settings.paidPostsRetentionDays === undefined) {
+            settings.paidPostsRetentionDays = 90;
+        }
+        if (settings.paidPurgeInactivityMonths === null || settings.paidPurgeInactivityMonths === undefined) {
+            settings.paidPurgeInactivityMonths = 6;
         }
 
         if (settings.businessCover?.imageUrl) {
@@ -157,16 +172,27 @@ export class GlobalSettingsService {
         freePostsLimit?: number;
         freePostDurationDays?: number;
         freePostDurationHours?: number;
+        postsRetentionDays?: number;
+        paidPostsRetentionDays?: number;
+        paidPurgeInactivityMonths?: number;
+        autoPurgeEnabled?: boolean;
     }) {
         let settings = await this.getSettings();
         if (dto.freePostsLimit !== undefined) settings.freePostsLimit = dto.freePostsLimit;
         if (dto.freePostDurationDays !== undefined) settings.freePostDurationDays = dto.freePostDurationDays;
         if (dto.freePostDurationHours !== undefined) settings.freePostDurationHours = dto.freePostDurationHours;
+        if (dto.postsRetentionDays !== undefined) settings.postsRetentionDays = dto.postsRetentionDays;
+        if (dto.paidPostsRetentionDays !== undefined) settings.paidPostsRetentionDays = dto.paidPostsRetentionDays;
+        if (dto.paidPurgeInactivityMonths !== undefined) settings.paidPurgeInactivityMonths = dto.paidPurgeInactivityMonths;
+        if (dto.autoPurgeEnabled !== undefined) settings.autoPurgeEnabled = dto.autoPurgeEnabled;
 
         await settings.save();
         return settings;
     }
-    async closeApp() {
+    async closeApp(masterPin: string) {
+        const isMatch = await this.validateMasterPin(masterPin);
+        if (!isMatch) throw CustomError.badRequest("PIN Maestro incorrecto");
+
         const settings = await this.getSettings();
         settings.app_status = "CLOSED";
         settings.modo_operacion = "MANUAL";
@@ -174,7 +200,10 @@ export class GlobalSettingsService {
         return settings;
     }
 
-    async enableAutoMode() {
+    async enableAutoMode(masterPin: string) {
+        const isMatch = await this.validateMasterPin(masterPin);
+        if (!isMatch) throw CustomError.badRequest("PIN Maestro incorrecto");
+
         const settings = await this.getSettings();
         settings.modo_operacion = "AUTO";
         await settings.save();
@@ -224,5 +253,14 @@ export class GlobalSettingsService {
             settings.ultimo_cambio_automatico = new Date(); // Save server time or ecuador time? TypeORM handles Date as timestamp. using server time is fine for audit.
             await settings.save();
         }
+    }
+
+    async validateMasterPin(pin: string): Promise<boolean> {
+        const settings = await this.getSettings();
+        if (!settings.masterPin) {
+            // Si no hay PIN configurado, por seguridad no permitimos la acción
+            throw CustomError.badRequest("PIN Maestro no configurado en el sistema.");
+        }
+        return await bcrypt.compare(pin, settings.masterPin);
     }
 }

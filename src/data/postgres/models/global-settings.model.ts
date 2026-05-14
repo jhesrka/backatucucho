@@ -14,6 +14,18 @@ export class GlobalSettings extends BaseEntity {
     @Column("int", { default: 30 })
     reportsRetentionDays: number; // Purga de reportes
 
+    @Column("int", { default: 30 })
+    postsRetentionDays: number; // Días para purgar definitivamente posts ELIMINADOS
+
+    @Column("int", { default: 90 })
+    paidPostsRetentionDays: number; // Días para purgar posts pagados antiguos
+
+    @Column("int", { default: 6 })
+    paidPurgeInactivityMonths: number; // Meses de inactividad de suscripción para purgar contenido premium
+
+    @Column("boolean", { default: true })
+    autoPurgeEnabled: boolean; // Interruptor global para la purga automática
+
     @Column("int", { default: 60 })
     cleanupSubscriptionContentDays: number; // Días para eliminar contenido de suscripciones vencidas
 

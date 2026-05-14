@@ -404,10 +404,6 @@ export class SubscriptionService {
    */
   async getMasterPinStatus(): Promise<{ isConfigured: boolean }> {
     const settings = await GlobalSettings.findOne({ where: {}, order: { updatedAt: "DESC" } });
-    console.log("[SubscriptionService] getMasterPinStatus check:", {
-      found: !!settings,
-      hasPin: !!settings?.masterPin
-    });
     return {
       isConfigured: !!(settings && settings.masterPin)
     };

@@ -361,6 +361,10 @@ export class SubscriptionController {
           freePostsLimit: settings.freePostsLimit,
           freePostDurationDays: settings.freePostDurationDays,
           freePostDurationHours: settings.freePostDurationHours,
+          postsRetentionDays: settings.postsRetentionDays,
+          paidPostsRetentionDays: settings.paidPostsRetentionDays,
+          paidPurgeInactivityMonths: settings.paidPurgeInactivityMonths,
+          autoPurgeEnabled: settings.autoPurgeEnabled,
         }
       });
     } catch (error) {
@@ -380,6 +384,10 @@ export class SubscriptionController {
           freePostsLimit: settings.freePostsLimit,
           freePostDurationDays: settings.freePostDurationDays,
           freePostDurationHours: settings.freePostDurationHours,
+          postsRetentionDays: settings.postsRetentionDays,
+          paidPostsRetentionDays: settings.paidPostsRetentionDays,
+          paidPurgeInactivityMonths: settings.paidPurgeInactivityMonths,
+          autoPurgeEnabled: settings.autoPurgeEnabled,
         }
       });
     } catch (error) {

@@ -13,11 +13,14 @@ import { validate as uuidValidate } from "uuid";
 import { containsForbiddenWords } from "../../config/content-moderation";
 import { DateUtils } from "../../utils/date-utils";
 
+import { GlobalSettingsService } from "./globalSettings/global-settings.service";
+
 export class StorieService {
   constructor(
     private readonly userService: UserService,
     private readonly walletService: WalletService,
-    private readonly priceService: PriceService
+    private readonly priceService: PriceService,
+    private readonly globalSettingsService: GlobalSettingsService
   ) { }
 
   async createStorie(
@@ -736,12 +739,12 @@ export class StorieService {
       if (userId) where.user = { id: userId };
 
       // Date Range (Creation)
-      if (startDate && endDate) {
+      if (startDate && startDate !== "" && endDate && endDate !== "") {
         const { start, end } = DateUtils.getDayRange(startDate);
         where.createdAt = Between(start, end);
-      } else if (startDate) {
-        const start = new Date(startDate);
-        where.createdAt = MoreThan(start);
+      } else if (startDate && startDate !== "") {
+        const { start, end } = DateUtils.getDayRange(startDate);
+        where.createdAt = Between(start, end);
       }
 
       // Type (Paid/Free)
@@ -793,7 +796,57 @@ export class StorieService {
     }
   }
 
-  async purgeOldDeletedStories(days: number = 30): Promise<{ deletedCount: number }> {
+  public async autoPurgeOldStories(days: number = 30): Promise<number> {
+    try {
+      const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+      const stories = await Storie.find({
+        where: [
+          {
+            statusStorie: StatusStorie.DELETED,
+            deletedAt: LessThan(cutoff),
+          },
+          {
+            statusStorie: StatusStorie.FLAGGED,
+            createdAt: LessThan(cutoff),
+          }
+        ],
+        withDeleted: true
+      });
+
+      if (stories.length === 0) return 0;
+
+      let deletedCount = 0;
+      for (const story of stories) {
+        try {
+          if (story.imgstorie) {
+            await UploadFilesCloud.deleteFile({
+              bucketName: envs.AWS_BUCKET_NAME,
+              key: story.imgstorie,
+            }).catch(() => {});
+          }
+          await Storie.remove(story);
+          deletedCount++;
+        } catch (err) {
+          console.error(`[AUTO_PURGE] Error purging story ${story.id}`, err);
+        }
+      }
+
+      if (deletedCount > 0) {
+        getIO().emit("storiesPurged", { count: deletedCount });
+      }
+      return deletedCount;
+    } catch (error) {
+      console.error("[AUTO_PURGE] Error in auto purge stories:", error);
+      return 0;
+    }
+  }
+
+  async purgeOldDeletedStories(adminId: string, pin: string, days: number = 30): Promise<{ deletedCount: number }> {
+    // 1. Validar PIN
+    const isPinValid = await this.globalSettingsService.validateMasterPin(pin);
+    if (!isPinValid) throw CustomError.badRequest("El PIN Maestro ingresado es incorrecto.");
+
     try {
       const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
@@ -834,10 +887,14 @@ export class StorieService {
         }
       }
 
+      // 2. Auditoría
+      console.log(`[PURGE_STORIES] Admin ${adminId} executed mass purge. Deleted: ${deletedCount}`);
+
       getIO().emit("storiesPurged", { count: deletedCount });
       return { deletedCount };
 
     } catch (error) {
+      if (error instanceof CustomError) throw error;
       throw CustomError.internalServer(`Error en purga de historias (+${days} días)`);
     }
   }

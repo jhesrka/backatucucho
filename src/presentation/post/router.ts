@@ -79,6 +79,24 @@ export class PostRoutes {
 
 
 
+    router.get(
+      "/admin/unified-summary",
+      AuthAdminMiddleware.protect,
+      postController.getUnifiedSummary
+    );
+
+    router.get(
+      "/admin/purge-preview",
+      AuthAdminMiddleware.protect,
+      postController.previewPurgeAdmin
+    );
+
+    router.post(
+      "/admin/purge-deleted",
+      AuthAdminMiddleware.protect,
+      postController.purgeOldPosts
+    );
+
     // Totales de posts pagados activos
     router.get(
       "/paid/active/count",

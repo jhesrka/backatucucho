@@ -29,7 +29,7 @@ export class PriceController {
 
   // Actualizar configuración de precios (admin)
   updatePriceSettings = async (req: Request, res: Response) => {
-    const { basePrice, extraDayPrice, masterPin } = req.body;
+    const { basePrice, extraDayPrice, storyPurgeDays, storyAutoPurge, masterPin } = req.body;
 
     if (basePrice === undefined || extraDayPrice === undefined) {
       return res
@@ -48,7 +48,9 @@ export class PriceController {
       // Si es válido, actualizar
       const updated = await this.priceService.updatePriceSettings(
         Number(basePrice),
-        Number(extraDayPrice)
+        Number(extraDayPrice),
+        storyPurgeDays !== undefined ? Number(storyPurgeDays) : undefined,
+        storyAutoPurge !== undefined ? Boolean(storyAutoPurge) : undefined
       );
 
       return res.status(200).json(updated);

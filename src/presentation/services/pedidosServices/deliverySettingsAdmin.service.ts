@@ -1,5 +1,7 @@
 import { DeliverySettings } from "../../../data/postgres/models/DeliverySettings";
 import { CustomError } from "../../../domain";
+import { GlobalSettings } from "../../../data/postgres/models/global-settings.model";
+import bcrypt from "bcryptjs";
 
 
 export class DeliverySettingsAdminService {
@@ -9,7 +11,9 @@ export class DeliverySettingsAdminService {
     return settings;
   }
 
-  async createOrActivate(data: Partial<DeliverySettings>) {
+  async createOrActivate(data: Partial<DeliverySettings> & { masterPin?: string }) {
+    await this.verifyMasterPin(data.masterPin || "");
+
     // Desactivar actuales
     await DeliverySettings.createQueryBuilder()
       .update(DeliverySettings)
@@ -27,7 +31,9 @@ export class DeliverySettingsAdminService {
     return await s.save();
   }
 
-  async update(id: string, data: Partial<DeliverySettings>) {
+  async update(id: string, data: Partial<DeliverySettings> & { masterPin?: string }) {
+    await this.verifyMasterPin(data.masterPin || "");
+
     const s = await DeliverySettings.findOneBy({ id });
     if (!s) throw CustomError.notFound("Configuración no encontrada");
 
@@ -47,5 +53,19 @@ export class DeliverySettingsAdminService {
     }
 
     return await s.save();
+  }
+
+  private async verifyMasterPin(pin: string) {
+    if (!pin) throw CustomError.unAuthorized("Master PIN requerido");
+
+    const settings = await GlobalSettings.findOne({ where: {} });
+    if (!settings || !settings.masterPin) {
+      throw CustomError.internalServer("Error de seguridad: Master PIN no configurado en el sistema");
+    }
+
+    const isValid = bcrypt.compareSync(pin, settings.masterPin);
+    if (!isValid) {
+      throw CustomError.unAuthorized("Master PIN incorrecto");
+    }
   }
 }

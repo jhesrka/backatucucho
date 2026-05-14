@@ -8,6 +8,7 @@ import { StorieService } from "../services/storie.service";
 import { WalletService } from "../services/postService/wallet.service";
 import { PriceService } from "../services/priceService/price-service.service";
 import { AuthAdminMiddleware } from "../../middlewares";
+import { GlobalSettingsService } from "../services";
 
 export class StorieRoutes {
   static get routes(): Router {
@@ -21,10 +22,12 @@ export class StorieRoutes {
     const userService = new UserService(emailService);
     const walletService = new WalletService();
     const priceService = new PriceService();
+    const globalSettingsService = new GlobalSettingsService();
     const storieService = new StorieService(
       userService,
       walletService,
-      priceService
+      priceService,
+      globalSettingsService
     );
     const storieController = new StorieController(storieService);
 

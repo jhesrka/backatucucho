@@ -13,16 +13,20 @@ export class PriceService {
       defaultConfig.extraDayPrice = 0.25;
       defaultConfig.motorizadoPercentage = 80.00;
       defaultConfig.appPercentage = 20.00;
+      defaultConfig.storyPurgeDays = 30;
+      defaultConfig.storyAutoPurge = false;
       return await defaultConfig.save();
     }
 
     return config;
   }
 
-  async updatePriceSettings(basePrice: number, extraDayPrice: number) {
+  async updatePriceSettings(basePrice: number, extraDayPrice: number, storyPurgeDays?: number, storyAutoPurge?: boolean) {
     const config = await this.getCurrentPriceSettings();
     config.basePrice = basePrice;
     config.extraDayPrice = extraDayPrice;
+    if (storyPurgeDays !== undefined) config.storyPurgeDays = storyPurgeDays;
+    if (storyAutoPurge !== undefined) config.storyAutoPurge = storyAutoPurge;
     return await config.save();
   }
 
