@@ -29,7 +29,7 @@ export class PriceController {
 
   // Actualizar configuración de precios (admin)
   updatePriceSettings = async (req: Request, res: Response) => {
-    const { basePrice, extraDayPrice, storyPurgeDays, storyAutoPurge, masterPin } = req.body;
+     const { basePrice, extraDayPrice, storyPurgeDays, storyAutoPurge, rankingEvaluationPeriodDays, masterPin } = req.body;
 
     if (basePrice === undefined || extraDayPrice === undefined) {
       return res
@@ -50,7 +50,8 @@ export class PriceController {
         Number(basePrice),
         Number(extraDayPrice),
         storyPurgeDays !== undefined ? Number(storyPurgeDays) : undefined,
-        storyAutoPurge !== undefined ? Boolean(storyAutoPurge) : undefined
+        storyAutoPurge !== undefined ? Boolean(storyAutoPurge) : undefined,
+        rankingEvaluationPeriodDays !== undefined ? Number(rankingEvaluationPeriodDays) : undefined
       );
 
       return res.status(200).json(updated);

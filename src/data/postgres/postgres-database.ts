@@ -35,6 +35,8 @@ import { WalletMovement } from "./models/wallet-movement.model";
 import { BankAccount } from "./models/BankAccount";
 import { PushToken } from "./models/PushToken";
 import { PedidoOperativoLog } from "./models/PedidoOperativoLog";
+import { MotorizadoTier } from "./models/MotorizadoTier";
+import { MeritocracyService } from "../../presentation/services/pedidosServices/meritocracy.service";
 
 interface Options {
   host: string;
@@ -91,7 +93,8 @@ export class PostgresDatabase {
         WalletMovement,
         BankAccount,
         PushToken,
-        PedidoOperativoLog
+        PedidoOperativoLog,
+        MotorizadoTier
       ],
       synchronize: false, // PRODUCCIÓN: SIEMPRE FALSE. Usar migraciones.
       ssl: {
@@ -325,6 +328,29 @@ export class PostgresDatabase {
         ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "paidPurgeInactivityMonths" INT DEFAULT 6;
         ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "autoPurgeEnabled" BOOLEAN DEFAULT true;
       `);
+
+      await runMigrationStep("Step 21: Meritocracy System", async () => {
+        await this.datasource.query(`
+          CREATE TABLE IF NOT EXISTS "motorizado_tier" (
+            "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+            "name" varchar(50) NOT NULL,
+            "commissionPercentage" decimal(10,2) NOT NULL,
+            "minParticipationPercentage" decimal(10,2) NOT NULL,
+            "color" varchar(20) DEFAULT '#admin-primary',
+            "createdAt" timestamptz DEFAULT now(),
+            "updatedAt" timestamptz DEFAULT now(),
+            CONSTRAINT "PK_motorizado_tier" PRIMARY KEY ("id")
+          );
+        `);
+        await this.datasource.query(`ALTER TABLE "price_settings" ADD COLUMN IF NOT EXISTS "rankingEvaluationPeriodDays" INT DEFAULT 7;`);
+        await this.datasource.query(`ALTER TABLE "price_settings" ADD COLUMN IF NOT EXISTS "lastRankingUpdate" timestamptz DEFAULT NULL;`);
+        await this.datasource.query(`ALTER TABLE "user_motorizado" ADD COLUMN IF NOT EXISTS "currentTierId" uuid REFERENCES "motorizado_tier"("id") ON DELETE SET NULL;`);
+        await this.datasource.query(`ALTER TABLE "user_motorizado" ADD COLUMN IF NOT EXISTS "performanceLastPeriod" json DEFAULT NULL;`);
+      });
+
+      // 2. Inicializar Meritocracia
+      const meritocracy = new MeritocracyService();
+      await meritocracy.ensureDefaultTiers();
 
       console.log("✅ Safety check completed. All manual migrations are synced.");
     } catch (error) {

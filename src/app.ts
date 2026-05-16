@@ -18,6 +18,7 @@ import { startPedidoExpirationCron } from "./cron/pedidoAcceptanceExpiration.cro
 import { startSubscriptionCleanupCron } from "./cron/subscription-cleanup.cron";
 import { startPostPurgeCron } from "./cron/post-purge.cron";
 import { startPostSchedulerCron } from "./cron/post-scheduler.cron";
+import { startMeritocracyCron } from "./cron/meritocracy.cron";
 
 import { ActivityService } from "./presentation/services/activity.service";
 import { getIO } from "./config/socket";
@@ -50,6 +51,7 @@ async function main() {
   startSubscriptionCleanupCron();
   startPostPurgeCron();
   startPostSchedulerCron();
+  startMeritocracyCron();
   PedidoUsuarioService.startMaintenanceJob(); // 🚀 Activar limpieza de pedidos y auto-cancelación
 
   console.log("🚀 Iniciando servidor...");

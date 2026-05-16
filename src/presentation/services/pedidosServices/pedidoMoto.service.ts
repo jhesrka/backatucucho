@@ -90,7 +90,10 @@ export class PedidoMotoService {
   private static async obtenerMotorizadoOrFail(
     id: string
   ): Promise<UserMotorizado> {
-    const moto = await UserMotorizado.findOneBy({ id });
+    const moto = await UserMotorizado.findOne({ 
+      where: { id },
+      relations: ["currentTier"]
+    });
     if (!moto) throw CustomError.notFound("Motorizado no encontrado");
     return moto;
   }
@@ -413,6 +416,18 @@ export class PedidoMotoService {
 
     pedido.estado = EstadoPedido.PREPARANDO_ASIGNADO;
     pedido.motorizado = moto;
+
+    // --- DINAMISMO POR MÉRITO ---
+    const tier = moto.currentTier;
+    if (tier) {
+      const porcentajeMoto = Number(tier.commissionPercentage);
+      const costoEnvio = Number(pedido.costoEnvio);
+      pedido.porcentaje_motorizado_aplicado = porcentajeMoto;
+      pedido.porcentaje_app_aplicado = 100 - porcentajeMoto;
+      pedido.ganancia_motorizado = Number((costoEnvio * (porcentajeMoto / 100)).toFixed(2));
+      pedido.comision_app_domicilio = Number((costoEnvio - pedido.ganancia_motorizado).toFixed(2));
+    }
+
     pedido.pickup_code = Math.floor(1000 + Math.random() * 9000).toString();
     pedido.pickup_verified = false;
     this.limpiarCamposRonda(pedido);

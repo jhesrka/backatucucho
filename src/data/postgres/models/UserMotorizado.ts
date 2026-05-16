@@ -7,10 +7,13 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   BeforeInsert,
+  ManyToOne,
+  JoinColumn,
 } from "typeorm";
 
 import { encriptAdapter } from "../../../config";
 import { Pedido } from "./Pedido";
+import { MotorizadoTier } from "./MotorizadoTier";
 import type { TransaccionMotorizado } from "./TransaccionMotorizado";
 
 // 🔹 Estado administrativo del motorizado
@@ -129,6 +132,12 @@ export class UserMotorizado extends BaseEntity {
 
   @Column("int", { default: 0 })
   resetTokenVersion: number;
+
+  @ManyToOne(() => MotorizadoTier, { nullable: true })
+  currentTier: MotorizadoTier | null;
+
+  @Column("json", { nullable: true })
+  performanceLastPeriod: any; // Datos del último periodo (pedidos, %, etc)
 
   @OneToMany(() => Pedido, (pedido) => pedido.motorizado)
   pedidos: Pedido[];

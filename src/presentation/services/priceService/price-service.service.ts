@@ -21,12 +21,13 @@ export class PriceService {
     return config;
   }
 
-  async updatePriceSettings(basePrice: number, extraDayPrice: number, storyPurgeDays?: number, storyAutoPurge?: boolean) {
+   async updatePriceSettings(basePrice: number, extraDayPrice: number, storyPurgeDays?: number, storyAutoPurge?: boolean, rankingEvaluationPeriodDays?: number) {
     const config = await this.getCurrentPriceSettings();
     config.basePrice = basePrice;
     config.extraDayPrice = extraDayPrice;
     if (storyPurgeDays !== undefined) config.storyPurgeDays = storyPurgeDays;
     if (storyAutoPurge !== undefined) config.storyAutoPurge = storyAutoPurge;
+    if (rankingEvaluationPeriodDays !== undefined) config.rankingEvaluationPeriodDays = rankingEvaluationPeriodDays;
     return await config.save();
   }
 

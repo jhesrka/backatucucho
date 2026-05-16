@@ -31,6 +31,12 @@ export class PriceSettings extends BaseEntity {
   @Column('boolean', { default: false })
   storyAutoPurge: boolean; // ¿Purga automática activada?
 
+  @Column('int', { default: 7 })
+  rankingEvaluationPeriodDays: number; // Periodo de evaluación (ej. 7 días)
+
+  @Column('timestamptz', { nullable: true })
+  lastRankingUpdate: Date | null; // Fecha del último cierre de ranking
+
   @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;
 

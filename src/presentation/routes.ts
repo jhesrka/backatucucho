@@ -41,6 +41,7 @@ import { PayphoneWebhookRoutes } from "./webhooks/payphone.routes";
 
 import { ActivityRoutes } from "./activity/activity.routes";
 import { NotificationRoutes } from "./notifications/routes";
+import { MeritocracyRoutes } from "./meritocracy/meritocracy.routes";
 
 export class AppRoutes {
   //cuando hay metodoos estaticos no necesitams instanciar
@@ -128,6 +129,7 @@ export class AppRoutes {
     // ACTIVITY TRACKING
     router.use("/api/activity", ActivityRoutes.routes);
     router.use("/api/notifications", NotificationRoutes.routes);
+    router.use("/api/meritocracy", MeritocracyRoutes.routes);
 
     return router;
 

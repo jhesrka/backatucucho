@@ -22,6 +22,9 @@ import { JwtAdapterMotorizado, encriptAdapter, envs } from "../../../config";
 import { getIO } from "../../../config/socket";
 import { PedidoMotoService } from "../pedidosServices/pedidoMoto.service";
 import { In, Between, Brackets } from "typeorm";
+import moment from "moment-timezone";
+
+const ECUADOR_TZ = "America/Guayaquil";
 
 export class UserMotorizadoService {
 
@@ -50,10 +53,8 @@ export class UserMotorizadoService {
     }
 
     if (startDate && endDate) {
-      const start = new Date(startDate);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999);
+      const start = moment.tz(startDate, ECUADOR_TZ).startOf('day').toDate();
+      const end = moment.tz(endDate, ECUADOR_TZ).endOf('day').toDate();
       query.andWhere("pedido.createdAt BETWEEN :start AND :end", { start, end });
     }
 
@@ -283,7 +284,7 @@ export class UserMotorizadoService {
   async getMotorizadoFull(id: string) {
     const motorizado = await UserMotorizado.findOne({
       where: { id },
-      relations: ["pedidos"],
+      relations: ["pedidos", "currentTier"],
     });
 
     if (!motorizado) {
@@ -312,6 +313,8 @@ export class UserMotorizadoService {
       createdAt: motorizado.createdAt,
       ratingPromedio: Number(motorizado.ratingPromedio) || 0,
       totalResenas: Number(motorizado.totalResenas) || 0,
+      currentTier: motorizado.currentTier,
+      performanceLastPeriod: motorizado.performanceLastPeriod
     };
   }
 
@@ -599,10 +602,8 @@ export class UserMotorizadoService {
       .where("t.motorizadoId = :id", { id: motorizadoId });
 
     if (startDate && endDate) {
-      const start = new Date(startDate);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999);
+      const start = moment.tz(startDate, ECUADOR_TZ).startOf('day').toDate();
+      const end = moment.tz(endDate, ECUADOR_TZ).endOf('day').toDate();
       query.andWhere("t.createdAt BETWEEN :start AND :end", { start, end });
     }
 
@@ -952,10 +953,9 @@ export class UserMotorizadoService {
     }
 
     if (date) {
-      const start = new Date(date);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(date);
-      end.setHours(23, 59, 59, 999);
+      // Usar moment-timezone para crear el rango del día en Ecuador
+      const start = moment.tz(date, ECUADOR_TZ).startOf('day').toDate();
+      const end = moment.tz(date, ECUADOR_TZ).endOf('day').toDate();
       query.andWhere("t.createdAt BETWEEN :start AND :end", { start, end });
     }
 
@@ -980,8 +980,7 @@ export class UserMotorizadoService {
 
   // ✅ Obtener estadísticas de retiros de HOY
   async getWithdrawalStatsToday() {
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfToday = moment.tz(ECUADOR_TZ).startOf('day').toDate();
 
     const solicitudesHoy = await TransaccionMotorizado.createQueryBuilder("t")
       .where("t.tipo = :tipo", { tipo: TipoTransaccion.RETIRO })
