@@ -58,6 +58,9 @@ export class UserMotorizado extends BaseEntity {
   @Column("decimal", { precision: 10, scale: 2, default: 0 })
   saldo: number;
 
+  @Column("varchar", { nullable: true })
+  photoperfil: string | null;
+
   // ==============================
   // 🏦 DATOS BANCARIOS
   // ==============================

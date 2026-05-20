@@ -1,4 +1,4 @@
-import { GlobalSettings } from "../../../data";
+import { GlobalSettings, Pedido, EstadoPedido } from "../../../data";
 import { CustomError } from "../../../domain";
 import { UploadFilesCloud } from "../../../config/upload-files-cloud-adapter";
 import { ImageOptimizer, ImageSize } from "../../../config/image-optimizer.adapter";
@@ -27,7 +27,8 @@ export class GlobalSettingsService {
             settings.hora_cierre = "22:00:00";
             settings.app_status = "CLOSED";
             settings.modo_operacion = "AUTO";
-            settings.max_wait_time_acceptance = 10;
+            settings.pendingOrderTimeoutMinutes = 10;
+            settings.acceptedOrderGraceMinutes = 10;
             settings.cleanupSubscriptionContentDays = 60;
             settings.payphoneRechargePercentage = 0.00;
             await settings.save();
@@ -114,7 +115,14 @@ export class GlobalSettingsService {
 
         if (data.timeoutRondaMs !== undefined) settings.timeoutRondaMs = data.timeoutRondaMs;
         if (data.maxRondasAsignacion !== undefined) settings.maxRondasAsignacion = data.maxRondasAsignacion;
-        if (data.max_wait_time_acceptance !== undefined) settings.max_wait_time_acceptance = Number(data.max_wait_time_acceptance);
+        if (data.pendingOrderTimeoutMinutes !== undefined) {
+            const pendingOrdersCount = await Pedido.count({ where: { estado: EstadoPedido.PENDIENTE } });
+            if (pendingOrdersCount > 0 && Number(data.pendingOrderTimeoutMinutes) !== settings.pendingOrderTimeoutMinutes) {
+                throw CustomError.badRequest("No se puede cambiar el tiempo máximo de pendiente mientras existan pedidos pendientes activos en el sistema.");
+            }
+            settings.pendingOrderTimeoutMinutes = Number(data.pendingOrderTimeoutMinutes);
+        }
+        if (data.acceptedOrderGraceMinutes !== undefined) settings.acceptedOrderGraceMinutes = Number(data.acceptedOrderGraceMinutes);
         if (data.cleanupSubscriptionContentDays !== undefined) settings.cleanupSubscriptionContentDays = Number(data.cleanupSubscriptionContentDays);
 
         // Payphone
@@ -125,9 +133,19 @@ export class GlobalSettingsService {
         const coverRaw = data.businessCover || data.cover;
         if (coverRaw) {
             try {
-                settings.businessCover = typeof coverRaw === 'string' 
+                const parsedCover = typeof coverRaw === 'string' 
                     ? JSON.parse(coverRaw) 
                     : coverRaw;
+
+                // 🛡️ DEFINITIVE S3 PRE-SIGNED URL FIX:
+                // If imageUrl is a temporary HTTP pre-signed URL, preserve the existing raw key from the database.
+                if (parsedCover && parsedCover.imageUrl && parsedCover.imageUrl.startsWith('http')) {
+                    const currentSettings = await GlobalSettings.findOne({ where: {} });
+                    if (currentSettings?.businessCover?.imageUrl) {
+                        parsedCover.imageUrl = currentSettings.businessCover.imageUrl;
+                    }
+                }
+                settings.businessCover = parsedCover;
             } catch (e) {
                 console.error("Error parsing businessCover JSON", e);
             }

@@ -8,7 +8,7 @@ export class PedidoExpirationService {
         const settings = await GlobalSettings.findOne({ where: {} });
         if (!settings) return false;
 
-        const maxMinutes = settings.max_wait_time_acceptance || 10;
+        const maxMinutes = settings.pendingOrderTimeoutMinutes || 10;
         const now = new Date();
         const expirationLimit = new Date(now.getTime() - maxMinutes * 60000);
 
@@ -21,7 +21,7 @@ export class PedidoExpirationService {
             const settings = await GlobalSettings.findOne({ where: {} });
             if (!settings) return;
 
-            const maxMinutes = settings.max_wait_time_acceptance || 10;
+            const maxMinutes = settings.pendingOrderTimeoutMinutes || 10;
             const now = new Date();
             const expirationLimit = new Date(now.getTime() - maxMinutes * 60000);
 

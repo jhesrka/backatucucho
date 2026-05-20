@@ -241,7 +241,8 @@ export class PostgresDatabase {
       await runMigrationStep("Step 8: Products and Wallet Data", async () => {
         await this.datasource.query(`ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "timeoutRondaMs" INT DEFAULT 60000;`);
         await this.datasource.query(`ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "maxRondasAsignacion" INT DEFAULT 4;`);
-        await this.datasource.query(`ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "max_wait_time_acceptance" INT DEFAULT 10;`);
+        await this.datasource.query(`ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "pendingOrderTimeoutMinutes" INT DEFAULT 10;`);
+        await this.datasource.query(`ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "acceptedOrderGraceMinutes" INT DEFAULT 10;`);
         await this.datasource.query(`ALTER TABLE "transaccion_motorizado" ADD COLUMN IF NOT EXISTS "reintegrado" BOOLEAN DEFAULT false;`);
         await this.datasource.query(`ALTER TABLE "transaccion_motorizado" ADD COLUMN IF NOT EXISTS "updated_at" TIMESTAMPTZ DEFAULT NOW();`);
         await this.datasource.query(`ALTER TABLE "wallet_movements" ADD COLUMN IF NOT EXISTS "reference_id" VARCHAR(255) DEFAULT NULL;`);
@@ -346,6 +347,18 @@ export class PostgresDatabase {
         await this.datasource.query(`ALTER TABLE "price_settings" ADD COLUMN IF NOT EXISTS "lastRankingUpdate" timestamptz DEFAULT NULL;`);
         await this.datasource.query(`ALTER TABLE "user_motorizado" ADD COLUMN IF NOT EXISTS "currentTierId" uuid REFERENCES "motorizado_tier"("id") ON DELETE SET NULL;`);
         await this.datasource.query(`ALTER TABLE "user_motorizado" ADD COLUMN IF NOT EXISTS "performanceLastPeriod" json DEFAULT NULL;`);
+      });
+
+      await runMigrationStep("Step 22: Motorizado Profile Picture", `
+        ALTER TABLE "user_motorizado" ADD COLUMN IF NOT EXISTS "photoperfil" VARCHAR DEFAULT NULL;
+      `);
+
+      await runMigrationStep("Step 23: Fix Pedido CreatedAt Timestamptz", async () => {
+        await this.datasource.query(`SET timezone = 'UTC';`);
+        await this.datasource.query(`ALTER TABLE "pedido" ALTER COLUMN "createdAt" TYPE timestamptz;`);
+        await this.datasource.query(`ALTER TABLE "pedido" ALTER COLUMN "updatedAt" TYPE timestamptz;`);
+        await this.datasource.query(`ALTER TABLE "pedido" ALTER COLUMN "fechaInicioRonda" TYPE timestamptz;`);
+        await this.datasource.query(`ALTER TABLE "pedido" ALTER COLUMN "arrival_time" TYPE timestamptz;`);
       });
 
       // 2. Inicializar Meritocracia

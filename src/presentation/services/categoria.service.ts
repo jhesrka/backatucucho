@@ -196,9 +196,15 @@ export class CategoriaService {
     }
 
     if (dto.cover !== undefined) {
-      // Si el DTO trae cover, lo usamos (o lo mantenemos si es string/obj parcial)
-      // Pero ojo, si coverFile viene, sobreescribiremos el imageUrl luego
-      categoria.cover = dto.cover;
+      const parsedCover = dto.cover;
+      // 🛡️ DEFINITIVE S3 PRE-SIGNED URL FIX:
+      // If imageUrl is a temporary HTTP pre-signed URL, preserve the existing raw key from the database.
+      if (parsedCover && parsedCover.imageUrl && parsedCover.imageUrl.startsWith('http')) {
+        if (categoria.cover?.imageUrl) {
+          parsedCover.imageUrl = categoria.cover.imageUrl;
+        }
+      }
+      categoria.cover = parsedCover;
     }
 
     if (iconFile) {

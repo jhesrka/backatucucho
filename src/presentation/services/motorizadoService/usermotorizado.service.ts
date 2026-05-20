@@ -19,8 +19,11 @@ import {
   WalletMovementStatus,
 } from "../../../data";
 import { JwtAdapterMotorizado, encriptAdapter, envs } from "../../../config";
+import { UploadFilesCloud } from "../../../config/upload-files-cloud-adapter";
+import { generateUUID } from "../../../config/uuid.adapter";
 import { getIO } from "../../../config/socket";
 import { PedidoMotoService } from "../pedidosServices/pedidoMoto.service";
+import { MeritocracyService } from "../pedidosServices/meritocracy.service";
 import { In, Between, Brackets } from "typeorm";
 import moment from "moment-timezone";
 
@@ -225,6 +228,14 @@ export class UserMotorizadoService {
       throw CustomError.internalServer("Error generando Jwt");
     }
 
+    let photoUrl = "";
+    if (usermotorizado.photoperfil) {
+      photoUrl = await UploadFilesCloud.getOptimizedUrls({
+        bucketName: envs.AWS_BUCKET_NAME,
+        key: usermotorizado.photoperfil,
+      }) as any;
+    }
+
     return {
       tokenmotorizado,
       refreshToken,
@@ -234,6 +245,7 @@ export class UserMotorizadoService {
         surname: usermotorizado.surname,
         cedula: usermotorizado.cedula,
         whatsapp: usermotorizado.whatsapp,
+        photoperfil: photoUrl || "",
       },
     };
   }
@@ -291,12 +303,21 @@ export class UserMotorizadoService {
       throw CustomError.notFound("Motorizado no encontrado");
     }
 
+    let photoUrl = "";
+    if (motorizado.photoperfil) {
+      photoUrl = await UploadFilesCloud.getOptimizedUrls({
+        bucketName: envs.AWS_BUCKET_NAME,
+        key: motorizado.photoperfil,
+      }) as any;
+    }
+
     return {
       id: motorizado.id,
       name: motorizado.name,
       surname: motorizado.surname,
       whatsapp: motorizado.whatsapp,
       cedula: motorizado.cedula,
+      photoperfil: photoUrl || "",
 
       estadoCuenta: motorizado.estadoCuenta,
       estadoTrabajo: motorizado.estadoTrabajo,
@@ -407,28 +428,70 @@ export class UserMotorizadoService {
 
   // ✅ Ver todos los motorizados
   async findAllMotorizados() {
-    const motorizados = await UserMotorizado.find();
-    return motorizados.map((m) => ({
-      id: m.id,
-      name: m.name,
-      surname: m.surname,
-      whatsapp: m.whatsapp,
-      cedula: m.cedula,
-      estadoCuenta: m.estadoCuenta,
-      estadoTrabajo: m.estadoTrabajo,
-      fechaHoraDisponible: m.fechaHoraDisponible,
-      quiereTrabajar: m.quiereTrabajar,
-      saldo: m.saldo,
-      ratingPromedio: Number(m.ratingPromedio) || 0,
-      totalResenas: Number(m.totalResenas) || 0,
-      createdAt: m.createdAt,
+    const motorizados = await UserMotorizado.find({ relations: ['currentTier'] });
+    const meritocracyService = new MeritocracyService();
+    const liveRanking = await meritocracyService.getLiveRanking().catch(() => null);
+    const rankingArray = liveRanking?.ranking || [];
+    
+    return Promise.all(motorizados.map(async (m) => {
+      let photoUrl = "";
+      if (m.photoperfil) {
+        photoUrl = await UploadFilesCloud.getOptimizedUrls({
+          bucketName: envs.AWS_BUCKET_NAME,
+          key: m.photoperfil,
+        }) as any;
+      }
+
+      // Buscar estadísticas de meritocracia en vivo
+      const meritStats = rankingArray.find(r => r.id === m.id);
+
+      return {
+        id: m.id,
+        name: m.name,
+        surname: m.surname,
+        whatsapp: m.whatsapp,
+        cedula: m.cedula,
+        estadoCuenta: m.estadoCuenta,
+        estadoTrabajo: m.estadoTrabajo,
+        fechaHoraDisponible: m.fechaHoraDisponible,
+        quiereTrabajar: m.quiereTrabajar,
+        saldo: m.saldo,
+        ratingPromedio: Number(m.ratingPromedio) || 0,
+        totalResenas: Number(m.totalResenas) || 0,
+        createdAt: m.createdAt,
+        photoperfil: photoUrl || "",
+        meritocracia: {
+          ligaActual: m.currentTier?.name || '📍 START',
+          ligaActualColor: m.currentTier?.color || '#94a3b8',
+          participacionActual: meritStats ? meritStats.participacion : 0,
+          pedidosActuales: meritStats ? meritStats.pedidosCount : 0,
+          ligaProyectada: meritStats ? meritStats.proximoTier : (m.currentTier?.name || '📍 START'),
+          ligaProyectadaColor: meritStats ? meritStats.proximoTierColor : (m.currentTier?.color || '#94a3b8')
+        }
+      };
     }));
   }
 
   // ✅ Ver un motorizado por ID
   async findMotorizadoById(id: string) {
-    const motorizado = await UserMotorizado.findOneBy({ id });
+    const motorizado = await UserMotorizado.findOne({
+      where: { id },
+      relations: ['currentTier']
+    });
     if (!motorizado) throw CustomError.notFound("Motorizado no encontrado");
+
+    const meritocracyService = new MeritocracyService();
+    const liveRanking = await meritocracyService.getLiveRanking().catch(() => null);
+    const rankingArray = liveRanking?.ranking || [];
+    const meritStats = rankingArray.find(r => r.id === id);
+
+    let photoUrl = "";
+    if (motorizado.photoperfil) {
+      photoUrl = await UploadFilesCloud.getOptimizedUrls({
+        bucketName: envs.AWS_BUCKET_NAME,
+        key: motorizado.photoperfil,
+      }) as any;
+    }
 
     return {
       id: motorizado.id,
@@ -444,6 +507,16 @@ export class UserMotorizadoService {
       ratingPromedio: Number(motorizado.ratingPromedio) || 0,
       totalResenas: Number(motorizado.totalResenas) || 0,
       createdAt: motorizado.createdAt,
+      photoperfil: photoUrl || "",
+      meritocracia: {
+        ligaActual: motorizado.currentTier?.name || '📍 START',
+        ligaActualColor: motorizado.currentTier?.color || '#94a3b8',
+        participacionActual: meritStats ? meritStats.participacion : 0,
+        pedidosActuales: meritStats ? meritStats.pedidosCount : 0,
+        ligaProyectada: meritStats ? meritStats.proximoTier : (motorizado.currentTier?.name || '📍 START'),
+        ligaProyectadaColor: meritStats ? meritStats.proximoTierColor : (motorizado.currentTier?.color || '#94a3b8'),
+        historico: motorizado.performanceLastPeriod || null
+      }
     };
   }
 
@@ -584,7 +657,46 @@ export class UserMotorizadoService {
     return { message: "Contraseña actualizada con éxito" };
   }
 
+  // ✅ Actualizar foto de perfil (AWS S3)
+  async updateProfilePicture(id: string, file: Express.Multer.File) {
+    const motorizado = await UserMotorizado.findOneBy({ id });
+    if (!motorizado) throw CustomError.notFound("Motorizado no encontrado");
+
+    // Borrar imagen anterior de S3 si existe
+    if (motorizado.photoperfil) {
+      await UploadFilesCloud.deleteFile({
+        bucketName: envs.AWS_BUCKET_NAME,
+        key: motorizado.photoperfil,
+      });
+    }
+
+    // Subir la nueva imagen a S3
+    const path = `motorizados/${Date.now()}-${generateUUID()}-${file.originalname}`;
+    const imgKey = await UploadFilesCloud.uploadSingleFile({
+      bucketName: envs.AWS_BUCKET_NAME,
+      key: path,
+      body: file.buffer,
+      contentType: file.mimetype,
+    });
+
+    // Guardar la llave en la DB
+    motorizado.photoperfil = imgKey;
+    await motorizado.save();
+
+    // Obtener las URLs generadas (original, thumb, card)
+    const photoUrls = await UploadFilesCloud.getOptimizedUrls({
+      bucketName: envs.AWS_BUCKET_NAME,
+      key: imgKey,
+    });
+
+    return { 
+      message: "Foto de perfil actualizada correctamente", 
+      photoperfil: photoUrls 
+    };
+  }
+
   // ✅ Historial de transacciones de billetera (Admin)
+  // Trigger recompile to refresh service types
   async getTransactions(
     motorizadoId: string,
     options: {
@@ -592,9 +704,10 @@ export class UserMotorizadoService {
       limit?: number;
       startDate?: string;
       endDate?: string;
+      tipo?: string;
     }
   ) {
-    const { page = 1, limit = 20, startDate, endDate } = options;
+    const { page = 1, limit = 20, startDate, endDate, tipo } = options;
     const skip = (page - 1) * limit;
 
     const query = TransaccionMotorizado.createQueryBuilder("t")
@@ -605,6 +718,10 @@ export class UserMotorizadoService {
       const start = moment.tz(startDate, ECUADOR_TZ).startOf('day').toDate();
       const end = moment.tz(endDate, ECUADOR_TZ).endOf('day').toDate();
       query.andWhere("t.createdAt BETWEEN :start AND :end", { start, end });
+    }
+
+    if (tipo) {
+      query.andWhere("t.tipo = :tipo", { tipo });
     }
 
     query.orderBy("t.createdAt", "DESC")

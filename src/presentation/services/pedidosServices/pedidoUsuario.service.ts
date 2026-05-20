@@ -194,18 +194,27 @@ export class PedidoUsuarioService {
     const skip = (page - 1) * limit;
 
     const query = Pedido.createQueryBuilder("pedido")
-      .leftJoinAndSelect("pedido.negocio", "negocio")
-      .leftJoinAndSelect("pedido.productos", "productos")
-      .leftJoinAndSelect("productos.producto", "producto")
-      .leftJoinAndSelect("pedido.cliente", "cliente")
-      .leftJoinAndSelect("pedido.motorizado", "motorizado");
+      .leftJoin("pedido.negocio", "negocio")
+      .leftJoin("pedido.productos", "productos")
+      .leftJoin("productos.producto", "producto")
+      .leftJoin("pedido.cliente", "cliente")
+      .leftJoin("pedido.motorizado", "motorizado")
+      .select([
+        "pedido.id", "pedido.estado", "pedido.total", "pedido.costoEnvio", "pedido.createdAt", "pedido.fecha_aceptado",
+        "pedido.tiempoPreparacionElegido", "pedido.latCliente", "pedido.lngCliente", "pedido.metodoPago", "pedido.comprobantePagoUrl",
+        "pedido.delivery_code", "pedido.arrival_time", "pedido.pickup_code", "pedido.motivoCancelacion", "pedido.ratingNegocio", "pedido.ratingMotorizado",
+        "negocio.id", "negocio.nombre", "negocio.latitud", "negocio.longitud", "negocio.tiempoPreparacionMax",
+        "productos.id", "productos.cantidad", "productos.subtotal", "productos.precio_venta", "productos.producto_nombre", "productos.producto_imagen",
+        "producto.id", "producto.nombre", "producto.tipoProducto",
+        "cliente.id", "cliente.name", "cliente.surname", "cliente.whatsapp", "cliente.cancellation_strikes",
+        "motorizado.id", "motorizado.name", "motorizado.surname", "motorizado.whatsapp"
+      ]);
 
     // 🛡️ FILTRO PRINCIPAL: CLIENTE + FECHA (Prioritario)
     query.where("pedido.clienteId = :clienteId", { clienteId });
 
     if (filters.startDate) {
         // 🚀 Búsqueda optimizada por rango (Index-Friendly)
-        // Esto permite que Postgres use el índice de createdAt y responda al instante
         const nextDay = new Date(filters.startDate);
         nextDay.setDate(nextDay.getDate() + 1);
         const nextDayStr = nextDay.toISOString().split('T')[0];
@@ -227,12 +236,7 @@ export class PedidoUsuarioService {
 
     const [pedidos, total] = await query.getManyAndCount();
 
-    const pedidosMapeados = await Promise.all(pedidos.map(async (p) => {
-      let url = p.comprobantePagoUrl;
-      if (url && !url.startsWith('http')) {
-        url = await UploadFilesCloud.getFile({ bucketName: envs.AWS_BUCKET_NAME, key: p.comprobantePagoUrl! });
-      }
-
+    const pedidosMapeados = pedidos.map((p) => {
       return {
         id: p.id, estado: p.estado, total: p.total, costoEnvio: p.costoEnvio,
         createdAt: p.createdAt, fecha: p.createdAt, fecha_aceptado: p.fecha_aceptado,
@@ -253,7 +257,7 @@ export class PedidoUsuarioService {
           imagen: pp.producto_imagen, // Snapshot de imagen
           tipoProducto: pp.producto?.tipoProducto || 'NORMAL'
         })),
-        metodoPago: p.metodoPago, comprobantePagoUrl: url,
+        metodoPago: p.metodoPago, comprobantePagoUrl: p.comprobantePagoUrl,
         delivery_code: p.delivery_code, arrival_time: p.arrival_time,
         pickup_code: p.pickup_code,
         motivoCancelacion: p.motivoCancelacion,
@@ -268,7 +272,7 @@ export class PedidoUsuarioService {
         ratingNegocio: p.ratingNegocio,
         ratingMotorizado: p.ratingMotorizado
       };
-    }));
+    });
 
     return { total, page, totalPages: Math.ceil(total / limit), pedidos: pedidosMapeados };
   }
@@ -459,6 +463,10 @@ export class PedidoUsuarioService {
         // 1. Limpieza rápida de PENDIENTE_PAGO (6 minutos)
         await Pedido.getRepository().query(`UPDATE pedido SET estado = 'CANCELADO', "motivoCancelacion" = 'Pago no registrado en el tiempo límite.' WHERE estado = 'PENDIENTE_PAGO' AND "createdAt" < NOW() - INTERVAL '6 minutes'`);
 
+        const { GlobalSettings } = require("../../../data");
+        const settings = await GlobalSettings.findOne({ where: {} });
+        const graceMinutes = settings?.acceptedOrderGraceMinutes || 10;
+
         // 2. Vigilante de ACEPTADOS (Optimizado: Query Filtering + Lazy Loading)
         const pedidosExpirados = await Pedido.createQueryBuilder('p')
           .leftJoinAndSelect('p.negocio', 'n')
@@ -475,11 +483,11 @@ export class PedidoUsuarioService {
               .getQuery();
             return `NOT EXISTS ${subQuery}`;
           })
-          // 🛡️ Filtro 2: Solo pedidos cuya fecha (aceptado o creado) + tiempo de preparación + 10 min sea menor a NOW()
+          // 🛡️ Filtro 2: Solo pedidos cuya fecha (aceptado o creado) + tiempo de preparación + graceMinutes min sea menor a NOW()
           .andWhere(`
             (COALESCE(p.fecha_aceptado, p.createdAt) + 
-            (COALESCE(p.tiempoPreparacionElegido, n.tiempoPreparacionMax, 30) + 10) * INTERVAL '1 minute') < NOW()
-          `)
+            (COALESCE(p.tiempoPreparacionElegido, n.tiempoPreparacionMax, 30) + :graceMinutes) * INTERVAL '1 minute') < NOW()
+          `, { graceMinutes })
           .getMany();
 
         const io = getIO();
@@ -549,9 +557,13 @@ export class PedidoUsuarioService {
         const esProgramado = pedido.productos?.some(p => p.producto?.tipoProducto === 'PROGRAMADO');
         if (esProgramado) continue;
 
+        const { GlobalSettings } = require("../../../data");
+        const settings = await GlobalSettings.findOne({ where: {} });
+        const graceMinutes = settings?.acceptedOrderGraceMinutes || 10;
+        
         const fechaBase = pedido.fecha_aceptado || pedido.createdAt;
         const prepTimeMax = Number(pedido.tiempoPreparacionElegido || pedido.negocio?.tiempoPreparacionMax || 30);
-        const totalLimitMinutes = prepTimeMax + 10;
+        const totalLimitMinutes = prepTimeMax + graceMinutes;
         const limiteAutoCancel = new Date(fechaBase.getTime() + totalLimitMinutes * 60000);
 
         if (ahora > limiteAutoCancel) {

@@ -96,7 +96,10 @@ export class GlobalSettings extends BaseEntity {
     driver_cancel_wait_time: number;
 
     @Column("int", { default: 10 })
-    max_wait_time_acceptance: number; // Tiempo máximo para aceptar pedidos (minutos)
+    pendingOrderTimeoutMinutes: number; // Tiempo máximo para aceptar pedidos (minutos)
+
+    @Column("int", { default: 10 })
+    acceptedOrderGraceMinutes: number; // Tiempo de gracia extra después de la preparación (minutos)
 
     // Payphone Platform Credentials (for Recharges)
     @Column("text", { nullable: true })

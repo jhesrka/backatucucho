@@ -45,6 +45,13 @@ export class UserMotorizadoRoutes {
       motorizadoController.cambiarPasswordSelf
     );
 
+    router.patch(
+      "/:id/profile-picture",
+      AuthMotorizadoMiddleware.protect,
+      upload.single("file"),
+      motorizadoController.updateProfilePicture
+    );
+
     // 🔄 Gestión de Pedidos (Admin)
     router.patch("/orders/:pedidoId/status", motorizadoController.changeOrderStatus);
 
