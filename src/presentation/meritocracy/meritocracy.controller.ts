@@ -21,6 +21,12 @@ export class MeritocracyController {
       .catch(error => this.handleError(error, res));
   };
 
+  getCycleStatus = (req: Request, res: Response) => {
+    this.meritocracyService.getMeritocracyStatus()
+      .then(status => res.json(status))
+      .catch(error => this.handleError(error, res));
+  };
+
   processUpdate = async (req: Request, res: Response) => {
     const { masterPin } = req.body;
     
@@ -30,10 +36,11 @@ export class MeritocracyController {
         return res.status(401).json({ error: 'PIN Maestro inválido' });
     }
     
-    this.meritocracyService.processTierUpdate()
+    this.meritocracyService.processTierUpdate('MANUAL')
       .then(result => res.json(result))
       .catch(error => this.handleError(error, res));
   };
+
 
   getTiers = (req: Request, res: Response) => {
     // Implementación rápida para obtener los tiers definidos

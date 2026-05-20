@@ -24,3 +24,4 @@ export * from './CommissionLog';
 export * from './financial/FinancialClosing';
 export * from './PedidoOperativoLog';
 export * from './MotorizadoTier';
+export * from './MeritocracyCycleLog';

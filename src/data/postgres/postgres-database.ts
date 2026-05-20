@@ -36,6 +36,7 @@ import { BankAccount } from "./models/BankAccount";
 import { PushToken } from "./models/PushToken";
 import { PedidoOperativoLog } from "./models/PedidoOperativoLog";
 import { MotorizadoTier } from "./models/MotorizadoTier";
+import { MeritocracyCycleLog } from "./models/MeritocracyCycleLog";
 import { MeritocracyService } from "../../presentation/services/pedidosServices/meritocracy.service";
 
 interface Options {
@@ -94,7 +95,8 @@ export class PostgresDatabase {
         BankAccount,
         PushToken,
         PedidoOperativoLog,
-        MotorizadoTier
+        MotorizadoTier,
+        MeritocracyCycleLog
       ],
       synchronize: false, // PRODUCCIÓN: SIEMPRE FALSE. Usar migraciones.
       ssl: {
@@ -360,6 +362,21 @@ export class PostgresDatabase {
         await this.datasource.query(`ALTER TABLE "pedido" ALTER COLUMN "fechaInicioRonda" TYPE timestamptz;`);
         await this.datasource.query(`ALTER TABLE "pedido" ALTER COLUMN "arrival_time" TYPE timestamptz;`);
       });
+
+      await runMigrationStep("Step 24: Meritocracy Cycle Logs Table", `
+        CREATE TABLE IF NOT EXISTS "meritocracy_cycle_log" (
+          "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+          "cycleStart" timestamptz NOT NULL,
+          "cycleEnd" timestamptz NOT NULL,
+          "executionType" varchar(20) NOT NULL,
+          "status" varchar(20) NOT NULL,
+          "errorMessage" text,
+          "processedMotorizadosCount" int NOT NULL DEFAULT 0,
+          "totalOrdersCount" int NOT NULL DEFAULT 0,
+          "executedAt" timestamptz NOT NULL DEFAULT now(),
+          CONSTRAINT "PK_meritocracy_cycle_log" PRIMARY KEY ("id")
+        );
+      `);
 
       // 2. Inicializar Meritocracia
       const meritocracy = new MeritocracyService();

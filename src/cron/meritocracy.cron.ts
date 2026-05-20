@@ -1,6 +1,5 @@
 import cron from "node-cron";
 import { MeritocracyService } from "../presentation/services/pedidosServices/meritocracy.service";
-import { PriceSettings } from "../data";
 
 export const startMeritocracyCron = () => {
     const service = new MeritocracyService();
@@ -10,28 +9,14 @@ export const startMeritocracyCron = () => {
         try {
             console.log("⏳ [CRON] Comprobando cierre de ciclo de Meritocracia...");
             
-            const config = await PriceSettings.findOne({ where: {} });
-            if (!config) return;
-
-            const period = config.rankingEvaluationPeriodDays || 7;
-            const lastUpdate = config.lastRankingUpdate;
-
-            if (!lastUpdate) {
-                console.log("⚠️ No hay registro de último cierre. Ejecutando cierre inicial...");
-                await service.processTierUpdate();
-                return;
-            }
-
-            // Calcular diferencia en días
-            const now = new Date();
-            const diffTime = Math.abs(now.getTime() - lastUpdate.getTime());
-            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-            if (diffDays >= period) {
-                console.log(`✅ [CRON] Periodo cumplido (${diffDays}/${period} días). Cerrando ciclo...`);
-                await service.processTierUpdate();
+            const status = await service.getMeritocracyStatus();
+            
+            if (status.isPendingClosure && status.canCloseManually) {
+                console.log(`✅ [CRON] Ciclo vencido (Fin de ciclo: ${status.currentCycleEnd}). Ejecutando cierre automático de ligas...`);
+                await service.processTierUpdate('AUTO');
+                console.log("✅ [CRON] Cierre de ciclo de Meritocracia completado con éxito.");
             } else {
-                console.log(`ℹ️ [CRON] Faltan ${period - diffDays} días para el cierre del ciclo.`);
+                console.log(`ℹ️ [CRON] El ciclo actual no ha vencido aún (Fin de ciclo: ${status.currentCycleEnd}).`);
             }
 
         } catch (error) {

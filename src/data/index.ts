@@ -25,6 +25,7 @@ export * from "./postgres/models/CommissionLog";
 export * from "./postgres/models/transactionType.model";
 export { PedidoOperativoLog } from "./postgres/models/PedidoOperativoLog";
 export * from "./postgres/models/MotorizadoTier";
+export * from "./postgres/models/MeritocracyCycleLog";
 
 export * from './postgres/models/wallet-movement.model';
 export * from './postgres/models/Campaign';

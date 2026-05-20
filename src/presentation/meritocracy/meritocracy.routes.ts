@@ -9,8 +9,10 @@ export class MeritocracyRoutes {
     const controller = new MeritocracyController(service);
 
     router.get('/ranking', controller.getLiveRanking);
+    router.get('/status', controller.getCycleStatus);
     router.get('/tiers', controller.getTiers);
     router.post('/evaluate', controller.processUpdate);
+
     router.post('/tiers', controller.updateTiers);
     router.delete('/tiers/:id', controller.deleteTier);
 

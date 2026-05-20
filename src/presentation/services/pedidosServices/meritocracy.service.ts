@@ -1,27 +1,84 @@
-import { Pedido, UserMotorizado, MotorizadoTier, PriceSettings, EstadoPedido, EstadoCuentaMotorizado } from "../../../data";
+import { Pedido, UserMotorizado, MotorizadoTier, PriceSettings, EstadoPedido, EstadoCuentaMotorizado, MeritocracyCycleLog } from "../../../data";
 import { CustomError } from "../../../domain";
-import { Between, In } from "typeorm";
+import { Between } from "typeorm";
+import moment from "moment-timezone";
 
 export class MeritocracyService {
 
   /**
+   * Calcula el rango de fechas para el ciclo de meritocracia actual (de Lunes 00:00 a Domingo 23:59).
+   */
+  private getCycleDates(lastRankingUpdate: Date | null, periodDays: number): { startDate: Date, endDate: Date } {
+    const tz = 'America/Guayaquil';
+    
+    let startMom: moment.Moment;
+    if (!lastRankingUpdate) {
+      // Por defecto: Lunes de la semana actual
+      startMom = moment().tz(tz).startOf('isoWeek');
+    } else {
+      // El ciclo anterior finalizó en un Domingo a las 23:59:59.999
+      // El siguiente ciclo inicia inmediatamente en el siguiente Lunes a las 00:00:00
+      startMom = moment(lastRankingUpdate).tz(tz).add(1, 'ms').startOf('isoWeek');
+    }
+    
+    // Determinar la duración del ciclo en semanas (mínimo 1 semana)
+    const weeks = Math.max(1, Math.round(periodDays / 7));
+    
+    // El ciclo termina el domingo de la semana W a las 23:59:59.999
+    const endMom = startMom.clone().add(weeks, 'weeks').subtract(1, 'ms');
+    
+    return {
+      startDate: startMom.toDate(),
+      endDate: endMom.toDate()
+    };
+  }
+
+  /**
+   * Obtiene el estado actual del ciclo de meritocracia y control de ejecución.
+   */
+  async getMeritocracyStatus(): Promise<any> {
+    const config = await PriceSettings.findOne({ where: {} });
+    if (!config) throw CustomError.internalServer("Configuración de precios no encontrada");
+
+    const periodDays = config.rankingEvaluationPeriodDays || 7;
+    const { startDate, endDate } = this.getCycleDates(config.lastRankingUpdate, periodDays);
+
+    const now = new Date();
+    const isPendingClosure = now > endDate;
+
+    // Obtener el último log de ejecución
+    const lastExecution = await MeritocracyCycleLog.findOne({
+      where: {},
+      order: { executedAt: 'DESC' }
+    });
+
+    const isAlreadyClosed = config.lastRankingUpdate ? (config.lastRankingUpdate.getTime() === endDate.getTime()) : false;
+    const canCloseManually = isPendingClosure && !isAlreadyClosed;
+
+    return {
+      currentCycleStart: startDate,
+      currentCycleEnd: endDate,
+      isPendingClosure,
+      canCloseManually,
+      lastExecution
+    };
+  }
+
+  /**
    * Obtiene el ranking en vivo basado en los pedidos entregados 
-   * desde el último cierre de ranking hasta ahora.
+   * desde el inicio del ciclo actual.
    */
   async getLiveRanking(): Promise<{ totalPedidos: number, ranking: any[], startDate?: Date, endDate?: Date }> {
     const config = await PriceSettings.findOne({ where: {} });
     if (!config) throw CustomError.internalServer("Configuración de precios no encontrada");
 
-    // Determinar la fecha de inicio del periodo actual
-    // Si no hay lastRankingUpdate, usamos el inicio del mes actual
-    let startDate = config.lastRankingUpdate;
-    if (!startDate) {
-      startDate = new Date();
-      startDate.setDate(1);
-      startDate.setHours(0, 0, 0, 0);
-    }
+    const periodDays = config.rankingEvaluationPeriodDays || 7;
+    const { startDate, endDate } = this.getCycleDates(config.lastRankingUpdate, periodDays);
 
-    const endDate = new Date();
+    const now = new Date();
+    // Si el periodo ya culminó pero no se ha cerrado, limitamos el ranking
+    // a los pedidos acumulados dentro de los límites del ciclo vencido.
+    const queryEndDate = now > endDate ? endDate : now;
 
     // 1. Obtener todos los motorizados activos
     const motorizados = await UserMotorizado.find({
@@ -35,7 +92,7 @@ export class MeritocracyService {
     const pedidos = await Pedido.find({
       where: {
         estado: EstadoPedido.ENTREGADO,
-        updatedAt: Between(startDate, endDate)
+        updatedAt: Between(startDate, queryEndDate)
       },
       relations: ['motorizado']
     });
@@ -83,41 +140,79 @@ export class MeritocracyService {
   /**
    * Cierra el periodo actual y asigna las nuevas comisiones
    */
-  async processTierUpdate(): Promise<{ success: boolean, processed: number }> {
-    const { ranking } = await this.getLiveRanking();
-    const tiers = await MotorizadoTier.find({ order: { minParticipationPercentage: 'DESC' } });
+  async processTierUpdate(executionType: 'AUTO' | 'MANUAL' = 'MANUAL'): Promise<{ success: boolean, processed: number }> {
     const config = await PriceSettings.findOne({ where: {} });
-
     if (!config) throw CustomError.internalServer("No se pudo cargar la configuración");
 
-    for (const r of ranking) {
-      const moto = await UserMotorizado.findOne({ where: { id: r.id } });
-      if (!moto) continue;
+    const periodDays = config.rankingEvaluationPeriodDays || 7;
+    const { startDate, endDate } = this.getCycleDates(config.lastRankingUpdate, periodDays);
 
-      // Buscar el tier que le corresponde
-      const nuevoTier = tiers.find((t: MotorizadoTier) => r.participacion >= Number(t.minParticipationPercentage));
-      
-      if (nuevoTier) {
-        moto.currentTier = nuevoTier;
-        // La comisión real se guarda para usarla en el cálculo de pedidos
-        // Aunque el pedido siempre consulta la comisión al momento de crearse/asignarse
-      }
-
-      moto.performanceLastPeriod = {
-        pedidos: r.pedidosCount,
-        participacion: r.participacion,
-        fechaCierre: new Date(),
-        tierAsignado: nuevoTier?.name || 'Base'
-      };
-
-      await moto.save();
+    const now = new Date();
+    // Validar que realmente ya haya finalizado el ciclo
+    if (now <= endDate) {
+      throw CustomError.badRequest("El ciclo actual de meritocracia aún no ha finalizado.");
     }
 
-    // Actualizar fecha de último cierre
-    config.lastRankingUpdate = new Date();
-    await config.save();
+    let processedCount = 0;
+    let totalOrders = 0;
 
-    return { success: true, processed: ranking.length };
+    try {
+      // Obtener el ranking cerrado para este periodo
+      const rankingData = await this.getLiveRanking();
+      const ranking = rankingData.ranking;
+      totalOrders = rankingData.totalPedidos;
+
+      const tiers = await MotorizadoTier.find({ order: { minParticipationPercentage: 'DESC' } });
+
+      for (const r of ranking) {
+        const moto = await UserMotorizado.findOne({ where: { id: r.id } });
+        if (!moto) continue;
+
+        // Buscar el tier que le corresponde
+        const nuevoTier = tiers.find((t: MotorizadoTier) => r.participacion >= Number(t.minParticipationPercentage));
+        
+        if (nuevoTier) {
+          moto.currentTier = nuevoTier;
+        }
+
+        moto.performanceLastPeriod = {
+          pedidos: r.pedidosCount,
+          participacion: r.participacion,
+          fechaCierre: endDate,
+          tierAsignado: nuevoTier?.name || 'Base'
+        };
+
+        await moto.save();
+        processedCount++;
+      }
+
+      // Actualizar fecha de último cierre a la fecha exacta del fin del ciclo
+      config.lastRankingUpdate = endDate;
+      await config.save();
+
+      // Guardar log exitoso
+      const log = new MeritocracyCycleLog();
+      log.cycleStart = startDate;
+      log.cycleEnd = endDate;
+      log.executionType = executionType;
+      log.status = 'SUCCESS';
+      log.processedMotorizadosCount = processedCount;
+      log.totalOrdersCount = totalOrders;
+      await log.save();
+
+      return { success: true, processed: processedCount };
+    } catch (error: any) {
+      // Registrar log fallido
+      const log = new MeritocracyCycleLog();
+      log.cycleStart = startDate;
+      log.cycleEnd = endDate;
+      log.executionType = executionType;
+      log.status = 'FAILED';
+      log.errorMessage = error.message || String(error);
+      await log.save();
+
+      throw error;
+    }
   }
 
   /**
