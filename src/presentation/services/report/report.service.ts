@@ -73,10 +73,12 @@ export class ReportService {
             
             // Notify user
             try {
+                const settings = await require("../../../data").GlobalSettings.findOne({ where: {} });
+                const appName = settings?.appName || "Atucucho Shop";
                 const { getIO } = require("../../../config/socket");
                 getIO().to(report.user.id).emit("notification", {
                     title: "Soporte Técnico ✅",
-                    message: "Tu reporte ha sido resuelto. Gracias por ayudarnos a mejorar Atucucho Shop.",
+                    message: `Tu reporte ha sido resuelto. Gracias por ayudarnos a mejorar ${appName}.`,
                     type: "SUCCESS",
                     createdAt: new Date()
                 });

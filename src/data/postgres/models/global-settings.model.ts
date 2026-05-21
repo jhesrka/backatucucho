@@ -5,6 +5,21 @@ export class GlobalSettings extends BaseEntity {
     @PrimaryGeneratedColumn("uuid")
     id: string;
 
+    @Column("varchar", { length: 50, default: "Atucucho Shop" })
+    appName: string;
+
+    @Column("varchar", { length: 1024, nullable: true })
+    appLogoUrl: string;
+
+    @Column("varchar", { length: 255, nullable: true })
+    appLogoKey: string;
+
+    @Column("varchar", { length: 1024, nullable: true })
+    appFaviconUrl: string;
+
+    @Column("varchar", { length: 255, nullable: true })
+    appFaviconKey: string;
+
     @Column("int", { default: 20 })
     orderRetentionDays: number;
 

@@ -446,8 +446,10 @@ export class NegocioAdminService {
       let body = `El estado de tu negocio '${saved.nombre}' ha cambiado a ${saved.statusNegocio}.`;
       
       if (saved.statusNegocio === StatusNegocio.ACTIVO) {
+        const settings = await GlobalSettings.findOne({ where: {} });
+        const appName = settings?.appName || "Atucucho Shop";
         title = "¡Negocio Aprobado!";
-        body = `Tu negocio '${saved.nombre}' ha sido aprobado y ya puede operar en Atucucho Shop.`;
+        body = `Tu negocio '${saved.nombre}' ha sido aprobado y ya puede operar en ${appName}.`;
       }
 
       await notificationService.sendPushNotification(saved.usuario.id, title, body, { url: '/user/mis-negocios' });

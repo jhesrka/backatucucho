@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router } from "express"; // Force recompile
 import { GlobalSettingsController } from "./global-settings.controller";
 import { GlobalSettingsService } from "../../services/globalSettings/global-settings.service";
 import { AuthAdminMiddleware } from "../../../middlewares";
@@ -12,6 +12,9 @@ export class GlobalSettingsRoutes {
 
         router.get("/", controller.getSettings);
         router.patch("/", [AuthAdminMiddleware.protect, uploadSingleFile("coverImage")], controller.updateSettings);
+        router.patch("/logo", [AuthAdminMiddleware.protect, uploadSingleFile("logoImage")], controller.updateLogo);
+        router.patch("/favicon", [AuthAdminMiddleware.protect, uploadSingleFile("faviconImage")], controller.updateFavicon);
+        router.get("/manifest.json", controller.getManifest);
 
         // Control Manual de la App
         router.put("/app/cerrar", AuthAdminMiddleware.protect, controller.closeApp);

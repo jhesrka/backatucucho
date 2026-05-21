@@ -11,6 +11,7 @@ export class GlobalSettingsService {
         if (!settings) {
             settings = new GlobalSettings();
             // Defaults?
+            settings.appName = "Atucucho Shop";
             settings.orderRetentionDays = 20;
             settings.freePostsLimit = 5;
             settings.freePostDurationDays = 1;
@@ -54,6 +55,24 @@ export class GlobalSettingsService {
             } catch (e) { console.error(e); }
         }
 
+        if (settings.appLogoKey) {
+            try {
+                settings.appLogoUrl = await UploadFilesCloud.getFile({
+                    bucketName: envs.AWS_BUCKET_NAME,
+                    key: settings.appLogoKey,
+                });
+            } catch (e) { console.error(e); }
+        }
+
+        if (settings.appFaviconKey) {
+            try {
+                settings.appFaviconUrl = await UploadFilesCloud.getFile({
+                    bucketName: envs.AWS_BUCKET_NAME,
+                    key: settings.appFaviconKey,
+                });
+            } catch (e) { console.error(e); }
+        }
+
         return settings;
     }
 
@@ -72,6 +91,7 @@ export class GlobalSettingsService {
         let termsChanged = false;
 
         if (data.supportWhatsapp) settings.supportWhatsapp = data.supportWhatsapp;
+        if (data.appName !== undefined && data.appName.trim() !== "") settings.appName = data.appName;
 
         // Explicitly update text fields if provided
         if (data.termsAndConditions) {
@@ -184,6 +204,100 @@ export class GlobalSettingsService {
 
         await settings.save();
         return await this.getSettings();
+    }
+
+    async updateAppLogo(masterPin: string, file?: Express.Multer.File) {
+        if (!file) throw CustomError.badRequest("No file provided");
+        
+        const settings = await this.getSettings();
+        
+        if (masterPin) {
+            if (settings.masterPin) {
+                const isMatch = await bcrypt.compare(masterPin, settings.masterPin);
+                if (!isMatch) throw CustomError.badRequest("PIN Maestro incorrecto");
+            }
+        } else {
+            throw CustomError.badRequest("PIN Maestro requerido");
+        }
+
+        try {
+            // Delete old logo if it exists
+            if (settings.appLogoKey) {
+                try {
+                    await UploadFilesCloud.deleteFile({
+                        bucketName: envs.AWS_BUCKET_NAME,
+                        key: settings.appLogoKey
+                    });
+                } catch (e) {
+                    console.error("[GlobalSettingsService] Error deleting old logo:", e);
+                }
+            }
+
+            // OPTIMIZACIÓN DE IMAGEN
+            const optimizedBuffer = await ImageOptimizer.optimize(file.buffer, ImageSize.LARGE);
+
+            const key = await UploadFilesCloud.uploadSingleFile({
+                bucketName: envs.AWS_BUCKET_NAME,
+                key: `settings/logo/${Date.now()}-${file.originalname.replace(/\.[^/.]+$/, "")}.webp`,
+                body: optimizedBuffer,
+                contentType: 'image/webp',
+            });
+
+            settings.appLogoKey = key;
+            await settings.save();
+
+            return await this.getSettings();
+        } catch (error) {
+            console.error("updateAppLogo error:", error);
+            throw CustomError.internalServer("Error actualizando el logo de la aplicación");
+        }
+    }
+
+    async updateAppFavicon(masterPin: string, file?: Express.Multer.File) {
+        if (!file) throw CustomError.badRequest("No file provided");
+        
+        const settings = await this.getSettings();
+        
+        if (masterPin) {
+            if (settings.masterPin) {
+                const isMatch = await bcrypt.compare(masterPin, settings.masterPin);
+                if (!isMatch) throw CustomError.badRequest("PIN Maestro incorrecto");
+            }
+        } else {
+            throw CustomError.badRequest("PIN Maestro requerido");
+        }
+
+        try {
+            // Delete old favicon if it exists
+            if (settings.appFaviconKey) {
+                try {
+                    await UploadFilesCloud.deleteFile({
+                        bucketName: envs.AWS_BUCKET_NAME,
+                        key: settings.appFaviconKey
+                    });
+                } catch (e) {
+                    console.error("[GlobalSettingsService] Error deleting old favicon:", e);
+                }
+            }
+
+            // OPTIMIZACIÓN DE IMAGEN
+            const optimizedBuffer = await ImageOptimizer.optimize(file.buffer, ImageSize.LARGE);
+
+            const key = await UploadFilesCloud.uploadSingleFile({
+                bucketName: envs.AWS_BUCKET_NAME,
+                key: `settings/favicon/${Date.now()}-${file.originalname.replace(/\.[^/.]+$/, "")}.webp`,
+                body: optimizedBuffer,
+                contentType: 'image/webp',
+            });
+
+            settings.appFaviconKey = key;
+            await settings.save();
+
+            return await this.getSettings();
+        } catch (error) {
+            console.error("updateAppFavicon error:", error);
+            throw CustomError.internalServer("Error actualizando el favicon de la aplicación");
+        }
     }
 
     async updateFreePostSettings(dto: {

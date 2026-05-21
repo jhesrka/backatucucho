@@ -41,8 +41,11 @@ export class BusinessService {
 
         // 3. Validar si tiene negocios
         if (!user.negocios || user.negocios.length === 0) {
+            const { GlobalSettings } = await import("../../data");
+            const settings = await GlobalSettings.findOne({ where: {} });
+            const appName = settings?.appName || "Atucucho Shop";
             throw CustomError.forbiden(
-                "Debes crear primero un negocio para poder ingresar al panel de negocios de Atucucho Shop"
+                `Debes crear primero un negocio para poder ingresar al panel de negocios de ${appName}`
             );
         }
 

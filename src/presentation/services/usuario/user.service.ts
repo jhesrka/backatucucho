@@ -692,6 +692,9 @@ export class UserService {
   }
 
   public sendEmailValidationLink = async (email: string) => {
+    const settings = await require("../../../data").GlobalSettings.findOne({ where: {} });
+    const appName = settings?.appName || "Atucucho Shop";
+
     const token = await JwtAdapter.generateToken({ email }, "3000s");
     if (!token)
       throw CustomError.internalServer(
@@ -701,11 +704,11 @@ export class UserService {
     const html = `
   <div style="font-family: Arial, sans-serif; color: #333; max-width: 500px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
     <div style="text-align: center; margin-bottom: 20px;">
-      <img src="https://tusitio.com/logo-atucucho.png" alt="Atucucho Shop" style="max-width: 150px;" />
+      <img src="https://tusitio.com/logo-atucucho.png" alt="${appName}" style="max-width: 150px;" />
     </div>
-    <h2 style="color: #2c3e50; text-align: center;">Activa tu cuenta en Atucucho Shop</h2>
+    <h2 style="color: #2c3e50; text-align: center;">Activa tu cuenta en ${appName}</h2>
     <p>Hola,</p>
-    <p>Este correo ha sido enviado para que puedas <strong>activar tu cuenta en Atucucho Shop</strong>. Para continuar, por favor haz clic en el botón a continuación:</p>
+    <p>Este correo ha sido enviado para que puedas <strong>activar tu cuenta en ${appName}</strong>. Para continuar, por favor haz clic en el botón a continuación:</p>
     <div style="text-align: center; margin: 20px 0;">
       <a href="${link}" style="display: inline-block; padding: 12px 24px; background-color: #3498db; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Activar cuenta</a>
     </div>
@@ -713,7 +716,7 @@ export class UserService {
     <p>Si tú no solicitaste esta verificación, puedes ignorar este mensaje de forma segura.</p>
     <hr style="margin: 30px 0;" />
     <p style="font-size: 12px; color: #999; text-align: center;">Correo enviado a: ${email}</p>
-    <p style="font-size: 12px; color: #999; text-align: center;">Gracias por unirte a Atucucho Shop.</p>
+    <p style="font-size: 12px; color: #999; text-align: center;">Gracias por unirte a ${appName}.</p>
   </div>
 `;
 
