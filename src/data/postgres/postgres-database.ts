@@ -37,6 +37,8 @@ import { PushToken } from "./models/PushToken";
 import { PedidoOperativoLog } from "./models/PedidoOperativoLog";
 import { MotorizadoTier } from "./models/MotorizadoTier";
 import { MeritocracyCycleLog } from "./models/MeritocracyCycleLog";
+import { TrainingVideo } from "./models/TrainingVideo";
+import { TrainingCategory } from "./models/TrainingCategory";
 import { MeritocracyService } from "../../presentation/services/pedidosServices/meritocracy.service";
 
 interface Options {
@@ -96,7 +98,9 @@ export class PostgresDatabase {
         PushToken,
         PedidoOperativoLog,
         MotorizadoTier,
-        MeritocracyCycleLog
+        MeritocracyCycleLog,
+        TrainingVideo,
+        TrainingCategory
       ],
       synchronize: false, // PRODUCCIÓN: SIEMPRE FALSE. Usar migraciones.
       ssl: {

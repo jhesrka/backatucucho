@@ -263,15 +263,17 @@ export class MeritocracyService {
   }
 
   /**
-   * Inicializa tiers por defecto si la tabla está vacía
+   * Inicializa tiers por defecto si la tabla está vacía.
+   * La asignación de tier a nuevos motorizados se realiza
+   * directamente al momento de su creación.
    */
   async ensureDefaultTiers() {
     const count = await MotorizadoTier.count();
     if (count === 0) {
       const defaultTiers = [
-        { name: 'Diamante', commissionPercentage: 80, minParticipationPercentage: 20, color: '#00D1FF' },
-        { name: 'Oro', commissionPercentage: 70, minParticipationPercentage: 10, color: '#FFD700' },
-        { name: 'Bronce', commissionPercentage: 65, minParticipationPercentage: 0, color: '#CD7F32' },
+        { name: 'Turbo', commissionPercentage: 80, minParticipationPercentage: 20, color: '#00D1FF' },
+        { name: 'Nitro', commissionPercentage: 70, minParticipationPercentage: 10, color: '#FFD700' },
+        { name: 'Start', commissionPercentage: 65, minParticipationPercentage: 0, color: '#CD7F32' },
       ];
 
       for (const t of defaultTiers) {
@@ -282,16 +284,6 @@ export class MeritocracyService {
         tier.color = t.color;
         await tier.save();
       }
-    }
-
-    // Asegurar que todos los motorizados tengan un tier inicial (el más alto para los nuevos)
-    const topTier = await MotorizadoTier.findOne({ where: {}, order: { commissionPercentage: 'DESC' } });
-    if (topTier) {
-      await UserMotorizado.createQueryBuilder()
-        .update()
-        .set({ currentTier: topTier as any })
-        .where("currentTierId IS NULL")
-        .execute();
     }
   }
 }

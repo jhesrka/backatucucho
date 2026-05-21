@@ -25,3 +25,5 @@ export * from './financial/FinancialClosing';
 export * from './PedidoOperativoLog';
 export * from './MotorizadoTier';
 export * from './MeritocracyCycleLog';
+export * from './TrainingVideo';
+export * from './TrainingCategory';

@@ -17,6 +17,7 @@ import {
   WalletMovement,
   WalletMovementType,
   WalletMovementStatus,
+  MotorizadoTier,
 } from "../../../data";
 import { JwtAdapterMotorizado, encriptAdapter, envs } from "../../../config";
 import { UploadFilesCloud } from "../../../config/upload-files-cloud-adapter";
@@ -176,6 +177,15 @@ export class UserMotorizadoService {
     motorizado.estadoTrabajo = EstadoTrabajoMotorizado.NO_TRABAJANDO;
     motorizado.quiereTrabajar = false;
 
+    // Asignar la liga con mayor porcentaje de comisión al momento de la creación
+    const topTier = await MotorizadoTier.findOne({
+      where: {},
+      order: { commissionPercentage: 'DESC' },
+    });
+    if (topTier) {
+      motorizado.currentTier = topTier;
+    }
+
     try {
       const nuevo = await motorizado.save();
       return {
@@ -185,6 +195,7 @@ export class UserMotorizadoService {
         whatsapp: nuevo.whatsapp,
         cedula: nuevo.cedula,
         estadoCuenta: nuevo.estadoCuenta,
+        currentTier: nuevo.currentTier ?? null,
         createdAt: nuevo.createdAt,
       };
     } catch (error: any) {

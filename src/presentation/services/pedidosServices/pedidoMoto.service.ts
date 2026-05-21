@@ -864,7 +864,10 @@ export class PedidoMotoService {
   }
 
   async obtenerBilletera(motorizadoId: string, fecha?: string, page: number = 1, limit: number = 10) {
-    const moto = await UserMotorizado.findOneBy({ id: motorizadoId });
+    const moto = await UserMotorizado.findOne({
+      where: { id: motorizadoId },
+      relations: ['currentTier'],
+    });
     if (!moto) throw CustomError.notFound("Motorizado no encontrado");
 
     // 1. FILTRO DE MOVIMIENTOS POR FECHA (Paginado)
@@ -924,7 +927,8 @@ export class PedidoMotoService {
 
     return {
       saldo: moto.saldo,
-      porcentajeMotorizado: ps.motorizadoPercentage || 80,
+      // Comisión personal del motorizado según su liga actual
+      porcentajeMotorizado: moto.currentTier?.commissionPercentage ?? 80,
       datosBancarios: {
         banco: moto.bancoNombre,
         tipo: moto.bancoTipoCuenta,

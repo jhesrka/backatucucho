@@ -31,7 +31,11 @@ import { PriceSettings } from "./models/PriceSettings";
 import { DeliverySettings } from "./models/DeliverySettings";
 import { GlobalSettings } from "./models/global-settings.model";
 import { CommissionLog } from "./models/CommissionLog";
+import { MotorizadoTier } from "./models/MotorizadoTier";
+import { MeritocracyCycleLog } from "./models/MeritocracyCycleLog";
 import { PushToken } from "./models/PushToken";
+import { TrainingVideo } from "./models/TrainingVideo";
+import { TrainingCategory } from "./models/TrainingCategory";
 
 export const AppDataSource = new DataSource({
     type: "postgres",
@@ -53,7 +57,7 @@ export const AppDataSource = new DataSource({
         FreePostTracker, Transaction, CategoriaNegocio, SubcategoriaNegocio, Negocio, Producto, TipoProducto,
         UserMotorizado, ProductoPedido, Pedido, TransaccionMotorizado, BalanceNegocio,
         PriceSettings, DeliverySettings, AdminNotification, GlobalSettings, CommissionLog, Campaign,
-        CampaignLog, FinancialClosing, Report, PushToken
+        CampaignLog, FinancialClosing, Report, PushToken, TrainingVideo, TrainingCategory, MotorizadoTier, MeritocracyCycleLog
     ],
     migrations: ["src/data/postgres/migrations/*.ts"],
     subscribers: [],
