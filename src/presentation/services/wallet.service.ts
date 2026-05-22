@@ -248,6 +248,11 @@ export class WalletService {
 
     // 1. Obtener credenciales globales de PayPhone
     const settings = await GlobalSettings.findOne({ where: {} });
+    
+    if (settings && settings.cardRechargeEnabled === false) {
+      throw CustomError.badRequest("Los pagos con tarjeta están temporalmente deshabilitados por mantenimiento.");
+    }
+
     if (!settings?.payphoneToken || !settings?.payphoneStoreId) {
       throw CustomError.badRequest("La pasarela de pago PayPhone no está configurada por el administrador.");
     }
@@ -271,39 +276,27 @@ export class WalletService {
     recharge.transaction_date = new Date();
     await recharge.save();
 
-    // 3. Crear Checkout en PayPhone
-    const { PayphoneService } = await import("./payphone.service");
+    // 3. Devolver configuración para Widget V3 (Frontend)
+    console.log(`🚀 [PayPhone Recharge] Generando config V3: User #${userId}, TotalAmount: ${totalAmount}`);
 
-    try {
-      console.log(`🚀 [PayPhone Recharge] Iniciando checkout: User #${userId}, Amount: ${amount} + Fee: ${fee} = Total: ${totalAmount}`);
-      
-      // 🏆 USAR ID CORTO PARA PAYPHONE (Límite 20 caracteres)
-      const shortId = recharge.id.replace(/-/g, '').slice(0, 20);
-      console.log(`🚀 [PayPhone Recharge] ID PayPhone (20 chars): ${shortId}`);
+    const payphoneConfig = {
+      token: settings.payphoneToken,
+      storeId: settings.payphoneStoreId,
+      clientTransactionId: recharge.id,
+      amount: Math.round(totalAmount * 100), // En centavos
+      amountWithoutTax: Math.round(totalAmount * 100),
+      amountWithTax: 0,
+      tax: 0,
+      reference: `Recarga de Billetera - ${userId}`,
+      currency: "USD"
+    };
 
-      const checkout = await PayphoneService.createCheckout({
-        amount: totalAmount, // Enviamos el TOTAL a PayPhone
-        clientTransactionId: shortId,
-        reference: `Recarga de Billetera - ${userId}`,
-        storeId: settings.payphoneStoreId,
-        token: settings.payphoneToken,
-        responseUrl: `${envs.WEBSERVICE_URL_FRONT}/saldo?payment=success&rechargeId=${recharge.id}`,
-        cancellationUrl: `${envs.WEBSERVICE_URL_FRONT}/saldo?payment=cancelled&rechargeId=${recharge.id}`,
-      });
+    console.log(`✅ [PayPhone Recharge] Configuración V3 generada`);
 
-      console.log(`✅ [PayPhone Recharge] Checkout creado:`, checkout);
-
-      const payphoneUrl = checkout.payWithCard || checkout.payWithPayPhone || checkout.payUrl;
-
-      return {
-        rechargeId: recharge.id,
-        payphoneUrl,
-      };
-    } catch (error: any) {
-      console.error(`❌ [PayPhone Recharge] Error al crear checkout:`, error?.response?.data || error.message);
-      await recharge.remove();
-      throw error;
-    }
+    return {
+      rechargeId: recharge.id,
+      payphoneConfig,
+    };
   }
 
   /**
@@ -405,17 +398,32 @@ export class WalletService {
         }
 
         // 🚀 ACREDITACIÓN ATÓMICA (Protección contra Race Conditions)
+        // 1. Bloquear y marcar la recarga como aprobada de forma atómica. Si alguien más ya lo hizo, affected será 0.
+        const updateResult = await RechargeRequest.createQueryBuilder()
+          .update(RechargeRequest)
+          .set({
+            status: StatusRecarga.APROBADO,
+            external_transaction_id: currentRemoteId!.toString(),
+            resolved_at: new Date()
+          })
+          .where("id = :id AND status = :status", { id: recharge.id, status: StatusRecarga.PENDIENTE })
+          .execute();
+
+        if (updateResult.affected === 0) {
+          console.warn(`⚠️ [Payphone Service] Carrera detectada: La recarga ${recharge.id} ya fue procesada.`);
+          return { success: true, message: "Recarga ya procesada concurrentemente" };
+        }
+
+        // 2. Si ganamos la carrera, sumar el saldo atómicamente
         await Wallet.createQueryBuilder()
           .update(Wallet)
           .set({ balance: () => `balance + ${amountToCredit}` })
           .where("id = :id", { id: wallet.id })
           .execute();
 
-        // Actualizar solicitud
+        // Refrescar el estado de la recarga en memoria para uso futuro si es necesario
         recharge.status = StatusRecarga.APROBADO;
         recharge.external_transaction_id = currentRemoteId!.toString();
-        recharge.resolved_at = new Date();
-        await recharge.save();
 
         // Crear registro de transacción
         const updatedWallet = await Wallet.findOne({ where: { id: wallet.id } });

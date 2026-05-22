@@ -69,8 +69,19 @@ export class PayphoneWebhookController {
             }
 
             // 2. Si no es un pedido, intentar buscar si es una Recarga de Billetera
-            const { WalletService } = await import("../services/postService/wallet.service");
-            const walletService = new WalletService();
+            const { WalletService } = await import("../services/wallet.service");
+            const { UserService } = await import("../services/usuario/user.service");
+            const { EmailService } = await import("../services/email.service");
+            const { envs } = await import("../../config");
+            
+            const emailService = new EmailService(
+                envs.MAILER_SERVICE,
+                envs.MAILER_EMAIL,
+                envs.MAILER_SECRET_KEY,
+                envs.SEND_EMAIL
+            );
+            const userService = new UserService(emailService);
+            const walletService = new WalletService(userService);
             
             try {
                 // Buscamos si el clientTransactionId corresponde a una RechargeRequest

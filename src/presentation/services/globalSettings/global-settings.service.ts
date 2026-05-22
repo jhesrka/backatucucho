@@ -45,6 +45,9 @@ export class GlobalSettingsService {
         if (settings.paidPurgeInactivityMonths === null || settings.paidPurgeInactivityMonths === undefined) {
             settings.paidPurgeInactivityMonths = 6;
         }
+        if (settings.cardRechargeEnabled === null || settings.cardRechargeEnabled === undefined) {
+            settings.cardRechargeEnabled = true;
+        }
 
         if (settings.businessCover?.imageUrl) {
             try {
@@ -149,6 +152,7 @@ export class GlobalSettingsService {
         if (data.payphoneToken !== undefined) settings.payphoneToken = data.payphoneToken;
         if (data.payphoneStoreId !== undefined) settings.payphoneStoreId = data.payphoneStoreId;
         if (data.payphoneRechargePercentage !== undefined) settings.payphoneRechargePercentage = Number(data.payphoneRechargePercentage);
+        if (data.cardRechargeEnabled !== undefined) settings.cardRechargeEnabled = data.cardRechargeEnabled === true || data.cardRechargeEnabled === 'true';
 
         const coverRaw = data.businessCover || data.cover;
         if (coverRaw) {

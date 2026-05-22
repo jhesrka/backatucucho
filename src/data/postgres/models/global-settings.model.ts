@@ -126,6 +126,10 @@ export class GlobalSettings extends BaseEntity {
     @Column("decimal", { precision: 5, scale: 2, default: 0.00 })
     payphoneRechargePercentage: number;
 
+    @Column("boolean", { default: true })
+    cardRechargeEnabled: boolean; // Si el tab Tarjeta es visible para los clientes
+
+
     @Column("jsonb", { nullable: true })
     businessCover: {
         type: "image" | "video";
