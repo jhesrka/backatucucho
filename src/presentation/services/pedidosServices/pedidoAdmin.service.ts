@@ -26,6 +26,8 @@ import moment from "moment-timezone";
 import { PedidoMotoService } from "./pedidoMoto.service";
 import { NotificationService } from "../NotificationService";
 import bcrypt from "bcryptjs";
+import { UploadFilesCloud } from "../../../config/upload-files-cloud-adapter";
+import { envs } from "../../../config/env";
 
 const notificationService = new NotificationService();
 
@@ -455,7 +457,7 @@ export class PedidoAdminService {
       where: {
         estadoCuenta: EstadoCuentaMotorizado.ACTIVO
       },
-      select: ["id", "name", "surname", "whatsapp", "estadoTrabajo", "quiereTrabajar", "fechaHoraDisponible", "ratingPromedio", "lastSeenAt", "estadoCuenta", "noDisponibleHasta"]
+      select: ["id", "name", "surname", "whatsapp", "estadoTrabajo", "quiereTrabajar", "fechaHoraDisponible", "ratingPromedio", "lastSeenAt", "estadoCuenta", "noDisponibleHasta", "photoperfil"]
     });
 
     // 3. Enriquecer motorizados con su pedido actual, pedido en evaluación y métricas del día
@@ -487,7 +489,12 @@ export class PedidoAdminService {
         }
       });
 
-      return { ...m, pedidoActualId, pedidoEnEvaluacionId, entregasHoy };
+      let photoperfilUrls = m.photoperfil;
+      if (m.photoperfil && !m.photoperfil.startsWith('http')) {
+        photoperfilUrls = await UploadFilesCloud.getOptimizedUrls({ bucketName: envs.AWS_BUCKET_NAME, key: m.photoperfil }) as any;
+      }
+
+      return { ...m, pedidoActualId, pedidoEnEvaluacionId, entregasHoy, photoperfil: photoperfilUrls };
     }));
 
     // Enriquecer pedidos con nombre del motorizado en evaluación

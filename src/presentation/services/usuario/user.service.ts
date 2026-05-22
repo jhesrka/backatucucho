@@ -39,7 +39,7 @@ import { EmailService } from "../email.service";
 import { UploadFilesCloud } from "../../../config/upload-files-cloud-adapter";
 import { Parser } from "json2csv";
 import { FreePostTrackerService } from "../postService/free-post-tracker.service";
-import { MoreThan } from "typeorm";
+import { MoreThan, Between } from "typeorm";
 
 type UserCSV = {
   id: string;
@@ -858,11 +858,38 @@ export class UserService {
   //ADMINISTRADOR
 
   //  Listar todos los usuarios básicos
-  async findAllUsers(page: number = 1) {
-    const take = 5;
+  async findAllUsersWithDate(page: number = 1, statusFilter?: string, dateFilter?: string, limit: number = 5) {
+    const take = limit;
     const skip = (page - 1) * take;
 
+    const whereClause: any = {};
+    if (statusFilter && statusFilter !== 'ALL') {
+      whereClause.status = statusFilter;
+    }
+
+    if (dateFilter) {
+      let startOfDay: Date;
+      let endOfDay: Date;
+
+      if (dateFilter === 'TODAY') {
+        startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+        endOfDay = new Date();
+        endOfDay.setHours(23, 59, 59, 999);
+      } else if (dateFilter.includes(',')) {
+        const [startStr, endStr] = dateFilter.split(',');
+        startOfDay = new Date(`${startStr}T00:00:00`);
+        endOfDay = new Date(`${endStr}T23:59:59.999`);
+      } else {
+        startOfDay = new Date(`${dateFilter}T00:00:00`);
+        endOfDay = new Date(`${dateFilter}T23:59:59.999`);
+      }
+      
+      whereClause.createdAt = Between(startOfDay, endOfDay);
+    }
+
     const [users, total] = await User.findAndCount({
+      where: whereClause,
       skip,
       take,
       order: {
@@ -894,12 +921,38 @@ export class UserService {
   async searchUsersByFields(dto: SearchUserDTO) {
     const query = dto.query.toLowerCase();
 
-    const users = await User.createQueryBuilder("user")
-      .where("LOWER(user.name) LIKE :query", { query: `%${query}%` })
-      .orWhere("LOWER(user.surname) LIKE :query", { query: `%${query}%` })
-      .orWhere("LOWER(user.email) LIKE :query", { query: `%${query}%` })
-      .orWhere("user.whatsapp LIKE :query", { query: `%${query}%` })
-      .getMany();
+    let queryBuilder = User.createQueryBuilder("user")
+      .where(
+        "(LOWER(user.name) LIKE :query OR LOWER(user.surname) LIKE :query OR LOWER(user.email) LIKE :query OR user.whatsapp LIKE :query)",
+        { query: `%${query}%` }
+      );
+
+    if (dto.status) {
+      queryBuilder = queryBuilder.andWhere("user.status = :status", { status: dto.status });
+    }
+
+    if (dto.date) {
+      let startOfDay: Date;
+      let endOfDay: Date;
+
+      if (dto.date === 'TODAY') {
+        startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+        endOfDay = new Date();
+        endOfDay.setHours(23, 59, 59, 999);
+      } else if (dto.date.includes(',')) {
+        const [startStr, endStr] = dto.date.split(',');
+        startOfDay = new Date(`${startStr}T00:00:00`);
+        endOfDay = new Date(`${endStr}T23:59:59.999`);
+      } else {
+        startOfDay = new Date(`${dto.date}T00:00:00`);
+        endOfDay = new Date(`${dto.date}T23:59:59.999`);
+      }
+      
+      queryBuilder = queryBuilder.andWhere("user.createdAt BETWEEN :start AND :end", { start: startOfDay, end: endOfDay });
+    }
+
+    const users = await queryBuilder.getMany();
 
     return users.map((user) => ({
       id: user.id,
@@ -1617,5 +1670,28 @@ export class UserService {
     await user.remove(); // This physically deletes the row if it's an extended BaseEntity or we use repository.remove(user)
 
     return { message: "Usuario y todos sus datos eliminados definitivamente." };
+  }
+
+  async countUsersByStatus() {
+    const results = await User.createQueryBuilder("user")
+      .select("user.status", "status")
+      .addSelect("COUNT(user.id)", "count")
+      .groupBy("user.status")
+      .getRawMany();
+
+    const stats = {
+      ACTIVE: 0,
+      INACTIVE: 0,
+      BANNED: 0,
+      DELETED: 0
+    };
+
+    results.forEach((row) => {
+      if (stats.hasOwnProperty(row.status)) {
+        stats[row.status as keyof typeof stats] = parseInt(row.count, 10);
+      }
+    });
+
+    return stats;
   }
 }

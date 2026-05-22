@@ -112,31 +112,13 @@ export class RechargeRoutes {
       AuthAdminMiddleware.protect,
       rechargeRequestController.filterByStatusAdmin
     );
-    // 8. Eliminar solicitudes de recarga viejas (más de 2 días por ahora)
-    router.delete(
-      "/delete-old",
-      AuthAdminMiddleware.protect,
-      rechargeRequestController.deleteOldRechargeRequests
-    );
+
 
     // 9. Reversar recarga aprobada
     router.patch(
       "/admin/:id/reverse",
       AuthAdminMiddleware.protect,
       rechargeRequestController.reverseRecharge
-    );
-
-    // 10. Configurar Purga
-    router.get(
-      "/configure-purge",
-      AuthAdminMiddleware.protect,
-      rechargeRequestController.getPurgeSettings
-    );
-
-    router.post(
-      "/configure-purge",
-      AuthAdminMiddleware.protect,
-      rechargeRequestController.configurePurge
     );
 
     return router;

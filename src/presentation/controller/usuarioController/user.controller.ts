@@ -183,12 +183,15 @@ export class UserController {
   };
 
   //ADMINISTRADOR
-  // 1. Listar todos los usuarios
   findAllUsers = (req: Request, res: Response) => {
     const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 5;
+    const status = req.query.status as string;
+    const date = req.query.date as string;
 
+    // Forced recompile to sync with user.service.ts
     this.userService
-      .findAllUsers(page)
+      .findAllUsersWithDate(page, status, date, limit)
       .then((data) => res.status(200).json(data))
       .catch((error) => this.handleError(error, res));
   };
@@ -313,6 +316,15 @@ export class UserController {
     try {
       const total = await this.userService.countActiveUsers();
       return res.status(200).json({ success: true, total });
+    } catch (error) {
+      return this.handleError(error, res);
+    }
+  };
+
+  public countUsersByStatus = async (_req: Request, res: Response) => {
+    try {
+      const stats = await this.userService.countUsersByStatus();
+      return res.status(200).json({ success: true, stats });
     } catch (error) {
       return this.handleError(error, res);
     }

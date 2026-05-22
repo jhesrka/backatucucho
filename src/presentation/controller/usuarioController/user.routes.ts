@@ -240,6 +240,12 @@ export class UserRoutes {
       userController.countActiveUsers
     );
 
+    router.get(
+      "/admin/metrics/status-counts",
+      AuthAdminMiddleware.protect,
+      userController.countUsersByStatus
+    );
+
     router.delete(
       "/admin/purge/:id",
       AuthAdminMiddleware.protect,

@@ -25,7 +25,7 @@ import { generateUUID } from "../../../config/uuid.adapter";
 import { getIO } from "../../../config/socket";
 import { PedidoMotoService } from "../pedidosServices/pedidoMoto.service";
 import { MeritocracyService } from "../pedidosServices/meritocracy.service";
-import { In, Between, Brackets } from "typeorm";
+import { In, Between, Brackets, Not } from "typeorm";
 import moment from "moment-timezone";
 
 const ECUADOR_TZ = "America/Guayaquil";
@@ -443,6 +443,23 @@ export class UserMotorizadoService {
     const meritocracyService = new MeritocracyService();
     const liveRanking = await meritocracyService.getLiveRanking().catch(() => null);
     const rankingArray = liveRanking?.ranking || [];
+
+    // Consultar cantidad de RETIROS pendientes por motorizado
+    const pendingWithdrawals = await TransaccionMotorizado.find({
+      where: {
+        tipo: TipoTransaccion.RETIRO,
+        estado: EstadoTransaccion.PENDIENTE,
+      },
+      relations: ["motorizado"],
+      select: ["id", "motorizado"]
+    });
+
+    const activePedidosMap = new Map();
+    pendingWithdrawals.forEach((t: any) => {
+      if (t.motorizado && t.motorizado.id) {
+        activePedidosMap.set(t.motorizado.id, (activePedidosMap.get(t.motorizado.id) || 0) + 1);
+      }
+    });
     
     return Promise.all(motorizados.map(async (m) => {
       let photoUrl = "";
@@ -469,6 +486,7 @@ export class UserMotorizadoService {
         saldo: m.saldo,
         ratingPromedio: Number(m.ratingPromedio) || 0,
         totalResenas: Number(m.totalResenas) || 0,
+        pedidosPendientes: activePedidosMap.get(m.id) || 0,
         createdAt: m.createdAt,
         photoperfil: photoUrl || "",
         meritocracia: {
@@ -1089,20 +1107,38 @@ export class UserMotorizadoService {
 
     const withdrawals = await query.getMany();
 
-    return withdrawals.map(w => ({
-      id: w.id,
-      createdAt: w.createdAt,
-      monto: w.monto,
-      estado: w.estado,
-      motorizado: {
-        id: w.motorizado.id,
-        name: w.motorizado.name,
-        surname: w.motorizado.surname,
-        // email: w.motorizado.email, // Removed as it doesn't exist
-        whatsapp: w.motorizado.whatsapp,
-        saldo: w.motorizado.saldo,
-      },
-      detalles: w.detalles ? JSON.parse(w.detalles) : {}
+    return Promise.all(withdrawals.map(async w => {
+      let photoUrl = "";
+      if (w.motorizado.photoperfil) {
+        photoUrl = await UploadFilesCloud.getOptimizedUrls({
+          bucketName: envs.AWS_BUCKET_NAME,
+          key: w.motorizado.photoperfil,
+        }) as any;
+      }
+
+      let detalles = w.detalles ? JSON.parse(w.detalles) : {};
+      if (detalles.proofUrl && !detalles.proofUrl.startsWith('http')) {
+        detalles.proofUrl = await UploadFilesCloud.getFile({
+          bucketName: envs.AWS_BUCKET_NAME,
+          key: detalles.proofUrl,
+        }).catch(() => detalles.proofUrl);
+      }
+
+      return {
+        id: w.id,
+        createdAt: w.createdAt,
+        monto: w.monto,
+        estado: w.estado,
+        motorizado: {
+          id: w.motorizado.id,
+          name: w.motorizado.name,
+          surname: w.motorizado.surname,
+          whatsapp: w.motorizado.whatsapp,
+          saldo: w.motorizado.saldo,
+          photoperfil: photoUrl || "",
+        },
+        detalles
+      };
     }));
   }
 
@@ -1146,19 +1182,31 @@ export class UserMotorizadoService {
   async getWalletControlData() {
     const motorizados = await UserMotorizado.find({
       order: { saldo: "DESC" },
-      select: ["id", "name", "surname", "saldo"]
+      select: ["id", "name", "surname", "saldo", "photoperfil"]
     });
 
     const totalSaldo = motorizados.reduce((acc, m) => acc + Number(m.saldo), 0);
 
-    return {
-      totalSaldo,
-      motorizados: motorizados.map(m => ({
+    const motorizadosWithPhoto = await Promise.all(motorizados.map(async (m) => {
+      let photoUrl = "";
+      if (m.photoperfil) {
+        photoUrl = await UploadFilesCloud.getOptimizedUrls({
+          bucketName: envs.AWS_BUCKET_NAME,
+          key: m.photoperfil,
+        }) as any;
+      }
+      return {
         id: m.id,
         name: m.name,
         surname: m.surname,
-        saldo: m.saldo
-      }))
+        saldo: m.saldo,
+        photoperfil: photoUrl || ""
+      };
+    }));
+
+    return {
+      totalSaldo,
+      motorizados: motorizadosWithPhoto
     };
   }
 }

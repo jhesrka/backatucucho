@@ -353,21 +353,6 @@ export class RechargeRequestController {
       return this.handleError(error, res);
     }
   };
-  // 8. Eliminar solicitudes de recarga viejas (más de 2 días como prueba)
-  deleteOldRechargeRequests = async (_req: Request, res: Response) => {
-    try {
-      const result = await this.rechargeService.deleteOldRechargeRequests();
-
-      return res.status(200).json({
-        success: true,
-        message: result.message,
-        deleted: result.deleted,
-      });
-    } catch (error) {
-      return this.handleError(error, res);
-    }
-  };
-
   // 9 REVERSAR RECARGA
   reverseRecharge = async (req: Request, res: Response) => {
     const { id } = req.params;
@@ -376,26 +361,6 @@ export class RechargeRequestController {
 
     try {
       const result = await this.rechargeService.reverseRecharge(id, adminUser);
-      return res.status(200).json(result);
-    } catch (error) {
-      return this.handleError(error, res);
-    }
-  };
-
-  // 10 Configurar Purga
-  configurePurge = async (req: Request, res: Response) => {
-    const { pin, days } = req.body;
-    try {
-      const result = await this.rechargeService.configurePurge(pin, days);
-      return res.status(200).json(result);
-    } catch (error) {
-      return this.handleError(error, res);
-    }
-  };
-
-  getPurgeSettings = async (_req: Request, res: Response): Promise<Response> => {
-    try {
-      const result = await this.rechargeService.getPurgeSettings();
       return res.status(200).json(result);
     } catch (error) {
       return this.handleError(error, res);
