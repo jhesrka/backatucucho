@@ -68,10 +68,10 @@ export class CategoriaNegocio extends BaseEntity {
     description?: string | null;
   } | null;
 
-  @CreateDateColumn({ type: "timestamp" })
+  @CreateDateColumn({ type: "timestamptz" })
   created_at: Date;
 
-  @UpdateDateColumn({ type: "timestamp" })
+  @UpdateDateColumn({ type: "timestamptz" })
   updated_at: Date;
 
   @OneToMany(() => Negocio, (negocio) => negocio.categoria)

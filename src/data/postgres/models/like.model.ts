@@ -18,7 +18,7 @@ export class Like extends BaseEntity {
   @JoinColumn({ name: "postId" })
   post: Post;
 
-  @Column("timestamp", {
+  @Column("timestamptz", {
     default: () => "CURRENT_TIMESTAMP",
   })
   createdAt: Date;

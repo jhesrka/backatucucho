@@ -42,7 +42,7 @@ export const startPostPurgeCron = () => {
         } catch (error) {
             console.error("[CRON] Error durante la purga automática de posts:", error);
         }
-    });
+    }, { timezone: "America/Guayaquil" });
 
     console.log("[CRON] Sistema de purga automática de posts inicializado (4 AM daily)");
 };

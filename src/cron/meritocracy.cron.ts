@@ -22,5 +22,5 @@ export const startMeritocracyCron = () => {
         } catch (error) {
             console.error("❌ ERROR EN CRON MERITOCRACIA:", error);
         }
-    });
+    }, { timezone: "America/Guayaquil" });
 };

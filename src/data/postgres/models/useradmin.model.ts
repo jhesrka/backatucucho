@@ -61,13 +61,13 @@ export class Useradmin extends BaseEntity {
   whatsapp: string;
 
   @CreateDateColumn({
-    type: "timestamp",
+    type: "timestamptz",
 
   })
   created_at: Date;
 
   @UpdateDateColumn({
-    type: "timestamp",
+    type: "timestamptz",
     onUpdate: "CURRENT_TIMESTAMP",
   })
   updated_at: Date;

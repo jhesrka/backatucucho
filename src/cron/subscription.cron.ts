@@ -22,7 +22,7 @@ export const startSubscriptionCron = () => {
         } catch (error) {
             console.error("❌ [CRON] ERROR CRÍTICO EN SUBSCRIPTION CRON:", error);
         }
-    });
+    }, { timezone: "America/Guayaquil" });
 
     console.log("[CRON] Sistema de renovación automática (Negocios y Usuarios) inicializado (2:00 AM daily)");
 };

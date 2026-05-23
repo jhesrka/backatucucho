@@ -60,7 +60,7 @@ export class GlobalSettings extends BaseEntity {
     @Column("varchar", { length: 10, default: "AUTO" })
     modo_operacion: "AUTO" | "MANUAL";
 
-    @Column("timestamp", { nullable: true })
+    @Column("timestamptz", { nullable: true })
     ultimo_cambio_automatico: Date;
 
 
@@ -98,7 +98,7 @@ export class GlobalSettings extends BaseEntity {
     @Column("varchar", { length: 20, default: "v1.0" })
     currentTermsVersion: string;
 
-    @Column("timestamp", { default: () => "CURRENT_TIMESTAMP" })
+    @Column("timestamptz", { default: () => "CURRENT_TIMESTAMP" })
     termsUpdatedAt: Date;
 
     @Column("int", { default: 60000 })

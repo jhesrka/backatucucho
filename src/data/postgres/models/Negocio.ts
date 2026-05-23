@@ -100,19 +100,19 @@ export class Negocio extends BaseEntity {
   @Column({ type: "decimal", precision: 5, scale: 2, default: 0 })
   porcentaje_recargo_tarjeta: number;
 
-  @Column({ type: "timestamp", nullable: true })
+  @Column({ type: "timestamptz", nullable: true })
   fechaUltimoCobro: Date | null;
 
-  @Column({ type: "timestamp", nullable: true })
+  @Column({ type: "timestamptz", nullable: true })
   fechaInicioSuscripcion: Date | null;
 
-  @Column({ type: "timestamp", nullable: true })
+  @Column({ type: "timestamptz", nullable: true })
   fechaFinSuscripcion: Date | null;
 
   @Column({ type: "int", default: 0 })
   intentosCobro: number;
 
-  @CreateDateColumn({ type: "timestamp" })
+  @CreateDateColumn({ type: "timestamptz" })
   created_at: Date;
 
   @Column("decimal", { precision: 10, scale: 6, nullable: true })

@@ -23,7 +23,7 @@ export const startSubscriptionCleanupCron = () => {
         } catch (error) {
             console.error("[CRON] Error durante la limpieza de suscripciones:", error);
         }
-    });
+    }, { timezone: "America/Guayaquil" });
 
     console.log("[CRON] Sistema de limpieza automática de suscripciones inicializado (2:30 AM daily)");
 };

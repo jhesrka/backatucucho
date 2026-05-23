@@ -28,6 +28,6 @@ export class CommissionLog extends BaseEntity {
     @ManyToOne(() => Useradmin)
     changedBy: Useradmin;
 
-    @CreateDateColumn({ type: "timestamp" })
+    @CreateDateColumn({ type: "timestamptz" })
     createdAt: Date;
 }

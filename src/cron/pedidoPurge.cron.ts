@@ -17,7 +17,7 @@ export const startOrderPurgeCron = () => {
         } catch (error) {
             console.error("[CRON] Error durante la purga de pedidos:", error);
         }
-    });
+    }, { timezone: "America/Guayaquil" });
 
     console.log("[CRON] Sistema de purga automática de pedidos inicializado (3 AM daily)");
 };

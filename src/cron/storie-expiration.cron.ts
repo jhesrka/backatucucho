@@ -21,7 +21,7 @@ export const startStorieExpirationCron = () => {
         } catch (error) {
             console.error("[CRON] Error en verificación de expiración:", error);
         }
-    });
+    }, { timezone: "America/Guayaquil" });
 
     // 2. Purga Automática Definitiva (Todos los días a las 4:00 AM)
     // Borra físicamente historias DELETED/FLAGGED antiguas de la DB y S3
@@ -41,7 +41,7 @@ export const startStorieExpirationCron = () => {
         } catch (error) {
             console.error("[CRON] Error en purga automática de las 04:00 AM:", error);
         }
-    });
+    }, { timezone: "America/Guayaquil" });
 };
 
 // Helper para evitar duplicación de instanciación

@@ -32,5 +32,5 @@ export const startPostSchedulerCron = () => {
         } catch (error) {
             console.error("❌ ERROR EN CRON POST SCHEDULER:", error);
         }
-    });
+    }, { timezone: "America/Guayaquil" });
 };

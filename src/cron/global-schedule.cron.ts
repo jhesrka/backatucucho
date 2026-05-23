@@ -12,5 +12,5 @@ export const startGlobalScheduleCron = () => {
         } catch (error) {
             console.error("❌ ERROR EN CRON GLOBAL SCHEDULE:", error);
         }
-    });
+    }, { timezone: "America/Guayaquil" });
 };

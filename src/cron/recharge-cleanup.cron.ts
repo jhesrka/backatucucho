@@ -29,5 +29,5 @@ export const startRechargeCleanupCron = () => {
         } catch (error) {
             console.error("❌ [CRON Error] Limpiando recargas huérfanas:", error);
         }
-    });
+    }, { timezone: "America/Guayaquil" });
 };

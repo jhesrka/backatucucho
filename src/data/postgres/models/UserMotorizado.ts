@@ -106,25 +106,25 @@ export class UserMotorizado extends BaseEntity {
   // ==============================
   // ⏳ CASTIGO PERSISTENTE
   // ==============================
-  @Column({ type: "timestamp", nullable: true })
+  @Column({ type: "timestamptz", nullable: true })
   noDisponibleHasta: Date | null;
 
   // ==============================
   // ⏱ ORDEN FIFO
   // ==============================
-  @Column({ type: "timestamp", nullable: true })
+  @Column({ type: "timestamptz", nullable: true })
   fechaHoraDisponible: Date | null;
 
   // ==============================
   // 🔁 OTROS
   // ==============================
-  @CreateDateColumn({ type: "timestamp" })
+  @CreateDateColumn({ type: "timestamptz" })
   createdAt: Date;
 
-  @Column({ type: "timestamp", nullable: true })
+  @Column({ type: "timestamptz", nullable: true })
   lastSeenAt: Date | null;
 
-  @UpdateDateColumn({ type: "timestamp" })
+  @UpdateDateColumn({ type: "timestamptz" })
   updatedAt: Date;
 
   @Column("decimal", { precision: 2, scale: 1, default: 0.0 })

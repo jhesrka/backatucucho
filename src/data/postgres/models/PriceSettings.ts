@@ -37,9 +37,9 @@ export class PriceSettings extends BaseEntity {
   @Column('timestamptz', { nullable: true })
   lastRankingUpdate: Date | null; // Fecha del último cierre de ranking
 
-  @CreateDateColumn({ type: 'timestamp' })
+  @CreateDateColumn({ type: "timestamptz" })
   createdAt: Date;
 
-  @UpdateDateColumn({ type: 'timestamp' })
+  @UpdateDateColumn({ type: "timestamptz" })
   updatedAt: Date;
 }

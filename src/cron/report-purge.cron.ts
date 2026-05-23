@@ -24,5 +24,5 @@ export const startReportPurgeCron = () => {
         } catch (error) {
             console.error("❌ Error in report purge cron job:", error);
         }
-    });
+    }, { timezone: "America/Guayaquil" });
 };

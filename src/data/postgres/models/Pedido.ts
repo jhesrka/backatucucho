@@ -156,7 +156,7 @@ export class Pedido extends BaseEntity {
   @Column({ type: "int", default: 1 })
   rondaAsignacion: number;
 
-  @Column({ type: "timestamp", nullable: true })
+  @Column({ type: "timestamptz", nullable: true })
   fechaInicioRonda: Date | null;
 
   @Column({ type: "varchar", nullable: true })
@@ -195,7 +195,7 @@ export class Pedido extends BaseEntity {
   @Column({ type: "boolean", default: false })
   cliente_confirmo_llegada: boolean;
 
-  @Column({ type: "timestamp", nullable: true })
+  @Column({ type: "timestamptz", nullable: true })
   arrival_time: Date | null;
   
   @Column({ type: "varchar", nullable: true })

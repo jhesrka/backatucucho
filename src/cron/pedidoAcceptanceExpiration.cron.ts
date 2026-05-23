@@ -16,5 +16,5 @@ export const startPedidoExpirationCron = () => {
     } finally {
       isRunning = false;
     }
-  });
+  }, { timezone: "America/Guayaquil" });
 };

@@ -91,10 +91,10 @@ export class User extends BaseEntity {
   })
   whatsapp: string;
 
-  @CreateDateColumn({ type: "timestamp" })
+  @CreateDateColumn({ type: "timestamptz" })
   createdAt: Date;
 
-  @UpdateDateColumn({ type: "timestamp" })
+  @UpdateDateColumn({ type: "timestamptz" })
   updated_at: Date;
 
   @Column("enum", {
@@ -118,7 +118,7 @@ export class User extends BaseEntity {
   @Column("int", { default: 0 })
   cancellation_strikes: number;
 
-  @Column("timestamp", { nullable: true })
+  @Column("timestamptz", { nullable: true })
   suspension_until: Date;
 
   // Sesión Única y Seguridad
@@ -134,7 +134,7 @@ export class User extends BaseEntity {
   @Column("varchar", { nullable: true })
   lastLoginCountry: string;
 
-  @Column("timestamp", { nullable: true })
+  @Column("timestamptz", { nullable: true })
   lastLoginDate: Date;
 
   @Column("varchar", { nullable: true })
@@ -166,7 +166,7 @@ export class User extends BaseEntity {
   })
   acceptedTermsVersion: string | null;
 
-  @Column("timestamp", { nullable: true })
+  @Column("timestamptz", { nullable: true })
   acceptedTermsAt: Date | null;
 
   @Column("varchar", {
@@ -175,16 +175,16 @@ export class User extends BaseEntity {
   })
   acceptedPrivacyVersion: string | null;
 
-  @Column("timestamp", { nullable: true })
+  @Column("timestamptz", { nullable: true })
   acceptedPrivacyAt: Date | null;
 
   @OneToMany("Report", "user") // Using string for relation to avoid circular dependency issues if Report isn't imported yet, or import it.
   reports: any[]; // will type properly later
 
-  @DeleteDateColumn({ type: "timestamp", nullable: true })
+  @DeleteDateColumn({ type: "timestamptz", nullable: true })
   deletedAt: Date;
 
-  @Column("timestamp", { nullable: true })
+  @Column("timestamptz", { nullable: true })
   lastSeenAt: Date;
 
   @OneToMany(() => PushToken, (pushToken) => pushToken.user)

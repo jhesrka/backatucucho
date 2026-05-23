@@ -22,10 +22,10 @@ export class SubcategoriaNegocio extends BaseEntity {
   @Column({ type: "int", default: 0 })
   orden: number;
 
-  @CreateDateColumn({ type: "timestamp" })
+  @CreateDateColumn({ type: "timestamptz" })
   created_at: Date;
 
-  @UpdateDateColumn({ type: "timestamp" })
+  @UpdateDateColumn({ type: "timestamptz" })
   updated_at: Date;
 
   @ManyToOne(() => CategoriaNegocio, (categoria) => categoria.subcategorias, {

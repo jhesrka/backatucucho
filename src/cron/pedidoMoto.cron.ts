@@ -24,5 +24,5 @@ export const startPedidoMotoCron = () => {
     } finally {
       isRunning = false;
     }
-  });
+  }, { timezone: "America/Guayaquil" });
 };
