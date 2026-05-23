@@ -17,7 +17,7 @@ export const startRechargeCleanupCron = () => {
                     status: StatusRecarga.RECHAZADO, 
                     admin_comment: "Expirado automáticamente por inactividad" 
                 })
-                .where("status = :status AND created_at < :limitDate", { 
+                .where("status = :status AND created_at < :limitDate AND payment_method = 'CARD'", { 
                     status: StatusRecarga.PENDIENTE, 
                     limitDate: twoHoursAgo 
                 })

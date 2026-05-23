@@ -21,6 +21,48 @@ export class UseradminService {
     );
   }
 
+  async setupSystem(useradminData: CreateUseradminDTO, masterPin: string) {
+    if (!envs.ALLOW_SETUP) {
+      throw CustomError.unAuthorized("La instalación inicial está deshabilitada en el servidor.");
+    }
+    const count = await Useradmin.count();
+    if (count > 0) {
+      throw CustomError.unAuthorized("El sistema ya ha sido instalado. No se puede crear un Super Administrador mediante esta ruta.");
+    }
+    if (!masterPin || masterPin.length < 4) {
+      throw CustomError.badRequest("El PIN Maestro debe tener al menos 4 caracteres.");
+    }
+
+    // 1. Guardar PIN Maestro
+    let settings = await GlobalSettings.findOne({ where: {}, order: { updatedAt: "DESC" } });
+    if (!settings) {
+      settings = new GlobalSettings();
+    }
+    settings.masterPin = encriptAdapter.hash(masterPin);
+    await settings.save();
+
+    // 2. Crear el admin
+    const adminCreated = await this.createUseradmin(useradminData);
+
+    // 3. Generar tokens (Auto Login)
+    const tokenadmin = await JwtAdapterAdmin.generateTokenAdmin({ id: adminCreated.id, role: adminCreated.rol }, envs.JWT_EXPIRE_IN);
+    const refreshToken = await JwtAdapterAdmin.generateTokenAdmin({ id: adminCreated.id, role: adminCreated.rol }, envs.JWT_REFRESH_EXPIRE_IN);
+
+    return {
+      message: "Instalación completada con éxito.",
+      tokenadmin,
+      refreshToken,
+      useradmin: adminCreated
+    };
+  }
+
+  async checkSetupStatus() {
+    if (!envs.ALLOW_SETUP) return { isSetupNeeded: false };
+    const count = await Useradmin.count();
+    return { isSetupNeeded: count === 0 };
+  }
+
+
   async createUseradmin(useradminData: CreateUseradminDTO) {
     const useradmin = new Useradmin();
     useradmin.username = useradminData.username.toLocaleLowerCase().trim();

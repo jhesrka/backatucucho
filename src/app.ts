@@ -41,20 +41,25 @@ async function main() {
     routes: AppRoutes.routes, //este viene de un metodo estatico por es no ponemos new
   });
   // 👇 INICIAR CRONES
-  startPedidoMotoCron();
-  startSubscriptionCron();
-  startPostExpirationCron();
-  startOrderPurgeCron();
-  startReportPurgeCron();
-  startGlobalScheduleCron();
-  startStorieExpirationCron();
-  startPedidoExpirationCron();
-  startSubscriptionCleanupCron();
-  startPostPurgeCron();
-  startPostSchedulerCron();
-  startMeritocracyCron();
-  startRechargeCleanupCron();
-  PedidoUsuarioService.startMaintenanceJob(); // 🚀 Activar limpieza de pedidos y auto-cancelación
+  if (envs.ENABLE_CRON_JOBS) {
+    console.log("⏰ Cron jobs habilitados.");
+    startPedidoMotoCron();
+    startSubscriptionCron();
+    startPostExpirationCron();
+    startOrderPurgeCron();
+    startReportPurgeCron();
+    startGlobalScheduleCron();
+    startStorieExpirationCron();
+    startPedidoExpirationCron();
+    startSubscriptionCleanupCron();
+    startPostPurgeCron();
+    startPostSchedulerCron();
+    startMeritocracyCron();
+    startRechargeCleanupCron();
+    PedidoUsuarioService.startMaintenanceJob(); // 🚀 Activar limpieza de pedidos y auto-cancelación
+  } else {
+    console.log("⏸️ Cron jobs deshabilitados por variable de entorno.");
+  }
 
   console.log("🚀 Iniciando servidor...");
   await server.start();

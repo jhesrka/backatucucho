@@ -13,6 +13,14 @@ export class UseradminRoutes {
     const upload = multer(); // Inicializamos multer
 
     //ADMINISTRADOR
+    router.get("/setup/status", useradminController.checkSetupStatus);
+
+    router.post(
+      "/setup",
+      upload.none(),
+      useradminController.setupFirstAdmin
+    );
+
     router.post(
       "/register",
       upload.none(),
@@ -42,7 +50,7 @@ export class UseradminRoutes {
     );
 
     // Buscar todos los usuarios administrativos
-    router.get("/", useradminController.findAllUsersadmin);
+    router.get("/", AuthAdminMiddleware.protect, useradminController.findAllUsersadmin);
 
 
     return router;

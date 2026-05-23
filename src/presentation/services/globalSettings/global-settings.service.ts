@@ -11,7 +11,7 @@ export class GlobalSettingsService {
         if (!settings) {
             settings = new GlobalSettings();
             // Defaults?
-            settings.appName = "Atucucho Shop";
+            settings.appName = "Shop ";
             settings.orderRetentionDays = 20;
             settings.freePostsLimit = 5;
             settings.freePostDurationDays = 1;

@@ -177,8 +177,7 @@ export class PostgresDatabase {
       `);
 
       await runMigrationStep("Step 3: Timestamps alignment", async () => {
-        // Forzamos la interpretación como UTC para que no haya saltos de 5 horas al convertir
-        await this.datasource.query(`SET timezone = 'UTC';`);
+        // Removed forced timezone shift to prevent 5-hour jumps
         await this.datasource.query(`ALTER TABLE "post" ALTER COLUMN "createdAt" TYPE timestamptz;`);
         await this.datasource.query(`ALTER TABLE "post" ALTER COLUMN "expiresAt" TYPE timestamptz;`);
         await this.datasource.query(`ALTER TABLE "storie" ALTER COLUMN "createdAt" TYPE timestamptz;`);
@@ -255,14 +254,8 @@ export class PostgresDatabase {
         await this.datasource.query(`ALTER TABLE "producto" ADD COLUMN IF NOT EXISTS "precio_venta" DECIMAL(10,2) DEFAULT 0;`);
         await this.datasource.query(`ALTER TABLE "producto" ADD COLUMN IF NOT EXISTS "precio_app" DECIMAL(10,2) DEFAULT 0;`);
         await this.datasource.query(`ALTER TABLE "producto" ADD COLUMN IF NOT EXISTS "comision_producto" DECIMAL(10,2) DEFAULT 0;`);
-        await this.datasource.query(`
-          DO $$ BEGIN 
-            IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='producto' AND column_name='precio') THEN
-              UPDATE "producto" SET "precio_venta" = "precio", "precio_app" = COALESCE("precioParaApp", "precio"), "comision_producto" = "precio" - COALESCE("precioParaApp", "precio") WHERE "precio_venta" = 0 AND "precio_app" = 0;
-            END IF;
-            UPDATE "producto" SET "comision_producto" = "precio_venta" - "precio_app" WHERE "comision_producto" = 0 AND "precio_venta" != "precio_app";
-          END $$;
-        `);
+        // Removed destructive product price updates
+
       });
 
       await runMigrationStep("Step 9: FK Rules", async () => {
@@ -321,7 +314,7 @@ export class PostgresDatabase {
       `);
 
       await runMigrationStep("Step 18: Audit Log Timestamps alignment", async () => {
-        await this.datasource.query(`SET timezone = 'UTC';`);
+        // Removed forced timezone shift
         await this.datasource.query(`ALTER TABLE "pedido_operativo_log" ALTER COLUMN "createdAt" TYPE timestamptz;`);
       });
 
@@ -360,7 +353,7 @@ export class PostgresDatabase {
       `);
 
       await runMigrationStep("Step 23: Fix Pedido CreatedAt Timestamptz", async () => {
-        await this.datasource.query(`SET timezone = 'UTC';`);
+        // Removed forced timezone shift
         await this.datasource.query(`ALTER TABLE "pedido" ALTER COLUMN "createdAt" TYPE timestamptz;`);
         await this.datasource.query(`ALTER TABLE "pedido" ALTER COLUMN "updatedAt" TYPE timestamptz;`);
         await this.datasource.query(`ALTER TABLE "pedido" ALTER COLUMN "fechaInicioRonda" TYPE timestamptz;`);

@@ -30,4 +30,7 @@ export const envs = {
   // Redis (opcional: solo requerido en producción con múltiples instancias)
   REDIS_URL: get("REDIS_URL").default("").asString(),
   FIREBASE_SERVICE_ACCOUNT: get("FIREBASE_SERVICE_ACCOUNT").asString(),
+
+  ENABLE_CRON_JOBS: get("ENABLE_CRON_JOBS").default("false").asBool(),
+  ALLOW_SETUP: get("ALLOW_SETUP").default("false").asBool(),
 };

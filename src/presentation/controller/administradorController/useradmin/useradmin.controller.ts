@@ -18,6 +18,24 @@ export class UseradminController {
     return res.status(500).json({ message: "Internal Server Error" });
   };
 
+  checkSetupStatus = (req: Request, res: Response) => {
+    this.useradminService
+      .checkSetupStatus()
+      .then((data) => res.status(200).json(data))
+      .catch((error) => this.handleError(error, res));
+  };
+
+  setupFirstAdmin = (req: Request, res: Response) => {
+    const { masterPin, ...adminData } = req.body;
+    const [error, createUseradminDto] = CreateUseradminDTO.create(adminData);
+    if (error) return this.handleError(error, res);
+
+    this.useradminService
+      .setupSystem(createUseradminDto!, masterPin)
+      .then((data) => res.status(201).json(data))
+      .catch((error) => this.handleError(error, res));
+  };
+
   createUseradmin = (req: Request, res: Response) => {
     const [error, createUseradminDto] = CreateUseradminDTO.create(req.body);
     if (error) return this.handleError(error, res);

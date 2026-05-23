@@ -5,7 +5,7 @@ export class GlobalSettings extends BaseEntity {
     @PrimaryGeneratedColumn("uuid")
     id: string;
 
-    @Column("varchar", { length: 50, default: "Atucucho Shop" })
+    @Column("varchar", { length: 50, default: "Shop " })
     appName: string;
 
     @Column("varchar", { length: 1024, nullable: true })
