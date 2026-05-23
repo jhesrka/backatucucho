@@ -1,6 +1,6 @@
 import dns from "dns";
 dns.setDefaultResultOrder("ipv4first");
-process.env.TZ = "America/Guayaquil"; // Forzar Node.js a operar siempre en la zona horaria de Ecuador
+process.env.TZ = "UTC"; // Forzar Node.js a operar siempre en Hora Universal (UTC)
 import "reflect-metadata"; // esto si bien instalamos depues siempre debe ir primero
 import { envs } from "./config";
 import { PostgresDatabase } from "./data";
