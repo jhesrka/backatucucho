@@ -74,7 +74,7 @@ export class User extends BaseEntity {
 
 
   @Column("date", {
-    nullable: false,
+    nullable: true,
   })
   birthday: Date;
 

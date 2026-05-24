@@ -237,7 +237,7 @@ export class UserService {
         acceptedPrivacyVersion: user.acceptedPrivacyVersion,
         acceptedPrivacyAt: user.acceptedPrivacyAt,
         hasPassword: !!user.password,
-        isProfileComplete: !!(user.whatsapp && user.password && user.acceptedTermsVersion && user.acceptedPrivacyVersion),
+        isProfileComplete: !!(user.whatsapp && user.password && user.acceptedTermsVersion && user.acceptedPrivacyVersion && user.birthday),
         googleId: user.googleId
       },
     };
@@ -305,7 +305,7 @@ export class UserService {
       user.googleId = sub;
       user.photoperfil = picture || "";
       user.status = Status.ACTIVE;
-      user.birthday = new Date();
+      user.birthday = null as any; // Dejar en blanco para forzar que completen el perfil
       // FIX: Null en lugar de string vacío para evitar unique constraint collision
       user.whatsapp = null as any;
 
@@ -392,7 +392,7 @@ export class UserService {
         acceptedPrivacyVersion: user.acceptedPrivacyVersion,
         acceptedPrivacyAt: user.acceptedPrivacyAt,
         hasPassword: !!user.password,
-        isProfileComplete: !!(user.whatsapp && user.password && user.acceptedTermsVersion && user.acceptedPrivacyVersion),
+        isProfileComplete: !!(user.whatsapp && user.password && user.acceptedTermsVersion && user.acceptedPrivacyVersion && user.birthday),
         googleId: user.googleId
       }
     };
@@ -557,7 +557,7 @@ export class UserService {
         acceptedPrivacyVersion: userData.acceptedPrivacyVersion,
         acceptedPrivacyAt: userData.acceptedPrivacyAt,
         hasPassword: !!userData.password,
-        isProfileComplete: !!(userData.whatsapp && userData.password && userData.acceptedTermsVersion && userData.acceptedPrivacyVersion),
+        isProfileComplete: !!(userData.whatsapp && userData.password && userData.acceptedTermsVersion && userData.acceptedPrivacyVersion && userData.birthday),
         googleId: userData.googleId
       };
     } catch (error) {
@@ -631,9 +631,19 @@ export class UserService {
     }
   }
 
-  // COMPLETAR PERFIL (GOOGLE Y NORMAL)
-  async completeProfile(userId: string, data: { whatsapp?: string, password?: string, acceptedTerms?: boolean, acceptedPrivacy?: boolean }) {
+    // COMPLETAR PERFIL (GOOGLE Y NORMAL)
+  async completeProfile(userId: string, data: { whatsapp?: string, password?: string, acceptedTerms?: boolean, acceptedPrivacy?: boolean, birthday?: string, isUnderage?: boolean }) {
     const user = await this.findOneUser(userId);
+
+    if (data.isUnderage) {
+        user.status = Status.BANNED;
+        await user.save();
+        throw CustomError.forbiden("Cuenta bloqueada por políticas de edad. Esta plataforma es solo para mayores de 18 años.");
+    }
+
+    if (data.birthday) {
+        user.birthday = new Date(data.birthday);
+    }
 
     // 1. Aceptación de Términos y Privacidad (Versionado)
     if (data.acceptedTerms || data.acceptedPrivacy) {
