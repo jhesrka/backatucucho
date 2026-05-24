@@ -117,9 +117,11 @@ export class SubscriptionService {
     transaction.status = 'APPROVED';
     transaction.previousBalance = Number(wallet.balance);
     transaction.resultingBalance = isCourtesy ? Number(wallet.balance) : Number(wallet.balance) - finalCost;
+    const formatDateEcuador = (d: Date) => d.toLocaleDateString('es-EC', { timeZone: 'America/Guayaquil', day: '2-digit', month: '2-digit', year: 'numeric' });
+
     transaction.observation = isCourtesy 
-      ? `CORTESÍA ADMINISTRATIVA: ${durationDays} días concedidos sin costo.` 
-      : `Pago de suscripción plan ${plan} (${daysToAdd} días)`;
+      ? `CORTESÍA ADMINISTRATIVA: (Del ${formatDateEcuador(baseDate)} al ${formatDateEcuador(newEndDate)})` 
+      : `Pago de suscripción plan ${plan} (Del ${formatDateEcuador(baseDate)} al ${formatDateEcuador(newEndDate)})`;
 
     await transaction.save();
 
@@ -136,7 +138,8 @@ export class SubscriptionService {
       subscription.plan = plan;
     }
 
-    subscription.startDate = subscription.startDate || now;
+    const isExtension = subscription && subscription.status === SubscriptionStatus.ACTIVA && subscription.endDate && subscription.endDate > now;
+    subscription.startDate = isExtension ? subscription.startDate : now;
     subscription.endDate = newEndDate;
     subscription.status = SubscriptionStatus.ACTIVA;
     subscription.autoRenewal = true;
@@ -328,7 +331,8 @@ export class SubscriptionService {
         subscription.plan = plan;
       }
 
-      subscription.startDate = subscription.startDate || now;
+      const isExtension = subscription && subscription.status === SubscriptionStatus.ACTIVA && subscription.endDate && subscription.endDate > now;
+      subscription.startDate = isExtension ? subscription.startDate : now;
       subscription.endDate = newEndDate;
       subscription.status = SubscriptionStatus.ACTIVA;
       subscription.autoRenewal = true;
@@ -344,7 +348,8 @@ export class SubscriptionService {
       transaction.status = 'APPROVED';
       transaction.previousBalance = Number(wallet.balance);
       transaction.resultingBalance = Number(wallet.balance);
-      transaction.observation = `ACTIVACIÓN DE CORTESÍA: ${daysToAdd} días otorgados por administración sin cargo.`;
+      const formatDateEcuador = (d: Date) => d.toLocaleDateString('es-EC', { timeZone: 'America/Guayaquil', day: '2-digit', month: '2-digit', year: 'numeric' });
+      transaction.observation = `ACTIVACIÓN DE CORTESÍA: (Del ${formatDateEcuador(baseDate)} al ${formatDateEcuador(newEndDate)})`;
       
       await transaction.save();
 
