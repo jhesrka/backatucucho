@@ -941,18 +941,27 @@ export class UserService {
       total, // total de usuarios en la base
       currentPage: page,
       totalPages: Math.ceil(total / take),
-      users: users.map((user) => ({
-        id: user.id,
-        name: user.name,
-        surname: user.surname,
-        email: user.email,
-        birthday: user.birthday,
-        whatsapp: user.whatsapp,
-        photoperfil: user.photoperfil,
-        created_at: user.createdAt,
-        updated_at: user.updated_at,
-        rol: user.rol,
-        status: user.status,
+      users: await Promise.all(users.map(async (user) => {
+        const photoUrl = user.photoperfil
+          ? await UploadFilesCloud.getFile({
+              bucketName: envs.AWS_BUCKET_NAME,
+              key: user.photoperfil,
+            })
+          : "";
+
+        return {
+          id: user.id,
+          name: user.name,
+          surname: user.surname,
+          email: user.email,
+          birthday: user.birthday,
+          whatsapp: user.whatsapp,
+          photoperfil: photoUrl,
+          created_at: user.createdAt,
+          updated_at: user.updated_at,
+          rol: user.rol,
+          status: user.status,
+        };
       })),
     };
   }
@@ -994,18 +1003,27 @@ export class UserService {
 
     const users = await queryBuilder.getMany();
 
-    return users.map((user) => ({
-      id: user.id,
-      name: user.name,
-      surname: user.surname,
-      email: user.email,
-      birthday: user.birthday,
-      whatsapp: user.whatsapp,
-      photoperfil: user.photoperfil,
-      created_at: user.createdAt,
-      updated_at: user.updated_at,
-      rol: user.rol,
-      status: user.status,
+    return Promise.all(users.map(async (user) => {
+      const photoUrl = user.photoperfil
+        ? await UploadFilesCloud.getFile({
+            bucketName: envs.AWS_BUCKET_NAME,
+            key: user.photoperfil,
+          })
+        : "";
+
+      return {
+        id: user.id,
+        name: user.name,
+        surname: user.surname,
+        email: user.email,
+        birthday: user.birthday,
+        whatsapp: user.whatsapp,
+        photoperfil: photoUrl,
+        created_at: user.createdAt,
+        updated_at: user.updated_at,
+        rol: user.rol,
+        status: user.status,
+      };
     }));
   }
 
@@ -1022,18 +1040,27 @@ export class UserService {
         throw CustomError.notFound("No se encontraron usuarios con ese estado");
       }
 
-      return users.map((user) => ({
-        id: user.id,
-        name: user.name,
-        surname: user.surname,
-        email: user.email,
-        birthday: user.birthday,
-        whatsapp: user.whatsapp,
-        photoperfil: user.photoperfil,
-        created_at: user.createdAt,
-        updated_at: user.updated_at,
-        rol: user.rol,
-        status: user.status,
+      return Promise.all(users.map(async (user) => {
+        const photoUrl = user.photoperfil
+          ? await UploadFilesCloud.getFile({
+              bucketName: envs.AWS_BUCKET_NAME,
+              key: user.photoperfil,
+            })
+          : "";
+
+        return {
+          id: user.id,
+          name: user.name,
+          surname: user.surname,
+          email: user.email,
+          birthday: user.birthday,
+          whatsapp: user.whatsapp,
+          photoperfil: photoUrl,
+          created_at: user.createdAt,
+          updated_at: user.updated_at,
+          rol: user.rol,
+          status: user.status,
+        };
       }));
     } catch (error) {
       throw CustomError.internalServer("Error al filtrar usuarios por estado");
