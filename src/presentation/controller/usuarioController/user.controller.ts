@@ -122,11 +122,11 @@ export class UserController {
   };
 
   completeProfile = (req: Request, res: Response) => {
-    const { whatsapp, password, acceptedTerms, acceptedPrivacy } = req.body;
+    const { whatsapp, password, acceptedTerms, acceptedPrivacy, birthday, isUnderage } = req.body;
     const userId = req.body.sessionUser.id;
 
     this.userService
-      .completeProfile(userId, { whatsapp, password, acceptedTerms, acceptedPrivacy } as any)
+      .completeProfile(userId, { whatsapp, password, acceptedTerms, acceptedPrivacy, birthday, isUnderage } as any)
       .then((data) => res.status(200).json(data))
       .catch((error) => this.handleError(error, res));
   };
