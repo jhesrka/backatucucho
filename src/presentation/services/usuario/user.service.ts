@@ -1240,7 +1240,7 @@ export class UserService {
   }
 
   // 6. Cambiar estado de usuario
-  async changeUserStatus(userId: string, dto: UpdateUserStatusDTO) {
+  async changeUserStatus(userId: string, dto: UpdateUserStatusDTO, adminId?: string) {
     if (!isUUID(userId)) {
       throw CustomError.badRequest("ID inválido");
     }
@@ -1248,6 +1248,7 @@ export class UserService {
     const user = await User.findOne({ where: { id: userId } });
     if (!user) throw CustomError.notFound("Usuario no encontrado");
 
+    const oldStatus = user.status;
     user.status = dto.status;
 
     try {
@@ -1258,6 +1259,22 @@ export class UserService {
       }
 
       const savedUser = await user.save();
+      
+      // Log moderation action if status changed
+      if (oldStatus !== savedUser.status && adminId) {
+        try {
+          const log = new ModerationLog();
+          log.adminId = adminId;
+          log.user = savedUser;
+          log.action = `STATUS_CHANGED_TO_${savedUser.status}`;
+          log.comment = `El administrador cambió el estado del usuario de ${oldStatus} a ${savedUser.status}.`;
+          await log.save();
+          await ModerationLog.cleanupOldLogs(savedUser.id);
+        } catch (e) {
+          console.error("Error saving moderation log on status change from list:", e);
+        }
+      }
+
       getIO().emit("userChanged", savedUser);
       return savedUser;
     } catch (error) {

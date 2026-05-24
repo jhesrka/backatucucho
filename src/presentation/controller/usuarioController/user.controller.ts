@@ -247,11 +247,12 @@ export class UserController {
 
   // 6. Cambiar estado del usuario
   changeUserStatus = (req: Request, res: Response) => {
+    const adminId = req.body.sessionUser?.id;
     const [error, dto] = UpdateUserStatusDTO.create(req.body);
     if (error) return res.status(400).json({ message: error });
 
     this.userService
-      .changeUserStatus(dto!.id, dto!)
+      .changeUserStatus(dto!.id, dto!, adminId)
       .then(() =>
         res.status(200).json({ message: "Estado actualizado correctamente" })
       )
