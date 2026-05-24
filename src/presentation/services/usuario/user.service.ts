@@ -345,6 +345,11 @@ export class UserService {
         await user.save();
       }
 
+      // Validar si está baneado
+      if (user.status === Status.BANNED || user.status === Status.INACTIVE) {
+        throw CustomError.forbiden("Esta cuenta ha sido bloqueada. No puedes iniciar sesión.");
+      }
+
       // 2. CONTROL SESIÓN (SOLO SI EL USUARIO YA EXISTÍA)
       // 2. CONTROL SESIÓN (SOLO SI EL USUARIO YA EXISTÍA)
       if (user.isLoggedIn) {
