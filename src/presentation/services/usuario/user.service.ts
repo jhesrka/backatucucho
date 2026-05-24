@@ -657,6 +657,7 @@ export class UserService {
             log.action = "USER_BANNED_UNDERAGE";
             log.comment = "Bloqueo Automático (Seguridad): El usuario introdujo una fecha de nacimiento correspondiente a un menor de edad al completar su perfil.";
             await log.save();
+            await ModerationLog.cleanupOldLogs(user.id);
         } catch (dbError: any) {
             console.error("=== ERROR SAVING MODERATION LOG ===", dbError);
         }
@@ -1547,6 +1548,7 @@ export class UserService {
           log.action = `STATUS_CHANGED_TO_${user.status}`;
           log.comment = `El administrador cambió el estado del usuario de ${oldStatus} a ${user.status}.`;
           await log.save();
+          await ModerationLog.cleanupOldLogs(user.id);
         } catch (e) {
           console.error("Error saving moderation log on status change:", e);
         }

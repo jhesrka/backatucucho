@@ -36,4 +36,24 @@ export class ModerationLog extends BaseEntity {
 
     @CreateDateColumn()
     createdAt: Date;
+
+    static async cleanupOldLogs(userId: string) {
+        try {
+            const total = await this.count({ where: { user: { id: userId } } });
+            if (total > 50) {
+                const logsToDelete = total - 50;
+                const oldLogs = await this.find({
+                    where: { user: { id: userId } },
+                    order: { createdAt: "ASC" },
+                    take: logsToDelete
+                });
+                if (oldLogs.length > 0) {
+                    const ids = oldLogs.map(log => log.id);
+                    await this.delete(ids);
+                }
+            }
+        } catch (e) {
+            console.error("Error cleaning up moderation logs:", e);
+        }
+    }
 }

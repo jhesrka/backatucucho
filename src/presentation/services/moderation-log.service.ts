@@ -20,6 +20,7 @@ export class ModerationLogService {
         log.action = data.action;
         log.comment = data.comment;
         await log.save();
+        await ModerationLog.cleanupOldLogs(user.id);
     }
 
     async getLogsByUser(userId: string) {
