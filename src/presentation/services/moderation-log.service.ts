@@ -29,10 +29,24 @@ export class ModerationLogService {
         });
     }
 
-    async getAllLogs() {
-        return await ModerationLog.find({
+    async getLogs(userId?: string, page: number = 1, limit: number = 10) {
+        const whereClause = userId ? { user: { id: userId } } : {};
+        const skip = (page - 1) * limit;
+
+        const [logs, total] = await ModerationLog.findAndCount({
+            where: whereClause,
             relations: ["user", "post", "storie"],
-            order: { createdAt: "DESC" }
+            order: { createdAt: "DESC" },
+            take: limit,
+            skip: skip
         });
+
+        return {
+            success: true,
+            logs,
+            total,
+            currentPage: page,
+            totalPages: Math.ceil(total / limit)
+        };
     }
 }

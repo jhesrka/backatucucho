@@ -91,8 +91,12 @@ export class ModerationController {
     };
 
     getLogs = (req: Request, res: Response) => {
-        this.moderationLogService.getAllLogs()
-            .then((logs: any) => res.json(logs))
+        const userId = req.query.userId as string;
+        const page = Number(req.query.page) || 1;
+        const limit = Number(req.query.limit) || 10;
+
+        this.moderationLogService.getLogs(userId, page, limit)
+            .then((result: any) => res.json(result))
             .catch((error: any) => this.handleError(error, res));
     };
 

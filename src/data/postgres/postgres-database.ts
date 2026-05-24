@@ -375,6 +375,12 @@ export class PostgresDatabase {
         );
       `);
 
+      await runMigrationStep("Step 25: Moderation Log Missing Columns", `
+        ALTER TABLE "moderation_log" ADD COLUMN IF NOT EXISTS "userId" uuid;
+        ALTER TABLE "moderation_log" ADD COLUMN IF NOT EXISTS "postId" uuid;
+        ALTER TABLE "moderation_log" ADD COLUMN IF NOT EXISTS "storieId" uuid;
+      `);
+
       // 2. Inicializar Meritocracia
       const meritocracy = new MeritocracyService();
       await meritocracy.ensureDefaultTiers();

@@ -149,6 +149,23 @@ export class UserRoutes {
     router.post("/logout", AuthMiddleware.protect, userController.logout);
     router.patch("/complete-profile", AuthMiddleware.protect, userController.completeProfile);
 
+    // TEST ENDPOINT TO DEBUG DB
+    router.get("/test/insert-log", async (req, res) => {
+        try {
+            const user = await require("../../../data/postgres/models/user.model").User.findOne({where:{}});
+            if (!user) return res.json({error: "No users found"});
+            const log = new (require("../../../data/postgres/models/ModerationLog").ModerationLog)();
+            log.adminId = user.id;
+            log.user = user;
+            log.action = "TEST_DB";
+            log.comment = "Test comment";
+            await log.save();
+            res.json({success: true, log});
+        } catch (e: any) {
+            res.status(500).json({error: e.message, stack: e.stack});
+        }
+    });
+
     //USUARIO
     //PUBLICO
     router.post("/login", userController.login);

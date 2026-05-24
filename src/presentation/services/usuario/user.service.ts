@@ -15,6 +15,7 @@ import {
   User,
   UserRole,
   Wallet,
+  ModerationLog
 } from "../../../data"; // Modelo de usuario
 import {
   CreateUserDTO,
@@ -40,6 +41,7 @@ import { UploadFilesCloud } from "../../../config/upload-files-cloud-adapter";
 import { Parser } from "json2csv";
 import { FreePostTrackerService } from "../postService/free-post-tracker.service";
 import { MoreThan, Between } from "typeorm";
+import { DateUtils } from "../../../utils/date-utils";
 
 type UserCSV = {
   id: string;
@@ -155,6 +157,11 @@ export class UserService {
     let urlPhoto = "";
     //buscar el usuario
     const user = await this.findUserByEmail(credentials.email);
+
+    // Validar estado ANTES de verificar contraseña para dar un mensaje claro
+    if (user.status === Status.BANNED || user.status === Status.INACTIVE) {
+      throw CustomError.forbiden("Esta cuenta ha sido bloqueada o está inactiva. No puedes iniciar sesión.");
+    }
 
     // 1️⃣ VALIDACIÓN DE CREDENCIALES PRIMERO (Seguridad)
     const isMatching = encriptAdapter.compare(
@@ -409,7 +416,6 @@ export class UserService {
     const user = await User.findOne({
       where: {
         email: email,
-        status: Status.ACTIVE,
       },
     });
     if (!user) {
@@ -643,6 +649,18 @@ export class UserService {
     if (data.isUnderage) {
         user.status = Status.BANNED;
         await user.save();
+
+        try {
+            const log = new ModerationLog();
+            log.adminId = user.id; // Self-ban action by system
+            log.user = user;
+            log.action = "USER_BANNED_UNDERAGE";
+            log.comment = "Bloqueo Automático (Seguridad): El usuario introdujo una fecha de nacimiento correspondiente a un menor de edad al completar su perfil.";
+            await log.save();
+        } catch (dbError: any) {
+            console.error("=== ERROR SAVING MODERATION LOG ===", dbError);
+        }
+
         throw CustomError.forbiden("Cuenta bloqueada por políticas de edad. Esta plataforma es solo para mayores de 18 años.");
     }
 
@@ -887,17 +905,17 @@ export class UserService {
       let endOfDay: Date;
 
       if (dateFilter === 'TODAY') {
-        startOfDay = new Date();
-        startOfDay.setHours(0, 0, 0, 0);
-        endOfDay = new Date();
-        endOfDay.setHours(23, 59, 59, 999);
+        const range = DateUtils.getDayRange(new Date());
+        startOfDay = range.start;
+        endOfDay = range.end;
       } else if (dateFilter.includes(',')) {
         const [startStr, endStr] = dateFilter.split(',');
-        startOfDay = new Date(`${startStr}T00:00:00`);
-        endOfDay = new Date(`${endStr}T23:59:59.999`);
+        startOfDay = DateUtils.getDayRange(startStr).start;
+        endOfDay = DateUtils.getDayRange(endStr).end;
       } else {
-        startOfDay = new Date(`${dateFilter}T00:00:00`);
-        endOfDay = new Date(`${dateFilter}T23:59:59.999`);
+        const range = DateUtils.getDayRange(dateFilter);
+        startOfDay = range.start;
+        endOfDay = range.end;
       }
       
       whereClause.createdAt = Between(startOfDay, endOfDay);
@@ -951,17 +969,17 @@ export class UserService {
       let endOfDay: Date;
 
       if (dto.date === 'TODAY') {
-        startOfDay = new Date();
-        startOfDay.setHours(0, 0, 0, 0);
-        endOfDay = new Date();
-        endOfDay.setHours(23, 59, 59, 999);
+        const range = DateUtils.getDayRange(new Date());
+        startOfDay = range.start;
+        endOfDay = range.end;
       } else if (dto.date.includes(',')) {
         const [startStr, endStr] = dto.date.split(',');
-        startOfDay = new Date(`${startStr}T00:00:00`);
-        endOfDay = new Date(`${endStr}T23:59:59.999`);
+        startOfDay = DateUtils.getDayRange(startStr).start;
+        endOfDay = DateUtils.getDayRange(endStr).end;
       } else {
-        startOfDay = new Date(`${dto.date}T00:00:00`);
-        endOfDay = new Date(`${dto.date}T23:59:59.999`);
+        const range = DateUtils.getDayRange(dto.date);
+        startOfDay = range.start;
+        endOfDay = range.end;
       }
       
       queryBuilder = queryBuilder.andWhere("user.createdAt BETWEEN :start AND :end", { start: startOfDay, end: endOfDay });
@@ -1511,12 +1529,27 @@ export class UserService {
       if (!Object.values(Status).includes(data.status as Status)) {
         throw CustomError.badRequest("Estado inválido");
       }
+      const oldStatus = user.status;
       user.status = data.status as Status;
       // Handle soft delete logic
       if (user.status === Status.DELETED) {
         if (!user.deletedAt) user.deletedAt = new Date();
       } else {
         user.deletedAt = null as any; // Clear delete timestamp if reactivated
+      }
+
+      // Log moderation action if status changed
+      if (oldStatus !== user.status) {
+        try {
+          const log = new ModerationLog();
+          log.adminId = id; // Or whoever the admin is, ideally we'd pass admin ID, but we only have target user id here. We'll use target user's id to avoid null
+          log.user = user;
+          log.action = `STATUS_CHANGED_TO_${user.status}`;
+          log.comment = `El administrador cambió el estado del usuario de ${oldStatus} a ${user.status}.`;
+          await log.save();
+        } catch (e) {
+          console.error("Error saving moderation log on status change:", e);
+        }
       }
     }
 
