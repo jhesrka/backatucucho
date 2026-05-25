@@ -1208,6 +1208,7 @@ export class PostService {
         : StatusPost.FLAGGED;
 
       await post.save();
+      getIO().emit("postChanged", { action: "update", postId: post.id, status: post.statusPost });
 
       return {
         message: wasBlocked ? "Post desbloqueado" : "Post bloqueado",
@@ -1226,7 +1227,7 @@ export class PostService {
     post.statusPost = status;
 
     await post.save();
-    getIO().emit("postChanged", { action: "update", postId: post.id });
+    getIO().emit("postChanged", { action: "update", postId: post.id, status: post.statusPost });
     return { message: `Estado cambiado a ${status}`, status: post.statusPost };
   }
 
