@@ -31,7 +31,6 @@ export class Server {
     "http://192.168.100.19:5173",
     "http://192.168.100.19:5174",
     "https://atucuchoshop.vercel.app",
-    "https://atucucho-web-front.vercel.app",
     "https://atucucho.shop"
   ];
 
@@ -47,7 +46,6 @@ export class Server {
           "http://192.168.100.19:5173",
           "http://192.168.100.19:5174",
           "https://atucuchoshop.vercel.app",
-          "https://atucucho-web-front.vercel.app",
           "https://atucucho.shop"
         ], // ✅ CORS para Socket.IO (desarrollo y producción)
         methods: ["GET", "POST"],
