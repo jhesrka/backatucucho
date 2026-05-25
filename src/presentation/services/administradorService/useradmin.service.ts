@@ -1,5 +1,6 @@
 import { encriptAdapter, envs, JwtAdapterAdmin } from "../../../config";
 import { Statusadmin, Useradmin, GlobalSettings } from "../../../data";
+import * as geoip from 'geoip-lite';
 import {
   CreateUseradminDTO,
   CustomError,
@@ -98,6 +99,7 @@ export class UseradminService {
       );
     }
   }
+
   async loginAdmin(credentials: LoginAdminUserDTO) {
     //buscar el usuario
     const useradmin = await this.findUserByUsername(credentials.username);
@@ -108,6 +110,46 @@ export class UseradminService {
     );
     if (!isMatching)
       throw CustomError.unAuthorized("Usuario o contraseña invalidos");
+    
+    // 🔍 Obtener Datos de Ubicación y Notificar
+    const currentIp = credentials.ip || "127.0.0.1";
+    const geoData = geoip.lookup(currentIp);
+    const country = geoData ? geoData.country : "Desconocido";
+    const city = geoData ? geoData.city : "Desconocido";
+    const userAgent = credentials.userAgent || "Navegador Desconocido";
+    const loginDate = new Date().toLocaleString("es-EC", { timeZone: "America/Guayaquil" });
+
+    // HTML Email Template
+    const htmlEmail = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px; background-color: #f9f9f9;">
+        <h2 style="color: #2c3e50; text-align: center;">🚨 Alerta de Seguridad</h2>
+        <p style="font-size: 16px; color: #333;">Hola <strong>${useradmin.name} ${useradmin.surname}</strong>,</p>
+        <p style="font-size: 16px; color: #333;">Se ha detectado un nuevo inicio de sesión en tu cuenta de Administrador de Atucucho Shop.</p>
+        
+        <div style="background-color: #ffffff; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 5px solid #3498db;">
+          <ul style="list-style-type: none; padding: 0; margin: 0;">
+            <li style="margin-bottom: 10px;"><strong>📅 Fecha y Hora:</strong> ${loginDate}</li>
+            <li style="margin-bottom: 10px;"><strong>🌐 Dirección IP:</strong> ${currentIp}</li>
+            <li style="margin-bottom: 10px;"><strong>🌍 Ubicación:</strong> ${city}, ${country}</li>
+            <li style="margin-bottom: 10px;"><strong>💻 Dispositivo/Navegador:</strong> ${userAgent}</li>
+          </ul>
+        </div>
+
+        <p style="font-size: 14px; color: #e74c3c; font-weight: bold;">⚠️ Si no fuiste tú quien inició sesión, por favor cambia tu contraseña inmediatamente y contacta a soporte.</p>
+        
+        <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 20px 0;">
+        <p style="font-size: 12px; color: #7f8c8d; text-align: center;">Este es un mensaje automático del sistema de seguridad de Atucucho Shop.</p>
+      </div>
+    `;
+
+    // Enviar correo asíncronamente (sin bloquear el login)
+    this.emailService.sendEmail({
+      to: useradmin.email,
+      subject: "Atucucho Shop - Nuevo inicio de sesión (Admin)",
+      htmlBody: htmlEmail
+    }).catch(err => console.error("Error enviando alerta de login admin:", err));
+
+
     //generar un jwt
     const tokenadmin = await JwtAdapterAdmin.generateTokenAdmin(
       {

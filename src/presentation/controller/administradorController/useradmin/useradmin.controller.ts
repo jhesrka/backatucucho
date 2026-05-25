@@ -46,7 +46,13 @@ export class UseradminController {
   };
 
   loginAdmin = (req: Request, res: Response) => {
-    const [error, loginAdminUserDto] = LoginAdminUserDTO.create(req.body);
+    // Extract IP and User-Agent
+    const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || "127.0.0.1";
+    const userAgent = req.headers['user-agent'] || "Desconocido";
+    
+    const bodyWithMetadata = { ...req.body, ip, userAgent };
+
+    const [error, loginAdminUserDto] = LoginAdminUserDTO.create(bodyWithMetadata);
     if (error) return res.status(422).json({ message: error });
     this.useradminService
       .loginAdmin(loginAdminUserDto!)

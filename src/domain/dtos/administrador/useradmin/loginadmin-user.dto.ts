@@ -3,11 +3,13 @@ import { regularExp } from "../../../../config";
 export class LoginAdminUserDTO {
   constructor(
     public readonly username: string,
-    public readonly password: string
+    public readonly password: string,
+    public readonly ip?: string,
+    public readonly userAgent?: string
   ) {}
 
   static create(object: { [key: string]: any }): [string[]?, LoginAdminUserDTO?] {
-    const { username, password } = object;
+    const { username, password, ip, userAgent } = object;
     const errors: string[] = [];
 
     // Validaciones internas, pero sin detallar al usuario
@@ -19,6 +21,6 @@ export class LoginAdminUserDTO {
       return [errors];
     }
 
-    return [undefined, new LoginAdminUserDTO(username.trim(), password.trim())];
+    return [undefined, new LoginAdminUserDTO(username.trim(), password.trim(), ip, userAgent)];
   }
 }

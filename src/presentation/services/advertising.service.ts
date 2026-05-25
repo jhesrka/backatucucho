@@ -492,8 +492,7 @@ export class AdvertisingService {
             return;
         }
 
-        campaign.status = CampaignStatus.PROCESSING;
-        await campaign.save();
+        await Campaign.update(id, { status: CampaignStatus.PROCESSING });
 
         const logs = await CampaignLog.find({
             where: { campaign: { id }, status: LogStatus.PENDING },
@@ -504,47 +503,77 @@ export class AdvertisingService {
 
         if (logs.length === 0) {
             console.warn(`[ENGINE] ⚠️ No hay logs pendientes para procesar.`);
-            campaign.status = CampaignStatus.COMPLETED;
-            await campaign.save();
+            await Campaign.update(id, { status: CampaignStatus.COMPLETED });
             return;
         }
 
-        for (const log of logs) {
-            try {
-                const attr = log.dynamicAttributes || {};
-                const subject = this.replaceTags(campaign.subject || "No Subject", attr);
-                const content = this.replaceTags(campaign.content, attr);
+        const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
-                if (log.user?.email && log.user.email.includes('@')) {
-                    console.log(`[ENGINE] 📧 Enviando a: ${log.user.email}...`);
-                    const result = await this.emailService.sendEmail({
-                        to: log.user.email,
-                        subject,
-                        htmlBody: content
-                    });
-                    
-                    if (result) {
-                        log.status = LogStatus.SENT;
-                        await Campaign.getRepository().increment({ id: campaign.id }, 'sentCount', 1);
-                        console.log(`[ENGINE] ✅ Éxito: ${log.user.email}`);
-                    } else {
-                        throw new Error("SMTP Refused / Internal Error");
-                    }
-                } else {
-                    throw new Error("Invalid Email Address");
+        if (logs.length <= 20) {
+            console.log(`[ENGINE] 🟢 Campaña pequeña detectada. Procesando en un solo lote con pausas cortas...`);
+            for (let i = 0; i < logs.length; i++) {
+                await this.sendCampaignLog(logs[i], campaign);
+                if (i < logs.length - 1) {
+                    console.log(`[ENGINE] ⏳ Esperando 2 segundos antes del siguiente correo...`);
+                    await delay(2000);
                 }
-            } catch (e: any) {
-                console.error(`[ENGINE] ❌ Fallo en ${log.targetContact}: ${e.message}`);
-                log.status = LogStatus.FAILED;
-                log.errorMessage = e.message || "Email error";
-                await Campaign.getRepository().increment({ id: campaign.id }, 'failedCount', 1);
             }
-            log.attemptedAt = new Date();
-            await log.save();
+        } else {
+            console.log(`[ENGINE] 🟠 Campaña grande detectada. Procesando por lotes para evitar bloqueo (Anti-Spam)...`);
+            const BATCH_SIZE = 15;
+            for (let i = 0; i < logs.length; i += BATCH_SIZE) {
+                const chunk = logs.slice(i, i + BATCH_SIZE);
+                console.log(`[ENGINE] 📦 Procesando Lote ${Math.floor(i / BATCH_SIZE) + 1} de ${Math.ceil(logs.length / BATCH_SIZE)} (${chunk.length} correos)...`);
+                
+                for (let j = 0; j < chunk.length; j++) {
+                    await this.sendCampaignLog(chunk[j], campaign);
+                    if (j < chunk.length - 1) {
+                        await delay(2000); // 2 segundos entre cada correo del lote
+                    }
+                }
+
+                if (i + BATCH_SIZE < logs.length) {
+                    console.log(`[ENGINE] 🛑 Lote terminado. Descansando 3 minutos por seguridad anti-spam...`);
+                    await delay(180000); // 3 minutos
+                }
+            }
         }
 
-        campaign.status = CampaignStatus.COMPLETED;
-        await campaign.save();
+        await Campaign.update(id, { status: CampaignStatus.COMPLETED });
         console.log(`[ENGINE] 🏁 Campaña ${id} terminada.`);
+    }
+
+    private async sendCampaignLog(log: CampaignLog, campaign: Campaign) {
+        try {
+            const attr = log.dynamicAttributes || {};
+            const subject = this.replaceTags(campaign.subject || "No Subject", attr);
+            const content = this.replaceTags(campaign.content, attr);
+
+            if (log.user?.email && log.user.email.includes('@')) {
+                console.log(`[ENGINE] 📧 Enviando a: ${log.user.email}...`);
+                const result = await this.emailService.sendEmail({
+                    to: log.user.email,
+                    subject,
+                    htmlBody: content
+                });
+                
+                if (result) {
+                    log.status = LogStatus.SENT;
+                    await Campaign.getRepository().increment({ id: campaign.id }, 'sentCount', 1);
+                    console.log(`[ENGINE] ✅ Éxito: ${log.user.email}`);
+                } else {
+                    throw new Error("SMTP Refused / Internal Error");
+                }
+            } else {
+                throw new Error("Invalid Email Address");
+            }
+        } catch (e: any) {
+            console.error(`[ENGINE] ❌ Fallo en ${log.targetContact}: ${e.message}`);
+            log.status = LogStatus.FAILED;
+            log.errorMessage = e.message || "Email error";
+            await Campaign.getRepository().increment({ id: campaign.id }, 'failedCount', 1);
+        }
+        log.attemptedAt = new Date();
+        await log.save();
     }
 }
