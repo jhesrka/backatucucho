@@ -930,6 +930,7 @@ export class UserService {
 
     const [users, total] = await User.findAndCount({
       where: whereClause,
+      relations: ['wallet'],
       skip,
       take,
       order: {
@@ -961,6 +962,7 @@ export class UserService {
           updated_at: user.updated_at,
           rol: user.rol,
           status: user.status,
+          walletBalance: user.wallet?.balance || 0,
         };
       })),
     };
@@ -1001,7 +1003,9 @@ export class UserService {
       queryBuilder = queryBuilder.andWhere("user.createdAt BETWEEN :start AND :end", { start: startOfDay, end: endOfDay });
     }
 
-    const users = await queryBuilder.getMany();
+    const users = await queryBuilder
+      .leftJoinAndSelect("user.wallet", "wallet")
+      .getMany();
 
     return Promise.all(users.map(async (user) => {
       const photoUrl = user.photoperfil
@@ -1023,6 +1027,7 @@ export class UserService {
         updated_at: user.updated_at,
         rol: user.rol,
         status: user.status,
+        walletBalance: user.wallet?.balance || 0,
       };
     }));
   }
