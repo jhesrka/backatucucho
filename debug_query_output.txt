@@ -1,3 +1,0 @@
---- QUERY TEST START ---
-Error: You must provide selection conditions in order to find a single row.
---- QUERY TEST END ---
