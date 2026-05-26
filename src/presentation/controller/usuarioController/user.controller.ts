@@ -164,7 +164,7 @@ export class UserController {
     const { token } = req.params;
     this.userService
       .validateEmail(token)
-      .then((data) => res.status(200).json(data))
+      .then((data) => res.status(200).json({ success: true, message: "Cuenta activada correctamente", data }))
       .catch((error) => this.handleError(error, res));
   };
 
@@ -354,9 +354,9 @@ export class UserController {
 
   updateUserAdminAction = async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { email, whatsapp, status } = req.body;
+    const { email, whatsapp, status, masterPin } = req.body;
     try {
-      const result = await this.userService.updateUserAdmin(id, { email, whatsapp, status });
+      const result = await this.userService.updateUserAdmin(id, { email, whatsapp, status, masterPin });
       return res.status(200).json(result);
     } catch (error) {
       this.handleError(error, res);
@@ -385,9 +385,24 @@ export class UserController {
 
   purgeUserAdminAction = async (req: Request, res: Response) => {
     const { id } = req.params;
+    const { masterPin } = req.body;
     try {
-      const result = await this.userService.purgeUserAdmin(id);
+      const result = await this.userService.purgeUserAdmin(id, masterPin);
       return res.status(200).json(result);
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  }
+
+  resendActivationAdminAction = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    try {
+      const user = await this.userService.findOneUser(id);
+      if (user.status !== "INACTIVE") {
+        return res.status(400).json({ message: "El usuario no está en estado INACTIVO." });
+      }
+      await this.userService.sendEmailValidationLink(user.email);
+      return res.status(200).json({ message: "Correo de activación reenviado exitosamente." });
     } catch (error) {
       this.handleError(error, res);
     }

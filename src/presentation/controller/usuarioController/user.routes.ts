@@ -294,6 +294,12 @@ export class UserRoutes {
       userController.sendPasswordResetAdminAction
     );
 
+    router.post(
+      "/admin/resend-activation-email/:id",
+      AuthAdminMiddleware.protect,
+      userController.resendActivationAdminAction
+    );
+
     router.delete(
       "/admin/purge-hard/:id",
       AuthAdminMiddleware.protect,

@@ -729,12 +729,13 @@ export class UserService {
     const settings = await require("../../../data").GlobalSettings.findOne({ where: {} });
     const appName = settings?.appName || "Atucucho Shop";
 
-    const token = await JwtAdapter.generateToken({ email }, "3000s");
+    const token = await JwtAdapter.generateToken({ email }, "24h");
     if (!token)
       throw CustomError.internalServer(
         "Error generando token para enviar email"
       );
-    const link = `http://${envs.WEBSERVICE_URL}/api/user/validate-email/${token}`;
+    const baseUrl = envs.WEBSERVICE_URL_FRONT.startsWith('http') ? envs.WEBSERVICE_URL_FRONT : `http://${envs.WEBSERVICE_URL_FRONT}`;
+    const link = `${baseUrl}/validate-email/${token}`;
     const html = `
   <div style="font-family: Arial, sans-serif; color: #333; max-width: 500px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
     <div style="text-align: center; margin-bottom: 20px;">
@@ -746,7 +747,7 @@ export class UserService {
     <div style="text-align: center; margin: 20px 0;">
       <a href="${link}" style="display: inline-block; padding: 12px 24px; background-color: #3498db; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Activar cuenta</a>
     </div>
-    <p><strong>Importante:</strong> este enlace es válido solo por <strong>5 minutos</strong>. Si expira, deberás solicitar uno nuevo.</p>
+    <p><strong>Importante:</strong> este enlace es válido por <strong>24 horas</strong>. Si expira, deberás solicitar uno nuevo.</p>
     <p>Si tú no solicitaste esta verificación, puedes ignorar este mensaje de forma segura.</p>
     <hr style="margin: 30px 0;" />
     <p style="font-size: 12px; color: #999; text-align: center;">Correo enviado a: ${email}</p>
@@ -936,6 +937,7 @@ export class UserService {
       order: {
         createdAt: "DESC", // Puedes cambiar a "ASC" si prefieres
       },
+      withDeleted: true,
     });
 
     return {
@@ -1574,7 +1576,7 @@ export class UserService {
   //  ADMINISTRATION METHODS
   // ==========================================
 
-  async updateUserAdmin(id: string, data: { email?: string; whatsapp?: string; status?: string }) {
+  async updateUserAdmin(id: string, data: { email?: string; whatsapp?: string; status?: string; masterPin?: string }) {
     const user = await User.findOneBy({ id });
     if (!user) throw CustomError.notFound("Usuario no encontrado");
 
@@ -1585,6 +1587,20 @@ export class UserService {
       if (!Object.values(Status).includes(data.status as Status)) {
         throw CustomError.badRequest("Estado inválido");
       }
+
+      if (data.status === Status.DELETED) {
+        if (!data.masterPin) throw CustomError.unAuthorized("PIN maestro es requerido para eliminar un usuario.");
+        
+        const settings = await require("../../../data").GlobalSettings.findOne({ where: {} });
+        if (!settings || !settings.masterPin) {
+           throw CustomError.internalServer("El PIN maestro no está configurado en el sistema.");
+        }
+        const isPinValid = require("../../../config").encriptAdapter.compare(data.masterPin, settings.masterPin);
+        if (!isPinValid) {
+           throw CustomError.unAuthorized("PIN maestro incorrecto.");
+        }
+      }
+
       const oldStatus = user.status;
       user.status = data.status as Status;
       // Handle soft delete logic
@@ -1694,7 +1710,18 @@ export class UserService {
     return { message: "Correo de recuperación enviado exitosamente." };
   }
 
-  async purgeUserAdmin(id: string) {
+  async purgeUserAdmin(id: string, masterPin?: string) {
+    if (!masterPin) throw CustomError.unAuthorized("PIN maestro es requerido para purgar un usuario.");
+        
+    const settings = await require("../../../data").GlobalSettings.findOne({ where: {} });
+    if (!settings || !settings.masterPin) {
+        throw CustomError.internalServer("El PIN maestro no está configurado en el sistema.");
+    }
+    const isPinValid = require("../../../config").encriptAdapter.compare(masterPin, settings.masterPin);
+    if (!isPinValid) {
+        throw CustomError.unAuthorized("PIN maestro incorrecto.");
+    }
+
     const user = await User.findOne({
       where: { id },
       relations: [
@@ -1779,6 +1806,7 @@ export class UserService {
 
   async countUsersByStatus() {
     const results = await User.createQueryBuilder("user")
+      .withDeleted()
       .select("user.status", "status")
       .addSelect("COUNT(user.id)", "count")
       .groupBy("user.status")
