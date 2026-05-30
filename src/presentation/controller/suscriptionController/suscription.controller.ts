@@ -114,15 +114,13 @@ export class SubscriptionController {
       if (!userId)
         return res.status(401).json({ message: "Usuario no autenticado" });
 
-      const tracker = await this.freePostTrackerService.getOrCreateTracker(
-        userId
-      );
-      const settings = await this.globalSettingsService.getSettings();
-      const freePostsRemaining = Math.max(0, settings.freePostsLimit - tracker.count);
+      const [tracker, settings, latest] = await Promise.all([
+        this.freePostTrackerService.getOrCreateTracker(userId),
+        this.globalSettingsService.getSettings(),
+        this.subscriptionService.getLatestSubscription(userId)
+      ]);
 
-      const latest = await this.subscriptionService.getLatestSubscription(
-        userId
-      );
+      const freePostsRemaining = Math.max(0, settings.freePostsLimit - tracker.count);
       const subscriptionStatus = latest ? latest.status : "NO_SUBSCRIPTION";
 
       return res.status(200).json({
