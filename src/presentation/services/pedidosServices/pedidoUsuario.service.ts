@@ -128,12 +128,24 @@ export class PedidoUsuarioService {
       return pp;
     });
 
-    const { costoEnvio, distanciaKm } = await CalcularEnvioService.calcularParaPedido({
+    const { costoEnvio, distanciaKm, recargoPico, isPeakHour } = await CalcularEnvioService.calcularParaPedido({
       negocio, latCliente: ubicacionCliente.lat, lngCliente: ubicacionCliente.lng,
     });
 
-    const gananciaMoto = +(costoEnvio * (percMoto / 100)).toFixed(2);
-    const comisionAppEnvio = +(costoEnvio - gananciaMoto).toFixed(2);
+    const costoEnvioBase = costoEnvio - (recargoPico || 0);
+    const gananciaMotoBase = +(costoEnvioBase * (percMoto / 100)).toFixed(2);
+    const comisionAppEnvioBase = +(costoEnvioBase - gananciaMotoBase).toFixed(2);
+
+    let peakHourSurchargeMoto = 0;
+    let peakHourSurchargeApp = 0;
+
+    if (isPeakHour && recargoPico > 0) {
+      peakHourSurchargeMoto = +(recargoPico * (percMoto / 100)).toFixed(2);
+      peakHourSurchargeApp = +(recargoPico - peakHourSurchargeMoto).toFixed(2);
+    }
+
+    const gananciaMoto = +(gananciaMotoBase + peakHourSurchargeMoto).toFixed(2);
+    const comisionAppEnvio = +(comisionAppEnvioBase + peakHourSurchargeApp).toFixed(2);
 
     const total = +(totalVP + costoEnvio).toFixed(2);
     let recargo = 0;
@@ -161,6 +173,11 @@ export class PedidoUsuarioService {
     pedido.total_comision_productos = comAppProd;
     pedido.ganancia_motorizado = gananciaMoto;
     pedido.comision_app_domicilio = comisionAppEnvio;
+
+    pedido.isPeakHourSurchargeApplied = isPeakHour || false;
+    pedido.peakHourSurchargeAmount = recargoPico || 0;
+    pedido.peakHourSurchargeMoto = peakHourSurchargeMoto || 0;
+    pedido.peakHourSurchargeApp = peakHourSurchargeApp || 0;
 
     const guardado = await pedido.save();
     
@@ -203,6 +220,7 @@ export class PedidoUsuarioService {
         "pedido.id", "pedido.estado", "pedido.total", "pedido.costoEnvio", "pedido.createdAt", "pedido.fecha_aceptado",
         "pedido.tiempoPreparacionElegido", "pedido.latCliente", "pedido.lngCliente", "pedido.metodoPago", "pedido.comprobantePagoUrl",
         "pedido.delivery_code", "pedido.arrival_time", "pedido.pickup_code", "pedido.motivoCancelacion", "pedido.ratingNegocio", "pedido.ratingMotorizado",
+        "pedido.isPeakHourSurchargeApplied", "pedido.peakHourSurchargeAmount", "pedido.peakHourSurchargeMoto", "pedido.peakHourSurchargeApp",
         "negocio.id", "negocio.nombre", "negocio.latitud", "negocio.longitud", "negocio.tiempoPreparacionMax",
         "productos.id", "productos.cantidad", "productos.subtotal", "productos.precio_venta", "productos.producto_nombre", "productos.producto_imagen",
         "producto.id", "producto.nombre", "producto.tipoProducto",
@@ -270,7 +288,12 @@ export class PedidoUsuarioService {
         } : null,
         motorizado: p.motorizado ? { name: p.motorizado.name, surname: p.motorizado.surname, whatsapp: p.motorizado.whatsapp, id: p.motorizado.id } : null,
         ratingNegocio: p.ratingNegocio,
-        ratingMotorizado: p.ratingMotorizado
+        ratingMotorizado: p.ratingMotorizado,
+        // Peak Hour Surcharge
+        isPeakHourSurchargeApplied: p.isPeakHourSurchargeApplied,
+        peakHourSurchargeAmount: p.peakHourSurchargeAmount,
+        peakHourSurchargeMoto: p.peakHourSurchargeMoto,
+        peakHourSurchargeApp: p.peakHourSurchargeApp
       };
     });
 

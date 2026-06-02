@@ -27,6 +27,7 @@ export class DeliverySettingsAdminService {
       extraStepKm: data.extraStepKm ?? 2,
       extraStepFee: data.extraStepFee ?? 0.25,
       isActive: true,
+      peakHours: data.peakHours ?? [],
     });
     return await s.save();
   }
@@ -41,6 +42,7 @@ export class DeliverySettingsAdminService {
     if (typeof data.firstRangeFee === "number") s.firstRangeFee = data.firstRangeFee;
     if (typeof data.extraStepKm === "number") s.extraStepKm = data.extraStepKm;
     if (typeof data.extraStepFee === "number") s.extraStepFee = data.extraStepFee;
+    if (Array.isArray(data.peakHours)) s.peakHours = data.peakHours;
 
     if (typeof data.isActive === "boolean" && data.isActive) {
       // Si se reactiva esta, desactivar las otras

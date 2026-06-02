@@ -129,6 +129,19 @@ export class Pedido extends BaseEntity {
   @Column("decimal", { precision: 10, scale: 2, default: 0 })
   recargo_tarjeta: number;
 
+  // --- TRAZABILIDAD DE HORARIOS PICO ---
+  @Column({ type: "boolean", default: false })
+  isPeakHourSurchargeApplied: boolean;
+
+  @Column("decimal", { precision: 10, scale: 2, default: 0 })
+  peakHourSurchargeAmount: number;
+
+  @Column("decimal", { precision: 10, scale: 2, default: 0 })
+  peakHourSurchargeMoto: number;
+
+  @Column("decimal", { precision: 10, scale: 2, default: 0 })
+  peakHourSurchargeApp: number;
+
   @ManyToOne("UserMotorizado", { nullable: true })
   motorizado: UserMotorizado | null;
 

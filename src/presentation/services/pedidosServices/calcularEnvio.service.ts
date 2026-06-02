@@ -1,5 +1,6 @@
 import { Negocio } from "../../../data";
 import { DeliverySettings } from "../../../data/postgres/models/DeliverySettings";
+import moment from "moment-timezone";
 
 export class CalcularEnvioService {
   static toNumber(n: any, def = 0) {
@@ -63,8 +64,53 @@ export class CalcularEnvioService {
       Number(lngCliente)
     );
 
-    const costoEnvio = this.calcFee(distanciaKm, settings);
+    const costoEnvioBase = this.calcFee(distanciaKm, settings);
+    let costoEnvioTotal = costoEnvioBase;
+    let recargoPico = 0;
+    let porcentajePicoAplicado = 0;
+    let isPeakHour = false;
 
-    return { distanciaKm, costoEnvio, settings };
+    // --- EVALUACIÓN DE HORARIOS PICO ---
+    if (settings.peakHours && Array.isArray(settings.peakHours)) {
+      const horaActualEcuador = moment().tz("America/Guayaquil");
+      const currentMinutes = horaActualEcuador.hours() * 60 + horaActualEcuador.minutes();
+
+      for (const peak of settings.peakHours) {
+        if (!peak.enabled) continue;
+
+        const [startH, startM] = peak.startTime.split(':').map(Number);
+        const [endH, endM] = peak.endTime.split(':').map(Number);
+        
+        const startMinutes = startH * 60 + startM;
+        let endMinutes = endH * 60 + endM;
+
+        // Soporte si el horario cruza la medianoche (ej: 22:00 a 02:00)
+        let inRange = false;
+        if (startMinutes <= endMinutes) {
+          inRange = currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+        } else {
+          // Cruza la medianoche
+          inRange = currentMinutes >= startMinutes || currentMinutes <= endMinutes;
+        }
+
+        if (inRange) {
+          isPeakHour = true;
+          porcentajePicoAplicado = Number(peak.surchargePercentage) || 0;
+          recargoPico = +(costoEnvioBase * (porcentajePicoAplicado / 100)).toFixed(2);
+          costoEnvioTotal = +(costoEnvioBase + recargoPico).toFixed(2);
+          break; // Solo aplicamos el primer horario pico que coincida
+        }
+      }
+    }
+
+    return { 
+      distanciaKm, 
+      costoEnvioBase, 
+      costoEnvio: costoEnvioTotal, 
+      recargoPico, 
+      isPeakHour,
+      porcentajePicoAplicado,
+      settings 
+    };
   }
 }

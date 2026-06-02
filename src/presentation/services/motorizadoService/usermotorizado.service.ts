@@ -359,7 +359,7 @@ export class UserMotorizadoService {
     });
     if (!usermotorizado) {
       throw CustomError.notFound(
-        `Usuario: ${usermotorizado} o contraseña no validos`
+        `Cédula o contraseña incorrectas, o la cuenta no está ACTIVA.`
       );
     }
     return usermotorizado;

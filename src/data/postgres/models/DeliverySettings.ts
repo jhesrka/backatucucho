@@ -27,6 +27,16 @@ export class DeliverySettings extends BaseEntity {
   @Column({ type: "boolean", default: true })
   isActive: boolean;
 
+  // Arreglo de horarios pico: [{ id, enabled, startTime, endTime, surchargePercentage }]
+  @Column("jsonb", { nullable: true, default: [] })
+  peakHours: {
+    id: string;
+    enabled: boolean;
+    startTime: string; // "HH:mm"
+    endTime: string;   // "HH:mm"
+    surchargePercentage: number;
+  }[];
+
   @CreateDateColumn()
   createdAt: Date;
 
