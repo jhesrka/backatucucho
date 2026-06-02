@@ -177,7 +177,6 @@ export class UserMotorizadoService {
     motorizado.estadoTrabajo = EstadoTrabajoMotorizado.NO_TRABAJANDO;
     motorizado.quiereTrabajar = false;
 
-    // Asignar la liga con mayor porcentaje de comisión al momento de la creación
     const topTier = await MotorizadoTier.findOne({
       where: {},
       order: { commissionPercentage: 'DESC' },
@@ -346,7 +345,9 @@ export class UserMotorizadoService {
       ratingPromedio: Number(motorizado.ratingPromedio) || 0,
       totalResenas: Number(motorizado.totalResenas) || 0,
       currentTier: motorizado.currentTier,
-      performanceLastPeriod: motorizado.performanceLastPeriod
+      performanceLastPeriod: motorizado.performanceLastPeriod,
+      isManualCommission: motorizado.isManualCommission,
+      manualCommissionPercentage: motorizado.manualCommissionPercentage
     };
   }
 
@@ -461,6 +462,21 @@ export class UserMotorizadoService {
       }
     });
     
+    // Calcular ranking oficial (histórico) basado en performanceLastPeriod
+    const officialRankingArray = [...motorizados].sort((a, b) => {
+      const partA = a.performanceLastPeriod?.participacion || 0;
+      const partB = b.performanceLastPeriod?.participacion || 0;
+      return partB - partA;
+    });
+    
+    const officialRanks = new Map();
+    let offRank = 1;
+    officialRankingArray.forEach(m => {
+      if (!m.isManualCommission) {
+        officialRanks.set(m.id, offRank++);
+      }
+    });
+
     return Promise.all(motorizados.map(async (m) => {
       let photoUrl = "";
       if (m.photoperfil) {
@@ -472,6 +488,8 @@ export class UserMotorizadoService {
 
       // Buscar estadísticas de meritocracia en vivo
       const meritStats = rankingArray.find(r => r.id === m.id);
+      const projectedRank = meritStats ? rankingArray.findIndex(r => r.id === m.id) + 1 : null;
+      const officialRank = officialRanks.get(m.id) || null;
 
       return {
         id: m.id,
@@ -495,8 +513,14 @@ export class UserMotorizadoService {
           participacionActual: meritStats ? meritStats.participacion : 0,
           pedidosActuales: meritStats ? meritStats.pedidosCount : 0,
           ligaProyectada: meritStats ? meritStats.proximoTier : (m.currentTier?.name || '📍 START'),
-          ligaProyectadaColor: meritStats ? meritStats.proximoTierColor : (m.currentTier?.color || '#94a3b8')
-        }
+          ligaProyectadaColor: meritStats ? meritStats.proximoTierColor : (m.currentTier?.color || '#94a3b8'),
+          currentRank: projectedRank,
+          officialRank: officialRank,
+          totalParticipants: rankingArray.length,
+          cicloTotalPedidos: liveRanking?.totalPedidos || 0
+        },
+        isManualCommission: m.isManualCommission,
+        manualCommissionPercentage: m.manualCommissionPercentage
       };
     }));
   }
@@ -545,7 +569,9 @@ export class UserMotorizadoService {
         ligaProyectada: meritStats ? meritStats.proximoTier : (motorizado.currentTier?.name || '📍 START'),
         ligaProyectadaColor: meritStats ? meritStats.proximoTierColor : (motorizado.currentTier?.color || '#94a3b8'),
         historico: motorizado.performanceLastPeriod || null
-      }
+      },
+      isManualCommission: motorizado.isManualCommission,
+      manualCommissionPercentage: motorizado.manualCommissionPercentage
     };
   }
 
@@ -568,6 +594,17 @@ export class UserMotorizadoService {
       const q = (data as any).quiereTrabajar;
       // Convertir a booleano real si viene como string
       motorizado.quiereTrabajar = (q === true || q === 'true');
+    }
+
+    // Configuración especial de comisión manual
+    if ((data as any).isManualCommission !== undefined) {
+      const isManual = (data as any).isManualCommission;
+      motorizado.isManualCommission = (isManual === true || isManual === 'true');
+    }
+    
+    if ((data as any).manualCommissionPercentage !== undefined) {
+      const val = (data as any).manualCommissionPercentage;
+      motorizado.manualCommissionPercentage = val !== null && val !== "" ? Number(val) : null;
     }
 
 

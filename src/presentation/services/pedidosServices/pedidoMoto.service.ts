@@ -417,16 +417,22 @@ export class PedidoMotoService {
     pedido.estado = EstadoPedido.PREPARANDO_ASIGNADO;
     pedido.motorizado = moto;
 
-    // --- DINAMISMO POR MÉRITO ---
-    const tier = moto.currentTier;
-    if (tier) {
-      const porcentajeMoto = Number(tier.commissionPercentage);
-      const costoEnvio = Number(pedido.costoEnvio);
-      pedido.porcentaje_motorizado_aplicado = porcentajeMoto;
-      pedido.porcentaje_app_aplicado = 100 - porcentajeMoto;
-      pedido.ganancia_motorizado = Number((costoEnvio * (porcentajeMoto / 100)).toFixed(2));
-      pedido.comision_app_domicilio = Number((costoEnvio - pedido.ganancia_motorizado).toFixed(2));
+    // --- DINAMISMO POR MÉRITO O COMISIÓN MANUAL ---
+    let porcentajeMoto = 80; // Default fallback
+    if (moto.isManualCommission && moto.manualCommissionPercentage !== null) {
+      porcentajeMoto = Number(moto.manualCommissionPercentage);
+    } else if (moto.currentTier) {
+      porcentajeMoto = Number(moto.currentTier.commissionPercentage);
+    } else {
+      const ps = await this.getPriceSettings();
+      porcentajeMoto = Number(ps.motorizadoPercentage || 80);
     }
+
+    const costoEnvio = Number(pedido.costoEnvio);
+    pedido.porcentaje_motorizado_aplicado = porcentajeMoto;
+    pedido.porcentaje_app_aplicado = 100 - porcentajeMoto;
+    pedido.ganancia_motorizado = Number((costoEnvio * (porcentajeMoto / 100)).toFixed(2));
+    pedido.comision_app_domicilio = Number((costoEnvio - pedido.ganancia_motorizado).toFixed(2));
 
     pedido.pickup_code = Math.floor(1000 + Math.random() * 9000).toString();
     pedido.pickup_verified = false;
@@ -927,8 +933,8 @@ export class PedidoMotoService {
 
     return {
       saldo: moto.saldo,
-      // Comisión personal del motorizado según su liga actual
-      porcentajeMotorizado: moto.currentTier?.commissionPercentage ?? 80,
+      // Comisión personal del motorizado según su liga actual o comisión manual
+      porcentajeMotorizado: moto.isManualCommission && moto.manualCommissionPercentage !== null ? Number(moto.manualCommissionPercentage) : (moto.currentTier?.commissionPercentage ?? 80),
       datosBancarios: {
         banco: moto.bancoNombre,
         tipo: moto.bancoTipoCuenta,

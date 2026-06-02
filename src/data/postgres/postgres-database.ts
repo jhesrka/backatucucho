@@ -381,6 +381,11 @@ export class PostgresDatabase {
         ALTER TABLE "moderation_log" ADD COLUMN IF NOT EXISTS "storieId" uuid;
       `);
 
+      await runMigrationStep("Step 26: Manual Commission", `
+        ALTER TABLE "user_motorizado" ADD COLUMN IF NOT EXISTS "isManualCommission" BOOLEAN DEFAULT false;
+        ALTER TABLE "user_motorizado" ADD COLUMN IF NOT EXISTS "manualCommissionPercentage" DECIMAL(5,2) DEFAULT NULL;
+      `);
+
       // 2. Inicializar Meritocracia
       const meritocracy = new MeritocracyService();
       await meritocracy.ensureDefaultTiers();

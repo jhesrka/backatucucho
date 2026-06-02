@@ -1,6 +1,6 @@
 import { Pedido, UserMotorizado, MotorizadoTier, PriceSettings, EstadoPedido, EstadoCuentaMotorizado, MeritocracyCycleLog } from "../../../data";
 import { CustomError } from "../../../domain";
-import { Between } from "typeorm";
+import { Between, In } from "typeorm";
 import moment from "moment-timezone";
 
 export class MeritocracyService {
@@ -80,19 +80,25 @@ export class MeritocracyService {
     // a los pedidos acumulados dentro de los límites del ciclo vencido.
     const queryEndDate = now > endDate ? endDate : now;
 
-    // 1. Obtener todos los motorizados activos
+    // 1. Obtener todos los motorizados activos (Excluyendo VIPs)
     const motorizados = await UserMotorizado.find({
-      where: { estadoCuenta: EstadoCuentaMotorizado.ACTIVO },
+      where: { 
+        estadoCuenta: EstadoCuentaMotorizado.ACTIVO,
+        isManualCommission: false
+      },
       relations: ['currentTier']
     });
 
     if (motorizados.length === 0) return { totalPedidos: 0, ranking: [] };
 
-    // 2. Obtener pedidos entregados en este periodo
+    const motorizadosIds = motorizados.map(m => m.id);
+
+    // 2. Obtener pedidos entregados en este periodo (solo por motorizados no VIP)
     const pedidos = await Pedido.find({
       where: {
         estado: EstadoPedido.ENTREGADO,
-        updatedAt: Between(startDate, queryEndDate)
+        updatedAt: Between(startDate, queryEndDate),
+        motorizado: { id: In(motorizadosIds) }
       },
       relations: ['motorizado']
     });

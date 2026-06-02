@@ -142,6 +142,15 @@ export class UserMotorizado extends BaseEntity {
   @Column("json", { nullable: true })
   performanceLastPeriod: any; // Datos del último periodo (pedidos, %, etc)
 
+  // ==============================
+  // ⭐ COMISIÓN MANUAL / ESPECIAL
+  // ==============================
+  @Column({ type: "boolean", default: false })
+  isManualCommission: boolean;
+
+  @Column("decimal", { precision: 10, scale: 2, nullable: true })
+  manualCommissionPercentage: number | null;
+
   @OneToMany(() => Pedido, (pedido) => pedido.motorizado)
   pedidos: Pedido[];
 
