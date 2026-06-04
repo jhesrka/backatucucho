@@ -73,6 +73,7 @@ export class PedidoAdminController {
             ganancia_motorizado: p.ganancia_motorizado,
             comision_app_domicilio: p.comision_app_domicilio,
             metodoPago: p.metodoPago,
+            comprobantePagoUrl: p.comprobantePagoUrl,
             direccionEntrega: p.direccionTexto,
             referencia: null, // No hay campo de referencia en el modelo actual
             createdAt: p.createdAt,

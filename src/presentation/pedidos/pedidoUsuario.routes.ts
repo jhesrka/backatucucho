@@ -41,6 +41,13 @@ export class PedidoUsuarioRoutes {
       AuthMiddleware.protect,
       pedidoUsuarioController.obtenerPedidosCliente
     );
+
+    // ===================== OBTENER PRODUCTOS DE UN PEDIDO =====================
+    router.get(
+      "/:pedidoId/productos/cliente/:clienteId",
+      AuthMiddleware.protect,
+      pedidoUsuarioController.obtenerProductosPorPedido
+    );
     // ===================== ELIMINAR PEDIDO DEL CLIENTE =====================
     router.delete(
       "/cliente/:clienteId/:pedidoId",

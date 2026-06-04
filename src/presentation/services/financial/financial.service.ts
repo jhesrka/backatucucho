@@ -658,13 +658,137 @@ export class FinancialService {
     }
 
     // ===================================
+    // 🔎 AUDITORÍA DE COMPROBANTES
+    // ===================================
+    async getComprobantesAuditoria(query?: string, startDate?: string, endDate?: string, amount?: number, type?: string, page: number = 1, limit: number = 20) {
+        let allReceipts: any[] = [];
+
+        // Parsing dates
+        let start = new Date(0);
+        let end = new Date();
+        if (startDate) {
+            start = DateUtils.parseLocalDate(startDate);
+            start.setHours(0, 0, 0, 0);
+        }
+        if (endDate) {
+            end = DateUtils.parseLocalDate(endDate);
+            end.setHours(23, 59, 59, 999);
+        } else if (startDate) {
+            end = new Date(start);
+            end.setHours(23, 59, 59, 999);
+        }
+
+        // 1. Fetch from RechargeRequest
+        if (!type || type === 'ALL' || type === 'RECARGA') {
+            const reqQuery = RechargeRequest.createQueryBuilder("r")
+                .leftJoinAndSelect("r.user", "user")
+                .where("r.receipt_image IS NOT NULL")
+                .andWhere("r.created_at BETWEEN :start AND :end", { start, end });
+
+            if (amount) {
+                reqQuery.andWhere("r.amount = :amount", { amount });
+            }
+
+            if (query) {
+                reqQuery.andWhere("(r.receipt_number ILIKE :query OR user.name ILIKE :query OR user.email ILIKE :query OR user.surname ILIKE :query)", { query: `%${query}%` });
+            }
+
+            const recargas = await reqQuery.getMany();
+            const mappedRecargas = recargas.map(r => ({
+                id: r.id,
+                origin: 'RECARGA',
+                date: r.created_at,
+                amount: Number(r.amount),
+                status: r.status,
+                user: {
+                    id: r.user.id,
+                    name: `${r.user.name} ${r.user.surname}`,
+                    email: r.user.email
+                },
+                receipt_number: r.receipt_number || 'S/N',
+                rawUrl: r.receipt_image
+            }));
+            allReceipts = allReceipts.concat(mappedRecargas);
+        }
+
+        // 2. Fetch from Pedido
+        if (!type || type === 'ALL' || type === 'PEDIDO') {
+            const pQuery = Pedido.createQueryBuilder("p")
+                .leftJoinAndSelect("p.cliente", "cliente")
+                .leftJoinAndSelect("p.negocio", "negocio")
+                .where("p.comprobantePagoUrl IS NOT NULL")
+                .andWhere("p.updatedAt BETWEEN :start AND :end", { start, end });
+
+            if (amount) {
+                pQuery.andWhere("p.total = :amount", { amount });
+            }
+
+            if (query) {
+                pQuery.andWhere("(p.id::text ILIKE :query OR cliente.name ILIKE :query OR cliente.email ILIKE :query OR cliente.surname ILIKE :query OR negocio.nombre ILIKE :query)", { query: `%${query}%` });
+            }
+
+            const pedidos = await pQuery.getMany();
+            const mappedPedidos = pedidos.map(p => ({
+                id: p.id,
+                origin: 'PEDIDO',
+                date: p.updatedAt,
+                amount: Number(p.total),
+                status: p.estado,
+                user: {
+                    id: p.cliente?.id,
+                    name: `${p.cliente?.name || ''} ${p.cliente?.surname || ''}`.trim(),
+                    email: p.cliente?.email
+                },
+                receipt_number: `Order ID: ${p.id.split('-')[0]}`,
+                rawUrl: p.comprobantePagoUrl,
+                shopName: p.negocio?.nombre
+            }));
+            allReceipts = allReceipts.concat(mappedPedidos);
+        }
+
+        // Sort globally
+        allReceipts.sort((a, b) => b.date.getTime() - a.date.getTime());
+
+        // Pagination
+        const total = allReceipts.length;
+        const skip = (page - 1) * limit;
+        const paginated = allReceipts.slice(skip, skip + limit);
+
+        // Sign URLs
+        const resultsWithSignedUrls = await Promise.all(paginated.map(async (r) => {
+            let signedUrl = r.rawUrl;
+            if (r.rawUrl && !r.rawUrl.startsWith('http')) {
+                try {
+                    signedUrl = await UploadFilesCloud.getFile({ bucketName: envs.AWS_BUCKET_NAME, key: r.rawUrl });
+                } catch (e) {
+                    console.error("Error signing URL", e);
+                }
+            }
+            return { ...r, imageUrl: signedUrl };
+        }));
+
+        return {
+            data: resultsWithSignedUrls,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit)
+            }
+        };
+    }
+
+    // ===================================
     // 🏪 SHOP RECONCILIATION (CUADRE POR LOCAL)
     // ===================================
     async getShopReconciliation(startDate: Date, endDate: Date) {
-        const start = new Date(startDate);
-        start.setHours(0, 0, 0, 0);
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
+        const { DateUtils } = await import("../../../utils/date-utils");
+        // Convert to string to avoid timezone shifts when passing to getDayRange
+        const startStr = DateUtils.toLocalDateString(startDate);
+        const endStr = DateUtils.toLocalDateString(endDate);
+        
+        const { start } = DateUtils.getDayRange(startStr);
+        const { end } = DateUtils.getDayRange(endStr);
 
         const dateStr = DateUtils.toLocalDateString(endDate);
 
@@ -710,7 +834,7 @@ export class FinancialService {
                         EstadoPedido.RETORNO_PENDIENTE, 
                         EstadoPedido.DEVUELTO_A_LOCAL
                     ]),
-                    updatedAt: Between(start, end)
+                    createdAt: Between(start, end)
                 }
             });
 

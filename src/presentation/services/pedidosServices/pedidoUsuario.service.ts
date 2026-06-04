@@ -254,7 +254,12 @@ export class PedidoUsuarioService {
 
     const [pedidos, total] = await query.getManyAndCount();
 
-    const pedidosMapeados = pedidos.map((p) => {
+    const pedidosMapeados = await Promise.all(pedidos.map(async (p) => {
+      let resolvedComprobante = p.comprobantePagoUrl;
+      if (resolvedComprobante && !resolvedComprobante.startsWith('http')) {
+          resolvedComprobante = await UploadFilesCloud.getFile({ bucketName: envs.AWS_BUCKET_NAME, key: resolvedComprobante });
+      }
+
       return {
         id: p.id, estado: p.estado, total: p.total, costoEnvio: p.costoEnvio,
         createdAt: p.createdAt, fecha: p.createdAt, fecha_aceptado: p.fecha_aceptado,
@@ -267,15 +272,8 @@ export class PedidoUsuarioService {
           longitud: p.negocio?.longitud,
           tiempoPreparacionMax: p.negocio?.tiempoPreparacionMax
         },
-        productos: p.productos.map(pp => ({
-          nombre: pp.producto?.nombre || pp.producto_nombre || "Producto no disponible", 
-          cantidad: pp.cantidad, 
-          subtotal: pp.subtotal, 
-          precio_venta: pp.precio_venta,
-          imagen: pp.producto_imagen, // Snapshot de imagen
-          tipoProducto: pp.producto?.tipoProducto || 'NORMAL'
-        })),
-        metodoPago: p.metodoPago, comprobantePagoUrl: p.comprobantePagoUrl,
+        isProgrammed: p.productos?.some(pp => pp.producto?.tipoProducto === 'PROGRAMADO') || false,
+        metodoPago: p.metodoPago, comprobantePagoUrl: resolvedComprobante,
         delivery_code: p.delivery_code, arrival_time: p.arrival_time,
         pickup_code: p.pickup_code,
         motivoCancelacion: p.motivoCancelacion,
@@ -284,20 +282,46 @@ export class PedidoUsuarioService {
           name: p.cliente.name, 
           surname: p.cliente.surname, 
           whatsapp: p.cliente.whatsapp,
-          strikes: p.cliente.cancellation_strikes || 0 
+          cancellation_strikes: p.cliente.cancellation_strikes
         } : null,
-        motorizado: p.motorizado ? { name: p.motorizado.name, surname: p.motorizado.surname, whatsapp: p.motorizado.whatsapp, id: p.motorizado.id } : null,
+        motorizado: p.motorizado ? { 
+          id: p.motorizado.id, 
+          name: p.motorizado.name, 
+          surname: p.motorizado.surname,
+          whatsapp: p.motorizado.whatsapp 
+        } : null,
         ratingNegocio: p.ratingNegocio,
         ratingMotorizado: p.ratingMotorizado,
-        // Peak Hour Surcharge
         isPeakHourSurchargeApplied: p.isPeakHourSurchargeApplied,
         peakHourSurchargeAmount: p.peakHourSurchargeAmount,
         peakHourSurchargeMoto: p.peakHourSurchargeMoto,
         peakHourSurchargeApp: p.peakHourSurchargeApp
       };
-    });
+    }));
 
     return { total, page, totalPages: Math.ceil(total / limit), pedidos: pedidosMapeados };
+  }
+
+  async obtenerProductosPorPedido(pedidoId: string, clienteId: string) {
+    const pedido = await Pedido.createQueryBuilder("pedido")
+      .where("pedido.id = :pedidoId", { pedidoId })
+      .andWhere("pedido.clienteId = :clienteId", { clienteId })
+      .leftJoinAndSelect("pedido.productos", "productos")
+      .leftJoinAndSelect("productos.producto", "producto")
+      .getOne();
+
+    if (!pedido) {
+      throw CustomError.notFound("Pedido no encontrado o no pertenece a este cliente");
+    }
+
+    return pedido.productos.map(pp => ({
+      nombre: pp.producto?.nombre || pp.producto_nombre || "Producto no disponible", 
+      cantidad: pp.cantidad, 
+      subtotal: pp.subtotal, 
+      precio_venta: pp.precio_venta,
+      imagen: pp.producto_imagen, 
+      tipoProducto: pp.producto?.tipoProducto || 'NORMAL'
+    }));
   }
 
   async notificarYaVoy(pedidoId: string, clienteId: string) {

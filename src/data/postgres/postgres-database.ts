@@ -386,6 +386,15 @@ export class PostgresDatabase {
         ALTER TABLE "user_motorizado" ADD COLUMN IF NOT EXISTS "manualCommissionPercentage" DECIMAL(5,2) DEFAULT NULL;
       `);
 
+      await runMigrationStep("Step 27: Payment Method Limits", `
+        ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "minEfectivo" DECIMAL(10,2) DEFAULT NULL;
+        ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "maxEfectivo" DECIMAL(10,2) DEFAULT NULL;
+        ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "minTransferencia" DECIMAL(10,2) DEFAULT NULL;
+        ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "maxTransferencia" DECIMAL(10,2) DEFAULT NULL;
+        ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "minTarjeta" DECIMAL(10,2) DEFAULT NULL;
+        ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "maxTarjeta" DECIMAL(10,2) DEFAULT NULL;
+      `);
+
       // 2. Inicializar Meritocracia
       const meritocracy = new MeritocracyService();
       await meritocracy.ensureDefaultTiers();

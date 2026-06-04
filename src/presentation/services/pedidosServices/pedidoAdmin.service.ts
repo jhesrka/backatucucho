@@ -76,16 +76,23 @@ export class PedidoAdminService {
       relations: ["cliente", "motorizado", "negocio", "negocio.usuario", "productos", "productos.producto"],
     });
 
-    const mappedPedidos = pedidos.map(p => ({
-      ...p,
-      productos: p.productos.map(pp => ({
-        ...pp,
-        producto: pp.producto || { 
-          nombre: pp.producto_nombre || "P. Eliminado", 
-          id: 'deleted',
-          tipoProducto: 'NORMAL' // 👈 Aseguramos que no se oculte el timer por falta de info
-        }
-      }))
+    const mappedPedidos = await Promise.all(pedidos.map(async p => {
+      let resolvedComprobante = p.comprobantePagoUrl;
+      if (resolvedComprobante && !resolvedComprobante.startsWith('http')) {
+          resolvedComprobante = await UploadFilesCloud.getFile({ bucketName: envs.AWS_BUCKET_NAME, key: resolvedComprobante });
+      }
+      return {
+        ...p,
+        comprobantePagoUrl: resolvedComprobante,
+        productos: p.productos.map(pp => ({
+          ...pp,
+          producto: pp.producto || { 
+            nombre: pp.producto_nombre || "P. Eliminado", 
+            id: 'deleted',
+            tipoProducto: 'NORMAL' // 👈 Aseguramos que no se oculte el timer por falta de info
+          }
+        }))
+      };
     }));
 
     return { total, pedidos: mappedPedidos };
@@ -498,20 +505,27 @@ export class PedidoAdminService {
     }));
 
     // Enriquecer pedidos con nombre del motorizado en evaluación
-    const pedidosEnriquecidos = pedidosActivos.map(p => {
+    const pedidosEnriquecidos = await Promise.all(pedidosActivos.map(async p => {
       let motorizadoEvalNombre = null;
       if (p.motorizadoEnEvaluacion) {
         const moto = motorizados.find(m => m.id === p.motorizadoEnEvaluacion);
         motorizadoEvalNombre = moto ? `${moto.name} ${moto.surname}` : "Desconocido";
       }
+
+      let resolvedComprobante = p.comprobantePagoUrl;
+      if (resolvedComprobante && !resolvedComprobante.startsWith('http')) {
+          resolvedComprobante = await UploadFilesCloud.getFile({ bucketName: envs.AWS_BUCKET_NAME, key: resolvedComprobante });
+      }
+
       return { 
         ...p, 
+        comprobantePagoUrl: resolvedComprobante,
         motorizadoEvalNombre,
         negocio: p.negocio,
         motorizado: p.motorizado,
         cliente: p.cliente
       };
-    });
+    }));
 
     // 4. Calcular Métricas de Resumen
     const sinMotorizado = pedidosActivos.filter(p => p.estado === EstadoPedido.PREPARANDO_NO_ASIGNADO).length;

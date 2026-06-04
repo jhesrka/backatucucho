@@ -29,6 +29,7 @@ export class FinancialRoutes {
         router.get('/day-status', AuthAdminMiddleware.protect, controller.getDayStatus);
         router.post('/close-day', AuthAdminMiddleware.protect, controller.closeDay);
         router.get('/unified-transactions', AuthAdminMiddleware.protect, controller.getUnifiedTransactions);
+        router.get('/comprobantes-auditoria', AuthAdminMiddleware.protect, controller.getComprobantesAuditoria);
         router.get('/pending-shop-closings', AuthAdminMiddleware.protect, controller.getPendingShopClosings);
 
         // Detailed Revenue (Auditable)

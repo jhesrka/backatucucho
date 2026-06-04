@@ -139,6 +139,25 @@ export class GlobalSettings extends BaseEntity {
         description?: string;
     };
 
+    // LÍMITES DE MÉTODOS DE PAGO
+    @Column("decimal", { precision: 10, scale: 2, nullable: true })
+    minEfectivo: number | null;
+
+    @Column("decimal", { precision: 10, scale: 2, nullable: true })
+    maxEfectivo: number | null;
+
+    @Column("decimal", { precision: 10, scale: 2, nullable: true })
+    minTransferencia: number | null;
+
+    @Column("decimal", { precision: 10, scale: 2, nullable: true })
+    maxTransferencia: number | null;
+
+    @Column("decimal", { precision: 10, scale: 2, nullable: true })
+    minTarjeta: number | null;
+
+    @Column("decimal", { precision: 10, scale: 2, nullable: true })
+    maxTarjeta: number | null;
+
     @UpdateDateColumn()
     updatedAt: Date;
 }

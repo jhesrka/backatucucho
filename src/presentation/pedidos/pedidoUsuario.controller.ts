@@ -107,6 +107,24 @@ export class PedidoUsuarioController {
       .catch((error) => this.handleError(error, res));
   };
 
+  // ======================== Obtener productos de un pedido ========================
+  obtenerProductosPorPedido = (req: Request, res: Response) => {
+    const pedidoId = req.params.pedidoId;
+    const clienteId = req.params.clienteId;
+
+    if (!pedidoId) {
+      return res.status(400).json({ message: "Falta el ID del pedido" });
+    }
+    if (!clienteId) {
+      return res.status(400).json({ message: "Falta el ID del cliente" });
+    }
+
+    this.pedidoUsuarioService
+      .obtenerProductosPorPedido(pedidoId, clienteId)
+      .then((result) => res.status(200).json(result))
+      .catch((error) => this.handleError(error, res));
+  };
+
   // ======================== Eliminar pedido del cliente ========================
   eliminarPedidoCliente = (req: Request, res: Response) => {
     const pedidoId = req.params.pedidoId;

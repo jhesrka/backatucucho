@@ -155,6 +155,25 @@ export class FinancialController {
         }
     };
 
+    getComprobantesAuditoria = async (req: Request, res: Response) => {
+        try {
+            const { query, startDate, endDate, amount, type, page, limit } = req.query;
+            
+            const result = await this.financialService.getComprobantesAuditoria(
+                query as string,
+                startDate as string,
+                endDate as string,
+                amount ? Number(amount) : undefined,
+                type as string,
+                page ? Number(page) : 1,
+                limit ? Number(limit) : 20
+            );
+            res.json(result);
+        } catch (error) {
+            this.handleError(error, res);
+        }
+    };
+
     // DAILY CLOSING //
     uploadBankStatement = async (req: Request, res: Response) => {
         try {

@@ -148,6 +148,14 @@ export class GlobalSettingsService {
         if (data.acceptedOrderGraceMinutes !== undefined) settings.acceptedOrderGraceMinutes = Number(data.acceptedOrderGraceMinutes);
         if (data.cleanupSubscriptionContentDays !== undefined) settings.cleanupSubscriptionContentDays = Number(data.cleanupSubscriptionContentDays);
 
+        // LÍMITES DE MÉTODOS DE PAGO
+        if (data.minEfectivo !== undefined) settings.minEfectivo = data.minEfectivo === "" || data.minEfectivo === null ? null : Number(data.minEfectivo);
+        if (data.maxEfectivo !== undefined) settings.maxEfectivo = data.maxEfectivo === "" || data.maxEfectivo === null ? null : Number(data.maxEfectivo);
+        if (data.minTransferencia !== undefined) settings.minTransferencia = data.minTransferencia === "" || data.minTransferencia === null ? null : Number(data.minTransferencia);
+        if (data.maxTransferencia !== undefined) settings.maxTransferencia = data.maxTransferencia === "" || data.maxTransferencia === null ? null : Number(data.maxTransferencia);
+        if (data.minTarjeta !== undefined) settings.minTarjeta = data.minTarjeta === "" || data.minTarjeta === null ? null : Number(data.minTarjeta);
+        if (data.maxTarjeta !== undefined) settings.maxTarjeta = data.maxTarjeta === "" || data.maxTarjeta === null ? null : Number(data.maxTarjeta);
+
         // Payphone
         if (data.payphoneToken !== undefined) settings.payphoneToken = data.payphoneToken;
         if (data.payphoneStoreId !== undefined) settings.payphoneStoreId = data.payphoneStoreId;
