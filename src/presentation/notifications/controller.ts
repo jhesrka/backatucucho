@@ -7,7 +7,7 @@ export class NotificationController {
 
   registerToken = async (req: Request, res: Response) => {
     const { token, deviceType } = req.body;
-    const userId = req.body.user.id;
+    const userId = req.body.sessionUser.id;
 
     if (!token) throw CustomError.badRequest('Token is required');
 
