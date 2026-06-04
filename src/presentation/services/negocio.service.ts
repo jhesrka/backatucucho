@@ -109,6 +109,8 @@ export class NegocioService {
     negocio.tipoCuenta = dto.tipoCuenta;
     negocio.numeroCuenta = dto.numeroCuenta;
     negocio.titularCuenta = dto.titularCuenta;
+    negocio.identificacionCuenta = dto.identificacionCuenta;
+    negocio.correoCuenta = dto.correoCuenta;
     negocio.tiempoPreparacionMin = dto.tiempoPreparacionMin;
     negocio.tiempoPreparacionMax = dto.tiempoPreparacionMax;
     negocio.permiteProductosProgramados = dto.permiteProductosProgramados;
@@ -139,6 +141,8 @@ export class NegocioService {
         tipoCuenta: saved.tipoCuenta,
         numeroCuenta: saved.numeroCuenta,
         titularCuenta: saved.titularCuenta,
+        identificacionCuenta: saved.identificacionCuenta,
+        correoCuenta: saved.correoCuenta,
         tiempoPreparacionMin: saved.tiempoPreparacionMin,
         tiempoPreparacionMax: saved.tiempoPreparacionMax,
         permiteProductosProgramados: saved.permiteProductosProgramados,
@@ -405,6 +409,8 @@ export class NegocioService {
           tipoCuenta: negocio.tipoCuenta,
           numeroCuenta: negocio.numeroCuenta,
           titularCuenta: negocio.titularCuenta,
+          identificacionCuenta: negocio.identificacionCuenta,
+          correoCuenta: negocio.correoCuenta,
           tiempoPreparacionMin: negocio.tiempoPreparacionMin,
           tiempoPreparacionMax: negocio.tiempoPreparacionMax,
           permiteProductosProgramados: negocio.permiteProductosProgramados,
@@ -529,6 +535,8 @@ export class NegocioService {
     if (data.tipoCuenta) negocio.tipoCuenta = data.tipoCuenta.trim();
     if (data.numeroCuenta) negocio.numeroCuenta = data.numeroCuenta.trim();
     if (data.titularCuenta) negocio.titularCuenta = data.titularCuenta.trim();
+    if ((data as any).identificacionCuenta) negocio.identificacionCuenta = (data as any).identificacionCuenta.trim();
+    if ((data as any).correoCuenta) negocio.correoCuenta = (data as any).correoCuenta.trim();
 
     // 🛡️ RESTRICCIÓN: No permitir cambiar tiempos si hay pedidos activos (CRÍTICOS)
     // Solo bloqueamos si el valor enviado es REALMENTE diferente al actual
@@ -611,6 +619,8 @@ export class NegocioService {
       tipoCuenta: saved.tipoCuenta,
       numeroCuenta: saved.numeroCuenta,
       titularCuenta: saved.titularCuenta,
+      identificacionCuenta: saved.identificacionCuenta,
+      correoCuenta: saved.correoCuenta,
       tiempoPreparacionMin: saved.tiempoPreparacionMin,
       tiempoPreparacionMax: saved.tiempoPreparacionMax,
       permiteProductosProgramados: saved.permiteProductosProgramados,

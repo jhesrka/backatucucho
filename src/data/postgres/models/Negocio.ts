@@ -139,6 +139,12 @@ export class Negocio extends BaseEntity {
   @Column({ type: "varchar", length: 100, nullable: true })
   titularCuenta: string | null;
 
+  @Column({ type: "varchar", length: 50, nullable: true })
+  identificacionCuenta: string | null;
+
+  @Column({ type: "varchar", length: 100, nullable: true })
+  correoCuenta: string | null;
+
   @UpdateDateColumn({ type: "timestamptz" })
   updated_at: Date;
 

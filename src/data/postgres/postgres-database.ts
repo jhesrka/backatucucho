@@ -395,6 +395,11 @@ export class PostgresDatabase {
         ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "maxTarjeta" DECIMAL(10,2) DEFAULT NULL;
       `);
 
+      await runMigrationStep("Step 28: Negocio Bank Account Additions", `
+        ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "identificacionCuenta" VARCHAR(50) DEFAULT NULL;
+        ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "correoCuenta" VARCHAR(100) DEFAULT NULL;
+      `);
+
       // 2. Inicializar Meritocracia
       const meritocracy = new MeritocracyService();
       await meritocracy.ensureDefaultTiers();

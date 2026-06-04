@@ -14,6 +14,8 @@ export class CreateNegocioDTO {
     public readonly tipoCuenta: string,
     public readonly numeroCuenta: string,
     public readonly titularCuenta: string,
+    public readonly identificacionCuenta: string,
+    public readonly correoCuenta: string,
     public readonly tiempoPreparacionMin: number,
     public readonly tiempoPreparacionMax: number,
     public readonly permiteProductosProgramados: boolean = false,
@@ -40,6 +42,8 @@ export class CreateNegocioDTO {
       tipoCuenta,
       numeroCuenta,
       titularCuenta,
+      identificacionCuenta,
+      correoCuenta,
       tiempoPreparacionMin,
       tiempoPreparacionMax,
       permiteProductosProgramados,
@@ -83,6 +87,12 @@ export class CreateNegocioDTO {
     }
     if (!titularCuenta || typeof titularCuenta !== "string" || titularCuenta.trim().length < 3) {
       return ["El titular de la cuenta es obligatorio"];
+    }
+    if (!identificacionCuenta || typeof identificacionCuenta !== "string" || identificacionCuenta.trim().length < 5) {
+      return ["La identificación (Cédula/RUC) es obligatoria"];
+    }
+    if (!correoCuenta || typeof correoCuenta !== "string" || correoCuenta.trim().length < 5) {
+      return ["El correo de la cuenta es obligatorio"];
     }
 
     // Validar Tiempos de Preparación
@@ -162,6 +172,8 @@ export class CreateNegocioDTO {
         tipoCuenta.trim(),
         numeroCuenta.trim(),
         titularCuenta.trim(),
+        identificacionCuenta.trim(),
+        correoCuenta.trim(),
         tMin,
         tMax,
         pEnabled,
