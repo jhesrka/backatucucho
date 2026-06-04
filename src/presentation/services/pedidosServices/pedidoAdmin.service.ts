@@ -472,20 +472,25 @@ export class PedidoAdminService {
       let pedidoActualId = null;
       let pedidoEnEvaluacionId = null;
 
-      if (m.estadoTrabajo === EstadoTrabajoMotorizado.ENTREGANDO) {
-        const p = await Pedido.findOne({
-          where: [
-            { motorizado: { id: m.id }, estado: EstadoPedido.PREPARANDO_ASIGNADO },
-            { motorizado: { id: m.id }, estado: EstadoPedido.EN_CAMINO }
-          ],
-          select: ["id"]
-        });
-        pedidoActualId = p?.id || null;
+      // 1. Verificar si realmente tiene un pedido asignado actualmente usando los pedidos en memoria
+      const pedidoOcupado = pedidosActivos.find(pa => 
+        pa.motorizado?.id === m.id && 
+        [EstadoPedido.PREPARANDO_ASIGNADO, EstadoPedido.EN_CAMINO, EstadoPedido.RETORNO_PENDIENTE].includes(pa.estado as EstadoPedido)
+      );
+
+      if (pedidoOcupado) {
+        pedidoActualId = pedidoOcupado.id;
+        // Forzamos el estado de visualización a ENTREGANDO ya que tiene un pedido asignado real
+        m.estadoTrabajo = EstadoTrabajoMotorizado.ENTREGANDO;
       }
 
-      if (m.estadoTrabajo === EstadoTrabajoMotorizado.EN_EVALUACION) {
-        const pEval = pedidosActivos.find(pa => pa.motorizadoEnEvaluacion === m.id);
-        pedidoEnEvaluacionId = pEval?.id || null;
+      // 2. Verificar si está evaluando un pedido
+      const pEval = pedidosActivos.find(pa => pa.motorizadoEnEvaluacion === m.id);
+      if (pEval) {
+        pedidoEnEvaluacionId = pEval.id;
+        if (!pedidoOcupado) {
+          m.estadoTrabajo = EstadoTrabajoMotorizado.EN_EVALUACION;
+        }
       }
 
       const entregasHoy = await Pedido.count({
