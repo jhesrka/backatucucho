@@ -322,6 +322,8 @@ export class ProductoService {
         tipoCuenta: negocio.tipoCuenta,
         numeroCuenta: negocio.numeroCuenta,
         titularCuenta: negocio.titularCuenta,
+        identificacionCuenta: negocio.identificacionCuenta,
+        correoCuenta: negocio.correoCuenta,
         ratingPromedio: Number(negocio.ratingPromedio) || 0,
         totalResenas: Number(negocio.totalResenas) || 0,
         pago_tarjeta_habilitado_admin: negocio.pago_tarjeta_habilitado_admin,
