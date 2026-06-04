@@ -42,7 +42,12 @@ export class NotificationService {
     }
 
     try {
-      const tokens = await PushToken.find({ where: { user: { id: userId } } });
+      const tokens = await PushToken.find({ 
+        where: [
+          { user: { id: userId } },
+          { motorizado: { id: userId } }
+        ] 
+      });
       if (tokens.length === 0) {
         console.log(`ℹ️ No hay tokens registrados para el usuario ${userId}. Saltando notificación.`);
         return;

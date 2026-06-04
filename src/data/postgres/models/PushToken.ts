@@ -1,5 +1,6 @@
 import { BaseEntity, Column, Entity, ManyToOne, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, JoinColumn } from "typeorm";
 import { User } from "./user.model";
+import { UserMotorizado } from "./UserMotorizado";
 
 @Entity()
 export class PushToken extends BaseEntity {
@@ -12,9 +13,13 @@ export class PushToken extends BaseEntity {
   @Column("varchar", { length: 50, nullable: true })
   deviceType: string; // 'android', 'ios', 'web'
 
-  @ManyToOne(() => User, (user) => user.pushTokens, { onDelete: "CASCADE" })
+  @ManyToOne(() => User, (user) => user.pushTokens, { onDelete: "CASCADE", nullable: true })
   @JoinColumn({ name: "userId" })
   user: User;
+
+  @ManyToOne(() => UserMotorizado, { onDelete: "CASCADE", nullable: true })
+  @JoinColumn({ name: "motorizadoId" })
+  motorizado: UserMotorizado;
 
   @CreateDateColumn()
   createdAt: Date;
