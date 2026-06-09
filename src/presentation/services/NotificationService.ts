@@ -36,6 +36,11 @@ export class NotificationService {
   }
 
   async sendPushNotification(userId: string, title: string, body: string, data: any = {}) {
+    if (!userId) {
+      console.warn('⚠️ Intentando enviar notificación pero el userId es inválido o vacío. Abortando para prevenir consulta masiva.');
+      return;
+    }
+
     if (!NotificationService.instance) {
       console.warn('⚠️ Intentando enviar notificación pero FCM no está inicializado.');
       return;
