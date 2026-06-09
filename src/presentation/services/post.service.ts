@@ -417,6 +417,12 @@ export class PostService {
         post.productoId = postData.productoId;
         post.precioProducto = postData.precioProducto as number;
 
+        if (negocio.fechaFinSuscripcion) {
+           post.expiresAt = negocio.fechaFinSuscripcion;
+        } else {
+           post.expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 dias de gracia
+        }
+
         // Descontar
         negocio.publicacionesRestantes -= 1;
         await negocio.save();
@@ -475,13 +481,13 @@ export class PostService {
       }
       // ------------------------------
 
-      // Configurar expiración para posts gratuitos
-      if (!post.isPaid && freePostTracker && settings) {
+      // Configurar expiración para posts gratuitos (Si NO es un producto)
+      if (!post.productoId && !post.isPaid && freePostTracker && settings) {
         const durationMs = (settings.freePostDurationDays * 24 * 60 * 60 * 1000) +
           (settings.freePostDurationHours * 60 * 60 * 1000);
         post.expiresAt = new Date(Date.now() + durationMs);
         post.freePostTracker = freePostTracker;
-      } else if (!post.isPaid) {
+      } else if (!post.productoId && !post.isPaid) {
         throw CustomError.internalServer(
           "Error al asignar el tracker de posts gratuitos"
         );
@@ -725,15 +731,28 @@ export class PostService {
   public async hardDeletePost(post: Post): Promise<{ message: string }> {
     // 1. Eliminar imágenes de S3 primero
     if (post.imgpost?.length > 0) {
-      for (const key of post.imgpost) {
-        try {
-          await UploadFilesCloud.deleteFile({
-            bucketName: envs.AWS_BUCKET_NAME,
-            key: key,
-          });
-        } catch (e) {
-          console.error(`Error deleting post image ${key}:`, e);
-          throw CustomError.internalServer("Error al eliminar las imágenes del almacenamiento S3. Operación abortada para evitar inconsistencias.");
+      let isOriginalProductImage = false;
+
+      // Si el post pertenece a un producto, verificar si la imagen es la original
+      if (post.productoId) {
+        const { Producto } = await import("../../data");
+        const producto = await Producto.findOne({ where: { id: post.productoId } });
+        if (producto && producto.imagen && post.imgpost.includes(producto.imagen)) {
+          isOriginalProductImage = true;
+        }
+      }
+
+      if (!isOriginalProductImage) {
+        for (const key of post.imgpost) {
+          try {
+            await UploadFilesCloud.deleteFile({
+              bucketName: envs.AWS_BUCKET_NAME,
+              key: key,
+            });
+          } catch (e) {
+            console.error(`Error deleting post image ${key}:`, e);
+            throw CustomError.internalServer("Error al eliminar las imágenes del almacenamiento S3. Operación abortada para evitar inconsistencias.");
+          }
         }
       }
     }
