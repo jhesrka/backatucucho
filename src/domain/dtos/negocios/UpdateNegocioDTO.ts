@@ -28,7 +28,9 @@ export class UpdateNegocioDTO {
     public readonly tiempoPreparacionMax?: number,
     public readonly permiteProductosProgramados?: boolean,
     public readonly tiempoProgramadoMin?: number | null,
-    public readonly tiempoProgramadoMax?: number | null
+    public readonly tiempoProgramadoMax?: number | null,
+    public readonly puedePublicarProductos?: boolean,
+    public readonly limitePublicacionesSuscripcion?: number
   ) { }
 
   static create(obj: { [key: string]: any }): [string?, UpdateNegocioDTO?] {
@@ -56,7 +58,9 @@ export class UpdateNegocioDTO {
       tiempoPreparacionMax,
       permiteProductosProgramados,
       tiempoProgramadoMin,
-      tiempoProgramadoMax
+      tiempoProgramadoMax,
+      puedePublicarProductos,
+      limitePublicacionesSuscripcion
     } = obj;
 
     // Validaciones opcionales
@@ -146,6 +150,11 @@ export class UpdateNegocioDTO {
       if (Number(tiempoProgramadoMin) >= Number(tiempoProgramadoMax)) return ["tiempoProgramadoMin debe ser menor que tiempoProgramadoMax"];
     }
 
+    if (limitePublicacionesSuscripcion !== undefined) {
+      const limit = Number(limitePublicacionesSuscripcion);
+      if (isNaN(limit) || limit < 0) return ["El límite de publicaciones debe ser un número positivo"];
+    }
+
     if (subcategoriaId !== undefined && subcategoriaId !== null && !regularExp.uuid.test(subcategoriaId)) {
       return ["El ID de subcategoría no es válido"];
     }
@@ -182,7 +191,9 @@ export class UpdateNegocioDTO {
         tiempoPreparacionMax !== undefined ? Number(tiempoPreparacionMax) : undefined,
         permiteProductosProgramados !== undefined ? !!permiteProductosProgramados : undefined,
         tiempoProgramadoMin !== undefined && tiempoProgramadoMin !== null ? Number(tiempoProgramadoMin) : (tiempoProgramadoMin === null ? null : undefined),
-        tiempoProgramadoMax !== undefined && tiempoProgramadoMax !== null ? Number(tiempoProgramadoMax) : (tiempoProgramadoMax === null ? null : undefined)
+        tiempoProgramadoMax !== undefined && tiempoProgramadoMax !== null ? Number(tiempoProgramadoMax) : (tiempoProgramadoMax === null ? null : undefined),
+        puedePublicarProductos !== undefined ? !!puedePublicarProductos : undefined,
+        limitePublicacionesSuscripcion !== undefined ? Number(limitePublicacionesSuscripcion) : undefined
       ),
     ];
   }

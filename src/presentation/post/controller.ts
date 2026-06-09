@@ -18,7 +18,7 @@ export class PostController {
   //revisado y aprobado
 
   createPostPlan = (req: Request, res: Response) => {
-    const { title, subtitle, content, isPaid, showWhatsApp, showLikes } = req.body;
+    const { title, subtitle, content, isPaid, showWhatsApp, showLikes, productoId, precioProducto, videoUrl } = req.body;
     const userId = req.body.sessionUser?.id || req.body.userId;
 
     if (!userId || !this.isValidUUID(userId)) {
@@ -41,11 +41,17 @@ export class PostController {
           showWhatsApp: showWhatsAppBool,
           showLikes: showLikesBool,
           scheduledAt: req.body.scheduledAt,
+          productoId,
+          precioProducto,
+          videoUrl,
         },
         req.files as Express.Multer.File[]
       )
       .then((data) => res.status(201).json(data))
-      .catch((error) => this.handleError(error, res));
+      .catch((error) => {
+         if (error.statusCode === 400) console.log("400 Error:", error.message);
+         this.handleError(error, res);
+      });
   };
 
 

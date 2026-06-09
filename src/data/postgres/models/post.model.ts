@@ -83,6 +83,22 @@ export class Post extends BaseEntity {
   @Column({ type: "uuid", nullable: true })
   freePostTrackerId: string; // Relación con el contador mensual
 
+  // --- CAMPOS PARA PUBLICACIÓN DE PRODUCTOS Y VIDEOS ---
+  @Column({ type: "uuid", nullable: true })
+  productoId: string;
+
+  @Column("decimal", { precision: 10, scale: 2, nullable: true })
+  precioProducto: number;
+
+  @Column("varchar", { nullable: true })
+  videoUrl: string;
+
+  @Column("varchar", { nullable: true })
+  videoPlatform: string;
+
+  @Column("varchar", { nullable: true })
+  videoEmbedUrl: string;
+
   // Relación de un post con un usuario
   @ManyToOne(() => User, (user) => user.posts, {
     eager: false,

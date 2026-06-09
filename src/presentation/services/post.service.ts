@@ -3,7 +3,7 @@ import { ILike, LessThan, MoreThan } from "typeorm";
 import { envs } from "../../config";
 import { getIO } from "../../config/socket";
 import { UploadFilesCloud } from "../../config/upload-files-cloud-adapter";
-import { Post, StatusPost, Like, Storie, StatusStorie, Subscription } from "../../data";
+import { Post, StatusPost, Like, Storie, StatusStorie, Subscription, Negocio } from "../../data";
 import { CreateDTO, CreatePostDTO, CustomError, UpdateDTO } from "../../domain";
 import { UserService } from "./usuario/user.service";
 import { SubscriptionService } from "./postService/subscription.service";
@@ -72,7 +72,19 @@ export class PostService {
       const formattedPosts = await Promise.all(
         validPosts.map(async (post) => {
           try {
-            const [imgs, userImage, isLiked] = await Promise.all([
+            const { Producto } = await import("../../data");
+            
+            let negocioId = null;
+            let imagenNegocioKey = null;
+            if (post.productoId) {
+               const prod = await Producto.findOne({ where: { id: post.productoId }, relations: ["negocio"] });
+               if (prod && prod.negocio) {
+                  negocioId = prod.negocio.id;
+                  imagenNegocioKey = prod.negocio.imagenNegocio;
+               }
+            }
+
+            const [imgs, userImage, isLiked, imagenNegocioUrl] = await Promise.all([
               Promise.all(
                 (post.imgpost ?? []).map((img) =>
                   UploadFilesCloud.getOptimizedUrls({
@@ -92,11 +104,19 @@ export class PostService {
                   where: { post: { id: post.id }, user: { id: userId } },
                 }).then((like) => !!like)
                 : Promise.resolve(false),
+              imagenNegocioKey
+                ? UploadFilesCloud.getOptimizedUrls({
+                  bucketName: envs.AWS_BUCKET_NAME,
+                  key: imagenNegocioKey,
+                })
+                : Promise.resolve(null),
             ]);
 
             return {
               ...post,
               imgpost: imgs,
+              negocioId, // <-- Added negocioId here
+              imagenNegocio: imagenNegocioUrl, // <-- Added imagenNegocio here
               user: {
                 id: post.user.id,
                 name: post.user.name,
@@ -379,6 +399,47 @@ export class PostService {
       post.showWhatsApp = postData.showWhatsApp ?? true;
       post.showLikes = postData.showLikes ?? true;
 
+      // --- Lógica para publicación de productos ---
+      if (postData.productoId) {
+        const { Producto } = await import("../../data");
+        const productoOriginal = await Producto.findOne({
+           where: { id: postData.productoId },
+           relations: ["negocio"]
+        });
+        
+        if (!productoOriginal) throw CustomError.notFound("Producto no encontrado");
+        
+        const negocio = productoOriginal.negocio;
+        if (!negocio) throw CustomError.badRequest("No tienes un negocio asociado para publicar productos");
+        if (!negocio.puedePublicarProductos) throw CustomError.forbiden("Tu negocio no tiene habilitada la publicación de productos en el feed");
+        if (negocio.publicacionesRestantes <= 0) throw CustomError.forbiden("Has agotado tu límite de publicaciones para este ciclo");
+
+        post.productoId = postData.productoId;
+        post.precioProducto = postData.precioProducto as number;
+
+        // Descontar
+        negocio.publicacionesRestantes -= 1;
+        await negocio.save();
+
+        // COPIAR IMAGEN DEL PRODUCTO SI NO HAY MEDIA NUEVA
+        if (keys.length === 0 && !postData.videoUrl) {
+           if (productoOriginal.imagen) {
+              post.imgpost = [productoOriginal.imagen];
+           }
+        }
+      }
+
+      if (postData.videoUrl) {
+         post.videoUrl = postData.videoUrl;
+         if (postData.videoUrl.includes('youtube') || postData.videoUrl.includes('youtu.be')) {
+             post.videoPlatform = 'youtube';
+         } else if (postData.videoUrl.includes('tiktok')) {
+             post.videoPlatform = 'tiktok';
+         } else {
+             post.videoPlatform = 'unknown';
+         }
+      }
+
       // --- Lógica de Programación ---
       if (postData.scheduledAt) {
         const scheduledDate = new Date(postData.scheduledAt);
@@ -440,6 +501,10 @@ export class PostService {
         statusPost: postSaved.statusPost,
         showWhatsApp: postSaved.showWhatsApp,
         showLikes: postSaved.showLikes,
+        productoId: postSaved.productoId,
+        precioProducto: postSaved.precioProducto,
+        videoUrl: postSaved.videoUrl,
+        videoPlatform: postSaved.videoPlatform,
         user: {
           id: user.id,
           name: user.name,

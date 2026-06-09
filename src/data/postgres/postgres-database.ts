@@ -400,6 +400,29 @@ export class PostgresDatabase {
         ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "correoCuenta" VARCHAR(100) DEFAULT NULL;
       `);
 
+      await runMigrationStep("Step 29: Negocio Product Publications", `
+        ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "puedePublicarProductos" BOOLEAN DEFAULT false;
+        ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "limitePublicacionesSuscripcion" INT DEFAULT 0;
+        ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "publicacionesRestantes" INT DEFAULT 0;
+      `);
+
+      await runMigrationStep("Step 30: Post Product Publications", `
+        ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "productoId" UUID DEFAULT NULL;
+        ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "precioProducto" DECIMAL(10,2) DEFAULT NULL;
+        -- videoUrl y otros ya estaban en Step 1, pero por si acaso falló:
+        ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "videoUrl" VARCHAR DEFAULT NULL;
+        ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "videoPlatform" VARCHAR DEFAULT NULL;
+        ALTER TABLE "post" ADD COLUMN IF NOT EXISTS "videoEmbedUrl" VARCHAR DEFAULT NULL;
+      `);
+
+      await runMigrationStep("Step 31: PushToken Motorizado", `
+        ALTER TABLE "push_token" ADD COLUMN IF NOT EXISTS "motorizadoId" UUID DEFAULT NULL;
+      `);
+
+      await runMigrationStep("Step 32: Sync PublicacionesRestantes", `
+        UPDATE "negocio" SET "publicacionesRestantes" = "limitePublicacionesSuscripcion" WHERE "publicacionesRestantes" = 0 AND "limitePublicacionesSuscripcion" > 0;
+      `);
+
       // 2. Inicializar Meritocracia
       const meritocracy = new MeritocracyService();
       await meritocracy.ensureDefaultTiers();

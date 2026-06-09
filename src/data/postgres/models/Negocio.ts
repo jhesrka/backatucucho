@@ -170,6 +170,16 @@ export class Negocio extends BaseEntity {
   @Column("int", { nullable: true })
   tiempoProgramadoMax: number | null;
 
+  // --- CONFIGURACIÓN DE PUBLICACIONES (NUEVO) ---
+  @Column({ type: "boolean", default: false })
+  puedePublicarProductos: boolean;
+
+  @Column({ type: "int", default: 0 })
+  limitePublicacionesSuscripcion: number;
+
+  @Column({ type: "int", default: 0 })
+  publicacionesRestantes: number;
+
   @ManyToOne(() => User, (user) => user.negocios)
   usuario: User;
 

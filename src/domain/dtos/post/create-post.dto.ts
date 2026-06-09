@@ -8,4 +8,7 @@ export class CreatePostDTO {
   readonly showWhatsApp?: boolean;
   readonly showLikes?: boolean;
   readonly scheduledAt?: string; // Fecha en formato ISO o string para parsear
+  readonly productoId?: string;
+  readonly precioProducto?: number;
+  readonly videoUrl?: string;
 }

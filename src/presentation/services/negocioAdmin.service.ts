@@ -336,6 +336,22 @@ export class NegocioAdminService {
     if (dto.tiempoProgramadoMin !== undefined) negocio.tiempoProgramadoMin = dto.tiempoProgramadoMin;
     if (dto.tiempoProgramadoMax !== undefined) negocio.tiempoProgramadoMax = dto.tiempoProgramadoMax;
 
+    // ========================= ACTUALIZAR LIMITES PUBLICACION =========================
+    if (dto.puedePublicarProductos !== undefined) {
+      negocio.puedePublicarProductos = dto.puedePublicarProductos;
+    }
+    if (dto.limitePublicacionesSuscripcion !== undefined) {
+      const isNewLimitGreater = dto.limitePublicacionesSuscripcion > (negocio.limitePublicacionesSuscripcion || 0);
+      const diff = dto.limitePublicacionesSuscripcion - (negocio.limitePublicacionesSuscripcion || 0);
+      
+      negocio.limitePublicacionesSuscripcion = dto.limitePublicacionesSuscripcion;
+      
+      // Si aumentamos el límite, sumamos la diferencia a los restantes para que pueda usarlos de inmediato
+      if (isNewLimitGreater) {
+        negocio.publicacionesRestantes = (negocio.publicacionesRestantes || 0) + diff;
+      }
+    }
+
     // ========================= ACTUALIZAR PAYPHONE =========================
     if (dto.pago_tarjeta_habilitado_admin !== undefined) {
       negocio.pago_tarjeta_habilitado_admin = dto.pago_tarjeta_habilitado_admin;

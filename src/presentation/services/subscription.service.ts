@@ -83,6 +83,10 @@ export class SubscriptionService {
             negocio.intentosCobro = 0;
             negocio.statusNegocio = StatusNegocio.ACTIVO;
 
+            if (negocio.puedePublicarProductos && negocio.limitePublicacionesSuscripcion > 0) {
+                negocio.publicacionesRestantes = negocio.limitePublicacionesSuscripcion;
+            }
+
             await negocio.save();
             return true;
         } catch (error: any) {
