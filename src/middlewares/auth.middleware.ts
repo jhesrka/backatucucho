@@ -66,4 +66,33 @@ export class AuthMiddleware {
       next();
     };
   };
+
+  static async optional(req: Request, res: Response, next: NextFunction) {
+    const authorization = req.header("Authorization");
+
+    if (!authorization || !authorization.startsWith("Bearer ")) {
+      return next();
+    }
+
+    const token = authorization.split(" ").at(1) || "";
+
+    try {
+      const payload = (await JwtAdapter.validateToken(token)) as { id: string };
+      if (payload) {
+        const user = await User.findOne({
+          where: {
+            id: payload.id,
+            status: Status.ACTIVE,
+          },
+        });
+        if (user) {
+          req.body.sessionUser = user;
+        }
+      }
+    } catch (error) {
+      // Si falla no hacemos nada porque es opcional
+    }
+
+    next();
+  }
 }

@@ -127,7 +127,7 @@ export class PostRoutes {
       postController.getPostsByUserAdmin
     );
 
-    router.get("/:id", AuthMiddleware.protect, postController.findOnePost);
+    router.get("/:id", AuthMiddleware.optional, postController.findOnePost);
 
     router.post(
       "/plan",
