@@ -229,6 +229,9 @@ export class Pedido extends BaseEntity {
   @Column({ type: "timestamptz", nullable: true })
   fecha_aceptado: Date | null;
 
+  @Column({ type: "varchar", nullable: true })
+  notaGeneral: string | null;
+
   @BeforeInsert()
   @BeforeUpdate()
   updateNoAssignedSince() {

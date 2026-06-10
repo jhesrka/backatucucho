@@ -74,7 +74,8 @@ export class PedidoUsuarioService {
       getIO().to(pedido.negocio.id).emit("nuevo_pedido", {
         id: pedido.id, estado: pedido.estado, total: pedido.total, productos: pedido.productos,
         cliente: { id: pedido.cliente.id, name: pedido.cliente.name, surname: pedido.cliente.surname },
-        createdAt: pedido.createdAt
+        createdAt: pedido.createdAt,
+        notaGeneral: pedido.notaGeneral
       });
 
       // 🔔 Notificación Push al Dueño de Negocio
@@ -162,6 +163,7 @@ export class PedidoUsuarioService {
     pedido.latCliente = ubicacionCliente.lat;
     pedido.lngCliente = ubicacionCliente.lng;
     pedido.direccionTexto = ubicacionCliente.direccionTexto || null;
+    pedido.notaGeneral = dto.notaGeneral || null;
     pedido.metodoPago = metodoPago as any;
     pedido.comprobantePagoUrl = comprobantePagoUrl || null;
     pedido.productos = items;
@@ -191,7 +193,7 @@ export class PedidoUsuarioService {
     }
 
     if (metodoPago !== "TARJETA") {
-      getIO().to(negocio.id).emit("nuevo_pedido", { id: guardado.id, estado: guardado.estado, total: guardado.total });
+      getIO().to(negocio.id).emit("nuevo_pedido", { id: guardado.id, estado: guardado.estado, total: guardado.total, notaGeneral: guardado.notaGeneral });
       
       // 🔔 Notificación Push al Dueño de Negocio
       if (negocio.usuario) {
@@ -220,7 +222,7 @@ export class PedidoUsuarioService {
         "pedido.id", "pedido.estado", "pedido.total", "pedido.costoEnvio", "pedido.createdAt", "pedido.fecha_aceptado",
         "pedido.tiempoPreparacionElegido", "pedido.latCliente", "pedido.lngCliente", "pedido.metodoPago", "pedido.comprobantePagoUrl",
         "pedido.delivery_code", "pedido.arrival_time", "pedido.pickup_code", "pedido.motivoCancelacion", "pedido.ratingNegocio", "pedido.ratingMotorizado",
-        "pedido.isPeakHourSurchargeApplied", "pedido.peakHourSurchargeAmount", "pedido.peakHourSurchargeMoto", "pedido.peakHourSurchargeApp",
+        "pedido.isPeakHourSurchargeApplied", "pedido.peakHourSurchargeAmount", "pedido.peakHourSurchargeMoto", "pedido.peakHourSurchargeApp", "pedido.notaGeneral",
         "negocio.id", "negocio.nombre", "negocio.latitud", "negocio.longitud", "negocio.tiempoPreparacionMax",
         "productos.id", "productos.cantidad", "productos.subtotal", "productos.precio_venta", "productos.producto_nombre", "productos.producto_imagen",
         "producto.id", "producto.nombre", "producto.tipoProducto",
@@ -277,6 +279,7 @@ export class PedidoUsuarioService {
         delivery_code: p.delivery_code, arrival_time: p.arrival_time,
         pickup_code: p.pickup_code,
         motivoCancelacion: p.motivoCancelacion,
+        notaGeneral: p.notaGeneral,
         cliente: p.cliente ? { 
           id: p.cliente.id, 
           name: p.cliente.name, 

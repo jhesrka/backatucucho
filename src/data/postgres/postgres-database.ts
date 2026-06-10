@@ -423,6 +423,10 @@ export class PostgresDatabase {
         UPDATE "negocio" SET "publicacionesRestantes" = "limitePublicacionesSuscripcion" WHERE "publicacionesRestantes" = 0 AND "limitePublicacionesSuscripcion" > 0;
       `);
 
+      await runMigrationStep("Step 33: Pedido NotaGeneral", `
+        ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "notaGeneral" TEXT DEFAULT NULL;
+      `);
+
       // 2. Inicializar Meritocracia
       const meritocracy = new MeritocracyService();
       await meritocracy.ensureDefaultTiers();

@@ -15,6 +15,7 @@ export class CreatePedidoDTO {
     public readonly metodoPago?: string,
     public readonly montoVuelto?: number,
     public readonly comprobantePagoUrl?: string,
+    public readonly notaGeneral?: string,
   ) { }
 
   static create(object: { [key: string]: any }): [string?, CreatePedidoDTO?] {
@@ -45,7 +46,7 @@ export class CreatePedidoDTO {
     }
 
     // Metodo de Pago (opcionales)
-    const { metodoPago, montoVuelto, comprobantePagoUrl } = object;
+    const { metodoPago, montoVuelto, comprobantePagoUrl, notaGeneral } = object;
 
     return [
       undefined,
@@ -57,6 +58,7 @@ export class CreatePedidoDTO {
         metodoPago,
         montoVuelto ? Number(montoVuelto) : undefined,
         comprobantePagoUrl ? String(comprobantePagoUrl) : undefined,
+        notaGeneral ? String(notaGeneral) : undefined,
       ),
     ];
   }
