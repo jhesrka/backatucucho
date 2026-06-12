@@ -25,9 +25,17 @@ __decorate([
     __metadata("design:type", Pedido_1.Pedido)
 ], ProductoPedido.prototype, "pedido", void 0);
 __decorate([
-    (0, typeorm_1.ManyToOne)(() => Producto_1.Producto),
-    __metadata("design:type", Producto_1.Producto)
+    (0, typeorm_1.ManyToOne)(() => Producto_1.Producto, { nullable: true, onDelete: "SET NULL" }),
+    __metadata("design:type", Object)
 ], ProductoPedido.prototype, "producto", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "varchar", length: 150, nullable: true }),
+    __metadata("design:type", String)
+], ProductoPedido.prototype, "producto_nombre", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "varchar", length: 255, nullable: true }),
+    __metadata("design:type", String)
+], ProductoPedido.prototype, "producto_imagen", void 0);
 __decorate([
     (0, typeorm_1.Column)("int"),
     __metadata("design:type", Number)

@@ -20,6 +20,8 @@ class DashboardRoutes {
         router.get("/estadisticas/avanzadas-7dias", controller.getAdvancedStats7Days);
         // 👇 Nuevo Dashboard Operativo Diario (Tiempo Real)
         router.get("/dashboard-operativo-hoy", controller.getOperationalDashboardToday);
+        // 🚀 Resumen Unificado (Optimizado)
+        router.get("/unified-summary", controller.getUnifiedSummary);
         return router;
     }
 }

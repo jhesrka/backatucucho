@@ -22,12 +22,14 @@ var TransactionReason;
 (function (TransactionReason) {
     TransactionReason["RECHARGE"] = "RECHARGE";
     TransactionReason["SUBSCRIPTION"] = "SUBSCRIPTION";
+    TransactionReason["SERVICE_SUBSCRIPTION"] = "SERVICE_SUBSCRIPTION";
     TransactionReason["ADMIN_ADJUSTMENT"] = "ADMIN_ADJUSTMENT";
     TransactionReason["REVERSAL"] = "REVERSAL";
     TransactionReason["ORDER"] = "ORDER";
     TransactionReason["REFUND"] = "REFUND";
     TransactionReason["STORIE"] = "STORIE";
-    TransactionReason["WITHDRAWAL"] = "WITHDRAWAL"; // Retiro (Solicitud o Ejecución)
+    TransactionReason["WITHDRAWAL"] = "WITHDRAWAL";
+    TransactionReason["CASH_RECHARGE"] = "CASH_RECHARGE"; // Recarga en efectivo (Administrador)
 })(TransactionReason || (exports.TransactionReason = TransactionReason = {}));
 let Transaction = class Transaction extends typeorm_1.BaseEntity {
 };
@@ -50,8 +52,7 @@ __decorate([
 ], Transaction.prototype, "type", void 0);
 __decorate([
     (0, typeorm_1.Column)({
-        type: 'enum',
-        enum: TransactionReason,
+        type: 'varchar',
         default: TransactionReason.RECHARGE
     }),
     __metadata("design:type", String)

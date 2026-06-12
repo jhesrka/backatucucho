@@ -18,11 +18,15 @@ const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const http_1 = __importDefault(require("http"));
 const socket_io_1 = require("socket.io");
-const socket_1 = require("../config/socket"); // Asegúrate de que la ruta sea correcta
+const socket_1 = require("../config/socket");
+const config_1 = require("../config");
 const fs_1 = __importDefault(require("fs")); // Importa el módulo fs
 const path_1 = __importDefault(require("path")); // Importa el módulo path
 const helmet_1 = __importDefault(require("helmet"));
 const hpp_1 = __importDefault(require("hpp"));
+const data_1 = require("../data");
+// Caché en memoria para la última ubicación conocida de cada pedido
+const trackingMemoria = new Map();
 class Server {
     constructor(options) {
         this.app = (0, express_1.default)();
@@ -32,7 +36,7 @@ class Server {
             "http://192.168.100.19:5173",
             "http://192.168.100.19:5174",
             "https://atucuchoshop.vercel.app",
-            "https://atucucho-web-front.vercel.app"
+            "https://atucucho.shop"
         ];
         this.port = options.port;
         this.routes = options.routes;
@@ -45,12 +49,14 @@ class Server {
                     "http://192.168.100.19:5173",
                     "http://192.168.100.19:5174",
                     "https://atucuchoshop.vercel.app",
-                    "https://atucucho-web-front.vercel.app"
+                    "https://atucucho.shop"
                 ], // ✅ CORS para Socket.IO (desarrollo y producción)
                 methods: ["GET", "POST"],
             },
         }); // Crear instancia de Socket.IO con configuración de CORS
         (0, socket_1.setIO)(this.io); // 🔥 Guardamos la instancia globalmente
+        // 🔴 Redis adapter (activo solo si REDIS_URL está en el .env)
+        (0, socket_1.initRedisAdapter)(config_1.envs.REDIS_URL);
     }
     start() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -80,15 +86,49 @@ class Server {
             this.app.use("/uploads", express_1.default.static(uploadsPath));
             this.app.use("/comprobantes", express_1.default.static(path_1.default.join(uploadsPath, "comprobantes")));
             this.io.on("connection", (socket) => {
-                socket.on("join_motorizado", (motorizadoId) => {
+                socket.on("join_motorizado", (motorizadoId) => __awaiter(this, void 0, void 0, function* () {
                     socket.join(motorizadoId);
-                });
+                    try {
+                        // Usamos query builder directo para evitar que se dispare @UpdateDateColumn
+                        yield data_1.UserMotorizado.getRepository().createQueryBuilder()
+                            .update()
+                            .set({ lastSeenAt: new Date() })
+                            .where("id = :id", { id: motorizadoId })
+                            .execute();
+                    }
+                    catch (e) {
+                        console.error("Error updating motorizado lastSeenAt", e);
+                    }
+                }));
                 socket.on("join_business", (businessId) => {
                     console.log(`🏠 [Socket] Negocio unido a la sala: ${businessId}`);
                     socket.join(businessId);
                 });
                 socket.on("join_user", (userId) => {
                     socket.join(userId);
+                });
+                // --- TRACKING TIEMPO REAL MOTORIZADOS ---
+                socket.on("join_pedido_room", (pedidoId) => {
+                    socket.join(`pedido_${pedidoId}`);
+                    // Si hay una última ubicación guardada en memoria, enviarla inmediatamente al cliente
+                    if (trackingMemoria.has(pedidoId)) {
+                        socket.emit("ubicacion_actualizada", trackingMemoria.get(pedidoId));
+                    }
+                });
+                socket.on("leave_pedido_room", (pedidoId) => {
+                    socket.leave(`pedido_${pedidoId}`);
+                    // Opcional: Podríamos borrar de trackingMemoria aquí, pero mejor mantenerla 
+                    // por si el cliente cierra y abre la tarjeta rápido.
+                });
+                socket.on("ubicacion_motorizado", (data) => {
+                    // Guardar la última ubicación conocida
+                    trackingMemoria.set(data.pedidoId, data);
+                    // Retransmitir la ubicación a la sala
+                    socket.to(`pedido_${data.pedidoId}`).emit("ubicacion_actualizada", data);
+                });
+                socket.on("pedir_ubicacion_forzada", (pedidoId) => {
+                    // Enviar un ping silencioso a los motorizados en esta sala para que envíen sus coordenadas
+                    socket.to(`pedido_${pedidoId}`).emit("forzar_gps");
                 });
             });
             this.server.listen(this.port, "0.0.0.0", () => {

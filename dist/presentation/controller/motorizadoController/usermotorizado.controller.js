@@ -127,6 +127,18 @@ class MotorizadoController {
                 .then(data => res.json(data))
                 .catch(error => this.handleError(error, res));
         };
+        // Actualizar imagen de perfil
+        this.updateProfilePicture = (req, res) => {
+            const { id } = req.params;
+            const file = req.file;
+            if (!file) {
+                return res.status(400).json({ message: "No se proporcionó ninguna imagen" });
+            }
+            this.motorizadoService
+                .updateProfilePicture(id, file)
+                .then((data) => res.status(200).json(data))
+                .catch((error) => this.handleError(error, res));
+        };
         // 📜 Historial de pedidos avanzado
         this.getOrdersHistory = (req, res) => {
             const { id } = req.params;
@@ -201,8 +213,15 @@ class MotorizadoController {
         // 📜 Obtener historial de transacciones (Admin)
         this.getTransactions = (req, res) => {
             const { id } = req.params;
-            const { page = 1, limit = 20 } = req.query;
-            this.motorizadoService.getTransactions(id, Number(page), Number(limit))
+            const { page = 1, limit = 20, startDate, endDate, tipo } = req.query;
+            // Trigger recompile to refresh TypeScript types
+            this.motorizadoService.getTransactions(id, {
+                page: Number(page),
+                limit: Number(limit),
+                startDate: startDate,
+                endDate: endDate,
+                tipo: tipo
+            })
                 .then(data => res.json(data))
                 .catch(error => this.handleError(error, res));
         };

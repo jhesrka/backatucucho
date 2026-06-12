@@ -95,6 +95,10 @@ export class GlobalSettings extends BaseEntity {
     @Column("int", { default: 30 })
     subscriptionBasicDurationDays: number;
 
+    // Service Publishing Price
+    @Column("decimal", { precision: 10, scale: 2, default: 5.00 })
+    servicePublicationPrice: number;
+
     @Column("varchar", { length: 20, default: "v1.0" })
     currentTermsVersion: string;
 

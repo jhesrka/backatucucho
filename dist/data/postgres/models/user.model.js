@@ -15,6 +15,7 @@ const config_1 = require("../../../config");
 const index_1 = require("../../index");
 const Negocio_1 = require("./Negocio");
 const Pedido_1 = require("./Pedido");
+const PushToken_1 = require("./PushToken");
 var Status;
 (function (Status) {
     Status["ACTIVE"] = "ACTIVE";
@@ -78,7 +79,7 @@ __decorate([
 ], User.prototype, "password", void 0);
 __decorate([
     (0, typeorm_1.Column)("date", {
-        nullable: false,
+        nullable: true,
     }),
     __metadata("design:type", Date)
 ], User.prototype, "birthday", void 0);
@@ -98,11 +99,11 @@ __decorate([
     __metadata("design:type", String)
 ], User.prototype, "whatsapp", void 0);
 __decorate([
-    (0, typeorm_1.CreateDateColumn)({ type: "timestamp" }),
+    (0, typeorm_1.CreateDateColumn)({ type: "timestamptz" }),
     __metadata("design:type", Date)
 ], User.prototype, "createdAt", void 0);
 __decorate([
-    (0, typeorm_1.UpdateDateColumn)({ type: "timestamp" }),
+    (0, typeorm_1.UpdateDateColumn)({ type: "timestamptz" }),
     __metadata("design:type", Date)
 ], User.prototype, "updated_at", void 0);
 __decorate([
@@ -128,7 +129,11 @@ __decorate([
     __metadata("design:type", Number)
 ], User.prototype, "warnings_count", void 0);
 __decorate([
-    (0, typeorm_1.Column)("timestamp", { nullable: true }),
+    (0, typeorm_1.Column)("int", { default: 0 }),
+    __metadata("design:type", Number)
+], User.prototype, "cancellation_strikes", void 0);
+__decorate([
+    (0, typeorm_1.Column)("timestamptz", { nullable: true }),
     __metadata("design:type", Date)
 ], User.prototype, "suspension_until", void 0);
 __decorate([
@@ -148,7 +153,7 @@ __decorate([
     __metadata("design:type", String)
 ], User.prototype, "lastLoginCountry", void 0);
 __decorate([
-    (0, typeorm_1.Column)("timestamp", { nullable: true }),
+    (0, typeorm_1.Column)("timestamptz", { nullable: true }),
     __metadata("design:type", Date)
 ], User.prototype, "lastLoginDate", void 0);
 __decorate([
@@ -199,7 +204,7 @@ __decorate([
     __metadata("design:type", Object)
 ], User.prototype, "acceptedTermsVersion", void 0);
 __decorate([
-    (0, typeorm_1.Column)("timestamp", { nullable: true }),
+    (0, typeorm_1.Column)("timestamptz", { nullable: true }),
     __metadata("design:type", Object)
 ], User.prototype, "acceptedTermsAt", void 0);
 __decorate([
@@ -210,7 +215,7 @@ __decorate([
     __metadata("design:type", Object)
 ], User.prototype, "acceptedPrivacyVersion", void 0);
 __decorate([
-    (0, typeorm_1.Column)("timestamp", { nullable: true }),
+    (0, typeorm_1.Column)("timestamptz", { nullable: true }),
     __metadata("design:type", Object)
 ], User.prototype, "acceptedPrivacyAt", void 0);
 __decorate([
@@ -219,9 +224,17 @@ __decorate([
     __metadata("design:type", Array)
 ], User.prototype, "reports", void 0);
 __decorate([
-    (0, typeorm_1.DeleteDateColumn)({ type: "timestamp", nullable: true }),
+    (0, typeorm_1.DeleteDateColumn)({ type: "timestamptz", nullable: true }),
     __metadata("design:type", Date)
 ], User.prototype, "deletedAt", void 0);
+__decorate([
+    (0, typeorm_1.Column)("timestamptz", { nullable: true }),
+    __metadata("design:type", Date)
+], User.prototype, "lastSeenAt", void 0);
+__decorate([
+    (0, typeorm_1.OneToMany)(() => PushToken_1.PushToken, (pushToken) => pushToken.user),
+    __metadata("design:type", Array)
+], User.prototype, "pushTokens", void 0);
 __decorate([
     (0, typeorm_1.BeforeInsert)(),
     __metadata("design:type", Function),

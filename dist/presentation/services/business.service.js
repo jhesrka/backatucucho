@@ -49,6 +49,8 @@ const config_1 = require("../../config");
 const upload_files_cloud_adapter_1 = require("../../config/upload-files-cloud-adapter");
 const socket_1 = require("../../config/socket");
 const pedidoExpiration_service_1 = require("./pedidosServices/pedidoExpiration.service");
+const NotificationService_1 = require("./NotificationService");
+const notificationService = new NotificationService_1.NotificationService();
 class BusinessService {
     constructor() { }
     loginBusiness(credentials) {
@@ -70,7 +72,10 @@ class BusinessService {
                 throw domain_1.CustomError.unAuthorized("Usuario o contraseña inválidos");
             // 3. Validar si tiene negocios
             if (!user.negocios || user.negocios.length === 0) {
-                throw domain_1.CustomError.forbiden("Debes crear primero un negocio para poder ingresar al panel de negocios de Atucucho Shop");
+                const { GlobalSettings } = yield Promise.resolve().then(() => __importStar(require("../../data")));
+                const settings = yield GlobalSettings.findOne({ where: {} });
+                const appName = (settings === null || settings === void 0 ? void 0 : settings.appName) || "Atucucho Shop";
+                throw domain_1.CustomError.forbiden(`Debes crear primero un negocio para poder ingresar al panel de negocios de ${appName}`);
             }
             // 4. Generar JWT (Access + Refresh)
             const token = yield config_1.JwtAdapter.generateToken({ id: user.id, role: "USER" }, config_1.envs.JWT_EXPIRE_IN);
@@ -117,6 +122,11 @@ class BusinessService {
                     porcentaje_recargo_tarjeta: Number(n.porcentaje_recargo_tarjeta) || 0,
                     payphone_store_id: n.payphone_store_id,
                     payphone_token: n.payphone_token,
+                    tiempoPreparacionMin: n.tiempoPreparacionMin,
+                    tiempoPreparacionMax: n.tiempoPreparacionMax,
+                    permiteProductosProgramados: n.permiteProductosProgramados,
+                    tiempoProgramadoMin: n.tiempoProgramadoMin,
+                    tiempoProgramadoMax: n.tiempoProgramadoMax,
                 };
             })));
             // Retornamos token, usuario y sus negocios (para que seleccione)
@@ -170,6 +180,11 @@ class BusinessService {
                     porcentaje_recargo_tarjeta: Number(n.porcentaje_recargo_tarjeta) || 0,
                     payphone_store_id: n.payphone_store_id,
                     payphone_token: n.payphone_token,
+                    tiempoPreparacionMin: n.tiempoPreparacionMin,
+                    tiempoPreparacionMax: n.tiempoPreparacionMax,
+                    permiteProductosProgramados: n.permiteProductosProgramados,
+                    tiempoProgramadoMin: n.tiempoProgramadoMin,
+                    tiempoProgramadoMax: n.tiempoProgramadoMax,
                 };
             })));
             return negociosWithImages;
@@ -270,7 +285,7 @@ class BusinessService {
                             console.error(`Error resolving URL for order ${order.id}:`, error);
                         }
                     }
-                    return order;
+                    return Object.assign(Object.assign({}, Object.assign({}, order)), { fecha_aceptado: order.fecha_aceptado });
                 })));
                 // 💰 Añadir Resumen Financiero DIARIO (Para unificar con Finance)
                 const financialSummary = yield this.getFinanceSummary(businessId, date);
@@ -292,7 +307,7 @@ class BusinessService {
     }
     updateOrderStatus(businessId, orderId, status, motivoCancelacion) {
         return __awaiter(this, void 0, void 0, function* () {
-            var _a, _b;
+            var _a, _b, _c;
             // Validar que el pedido pertenezca al negocio
             const Pedido = (yield Promise.resolve().then(() => __importStar(require("../../data")))).Pedido;
             const EstadoPedido = (yield Promise.resolve().then(() => __importStar(require("../../data")))).EstadoPedido;
@@ -338,21 +353,42 @@ class BusinessService {
                             motivoCancelacion: order.motivoCancelacion
                         });
                     }
+                    yield data_1.PedidoOperativoLog.registrarEvento({
+                        pedidoId: order.id,
+                        actorTipo: 'SISTEMA',
+                        estadoAnterior: EstadoPedido.PENDIENTE,
+                        estadoNuevo: EstadoPedido.CANCELADO,
+                        evento: "PEDIDO_AUTO_CANCELADO",
+                        detalle: "El tiempo para aceptar el pedido expiró en el servidor"
+                    });
                     throw domain_1.CustomError.badRequest("El tiempo para aceptar este pedido ha expirado y ha sido cancelado automáticamente");
                 }
                 order.estado = EstadoPedido.ACEPTADO;
+                order.fecha_aceptado = new Date();
+                yield data_1.PedidoOperativoLog.registrarEvento({
+                    pedidoId: order.id,
+                    actorTipo: 'NEGOCIO',
+                    actorId: businessId,
+                    estadoAnterior: EstadoPedido.PENDIENTE,
+                    estadoNuevo: EstadoPedido.ACEPTADO,
+                    evento: "NEGOCIO_ACEPTO",
+                    detalle: "El restaurante aceptó el pedido e inició el cronómetro de preparación"
+                });
             }
             else if (status === EstadoPedido.PREPARANDO) {
-                // Permitir paso directo de PENDIENTE a PREPARANDO por compatibilidad o solo de ACEPTADO? 
-                // Usuario dice: "Al presionar Listo (en estado Aceptado): El pedido pasa a PREPARANDO".
-                // Asumimos flujo estricto: PENDIENTE -> ACEPTADO -> PREPARANDO.
-                // Pero mantendremos PENDIENTE -> PREPARANDO por si acaso el frontend antiguo sigue enviando directo, 
-                // aunque el usuario solicita el nuevo flujo.
-                // Update: User request implicit "Al presionar Aceptar... pasa a ACEPTADO". 
                 if (order.estado !== EstadoPedido.ACEPTADO && order.estado !== EstadoPedido.PENDIENTE) {
                     throw domain_1.CustomError.badRequest("El pedido debe estar ACEPTADO para pasar a PREPARANDO");
                 }
                 order.estado = EstadoPedido.PREPARANDO;
+                yield data_1.PedidoOperativoLog.registrarEvento({
+                    pedidoId: order.id,
+                    actorTipo: 'NEGOCIO',
+                    actorId: businessId,
+                    estadoAnterior: EstadoPedido.ACEPTADO,
+                    estadoNuevo: EstadoPedido.PREPARANDO,
+                    evento: "NEGOCIO_LISTO",
+                    detalle: "El restaurante marcó el pedido como 'Listo para Recoger' (Inicia búsqueda de motorizado)"
+                });
             }
             else if (status === EstadoPedido.CANCELADO) {
                 // Regla 4: "Un pedido solo puede ser rechazado en estado PENDIENTE"
@@ -363,11 +399,38 @@ class BusinessService {
                     throw domain_1.CustomError.badRequest("Se requiere un motivo para cancelar");
                 order.estado = EstadoPedido.CANCELADO;
                 order.motivoCancelacion = motivoCancelacion;
+                yield data_1.PedidoOperativoLog.registrarEvento({
+                    pedidoId: order.id,
+                    actorTipo: 'NEGOCIO',
+                    actorId: businessId,
+                    estadoAnterior: EstadoPedido.PENDIENTE,
+                    estadoNuevo: EstadoPedido.CANCELADO,
+                    evento: "NEGOCIO_RECHAZO",
+                    detalle: `El restaurante rechazó el pedido. Motivo: ${motivoCancelacion}`
+                });
             }
             else {
                 throw domain_1.CustomError.badRequest("Estado no permitido para el negocio");
             }
             yield order.save();
+            // 🔔 Notificaciones Push al Cliente
+            if ((_b = order.cliente) === null || _b === void 0 ? void 0 : _b.id) {
+                let title = "Actualización de Pedido";
+                let body = `Tu pedido #${order.id.split('-')[0]} ha cambiado de estado.`;
+                if (status === EstadoPedido.ACEPTADO) {
+                    title = "¡Pedido Aceptado!";
+                    body = `Tu pedido #${order.id.split('-')[0]} ha sido aceptado por el negocio.`;
+                }
+                else if (status === EstadoPedido.PREPARANDO) {
+                    title = "Pedido en Preparación";
+                    body = `Tu pedido #${order.id.split('-')[0]} ya se está preparando.`;
+                }
+                else if (status === EstadoPedido.CANCELADO) {
+                    title = "Pedido Cancelado";
+                    body = `Lo sentimos, tu pedido #${order.id.split('-')[0]} fue rechazado: ${motivoCancelacion}`;
+                }
+                yield notificationService.sendPushNotification(order.cliente.id, title, body, { url: '/mis-pedidos' });
+            }
             // Disparar socket en tiempo real al cliente y negocio
             const io = (0, socket_1.getIO)();
             const updateData = {
@@ -376,7 +439,7 @@ class BusinessService {
                 timestamp: new Date().toISOString()
             };
             // Emitir al cliente
-            if ((_b = order.cliente) === null || _b === void 0 ? void 0 : _b.id) {
+            if ((_c = order.cliente) === null || _c === void 0 ? void 0 : _c.id) {
                 io.to(order.cliente.id).emit("pedido_actualizado", updateData);
             }
             // Emitir al negocio
@@ -437,10 +500,10 @@ class BusinessService {
                 const isCanceled = order.estado === "CANCELADO";
                 // Usamos los mismos campos que el Historial de Pedidos (OrdersHistory.jsx)
                 // para asegurar consistencia total.
-                const costoEnvio = Number(order.costoEnvio || 0);
-                const comisionProductos = Number(order.total_comision_productos || 0);
-                const totalVentaPublico = Number(order.total_precio_venta_publico || 0); // Precio productos sin envío
-                const precioParaNegocio = Number(order.total_precio_app || 0); // Lo que el negocio se queda realmente
+                const costoEnvio = Number(order.costoEnvio) || 0;
+                const comisionProductos = Number(order.total_comision_productos) || Number(order.ganancia_app_producto) || Number(order.comisionTotal) || 0;
+                const totalVentaPublico = Number(order.total_precio_venta_publico) || (Number(order.total) - costoEnvio) || 0; // Precio productos sin envío
+                const precioParaNegocio = Number(order.total_precio_app) || Number(order.totalNegocio) || (totalVentaPublico - comisionProductos) || 0; // Lo que el negocio se queda realmente
                 if (isCanceled) {
                     if (order.metodoPago === MetodoPago.TRANSFERENCIA) {
                         const isSystemCancelled = ((_a = order.motivoCancelacion) === null || _a === void 0 ? void 0 : _a.includes('nunca aceptó')) || ((_b = order.motivoCancelacion) === null || _b === void 0 ? void 0 : _b.includes('expirado'));
@@ -499,9 +562,10 @@ class BusinessService {
                 const isCanceled = o.estado === "CANCELADO";
                 const totalProd = Number(o.total) || 0;
                 const delivery = Number(o.costoEnvio) || 0;
-                const comision = Number(o.comisionTotal) || 0;
-                let precioParaNegocio = o.total_precio_app ? Number(o.total_precio_app) : (totalProd - comision);
-                let paraLaApp = (totalProd + delivery) - precioParaNegocio;
+                const comision = Number(o.total_comision_productos) || Number(o.ganancia_app_producto) || Number(o.comisionTotal) || 0;
+                const totalVP = Number(o.total_precio_venta_publico) || (totalProd - delivery);
+                let precioParaNegocio = Number(o.total_precio_app) || Number(o.totalNegocio) || (totalVP - comision) || 0;
+                let paraLaApp = (totalVP + delivery) - precioParaNegocio;
                 if (isCanceled) {
                     if (o.metodoPago === MetodoPago.TRANSFERENCIA) {
                         precioParaNegocio = 0;

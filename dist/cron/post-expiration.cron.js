@@ -38,6 +38,6 @@ const startPostExpirationCron = () => {
         catch (error) {
             console.error("[CRON] Error en expiración de posts:", error);
         }
-    }));
+    }), { timezone: "America/Guayaquil" });
 };
 exports.startPostExpirationCron = startPostExpirationCron;

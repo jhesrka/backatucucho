@@ -43,11 +43,11 @@ __decorate([
     __metadata("design:type", String)
 ], Wallet.prototype, "status", void 0);
 __decorate([
-    (0, typeorm_1.CreateDateColumn)({ type: "timestamp", name: 'created_at' }),
+    (0, typeorm_1.CreateDateColumn)({ type: "timestamptz", name: 'created_at' }),
     __metadata("design:type", Date)
 ], Wallet.prototype, "created_at", void 0);
 __decorate([
-    (0, typeorm_1.UpdateDateColumn)({ type: "timestamp", name: 'updated_at' }),
+    (0, typeorm_1.UpdateDateColumn)({ type: "timestamptz", name: 'updated_at' }),
     __metadata("design:type", Date)
 ], Wallet.prototype, "updated_at", void 0);
 exports.Wallet = Wallet = __decorate([

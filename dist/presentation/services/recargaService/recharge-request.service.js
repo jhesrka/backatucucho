@@ -8,16 +8,11 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RechargeRequestService = void 0;
 const data_1 = require("../../../data");
-const global_settings_model_1 = require("../../../data/postgres/models/global-settings.model");
 const FinancialClosing_1 = require("../../../data/postgres/models/financial/FinancialClosing"); // Check path correctness
 const upload_files_cloud_adapter_1 = require("../../../config/upload-files-cloud-adapter");
-const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const config_1 = require("../../../config");
 const domain_1 = require("../../../domain");
 const ocr_service_1 = require("../ocr/ocr.service"); // Added
@@ -586,31 +581,49 @@ class RechargeRequestService {
                 if (!wallet)
                     throw domain_1.CustomError.notFound("Wallet del usuario no encontrada");
                 const previous = Number(wallet.balance);
-                wallet.balance = Number(wallet.balance) + Number(request.amount);
-                yield wallet.save();
+                // 🚀 ACREDITACIÓN ATÓMICA
+                yield data_1.Wallet.createQueryBuilder()
+                    .update(data_1.Wallet)
+                    .set({ balance: () => `balance + ${Number(request.amount)}` })
+                    .where("id = :id", { id: wallet.id })
+                    .execute();
+                // Obtener saldo actualizado para el registro de transacción
+                const updatedWallet = yield data_1.Wallet.findOne({ where: { id: wallet.id } });
+                const newBalance = Number((updatedWallet === null || updatedWallet === void 0 ? void 0 : updatedWallet.balance) || previous + Number(request.amount));
                 if (linkedTx) {
                     linkedTx.status = 'APPROVED';
-                    linkedTx.previousBalance = previous; // Ahora sí tiene sentido actualizar esto para registro histórico real
-                    linkedTx.resultingBalance = Number(wallet.balance);
-                    linkedTx.admin = null; // Podríamos guardar el admin si lo tuviéramos
-                    linkedTx.created_at = new Date(); // Opcional: ¿Actualizamos la fecha a la de aprobación o dejamos la de solicitud? Dejemos la original o actualicémosla para que salga arriba. Mejor dejar original.
+                    linkedTx.previousBalance = previous;
+                    linkedTx.resultingBalance = newBalance;
+                    linkedTx.admin = null;
                     yield linkedTx.save();
                 }
                 else {
-                    // Fallback por si la transacción no se creó (legacy data): Crear la transacción ahora APROBADA
+                    // Fallback por si la transacción no se creó (legacy data)
                     const transaction = new data_1.Transaction();
                     transaction.wallet = wallet;
                     transaction.amount = Number(request.amount);
                     transaction.type = 'credit';
                     transaction.reason = data_1.TransactionReason.RECHARGE;
-                    transaction.origin = data_1.TransactionOrigin.ADMIN; // Fue aprobado por admin
+                    transaction.origin = data_1.TransactionOrigin.ADMIN;
                     transaction.status = 'APPROVED';
                     transaction.reference = request.id;
                     transaction.receipt_image = request.receipt_image;
                     transaction.observation = `Recarga Aprobada - Banco: ${request.bank_name}`;
                     transaction.previousBalance = previous;
-                    transaction.resultingBalance = Number(wallet.balance);
+                    transaction.resultingBalance = newBalance;
                     yield transaction.save();
+                }
+                // 🚀 RECUPERACIÓN DE SUSCRIPCIÓN EN TIEMPO REAL
+                // Si el usuario tenía una membresía vencida con autorenovación, 
+                // intentamos cobrarla inmediatamente ahora que tiene saldo.
+                try {
+                    const { SubscriptionService } = require("../postService/subscription.service");
+                    const subService = new SubscriptionService();
+                    yield subService.checkAndRecoverSubscription(request.user.id);
+                }
+                catch (subError) {
+                    console.error("[Recharge-SubRecovery] Error al intentar recuperar suscripción:", subError);
+                    // No lanzamos error aquí para no revertir la recarga aprobada
                 }
             }
             else if (status === data_1.StatusRecarga.RECHAZADO) {
@@ -747,61 +760,6 @@ class RechargeRequestService {
                 currentPage: page,
                 totalPages: Math.ceil(total / itemsPerPage),
                 data,
-            };
-        });
-    }
-    // 8. Eliminar solicitudes de recarga antiguas (PURGA)
-    deleteOldRechargeRequests() {
-        return __awaiter(this, void 0, void 0, function* () {
-            // Obtener configuración
-            const settings = yield global_settings_model_1.GlobalSettings.findOne({ where: {} });
-            const days = (settings === null || settings === void 0 ? void 0 : settings.rechargeRetentionDays) || 60; // Default
-            const today = new Date();
-            const cutoffDate = new Date(today);
-            cutoffDate.setDate(today.getDate() - days);
-            // Encontramos solicitudes anteriores a esa fecha
-            const oldRequests = yield data_1.RechargeRequest.find({
-                where: {
-                    created_at: (0, typeorm_1.LessThan)(cutoffDate),
-                },
-                select: ["id", "receipt_image"] // Optimización: solo traer lo necesario
-            });
-            if (!oldRequests.length) {
-                return {
-                    deleted: 0,
-                    message: "No hay solicitudes antiguas para eliminar.",
-                };
-            }
-            // TODO: Eliminar imágenes de S3 si es requerido (requiere iterar y llamar a deleteFile)
-            // Por rendimiento, en purgas masivas, a veces se hace en background job.
-            // Eliminamos registros de BD
-            const result = yield data_1.RechargeRequest.remove(oldRequests);
-            return {
-                deleted: result.length,
-                message: `Se han purgado ${result.length} registros anteriores a ${days} días.`,
-            };
-        });
-    }
-    // 8.1 Configurar Purga
-    configurePurge(pin, days) {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (!pin)
-                throw domain_1.CustomError.badRequest("PIN es requerido");
-            if (days < 1)
-                throw domain_1.CustomError.badRequest("Días debe ser mayor a 0");
-            const settings = yield global_settings_model_1.GlobalSettings.findOne({ where: {} });
-            if (!settings || !settings.masterPin) {
-                throw domain_1.CustomError.badRequest("Error de sistema: PIN Maestro no configurado.");
-            }
-            const isValid = yield bcryptjs_1.default.compare(pin, settings.masterPin);
-            if (!isValid) {
-                throw domain_1.CustomError.unAuthorized("PIN Maestro incorrecto.");
-            }
-            settings.rechargeRetentionDays = days;
-            yield settings.save();
-            return {
-                success: true,
-                message: `Configuración actualizada. Retención: ${days} días.`
             };
         });
     }

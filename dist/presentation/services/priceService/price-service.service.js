@@ -24,16 +24,24 @@ class PriceService {
                 defaultConfig.extraDayPrice = 0.25;
                 defaultConfig.motorizadoPercentage = 80.00;
                 defaultConfig.appPercentage = 20.00;
+                defaultConfig.storyPurgeDays = 30;
+                defaultConfig.storyAutoPurge = false;
                 return yield defaultConfig.save();
             }
             return config;
         });
     }
-    updatePriceSettings(basePrice, extraDayPrice) {
+    updatePriceSettings(basePrice, extraDayPrice, storyPurgeDays, storyAutoPurge, rankingEvaluationPeriodDays) {
         return __awaiter(this, void 0, void 0, function* () {
             const config = yield this.getCurrentPriceSettings();
             config.basePrice = basePrice;
             config.extraDayPrice = extraDayPrice;
+            if (storyPurgeDays !== undefined)
+                config.storyPurgeDays = storyPurgeDays;
+            if (storyAutoPurge !== undefined)
+                config.storyAutoPurge = storyAutoPurge;
+            if (rankingEvaluationPeriodDays !== undefined)
+                config.rankingEvaluationPeriodDays = rankingEvaluationPeriodDays;
             return yield config.save();
         });
     }

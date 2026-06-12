@@ -54,12 +54,12 @@ class UploadFilesCloud {
                     : key + ".webp";
                 const thumbKey = baseKey.replace(".webp", "_thumb.webp");
                 const cardKey = baseKey.replace(".webp", "_card.webp");
-                // Generar versiones SECUENCIALMENTE para ahorrar memoria en el servidor local
-                const thumb = yield image_optimizer_adapter_1.ImageOptimizer.optimize(body, image_optimizer_adapter_1.ImageSize.THUMBNAIL);
-                const card = yield image_optimizer_adapter_1.ImageOptimizer.optimize(body, image_optimizer_adapter_1.ImageSize.CARD);
-                // Use RECEIPT size (no crop) if isReceipt is true, otherwise default to LARGE (crop)
-                const baseSize = isReceipt ? image_optimizer_adapter_1.ImageSize.RECEIPT : image_optimizer_adapter_1.ImageSize.LARGE;
-                const large = yield image_optimizer_adapter_1.ImageOptimizer.optimize(body, baseSize);
+                // Generar versiones en PARALELO para máximo rendimiento
+                const [thumb, card, large] = yield Promise.all([
+                    image_optimizer_adapter_1.ImageOptimizer.optimize(body, image_optimizer_adapter_1.ImageSize.THUMBNAIL),
+                    image_optimizer_adapter_1.ImageOptimizer.optimize(body, image_optimizer_adapter_1.ImageSize.CARD),
+                    image_optimizer_adapter_1.ImageOptimizer.optimize(body, isReceipt ? image_optimizer_adapter_1.ImageSize.RECEIPT : image_optimizer_adapter_1.ImageSize.LARGE)
+                ]);
                 // Subir todas las versiones en paralelo (E/S es menos pesada que CPU)
                 yield Promise.all([
                     this.directUpload({ bucketName, key: thumbKey, body: thumb, contentType: 'image/webp' }),
@@ -99,6 +99,8 @@ class UploadFilesCloud {
     static getFile(props_1) {
         return __awaiter(this, arguments, void 0, function* (props, size = image_optimizer_adapter_1.ImageSize.ORIGINAL) {
             let { bucketName, key } = props;
+            if (!key)
+                return null; // 🛡️ Seguridad: Si no hay llave, no hay URL
             // Si ya es una URL completa (ej: Google Profile Picture), retornar tal cual
             if (key.startsWith('http'))
                 return key;
@@ -126,6 +128,8 @@ class UploadFilesCloud {
      */
     static getOptimizedUrls(props) {
         return __awaiter(this, void 0, void 0, function* () {
+            if (!props.key)
+                return { original: null, card: null, thumb: null };
             const [original, card, thumb] = yield Promise.all([
                 this.getFile(props, image_optimizer_adapter_1.ImageSize.ORIGINAL),
                 this.getFile(props, image_optimizer_adapter_1.ImageSize.CARD),
@@ -136,6 +140,8 @@ class UploadFilesCloud {
     }
     static deleteFile(props) {
         return __awaiter(this, void 0, void 0, function* () {
+            if (!props.key)
+                return; // 🛡️ Seguridad: Si no hay llave, no hay nada que borrar
             // Si es un webp, intentamos borrar también los derivados
             if (props.key.endsWith('.webp')) {
                 const thumbKey = props.key.replace(".webp", "_thumb.webp");

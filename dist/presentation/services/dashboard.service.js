@@ -25,6 +25,27 @@ const UserMotorizado_1 = require("../../data/postgres/models/UserMotorizado");
 const subscriptionStatus_model_1 = require("../../data/postgres/models/subscriptionStatus.model");
 const global_settings_model_1 = require("../../data/postgres/models/global-settings.model");
 class DashboardService {
+    getUnifiedDashboard() {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                console.log(`[AUDIT] Dashboard access by Admin at ${new Date().toISOString()}`);
+                // Resolve all main sections in parallel for maximum performance
+                const [basicStats, weeklyPosts, advancedStats, operationalToday] = yield Promise.all([
+                    this.getAdminStats(),
+                    this.getWeeklyPostStats(),
+                    this.getAdvancedStats7Days(),
+                    this.getOperationalDashboardToday()
+                ]);
+                return Object.assign(Object.assign({}, basicStats), { weeklyPosts,
+                    advancedStats,
+                    operationalToday });
+            }
+            catch (error) {
+                console.error("Error in Unified Dashboard:", error);
+                throw error;
+            }
+        });
+    }
     getAdminStats() {
         return __awaiter(this, void 0, void 0, function* () {
             try {
@@ -36,7 +57,7 @@ class DashboardService {
                 const todayStart = new Date(localStart.getTime() + (5 * 60 * 60 * 1000));
                 const todayEnd = new Date(localEnd.getTime() + (5 * 60 * 60 * 1000));
                 // ============================================
-                // 1. FINANCIALS (INGRESOS REFINADOS)
+                // 1. FINANCIALS (OPTIMIZED AGGREGATIONS)
                 // ============================================
                 const SUBSCRIPTION_PRICE = 1.0;
                 // Suscripciones
@@ -55,41 +76,44 @@ class DashboardService {
                     .getRawOne();
                 const ingresosStories = Number(storiesSum) || 0;
                 const ingresosAppTotal = ingresosSuscripciones + ingresosStories;
-                // Delivery Revenues
-                const pedidosEntregadosHoy = yield Pedido_1.Pedido.find({
-                    where: {
-                        estado: "ENTREGADO",
-                        updatedAt: (0, typeorm_1.Between)(todayStart, todayEnd),
-                    },
-                    relations: ["productos"]
-                });
-                const comisionProductos = pedidosEntregadosHoy.reduce((total, pedido) => {
-                    const comisionPedido = pedido.productos.reduce((subtotal, pp) => {
-                        return subtotal + (Number(pp.comision_producto) * pp.cantidad);
-                    }, 0);
-                    return total + comisionPedido;
-                }, 0);
-                const comisionDomicilios = pedidosEntregadosHoy.reduce((acc, p) => acc + (Number(p.costoEnvio) * 0.2), 0);
+                // Delivery Revenues (Optimized to avoid fetching all columns)
+                const deliveryStats = yield Pedido_1.Pedido.createQueryBuilder("p")
+                    .leftJoin("p.productos", "pp")
+                    .select("SUM(pp.comision_producto * pp.cantidad)", "comisionProductos")
+                    .addSelect("SUM(CAST(p.costoEnvio AS DECIMAL) * 0.2)", "comisionDomicilios")
+                    .where("p.estado = :estado", { estado: "ENTREGADO" })
+                    .andWhere("p.updatedAt BETWEEN :start AND :end", { start: todayStart, end: todayEnd })
+                    .getRawOne();
+                const comisionProductos = Number(deliveryStats.comisionProductos) || 0;
+                const comisionDomicilios = Number(deliveryStats.comisionDomicilios) || 0;
                 const ingresosDeliveryTotal = comisionProductos + comisionDomicilios;
                 const totalIngresosHoy = ingresosAppTotal + ingresosDeliveryTotal;
-                // 2. PEDIDOS (NEW BREAKDOWN)
-                const pedidosHoy = yield Pedido_1.Pedido.find({
-                    where: {
-                        createdAt: (0, typeorm_1.Between)(todayStart, todayEnd),
-                    },
-                });
+                // 2. PEDIDOS (OPTIMIZED GROUP BY)
+                const pedidosStatusRaw = yield Pedido_1.Pedido.createQueryBuilder("p")
+                    .select("p.estado", "estado")
+                    .addSelect("COUNT(*)", "count")
+                    .where("p.createdAt BETWEEN :start AND :end", { start: todayStart, end: todayEnd })
+                    .groupBy("p.estado")
+                    .getRawMany();
+                const pedidosMetodoRaw = yield Pedido_1.Pedido.createQueryBuilder("p")
+                    .select("p.metodoPago", "metodo")
+                    .addSelect("COUNT(*)", "count")
+                    .where("p.createdAt BETWEEN :start AND :end", { start: todayStart, end: todayEnd })
+                    .groupBy("p.metodoPago")
+                    .getRawMany();
+                const getCount = (arr, key, val) => { var _a; return Number(((_a = arr.find(i => i[key] === val)) === null || _a === void 0 ? void 0 : _a.count) || 0); };
                 const pedidosCount = {
-                    total: pedidosHoy.length,
-                    pendiente: pedidosHoy.filter(p => p.estado === "PENDIENTE").length,
-                    aceptado: pedidosHoy.filter(p => p.estado === "ACEPTADO").length,
-                    preparando: pedidosHoy.filter(p => p.estado === "PREPARANDO").length,
-                    preparando_asignado: pedidosHoy.filter(p => p.estado === "PREPARANDO_ASIGNADO").length,
-                    preparando_no_asignado: pedidosHoy.filter(p => p.estado === "PREPARANDO_NO_ASIGNADO").length,
-                    en_camino: pedidosHoy.filter(p => p.estado === "EN_CAMINO").length,
-                    entregado: pedidosHoy.filter(p => p.estado === "ENTREGADO").length,
-                    cancelado: pedidosHoy.filter(p => p.estado === "CANCELADO").length,
-                    efectivo: pedidosHoy.filter(p => p.metodoPago === "EFECTIVO").length,
-                    transferencia: pedidosHoy.filter(p => p.metodoPago === "TRANSFERENCIA").length,
+                    total: pedidosStatusRaw.reduce((acc, curr) => acc + Number(curr.count), 0),
+                    pendiente: { count: getCount(pedidosStatusRaw, "estado", "PENDIENTE") },
+                    aceptado: { count: getCount(pedidosStatusRaw, "estado", "ACEPTADO") },
+                    preparando: { count: getCount(pedidosStatusRaw, "estado", "PREPARANDO") },
+                    preparando_asignado: { count: getCount(pedidosStatusRaw, "estado", "PREPARANDO_ASIGNADO") },
+                    preparando_no_asignado: { count: getCount(pedidosStatusRaw, "estado", "PREPARANDO_NO_ASIGNADO") },
+                    en_camino: { count: getCount(pedidosStatusRaw, "estado", "EN_CAMINO") },
+                    entregado: { count: getCount(pedidosStatusRaw, "estado", "ENTREGADO") },
+                    cancelado: { count: getCount(pedidosStatusRaw, "estado", "CANCELADO") },
+                    efectivo: { count: getCount(pedidosMetodoRaw, "metodo", "EFECTIVO") },
+                    transferencia: { count: getCount(pedidosMetodoRaw, "metodo", "TRANSFERENCIA") },
                 };
                 // 3. NEGOCIOS
                 const negociosNuevosHoy = yield Negocio_1.Negocio.count({
@@ -102,15 +126,24 @@ class DashboardService {
                 const motorizadosActivos = yield UserMotorizado_1.UserMotorizado.count({
                     where: { estadoCuenta: "ACTIVO" }
                 });
-                // 5. USUARIOS
+                // 5. USUARIOS & ACTIVIDAD
                 const usuariosNuevos = yield user_model_1.User.count({
                     where: { createdAt: (0, typeorm_1.Between)(todayStart, todayEnd) }
                 });
-                // 6. ACTIVIDAD RECIENTE
+                // Activity Metrics
+                const twoMinutesAgo = new Date(now.getTime() - (2 * 60 * 1000));
+                const connectedToday = yield user_model_1.User.createQueryBuilder("user")
+                    .where("user.lastSeenAt >= :start", { start: todayStart })
+                    .getCount();
+                const onlineNow = yield user_model_1.User.createQueryBuilder("user")
+                    .where("user.lastSeenAt >= :minAgo", { minAgo: twoMinutesAgo })
+                    .getCount();
+                // 6. ACTIVIDAD RECIENTE (LIMIT COLUMNS)
                 const lastOrders = yield Pedido_1.Pedido.find({
                     take: 5,
                     order: { createdAt: "DESC" },
-                    relations: ['negocio']
+                    relations: ['negocio'],
+                    select: { id: true, createdAt: true, estado: true, negocio: { nombre: true } }
                 }).then(orders => orders.map(o => {
                     var _a;
                     return ({
@@ -125,7 +158,8 @@ class DashboardService {
                     take: 5,
                     where: { isPaid: true },
                     order: { createdAt: "DESC" },
-                    relations: ['user']
+                    relations: ['user'],
+                    select: { id: true, createdAt: true, user: { name: true } }
                 }).then(posts => posts.map(p => {
                     var _a;
                     return ({
@@ -139,26 +173,13 @@ class DashboardService {
                     .sort((a, b) => b.date.getTime() - a.date.getTime())
                     .slice(0, 10);
                 // 7. LOGISTICS
-                const availableMotorizados = yield UserMotorizado_1.UserMotorizado.find({
+                const availableMotorizados = yield UserMotorizado_1.UserMotorizado.count({
                     where: {
                         estadoTrabajo: "DISPONIBLE",
                         quiereTrabajar: true,
                         estadoCuenta: "ACTIVO"
-                    },
-                    order: {
-                        fechaHoraDisponible: "ASC"
                     }
                 });
-                const logistics = {
-                    availableCount: availableMotorizados.length,
-                    list: availableMotorizados.map(m => ({
-                        id: m.id,
-                        name: `${m.name} ${m.surname}`,
-                        phone: m.whatsapp,
-                        availableSince: m.fechaHoraDisponible,
-                        status: "DISPONIBLE"
-                    }))
-                };
                 return {
                     financials: {
                         totalIngresosHoy: Number(totalIngresosHoy.toFixed(2)),
@@ -181,9 +202,11 @@ class DashboardService {
                     },
                     usuarios: {
                         nuevosHoy: usuariosNuevos,
+                        conectadosHoy: connectedToday,
+                        onlineNow: onlineNow
                     },
                     activityFeed,
-                    logistics
+                    logistics: { availableCount: availableMotorizados }
                 };
             }
             catch (error) {
@@ -213,7 +236,7 @@ class DashboardService {
                 // IMPORTANTE: "AT TIME ZONE 'America/Guayaquil'" convierte el timestamp UTC al local para agrupar correctamente
                 const query = `
                 SELECT 
-                    TO_CHAR("createdAt" AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') as fecha,
+                    TO_CHAR("createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') as fecha,
                     COUNT(*)::int as total
                 FROM post
                 WHERE "createdAt" >= (NOW() - INTERVAL '7 days') 
@@ -264,14 +287,14 @@ class DashboardService {
                 });
                 // 1. Historias Creadas
                 const statsHistorias = yield executeAndMap(`
-                SELECT TO_CHAR("createdAt" AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') as fecha, COUNT(*)::int as total
+                SELECT TO_CHAR("createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') as fecha, COUNT(*)::int as total
                 FROM storie
                 WHERE "createdAt" >= (NOW() - INTERVAL '7 days') 
                 GROUP BY fecha ORDER BY fecha ASC;
             `);
                 // 2. Recargas (Suma Monto) - APROBADAS
                 const statsRecargas = yield executeAndMap(`
-                SELECT TO_CHAR("created_at" AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') as fecha, SUM(amount)::decimal as total
+                SELECT TO_CHAR("created_at" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') as fecha, SUM(amount)::decimal as total
                 FROM recharge_requests
                 WHERE "created_at" >= (NOW() - INTERVAL '7 days') AND status = 'APROBADO'
                 GROUP BY fecha ORDER BY fecha ASC;
@@ -279,7 +302,7 @@ class DashboardService {
                 // 3. Ingresos Suscripciones + Historias (Transactions)
                 // Reason: SUBSCRIPTION, STORIE. Type: debit (users paying). Status: APPROVED
                 const statsIngresosSubStories = yield executeAndMap(`
-                SELECT TO_CHAR("created_at" AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') as fecha, SUM(amount)::decimal as total
+                SELECT TO_CHAR("created_at" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') as fecha, SUM(amount)::decimal as total
                 FROM transactions
                 WHERE "created_at" >= (NOW() - INTERVAL '7 days') 
                 AND reason IN ('SUBSCRIPTION', 'STORIE') 
@@ -288,7 +311,7 @@ class DashboardService {
             `, 'sum');
                 // 4. Ingresos Comisiones App (Pedidos Entregados)
                 const statsIngresosComisiones = yield executeAndMap(`
-                SELECT TO_CHAR("createdAt" AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') as fecha, SUM(ganancia_app_producto + comision_app_domicilio)::decimal as total
+                SELECT TO_CHAR("createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') as fecha, SUM(ganancia_app_producto + comision_app_domicilio)::decimal as total
                 FROM pedido
                 WHERE "createdAt" >= (NOW() - INTERVAL '7 days') 
                 AND estado = 'ENTREGADO'
@@ -296,7 +319,7 @@ class DashboardService {
             `, 'sum');
                 // 5. Pedidos Entregados (Cantidad)
                 const statsPedidosEntregados = yield executeAndMap(`
-                SELECT TO_CHAR("createdAt" AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') as fecha, COUNT(*)::int as total
+                SELECT TO_CHAR("createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') as fecha, COUNT(*)::int as total
                 FROM pedido
                 WHERE "createdAt" >= (NOW() - INTERVAL '7 days') 
                 AND estado = 'ENTREGADO'
@@ -304,7 +327,7 @@ class DashboardService {
             `);
                 // 6. Nuevos Usuarios
                 const statsNuevosUsuarios = yield executeAndMap(`
-                SELECT TO_CHAR("createdAt" AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') as fecha, COUNT(*)::int as total
+                SELECT TO_CHAR("createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') as fecha, COUNT(*)::int as total
                 FROM "user"
                 WHERE "createdAt" >= (NOW() - INTERVAL '7 days') 
                 GROUP BY fecha ORDER BY fecha ASC;
@@ -314,14 +337,14 @@ class DashboardService {
                 const usuariosActivos = yield user_model_1.User.count({ where: { status: 'ACTIVE' } });
                 // 7. Nuevos Negocios
                 const statsNuevosNegocios = yield executeAndMap(`
-                SELECT TO_CHAR("created_at" AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') as fecha, COUNT(*)::int as total
+                SELECT TO_CHAR("created_at" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') as fecha, COUNT(*)::int as total
                 FROM negocio
                 WHERE "created_at" >= (NOW() - INTERVAL '7 days') 
                 GROUP BY fecha ORDER BY fecha ASC;
             `);
                 // 8. Nuevos Productos
                 const statsNuevosProductos = yield executeAndMap(`
-                SELECT TO_CHAR("created_at" AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') as fecha, COUNT(*)::int as total
+                SELECT TO_CHAR("created_at" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') as fecha, COUNT(*)::int as total
                 FROM producto
                 WHERE "created_at" >= (NOW() - INTERVAL '7 days') 
                 GROUP BY fecha ORDER BY fecha ASC;
@@ -375,7 +398,7 @@ class DashboardService {
                 // 2. Top 10 Publicaciones del Día
                 const topPostsToday = yield post_model_1.Post.createQueryBuilder("post")
                     .leftJoinAndSelect("post.user", "user")
-                    .where(`("post"."createdAt" AT TIME ZONE 'America/Guayaquil')::date = ${queryDate}`)
+                    .where(`("post"."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil')::date = ${queryDate}`)
                     .orderBy("post.createdAt", "DESC")
                     .take(10)
                     .select(["post.id", "post.title", "post.createdAt", "post.statusPost", "user.name", "user.surname", "user.email"])
@@ -383,7 +406,7 @@ class DashboardService {
                 // 3. Últimas 10 Historias del Día
                 const topStoriesToday = yield stories_model_1.Storie.createQueryBuilder("storie")
                     .leftJoinAndSelect("storie.user", "user")
-                    .where(`("storie"."createdAt" AT TIME ZONE 'America/Guayaquil')::date = ${queryDate}`)
+                    .where(`("storie"."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil')::date = ${queryDate}`)
                     .orderBy("storie.createdAt", "DESC")
                     .take(10)
                     .select(["storie.id", "storie.createdAt", "storie.statusStorie", "user.name", "user.surname", "user.email"])
@@ -396,7 +419,7 @@ class DashboardService {
                 FROM pedido p
                 JOIN negocio n ON p."negocioId" = n.id
                 WHERE p.estado = 'ENTREGADO'
-                AND (p."createdAt" AT TIME ZONE 'America/Guayaquil')::date = ${queryDate}
+                AND (p."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil')::date = ${queryDate}
                 GROUP BY n.id, n.nombre
                 ORDER BY cantidad DESC
                 LIMIT 5
@@ -409,7 +432,7 @@ class DashboardService {
                 JOIN pedido p ON pp."pedidoId" = p.id
                 JOIN negocio n ON pr."negocioId" = n.id
                 WHERE p.estado = 'ENTREGADO'
-                AND (p."createdAt" AT TIME ZONE 'America/Guayaquil')::date = ${queryDate}
+                AND (p."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil')::date = ${queryDate}
                 GROUP BY pr.id, pr.nombre, n.id, n.nombre
                 ORDER BY cantidad DESC
                 LIMIT 5
@@ -420,7 +443,7 @@ class DashboardService {
                 FROM pedido p
                 JOIN user_motorizado u ON p."motorizadoId" = u.id
                 WHERE p.estado = 'ENTREGADO'
-                AND (p."createdAt" AT TIME ZONE 'America/Guayaquil')::date = ${queryDate}
+                AND (p."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil')::date = ${queryDate}
                 GROUP BY u.id, u.name, u.surname
                 ORDER BY entregas DESC
                 LIMIT 5

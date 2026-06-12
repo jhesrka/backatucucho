@@ -14,15 +14,21 @@ const data_1 = require("../../data");
 const upload_files_cloud_adapter_1 = require("../../config/upload-files-cloud-adapter");
 const config_1 = require("../../config");
 const typeorm_1 = require("typeorm");
+const domain_1 = require("../../domain");
+const socket_1 = require("../../config/socket");
+const NotificationService_1 = require("./NotificationService");
+const notificationService = new NotificationService_1.NotificationService();
 class ProductoServiceAdmin {
     getProductosAdmin(_a) {
-        return __awaiter(this, arguments, void 0, function* ({ limit = 5, offset = 0, status, search, negocioId, }) {
+        return __awaiter(this, arguments, void 0, function* ({ limit = 5, offset = 0, status, search, negocioId, tipoId, }) {
             const where = {};
             if (status && Object.values(data_1.StatusProducto).includes(status)) {
                 where.statusProducto = status;
             }
             if (negocioId)
                 where.negocio = { id: negocioId };
+            if (tipoId)
+                where.tipo = { id: tipoId };
             if (search)
                 where.nombre = (0, typeorm_1.ILike)(`%${search}%`);
             const [productos, total] = yield data_1.Producto.findAndCount({
@@ -92,7 +98,7 @@ class ProductoServiceAdmin {
     }
     updateProductoAdmin(id_1, _a) {
         return __awaiter(this, arguments, void 0, function* (id, { nombre, descripcion, precio_venta, precio_app, disponible, statusProducto, imagen, }) {
-            const producto = yield data_1.Producto.findOne({ where: { id } });
+            const producto = yield data_1.Producto.findOne({ where: { id }, relations: ["negocio", "tipo"] });
             if (!producto)
                 throw new Error("Producto no encontrado");
             // 🔹 Si llega una nueva imagen, eliminar la anterior y subir la nueva
@@ -133,6 +139,8 @@ class ProductoServiceAdmin {
                 producto.statusProducto = statusProducto;
             }
             yield producto.save();
+            // 📡 Notificar por WebSockets
+            yield this.emitProductUpdate(producto);
             // 🔹 Obtener la URL de la imagen actualizada (si aplica)
             let imagenUrl = null;
             if (producto.imagen) {
@@ -160,23 +168,42 @@ class ProductoServiceAdmin {
     // ADMIN: Change status only
     changeStatusProductoAdmin(id, status) {
         return __awaiter(this, void 0, void 0, function* () {
-            const producto = yield data_1.Producto.findOne({ where: { id } });
+            const producto = yield data_1.Producto.findOne({ where: { id }, relations: ["negocio", "tipo"] });
             if (!producto)
                 throw new Error("Producto no encontrado");
             producto.statusProducto = status;
             if (status === data_1.StatusProducto.SUSPENDIDO || status === data_1.StatusProducto.BLOQUEADO) {
                 producto.disponible = false;
             }
-            yield producto.save();
+            const saved = yield producto.save();
+            // 📡 Notificar por WebSockets
+            yield this.emitProductUpdate(saved);
             return { message: `Estado cambiado a ${status}`, status: producto.statusProducto };
         });
     }
     // ADMIN: Purge definitive
-    deleteProductoAdmin(id) {
+    deleteProductoAdmin(id, pin) {
         return __awaiter(this, void 0, void 0, function* () {
-            const producto = yield data_1.Producto.findOne({ where: { id } });
+            if (!pin)
+                throw domain_1.CustomError.badRequest("El PIN maestro es obligatorio");
+            // 1. Obtener validación de PIN desde settings
+            const settings = yield data_1.GlobalSettings.findOne({ where: {} });
+            if (!(settings === null || settings === void 0 ? void 0 : settings.masterPin)) {
+                throw domain_1.CustomError.internalServer("El PIN maestro no está configurado en el sistema.");
+            }
+            const isPinValid = config_1.encriptAdapter.compare(pin, settings.masterPin);
+            if (!isPinValid) {
+                throw domain_1.CustomError.badRequest("El PIN maestro ingresado es incorrecto.");
+            }
+            const producto = yield data_1.Producto.findOne({ where: { id }, relations: ["negocio"] });
             if (!producto)
-                throw new Error("Producto no encontrado");
+                throw domain_1.CustomError.notFound("Producto no encontrado");
+            // 🛑 VALIDACIÓN CRÍTICA: No borrar si tiene pedidos (Integridad Referencial)
+            const tienePedidos = yield data_1.ProductoPedido.count({ where: { producto: { id: producto.id } } });
+            if (tienePedidos > 0) {
+                throw domain_1.CustomError.badRequest("Este producto no puede eliminarse porque tiene historial de pedidos. Te sugerimos suspenderlo o marcarlo como agotado.");
+            }
+            const negocioId = producto.negocio.id;
             if (producto.imagen) {
                 yield upload_files_cloud_adapter_1.UploadFilesCloud.deleteFile({
                     bucketName: config_1.envs.AWS_BUCKET_NAME,
@@ -184,7 +211,131 @@ class ProductoServiceAdmin {
                 }).catch(() => null);
             }
             yield data_1.Producto.remove(producto);
-            return { message: "Producto eliminado correctamente" };
+            // 📡 Notificar por WebSockets
+            (0, socket_1.getIO)().emit("product_deleted", {
+                productId: id,
+                negocioId: negocioId,
+            });
+            return { message: "Producto eliminado definitivamente del catálogo actual" };
+        });
+    }
+    // ========================= BULK CREATE =========================
+    bulkCreateProductosAdmin(negocioId, productosData, pin) {
+        return __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            if (!pin)
+                throw domain_1.CustomError.badRequest("El PIN maestro es obligatorio");
+            // 1. Validar PIN
+            const settings = yield data_1.GlobalSettings.findOne({ where: {} });
+            if (!(settings === null || settings === void 0 ? void 0 : settings.masterPin)) {
+                throw domain_1.CustomError.internalServer("El PIN maestro no está configurado.");
+            }
+            const isPinValid = config_1.encriptAdapter.compare(pin, settings.masterPin);
+            if (!isPinValid)
+                throw domain_1.CustomError.badRequest("PIN maestro incorrecto.");
+            // 2. Validar Negocio
+            const negocio = yield data_1.Negocio.findOneBy({ id: negocioId });
+            if (!negocio)
+                throw domain_1.CustomError.notFound("Negocio no encontrado");
+            const createdProducts = [];
+            const errors = [];
+            // 3. Procesamiento en lote
+            for (const data of productosData) {
+                try {
+                    if (!data.nombre)
+                        throw new Error("Falta el nombre del producto");
+                    // Resolver Categoría (TipoProducto)
+                    let tipoId = null;
+                    if (data.categoria) {
+                        let tipo = yield data_1.TipoProducto.findOneBy({
+                            nombre: data.categoria.trim(),
+                            negocio: { id: negocioId }
+                        });
+                        if (!tipo) {
+                            tipo = data_1.TipoProducto.create({
+                                nombre: data.categoria.trim(),
+                                negocio: { id: negocioId }
+                            });
+                            yield tipo.save();
+                        }
+                        tipoId = tipo;
+                    }
+                    const precioVenta = Number(data.precio_venta) || 0;
+                    const precioApp = Number(data.precio_app) || precioVenta;
+                    const product = new data_1.Producto();
+                    product.nombre = data.nombre.trim();
+                    product.descripcion = ((_a = data.descripcion) === null || _a === void 0 ? void 0 : _a.trim()) || "";
+                    product.precio_venta = precioVenta;
+                    product.precio_app = precioApp;
+                    product.comision_producto = precioVenta - precioApp;
+                    product.disponible = false; // 🛑 Requisito: disponible false
+                    product.statusProducto = data_1.StatusProducto.ACTIVO; // Admin lo sube directo como activo
+                    product.negocio = negocio;
+                    if (tipoId)
+                        product.tipo = tipoId;
+                    yield product.save();
+                    createdProducts.push(product.nombre);
+                }
+                catch (err) {
+                    errors.push({ nombre: data.nombre || "Desconocido", error: err.message });
+                }
+            }
+            return {
+                message: `Proceso completado. ${createdProducts.length} productos creados.`,
+                created: createdProducts,
+                errors: errors.length > 0 ? errors : undefined
+            };
+        });
+    }
+    // ========================= SOCKET UPDATE HELPER =========================
+    emitProductUpdate(producto) {
+        return __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            let formattedProduct = null;
+            if (producto.statusProducto === data_1.StatusProducto.ACTIVO) {
+                const imageUrl = producto.imagen
+                    ? yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
+                        bucketName: config_1.envs.AWS_BUCKET_NAME,
+                        key: producto.imagen,
+                    })
+                    : null;
+                formattedProduct = {
+                    id: producto.id,
+                    nombre: producto.nombre,
+                    descripcion: producto.descripcion,
+                    precio_venta: producto.precio_venta,
+                    precio_app: producto.precio_app,
+                    comision_producto: producto.comision_producto,
+                    imagen: imageUrl,
+                    disponible: producto.disponible,
+                    created_at: producto.created_at,
+                    statusProducto: producto.statusProducto,
+                    tipo: producto.tipo
+                        ? {
+                            id: producto.tipo.id,
+                            nombre: producto.tipo.nombre,
+                        }
+                        : null,
+                    negocioId: producto.negocio.id
+                };
+            }
+            (0, socket_1.getIO)().emit("product_status_changed", {
+                productId: producto.id,
+                negocioId: producto.negocio.id,
+                disponible: producto.disponible,
+                statusProducto: producto.statusProducto,
+                product: formattedProduct, // Enviar objeto completo para inserción en vivo
+            });
+            // 🔔 Notificación Push al Dueño de Negocio
+            if ((_a = producto.negocio) === null || _a === void 0 ? void 0 : _a.usuario) {
+                let title = "Actualización de Producto";
+                let body = `El estado de tu producto '${producto.nombre}' ha cambiado a ${producto.statusProducto}.`;
+                if (producto.statusProducto === data_1.StatusProducto.ACTIVO) {
+                    title = "¡Producto Aprobado!";
+                    body = `Tu producto '${producto.nombre}' ha sido aprobado y ya está visible en tu negocio.`;
+                }
+                yield notificationService.sendPushNotification(producto.negocio.usuario.id, title, body, { url: `/business/dashboard/${producto.negocio.id}/products` });
+            }
         });
     }
 }

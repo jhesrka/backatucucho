@@ -38,6 +38,12 @@ class DashboardController {
                 .then((stats) => res.json(stats))
                 .catch((error) => this.handleError(error, res));
         };
+        this.getUnifiedSummary = (req, res) => {
+            this.dashboardService
+                .getUnifiedDashboard()
+                .then((stats) => res.json(stats))
+                .catch((error) => this.handleError(error, res));
+        };
     }
 }
 exports.DashboardController = DashboardController;

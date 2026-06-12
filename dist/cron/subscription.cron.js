@@ -15,20 +15,25 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.startSubscriptionCron = void 0;
 const node_cron_1 = __importDefault(require("node-cron"));
 const subscription_service_1 = require("../presentation/services/subscription.service");
+const subscription_service_2 = require("../presentation/services/postService/subscription.service");
 const startSubscriptionCron = () => {
     // Ejecutar todos los días a las 2:00 AM
     node_cron_1.default.schedule("0 2 * * *", () => __awaiter(void 0, void 0, void 0, function* () {
-        console.log("➡️ [CRON] INICIANDO COBRO DE SUSCRIPCIONES:", new Date().toLocaleString());
-        const subscriptionService = new subscription_service_1.SubscriptionService();
+        console.log("➡️ [CRON] INICIANDO PROCESAMIENTO DE SUSCRIPCIONES:", new Date().toLocaleString());
+        const businessService = new subscription_service_1.SubscriptionService();
+        const userService = new subscription_service_2.SubscriptionService();
         try {
-            const results = yield subscriptionService.processDailySubscriptions();
-            console.log("✅ [CRON] SUSCRIPCIONES PROCESADAS:", results);
+            // 1. Procesar suscripciones de Negocios
+            const businessResults = yield businessService.processDailySubscriptions();
+            console.log("✅ [CRON] NEGOCIOS PROCESADOS:", businessResults);
+            // 2. Procesar suscripciones de Usuarios (BASIC)
+            const userResults = yield userService.processUserAutoRenewals();
+            console.log("✅ [CRON] USUARIOS PROCESADOS:", userResults);
         }
         catch (error) {
-            console.error("❌ [CRON] ERROR EN SUBSCRIPTION CRON:", error);
+            console.error("❌ [CRON] ERROR CRÍTICO EN SUBSCRIPTION CRON:", error);
         }
-    }));
-    // Nota: Para pruebas iniciales se podría agregar un cron más frecuente,
-    // pero para producción 2 AM es ideal.
+    }), { timezone: "America/Guayaquil" });
+    console.log("[CRON] Sistema de renovación automática (Negocios y Usuarios) inicializado (2:00 AM daily)");
 };
 exports.startSubscriptionCron = startSubscriptionCron;

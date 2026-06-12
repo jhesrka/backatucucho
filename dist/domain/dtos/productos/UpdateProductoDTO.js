@@ -2,17 +2,19 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UpdateProductoDTO = void 0;
 const config_1 = require("../../../config");
+const data_1 = require("../../../data");
 class UpdateProductoDTO {
-    constructor(nombre, descripcion, precio_venta, precio_app, tipoId, modeloMonetizacion) {
+    constructor(nombre, descripcion, precio_venta, precio_app, tipoId, modeloMonetizacion, tipoProducto) {
         this.nombre = nombre;
         this.descripcion = descripcion;
         this.precio_venta = precio_venta;
         this.precio_app = precio_app;
         this.tipoId = tipoId;
         this.modeloMonetizacion = modeloMonetizacion;
+        this.tipoProducto = tipoProducto;
     }
     static create(obj) {
-        const { nombre, descripcion, precio_venta, precio_app, tipoId, modeloMonetizacion, } = obj;
+        const { nombre, descripcion, precio_venta, precio_app, tipoId, modeloMonetizacion, tipoProducto } = obj;
         if (nombre && (typeof nombre !== "string" || nombre.trim().length < 3)) {
             return ["El nombre debe tener al menos 3 caracteres"];
         }
@@ -37,9 +39,12 @@ class UpdateProductoDTO {
         if (tipoId && !config_1.regularExp.uuid.test(tipoId)) {
             return ["El tipoId no es un UUID válido"];
         }
+        if (tipoProducto && !Object.values(data_1.TipoProductoEnum).includes(tipoProducto)) {
+            return ["Tipo de producto inválido"];
+        }
         return [
             undefined,
-            new UpdateProductoDTO(nombre === null || nombre === void 0 ? void 0 : nombre.trim(), descripcion === null || descripcion === void 0 ? void 0 : descripcion.trim(), precio_venta !== undefined ? Number(precio_venta) : undefined, precio_app !== undefined ? Number(precio_app) : undefined, tipoId === null || tipoId === void 0 ? void 0 : tipoId.trim(), modeloMonetizacion),
+            new UpdateProductoDTO(nombre === null || nombre === void 0 ? void 0 : nombre.trim(), descripcion === null || descripcion === void 0 ? void 0 : descripcion.trim(), precio_venta !== undefined ? Number(precio_venta) : undefined, precio_app !== undefined ? Number(precio_app) : undefined, tipoId === null || tipoId === void 0 ? void 0 : tipoId.trim(), modeloMonetizacion, tipoProducto),
         ];
     }
 }

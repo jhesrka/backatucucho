@@ -62,6 +62,33 @@ class AuthMiddleware {
             }
         });
     }
+    static optional(req, res, next) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const authorization = req.header("Authorization");
+            if (!authorization || !authorization.startsWith("Bearer ")) {
+                return next();
+            }
+            const token = authorization.split(" ").at(1) || "";
+            try {
+                const payload = (yield config_1.JwtAdapter.validateToken(token));
+                if (payload) {
+                    const user = yield data_1.User.findOne({
+                        where: {
+                            id: payload.id,
+                            status: data_1.Status.ACTIVE,
+                        },
+                    });
+                    if (user) {
+                        req.body.sessionUser = user;
+                    }
+                }
+            }
+            catch (error) {
+                // Si falla no hacemos nada porque es opcional
+            }
+            next();
+        });
+    }
 }
 exports.AuthMiddleware = AuthMiddleware;
 AuthMiddleware.restrictTo = (...roles) => {

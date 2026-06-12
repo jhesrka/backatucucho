@@ -12,6 +12,7 @@ class PedidoUsuarioRoutes {
         const router = (0, express_1.Router)();
         const pedidoUsuarioService = new pedidoUsuario_service_1.PedidoUsuarioService();
         const pedidoUsuarioController = new pedidoUsuario_controller_1.PedidoUsuarioController(pedidoUsuarioService);
+        console.log("🛤️ Rutas PedidoUsuario listas.");
         // ===================== CALCULAR ENVÍO SIN CREAR PEDIDO =====================
         // ⚠️ Este endpoint NO requiere autenticación
         router.post("/calcular-envio", pedidoUsuarioController.calcularEnvio);
@@ -21,11 +22,15 @@ class PedidoUsuarioRoutes {
         router.post("/upload-comprobante", auth_middleware_1.AuthMiddleware.protect, (0, config_1.uploadSingleFile)("comprobante"), pedidoUsuarioController.subirComprobante);
         // ===================== OBTENER PEDIDOS DE UN CLIENTE =====================
         router.get("/cliente/:clienteId", auth_middleware_1.AuthMiddleware.protect, pedidoUsuarioController.obtenerPedidosCliente);
+        // ===================== OBTENER PRODUCTOS DE UN PEDIDO =====================
+        router.get("/:pedidoId/productos/cliente/:clienteId", auth_middleware_1.AuthMiddleware.protect, pedidoUsuarioController.obtenerProductosPorPedido);
         // ===================== ELIMINAR PEDIDO DEL CLIENTE =====================
         router.delete("/cliente/:clienteId/:pedidoId", auth_middleware_1.AuthMiddleware.protect, pedidoUsuarioController.eliminarPedidoCliente);
         router.post("/ya-voy", auth_middleware_1.AuthMiddleware.protect, pedidoUsuarioController.notificarYaVoy);
         router.post("/calificar", auth_middleware_1.AuthMiddleware.protect, pedidoUsuarioController.calificarPedido);
+        router.post("/cancelar-por-demora", auth_middleware_1.AuthMiddleware.protect, (req, res) => pedidoUsuarioController.cancelarPedidoPorDemora(req, res));
         router.get("/run-sql-update", pedidoUsuarioController.runSqlUpdate);
+        router.get("/process-subscriptions", pedidoUsuarioController.processSubscriptions);
         router.post("/confirmar-pago", pedidoUsuarioController.confirmarPago);
         router.post("/refresh-timer", auth_middleware_1.AuthMiddleware.protect, pedidoUsuarioController.refreshTimer);
         return router;

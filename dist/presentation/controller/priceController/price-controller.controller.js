@@ -31,7 +31,7 @@ class PriceController {
         };
         // Actualizar configuración de precios (admin)
         this.updatePriceSettings = (req, res) => __awaiter(this, void 0, void 0, function* () {
-            const { basePrice, extraDayPrice, masterPin } = req.body;
+            const { basePrice, extraDayPrice, storyPurgeDays, storyAutoPurge, rankingEvaluationPeriodDays, masterPin } = req.body;
             if (basePrice === undefined || extraDayPrice === undefined) {
                 return res
                     .status(422)
@@ -44,7 +44,7 @@ class PriceController {
                 // Validar PIN
                 yield this.userAdminService.validateMasterPin(masterPin);
                 // Si es válido, actualizar
-                const updated = yield this.priceService.updatePriceSettings(Number(basePrice), Number(extraDayPrice));
+                const updated = yield this.priceService.updatePriceSettings(Number(basePrice), Number(extraDayPrice), storyPurgeDays !== undefined ? Number(storyPurgeDays) : undefined, storyAutoPurge !== undefined ? Boolean(storyAutoPurge) : undefined, rankingEvaluationPeriodDays !== undefined ? Number(rankingEvaluationPeriodDays) : undefined);
                 return res.status(200).json(updated);
             }
             catch (error) {

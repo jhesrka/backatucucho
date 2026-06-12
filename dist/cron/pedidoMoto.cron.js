@@ -35,6 +35,6 @@ const startPedidoMotoCron = () => {
         finally {
             isRunning = false;
         }
-    }));
+    }), { timezone: "America/Guayaquil" });
 };
 exports.startPedidoMotoCron = startPedidoMotoCron;

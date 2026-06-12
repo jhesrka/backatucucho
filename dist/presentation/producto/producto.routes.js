@@ -11,6 +11,8 @@ class ProductoRoutes {
         const router = (0, express_1.Router)();
         const productoService = new producto_service_1.ProductoService();
         const productoController = new producto_controller_1.ProductoController(productoService);
+        // NUEVO: Verificar disponibilidad masiva
+        router.post("/check-availability", auth_middleware_1.AuthMiddleware.protect, productoController.checkAvailability);
         // Crear producto (usuario autenticado)
         router.post("/", auth_middleware_1.AuthMiddleware.protect, (0, config_1.uploadSingleFile)("imagen"), productoController.createProducto);
         // Obtener productos por negocio (usuario autenticado)

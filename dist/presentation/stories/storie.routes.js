@@ -11,6 +11,7 @@ const storie_service_1 = require("../services/storie.service");
 const wallet_service_1 = require("../services/postService/wallet.service");
 const price_service_service_1 = require("../services/priceService/price-service.service");
 const middlewares_1 = require("../../middlewares");
+const services_1 = require("../services");
 class StorieRoutes {
     static get routes() {
         const router = (0, express_1.Router)();
@@ -18,7 +19,8 @@ class StorieRoutes {
         const userService = new user_service_1.UserService(emailService);
         const walletService = new wallet_service_1.WalletService();
         const priceService = new price_service_service_1.PriceService();
-        const storieService = new storie_service_1.StorieService(userService, walletService, priceService);
+        const globalSettingsService = new services_1.GlobalSettingsService();
+        const storieService = new storie_service_1.StorieService(userService, walletService, priceService, globalSettingsService);
         const storieController = new storie_controller_1.StorieController(storieService);
         router.get("/", auth_middleware_1.AuthMiddleware.protect, storieController.findAllStorie);
         router.get("/user", auth_middleware_1.AuthMiddleware.protect, storieController.getStoriesByUser);

@@ -56,30 +56,34 @@ const upload_files_cloud_adapter_1 = require("../../../config/upload-files-cloud
 const json2csv_1 = require("json2csv");
 const free_post_tracker_service_1 = require("../postService/free-post-tracker.service");
 const typeorm_1 = require("typeorm");
+const date_utils_1 = require("../../../utils/date-utils");
 class UserService {
     constructor(emailService) {
         this.emailService = emailService;
         this.sendEmailValidationLink = (email) => __awaiter(this, void 0, void 0, function* () {
-            const token = yield config_1.JwtAdapter.generateToken({ email }, "3000s");
+            const settings = yield require("../../../data").GlobalSettings.findOne({ where: {} });
+            const appName = (settings === null || settings === void 0 ? void 0 : settings.appName) || "Atucucho Shop";
+            const token = yield config_1.JwtAdapter.generateToken({ email }, "24h");
             if (!token)
                 throw domain_1.CustomError.internalServer("Error generando token para enviar email");
-            const link = `http://${config_1.envs.WEBSERVICE_URL}/api/user/validate-email/${token}`;
+            const baseUrl = config_1.envs.WEBSERVICE_URL_FRONT.startsWith('http') ? config_1.envs.WEBSERVICE_URL_FRONT : `http://${config_1.envs.WEBSERVICE_URL_FRONT}`;
+            const link = `${baseUrl}/validate-email/${token}`;
             const html = `
   <div style="font-family: Arial, sans-serif; color: #333; max-width: 500px; margin: auto; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
     <div style="text-align: center; margin-bottom: 20px;">
-      <img src="https://tusitio.com/logo-atucucho.png" alt="Atucucho Shop" style="max-width: 150px;" />
+      <img src="https://tusitio.com/logo-atucucho.png" alt="${appName}" style="max-width: 150px;" />
     </div>
-    <h2 style="color: #2c3e50; text-align: center;">Activa tu cuenta en Atucucho Shop</h2>
+    <h2 style="color: #2c3e50; text-align: center;">Activa tu cuenta en ${appName}</h2>
     <p>Hola,</p>
-    <p>Este correo ha sido enviado para que puedas <strong>activar tu cuenta en Atucucho Shop</strong>. Para continuar, por favor haz clic en el botón a continuación:</p>
+    <p>Este correo ha sido enviado para que puedas <strong>activar tu cuenta en ${appName}</strong>. Para continuar, por favor haz clic en el botón a continuación:</p>
     <div style="text-align: center; margin: 20px 0;">
       <a href="${link}" style="display: inline-block; padding: 12px 24px; background-color: #3498db; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Activar cuenta</a>
     </div>
-    <p><strong>Importante:</strong> este enlace es válido solo por <strong>5 minutos</strong>. Si expira, deberás solicitar uno nuevo.</p>
+    <p><strong>Importante:</strong> este enlace es válido por <strong>24 horas</strong>. Si expira, deberás solicitar uno nuevo.</p>
     <p>Si tú no solicitaste esta verificación, puedes ignorar este mensaje de forma segura.</p>
     <hr style="margin: 30px 0;" />
     <p style="font-size: 12px; color: #999; text-align: center;">Correo enviado a: ${email}</p>
-    <p style="font-size: 12px; color: #999; text-align: center;">Gracias por unirte a Atucucho Shop.</p>
+    <p style="font-size: 12px; color: #999; text-align: center;">Gracias por unirte a ${appName}.</p>
   </div>
 `;
             const isSent = yield this.emailService.sendEmail({
@@ -201,6 +205,10 @@ class UserService {
             let urlPhoto = "";
             //buscar el usuario
             const user = yield this.findUserByEmail(credentials.email);
+            // Validar estado ANTES de verificar contraseña para dar un mensaje claro
+            if (user.status === data_1.Status.BANNED || user.status === data_1.Status.INACTIVE) {
+                throw domain_1.CustomError.forbiden("Esta cuenta ha sido bloqueada o está inactiva. No puedes iniciar sesión.");
+            }
             // 1️⃣ VALIDACIÓN DE CREDENCIALES PRIMERO (Seguridad)
             const isMatching = config_1.encriptAdapter.compare(credentials.password, user.password);
             if (!isMatching)
@@ -265,7 +273,7 @@ class UserService {
                     acceptedPrivacyVersion: user.acceptedPrivacyVersion,
                     acceptedPrivacyAt: user.acceptedPrivacyAt,
                     hasPassword: !!user.password,
-                    isProfileComplete: !!(user.whatsapp && user.password && user.acceptedTermsVersion && user.acceptedPrivacyVersion),
+                    isProfileComplete: !!(user.whatsapp && user.password && user.acceptedTermsVersion && user.acceptedPrivacyVersion && user.birthday),
                     googleId: user.googleId
                 },
             };
@@ -328,7 +336,7 @@ class UserService {
                 user.googleId = sub;
                 user.photoperfil = picture || "";
                 user.status = data_1.Status.ACTIVE;
-                user.birthday = new Date();
+                user.birthday = null; // Dejar en blanco para forzar que completen el perfil
                 // FIX: Null en lugar de string vacío para evitar unique constraint collision
                 user.whatsapp = null;
                 // Init Session
@@ -362,6 +370,10 @@ class UserService {
                 if (!user.googleId) {
                     user.googleId = sub;
                     yield user.save();
+                }
+                // Validar si está baneado
+                if (user.status === data_1.Status.BANNED || user.status === data_1.Status.INACTIVE) {
+                    throw domain_1.CustomError.forbiden("Esta cuenta ha sido bloqueada. No puedes iniciar sesión.");
                 }
                 // 2. CONTROL SESIÓN (SOLO SI EL USUARIO YA EXISTÍA)
                 // 2. CONTROL SESIÓN (SOLO SI EL USUARIO YA EXISTÍA)
@@ -405,7 +417,7 @@ class UserService {
                     acceptedPrivacyVersion: user.acceptedPrivacyVersion,
                     acceptedPrivacyAt: user.acceptedPrivacyAt,
                     hasPassword: !!user.password,
-                    isProfileComplete: !!(user.whatsapp && user.password && user.acceptedTermsVersion && user.acceptedPrivacyVersion),
+                    isProfileComplete: !!(user.whatsapp && user.password && user.acceptedTermsVersion && user.acceptedPrivacyVersion && user.birthday),
                     googleId: user.googleId
                 }
             };
@@ -417,7 +429,6 @@ class UserService {
             const user = yield data_1.User.findOne({
                 where: {
                     email: email,
-                    status: data_1.Status.ACTIVE,
                 },
             });
             if (!user) {
@@ -548,7 +559,7 @@ class UserService {
                     acceptedPrivacyVersion: userData.acceptedPrivacyVersion,
                     acceptedPrivacyAt: userData.acceptedPrivacyAt,
                     hasPassword: !!userData.password,
-                    isProfileComplete: !!(userData.whatsapp && userData.password && userData.acceptedTermsVersion && userData.acceptedPrivacyVersion),
+                    isProfileComplete: !!(userData.whatsapp && userData.password && userData.acceptedTermsVersion && userData.acceptedPrivacyVersion && userData.birthday),
                     googleId: userData.googleId
                 };
             }
@@ -620,6 +631,26 @@ class UserService {
     completeProfile(userId, data) {
         return __awaiter(this, void 0, void 0, function* () {
             const user = yield this.findOneUser(userId);
+            if (data.isUnderage) {
+                user.status = data_1.Status.BANNED;
+                yield user.save();
+                try {
+                    const log = new data_1.ModerationLog();
+                    log.adminId = user.id; // Self-ban action by system
+                    log.user = user;
+                    log.action = "USER_BANNED_UNDERAGE";
+                    log.comment = "Bloqueo Automático (Seguridad): El usuario introdujo una fecha de nacimiento correspondiente a un menor de edad al completar su perfil.";
+                    yield log.save();
+                    yield data_1.ModerationLog.cleanupOldLogs(user.id);
+                }
+                catch (dbError) {
+                    console.error("=== ERROR SAVING MODERATION LOG ===", dbError);
+                }
+                throw domain_1.CustomError.forbiden("Cuenta bloqueada por políticas de edad. Esta plataforma es solo para mayores de 18 años.");
+            }
+            if (data.birthday) {
+                user.birthday = new Date(data.birthday);
+            }
             // 1. Aceptación de Términos y Privacidad (Versionado)
             if (data.acceptedTerms || data.acceptedPrivacy) {
                 // Obtener versión actual de GlobalSettings
@@ -676,6 +707,7 @@ class UserService {
     //Devuelve el usuario logueado con sus posts y stories, incluyendo URLs de imágenes. Muy completo.
     getFullProfile(user) {
         return __awaiter(this, void 0, void 0, function* () {
+            var _a;
             try {
                 const userWithRelations = yield data_1.User.findOne({
                     where: { id: user.id, status: data_1.Status.ACTIVE },
@@ -729,7 +761,12 @@ class UserService {
                     surname: userWithRelations.surname,
                     email: userWithRelations.email,
                     whatsapp: userWithRelations.whatsapp,
+                    birthday: userWithRelations.birthday,
                     photoperfil: photoUrl,
+                    rol: userWithRelations.rol,
+                    status: userWithRelations.status,
+                    created_at: userWithRelations.createdAt,
+                    updated_at: userWithRelations.updated_at,
                     posts,
                     stories,
                     acceptedTermsVersion: userWithRelations.acceptedTermsVersion,
@@ -738,7 +775,8 @@ class UserService {
                     acceptedPrivacyAt: userWithRelations.acceptedPrivacyAt,
                     hasPassword: !!userWithRelations.password,
                     isProfileComplete: !!(userWithRelations.whatsapp && userWithRelations.password && userWithRelations.acceptedTermsVersion && userWithRelations.acceptedPrivacyVersion),
-                    googleId: userWithRelations.googleId
+                    googleId: userWithRelations.googleId,
+                    cancellation_strikes: (_a = userWithRelations.cancellation_strikes) !== null && _a !== void 0 ? _a : 0,
                 };
             }
             catch (error) {
@@ -766,6 +804,7 @@ class UserService {
                 surname: user.surname,
                 email: user.email,
                 whatsapp: user.whatsapp,
+                birthday: user.birthday,
                 photoperfil: user.photoperfil,
                 rol: user.rol,
                 status: user.status,
@@ -779,34 +818,71 @@ class UserService {
     }
     //ADMINISTRADOR
     //  Listar todos los usuarios básicos
-    findAllUsers() {
-        return __awaiter(this, arguments, void 0, function* (page = 1) {
-            const take = 5;
+    findAllUsersWithDate() {
+        return __awaiter(this, arguments, void 0, function* (page = 1, statusFilter, dateFilter, limit = 5) {
+            const take = limit;
             const skip = (page - 1) * take;
+            const whereClause = {};
+            if (statusFilter && statusFilter !== 'ALL') {
+                whereClause.status = statusFilter;
+            }
+            if (dateFilter) {
+                let startOfDay;
+                let endOfDay;
+                if (dateFilter === 'TODAY') {
+                    const range = date_utils_1.DateUtils.getDayRange(new Date());
+                    startOfDay = range.start;
+                    endOfDay = range.end;
+                }
+                else if (dateFilter.includes(',')) {
+                    const [startStr, endStr] = dateFilter.split(',');
+                    startOfDay = date_utils_1.DateUtils.getDayRange(startStr).start;
+                    endOfDay = date_utils_1.DateUtils.getDayRange(endStr).end;
+                }
+                else {
+                    const range = date_utils_1.DateUtils.getDayRange(dateFilter);
+                    startOfDay = range.start;
+                    endOfDay = range.end;
+                }
+                whereClause.createdAt = (0, typeorm_1.Between)(startOfDay, endOfDay);
+            }
             const [users, total] = yield data_1.User.findAndCount({
+                where: whereClause,
+                relations: ['wallet'],
                 skip,
                 take,
                 order: {
                     createdAt: "DESC", // Puedes cambiar a "ASC" si prefieres
                 },
+                withDeleted: true,
             });
             return {
                 total, // total de usuarios en la base
                 currentPage: page,
                 totalPages: Math.ceil(total / take),
-                users: users.map((user) => ({
-                    id: user.id,
-                    name: user.name,
-                    surname: user.surname,
-                    email: user.email,
-                    birthday: user.birthday,
-                    whatsapp: user.whatsapp,
-                    photoperfil: user.photoperfil,
-                    created_at: user.createdAt,
-                    updated_at: user.updated_at,
-                    rol: user.rol,
-                    status: user.status,
-                })),
+                users: yield Promise.all(users.map((user) => __awaiter(this, void 0, void 0, function* () {
+                    var _a;
+                    const photoUrl = user.photoperfil
+                        ? yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
+                            bucketName: config_1.envs.AWS_BUCKET_NAME,
+                            key: user.photoperfil,
+                        })
+                        : "";
+                    return {
+                        id: user.id,
+                        name: user.name,
+                        surname: user.surname,
+                        email: user.email,
+                        birthday: user.birthday,
+                        whatsapp: user.whatsapp,
+                        photoperfil: photoUrl,
+                        created_at: user.createdAt,
+                        updated_at: user.updated_at,
+                        rol: user.rol,
+                        status: user.status,
+                        walletBalance: ((_a = user.wallet) === null || _a === void 0 ? void 0 : _a.balance) || 0,
+                    };
+                }))),
             };
         });
     }
@@ -814,25 +890,57 @@ class UserService {
     searchUsersByFields(dto) {
         return __awaiter(this, void 0, void 0, function* () {
             const query = dto.query.toLowerCase();
-            const users = yield data_1.User.createQueryBuilder("user")
-                .where("LOWER(user.name) LIKE :query", { query: `%${query}%` })
-                .orWhere("LOWER(user.surname) LIKE :query", { query: `%${query}%` })
-                .orWhere("LOWER(user.email) LIKE :query", { query: `%${query}%` })
-                .orWhere("user.whatsapp LIKE :query", { query: `%${query}%` })
+            let queryBuilder = data_1.User.createQueryBuilder("user")
+                .where("(LOWER(user.name) LIKE :query OR LOWER(user.surname) LIKE :query OR LOWER(user.email) LIKE :query OR user.whatsapp LIKE :query)", { query: `%${query}%` });
+            if (dto.status) {
+                queryBuilder = queryBuilder.andWhere("user.status = :status", { status: dto.status });
+            }
+            if (dto.date) {
+                let startOfDay;
+                let endOfDay;
+                if (dto.date === 'TODAY') {
+                    const range = date_utils_1.DateUtils.getDayRange(new Date());
+                    startOfDay = range.start;
+                    endOfDay = range.end;
+                }
+                else if (dto.date.includes(',')) {
+                    const [startStr, endStr] = dto.date.split(',');
+                    startOfDay = date_utils_1.DateUtils.getDayRange(startStr).start;
+                    endOfDay = date_utils_1.DateUtils.getDayRange(endStr).end;
+                }
+                else {
+                    const range = date_utils_1.DateUtils.getDayRange(dto.date);
+                    startOfDay = range.start;
+                    endOfDay = range.end;
+                }
+                queryBuilder = queryBuilder.andWhere("user.createdAt BETWEEN :start AND :end", { start: startOfDay, end: endOfDay });
+            }
+            const users = yield queryBuilder
+                .leftJoinAndSelect("user.wallet", "wallet")
                 .getMany();
-            return users.map((user) => ({
-                id: user.id,
-                name: user.name,
-                surname: user.surname,
-                email: user.email,
-                birthday: user.birthday,
-                whatsapp: user.whatsapp,
-                photoperfil: user.photoperfil,
-                created_at: user.createdAt,
-                updated_at: user.updated_at,
-                rol: user.rol,
-                status: user.status,
-            }));
+            return Promise.all(users.map((user) => __awaiter(this, void 0, void 0, function* () {
+                var _a;
+                const photoUrl = user.photoperfil
+                    ? yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
+                        bucketName: config_1.envs.AWS_BUCKET_NAME,
+                        key: user.photoperfil,
+                    })
+                    : "";
+                return {
+                    id: user.id,
+                    name: user.name,
+                    surname: user.surname,
+                    email: user.email,
+                    birthday: user.birthday,
+                    whatsapp: user.whatsapp,
+                    photoperfil: photoUrl,
+                    created_at: user.createdAt,
+                    updated_at: user.updated_at,
+                    rol: user.rol,
+                    status: user.status,
+                    walletBalance: ((_a = user.wallet) === null || _a === void 0 ? void 0 : _a.balance) || 0,
+                };
+            })));
         });
     }
     // 3. Filtrar usuarios por estado
@@ -846,19 +954,27 @@ class UserService {
                 if (!users || users.length === 0) {
                     throw domain_1.CustomError.notFound("No se encontraron usuarios con ese estado");
                 }
-                return users.map((user) => ({
-                    id: user.id,
-                    name: user.name,
-                    surname: user.surname,
-                    email: user.email,
-                    birthday: user.birthday,
-                    whatsapp: user.whatsapp,
-                    photoperfil: user.photoperfil,
-                    created_at: user.createdAt,
-                    updated_at: user.updated_at,
-                    rol: user.rol,
-                    status: user.status,
-                }));
+                return Promise.all(users.map((user) => __awaiter(this, void 0, void 0, function* () {
+                    const photoUrl = user.photoperfil
+                        ? yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
+                            bucketName: config_1.envs.AWS_BUCKET_NAME,
+                            key: user.photoperfil,
+                        })
+                        : "";
+                    return {
+                        id: user.id,
+                        name: user.name,
+                        surname: user.surname,
+                        email: user.email,
+                        birthday: user.birthday,
+                        whatsapp: user.whatsapp,
+                        photoperfil: photoUrl,
+                        created_at: user.createdAt,
+                        updated_at: user.updated_at,
+                        rol: user.rol,
+                        status: user.status,
+                    };
+                })));
             }
             catch (error) {
                 throw domain_1.CustomError.internalServer("Error al filtrar usuarios por estado");
@@ -868,6 +984,7 @@ class UserService {
     // 4. Obtener perfil completo con posts y stories
     getFullUserProfile(userId) {
         return __awaiter(this, void 0, void 0, function* () {
+            var _a, _b, _c;
             try {
                 if (!(0, uuid_1.validate)(userId)) {
                     throw domain_1.CustomError.notFound("Usuario no encontrado");
@@ -969,7 +1086,11 @@ class UserService {
                     posts,
                     stories,
                     negocios,
-                    subscriptions: user.subscriptions || []
+                    subscriptions: user.subscriptions || [],
+                    // 🚨 Strikes de cancelación por ausencia
+                    cancellation_strikes: (_a = user.cancellation_strikes) !== null && _a !== void 0 ? _a : 0,
+                    warnings_count: (_b = user.warnings_count) !== null && _b !== void 0 ? _b : 0,
+                    suspension_until: (_c = user.suspension_until) !== null && _c !== void 0 ? _c : null,
                 };
             }
             catch (error) {
@@ -1030,7 +1151,7 @@ class UserService {
         });
     }
     // 6. Cambiar estado de usuario
-    changeUserStatus(userId, dto) {
+    changeUserStatus(userId, dto, adminId) {
         return __awaiter(this, void 0, void 0, function* () {
             if (!(0, uuid_1.validate)(userId)) {
                 throw domain_1.CustomError.badRequest("ID inválido");
@@ -1038,6 +1159,7 @@ class UserService {
             const user = yield data_1.User.findOne({ where: { id: userId } });
             if (!user)
                 throw domain_1.CustomError.notFound("Usuario no encontrado");
+            const oldStatus = user.status;
             user.status = dto.status;
             try {
                 if (dto.status === data_1.Status.DELETED) {
@@ -1047,6 +1169,21 @@ class UserService {
                     user.deletedAt = null;
                 }
                 const savedUser = yield user.save();
+                // Log moderation action if status changed
+                if (oldStatus !== savedUser.status && adminId) {
+                    try {
+                        const log = new data_1.ModerationLog();
+                        log.adminId = adminId;
+                        log.user = savedUser;
+                        log.action = `STATUS_CHANGED_TO_${savedUser.status}`;
+                        log.comment = `El administrador cambió el estado del usuario de ${oldStatus} a ${savedUser.status}.`;
+                        yield log.save();
+                        yield data_1.ModerationLog.cleanupOldLogs(savedUser.id);
+                    }
+                    catch (e) {
+                        console.error("Error saving moderation log on status change from list:", e);
+                    }
+                }
                 (0, socket_1.getIO)().emit("userChanged", savedUser);
                 return savedUser;
             }
@@ -1306,6 +1443,19 @@ class UserService {
                 if (!Object.values(data_1.Status).includes(data.status)) {
                     throw domain_1.CustomError.badRequest("Estado inválido");
                 }
+                if (data.status === data_1.Status.DELETED) {
+                    if (!data.masterPin)
+                        throw domain_1.CustomError.unAuthorized("PIN maestro es requerido para eliminar un usuario.");
+                    const settings = yield require("../../../data").GlobalSettings.findOne({ where: {} });
+                    if (!settings || !settings.masterPin) {
+                        throw domain_1.CustomError.internalServer("El PIN maestro no está configurado en el sistema.");
+                    }
+                    const isPinValid = require("../../../config").encriptAdapter.compare(data.masterPin, settings.masterPin);
+                    if (!isPinValid) {
+                        throw domain_1.CustomError.unAuthorized("PIN maestro incorrecto.");
+                    }
+                }
+                const oldStatus = user.status;
                 user.status = data.status;
                 // Handle soft delete logic
                 if (user.status === data_1.Status.DELETED) {
@@ -1314,6 +1464,21 @@ class UserService {
                 }
                 else {
                     user.deletedAt = null; // Clear delete timestamp if reactivated
+                }
+                // Log moderation action if status changed
+                if (oldStatus !== user.status) {
+                    try {
+                        const log = new data_1.ModerationLog();
+                        log.adminId = id; // Or whoever the admin is, ideally we'd pass admin ID, but we only have target user id here. We'll use target user's id to avoid null
+                        log.user = user;
+                        log.action = `STATUS_CHANGED_TO_${user.status}`;
+                        log.comment = `El administrador cambió el estado del usuario de ${oldStatus} a ${user.status}.`;
+                        yield log.save();
+                        yield data_1.ModerationLog.cleanupOldLogs(user.id);
+                    }
+                    catch (e) {
+                        console.error("Error saving moderation log on status change:", e);
+                    }
                 }
             }
             user.updated_at = new Date(); // Explicitly update timestamp
@@ -1394,8 +1559,18 @@ class UserService {
             return { message: "Correo de recuperación enviado exitosamente." };
         });
     }
-    purgeUserAdmin(id) {
+    purgeUserAdmin(id, masterPin) {
         return __awaiter(this, void 0, void 0, function* () {
+            if (!masterPin)
+                throw domain_1.CustomError.unAuthorized("PIN maestro es requerido para purgar un usuario.");
+            const settings = yield require("../../../data").GlobalSettings.findOne({ where: {} });
+            if (!settings || !settings.masterPin) {
+                throw domain_1.CustomError.internalServer("El PIN maestro no está configurado en el sistema.");
+            }
+            const isPinValid = require("../../../config").encriptAdapter.compare(masterPin, settings.masterPin);
+            if (!isPinValid) {
+                throw domain_1.CustomError.unAuthorized("PIN maestro incorrecto.");
+            }
             const user = yield data_1.User.findOne({
                 where: { id },
                 relations: [
@@ -1480,6 +1655,28 @@ class UserService {
             // 6. Hard Delete User
             yield user.remove(); // This physically deletes the row if it's an extended BaseEntity or we use repository.remove(user)
             return { message: "Usuario y todos sus datos eliminados definitivamente." };
+        });
+    }
+    countUsersByStatus() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const results = yield data_1.User.createQueryBuilder("user")
+                .withDeleted()
+                .select("user.status", "status")
+                .addSelect("COUNT(user.id)", "count")
+                .groupBy("user.status")
+                .getRawMany();
+            const stats = {
+                ACTIVE: 0,
+                INACTIVE: 0,
+                BANNED: 0,
+                DELETED: 0
+            };
+            results.forEach((row) => {
+                if (stats.hasOwnProperty(row.status)) {
+                    stats[row.status] = parseInt(row.count, 10);
+                }
+            });
+            return stats;
         });
     }
 }

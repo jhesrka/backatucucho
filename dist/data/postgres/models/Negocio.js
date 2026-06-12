@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.Negocio = exports.EstadoNegocio = exports.ModeloMonetizacion = exports.StatusNegocio = void 0;
 const typeorm_1 = require("typeorm");
 const CategoriaNegocio_1 = require("./CategoriaNegocio");
+const SubcategoriaNegocio_1 = require("./SubcategoriaNegocio");
 const user_model_1 = require("./user.model");
 const BalanceNegocio_1 = require("./BalanceNegocio");
 const Producto_1 = require("./Producto");
@@ -116,15 +117,15 @@ __decorate([
     __metadata("design:type", Number)
 ], Negocio.prototype, "porcentaje_recargo_tarjeta", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: "timestamp", nullable: true }),
+    (0, typeorm_1.Column)({ type: "timestamptz", nullable: true }),
     __metadata("design:type", Object)
 ], Negocio.prototype, "fechaUltimoCobro", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: "timestamp", nullable: true }),
+    (0, typeorm_1.Column)({ type: "timestamptz", nullable: true }),
     __metadata("design:type", Object)
 ], Negocio.prototype, "fechaInicioSuscripcion", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: "timestamp", nullable: true }),
+    (0, typeorm_1.Column)({ type: "timestamptz", nullable: true }),
     __metadata("design:type", Object)
 ], Negocio.prototype, "fechaFinSuscripcion", void 0);
 __decorate([
@@ -132,7 +133,7 @@ __decorate([
     __metadata("design:type", Number)
 ], Negocio.prototype, "intentosCobro", void 0);
 __decorate([
-    (0, typeorm_1.CreateDateColumn)({ type: "timestamp" }),
+    (0, typeorm_1.CreateDateColumn)({ type: "timestamptz" }),
     __metadata("design:type", Date)
 ], Negocio.prototype, "created_at", void 0);
 __decorate([
@@ -164,6 +165,14 @@ __decorate([
     __metadata("design:type", Object)
 ], Negocio.prototype, "titularCuenta", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: "varchar", length: 50, nullable: true }),
+    __metadata("design:type", Object)
+], Negocio.prototype, "identificacionCuenta", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "varchar", length: 100, nullable: true }),
+    __metadata("design:type", Object)
+], Negocio.prototype, "correoCuenta", void 0);
+__decorate([
     (0, typeorm_1.UpdateDateColumn)({ type: "timestamptz" }),
     __metadata("design:type", Date)
 ], Negocio.prototype, "updated_at", void 0);
@@ -176,6 +185,38 @@ __decorate([
     __metadata("design:type", Number)
 ], Negocio.prototype, "totalResenas", void 0);
 __decorate([
+    (0, typeorm_1.Column)("int", { default: 15 }),
+    __metadata("design:type", Number)
+], Negocio.prototype, "tiempoPreparacionMin", void 0);
+__decorate([
+    (0, typeorm_1.Column)("int", { default: 30 }),
+    __metadata("design:type", Number)
+], Negocio.prototype, "tiempoPreparacionMax", void 0);
+__decorate([
+    (0, typeorm_1.Column)("boolean", { default: false }),
+    __metadata("design:type", Boolean)
+], Negocio.prototype, "permiteProductosProgramados", void 0);
+__decorate([
+    (0, typeorm_1.Column)("int", { nullable: true }),
+    __metadata("design:type", Object)
+], Negocio.prototype, "tiempoProgramadoMin", void 0);
+__decorate([
+    (0, typeorm_1.Column)("int", { nullable: true }),
+    __metadata("design:type", Object)
+], Negocio.prototype, "tiempoProgramadoMax", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "boolean", default: false }),
+    __metadata("design:type", Boolean)
+], Negocio.prototype, "puedePublicarProductos", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "int", default: 0 }),
+    __metadata("design:type", Number)
+], Negocio.prototype, "limitePublicacionesSuscripcion", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "int", default: 0 }),
+    __metadata("design:type", Number)
+], Negocio.prototype, "publicacionesRestantes", void 0);
+__decorate([
     (0, typeorm_1.ManyToOne)(() => user_model_1.User, (user) => user.negocios),
     __metadata("design:type", user_model_1.User)
 ], Negocio.prototype, "usuario", void 0);
@@ -183,6 +224,10 @@ __decorate([
     (0, typeorm_1.ManyToOne)(() => CategoriaNegocio_1.CategoriaNegocio, (cat) => cat.negocios),
     __metadata("design:type", CategoriaNegocio_1.CategoriaNegocio)
 ], Negocio.prototype, "categoria", void 0);
+__decorate([
+    (0, typeorm_1.ManyToOne)(() => SubcategoriaNegocio_1.SubcategoriaNegocio, (sub) => sub.negocios, { nullable: true }),
+    __metadata("design:type", Object)
+], Negocio.prototype, "subcategoria", void 0);
 __decorate([
     (0, typeorm_1.OneToMany)(() => Producto_1.Producto, (producto) => producto.negocio, { cascade: true }),
     __metadata("design:type", Array)

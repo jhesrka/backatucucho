@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CreateCategoriaDTO = void 0;
 class CreateCategoriaDTO {
-    constructor(name, icon, restriccionModeloMonetizacion, soloComision = false, orden = 0, modeloBloqueado = false, modeloMonetizacionDefault = null) {
+    constructor(name, icon, restriccionModeloMonetizacion, soloComision = false, orden = 0, modeloBloqueado = false, modeloMonetizacionDefault = null, cover) {
         this.name = name;
         this.icon = icon;
         this.restriccionModeloMonetizacion = restriccionModeloMonetizacion;
@@ -10,9 +10,18 @@ class CreateCategoriaDTO {
         this.orden = orden;
         this.modeloBloqueado = modeloBloqueado;
         this.modeloMonetizacionDefault = modeloMonetizacionDefault;
+        this.cover = cover;
     }
     static create(obj) {
-        const { name, icon, restriccionModeloMonetizacion, soloComision, modeloBloqueado, modeloMonetizacionDefault } = obj;
+        let { name, icon, restriccionModeloMonetizacion, soloComision, modeloBloqueado, modeloMonetizacionDefault, cover } = obj;
+        if (typeof cover === "string") {
+            try {
+                cover = JSON.parse(cover);
+            }
+            catch (e) {
+                return ["El campo cover no es un JSON válido"];
+            }
+        }
         if (!name || typeof name !== "string" || name.trim().length < 3) {
             return ["El nombre de la categoría debe tener al menos 3 caracteres"];
         }
@@ -22,7 +31,7 @@ class CreateCategoriaDTO {
         }
         return [
             undefined,
-            new CreateCategoriaDTO(name.trim(), icon === null || icon === void 0 ? void 0 : icon.trim(), restriccionModeloMonetizacion, !!soloComision, obj.orden ? Number(obj.orden) : 0, !!modeloBloqueado, modeloMonetizacionDefault || null),
+            new CreateCategoriaDTO(name.trim(), icon === null || icon === void 0 ? void 0 : icon.trim(), restriccionModeloMonetizacion, !!soloComision, obj.orden ? Number(obj.orden) : 0, !!modeloBloqueado, modeloMonetizacionDefault || null, cover || null),
         ];
     }
 }

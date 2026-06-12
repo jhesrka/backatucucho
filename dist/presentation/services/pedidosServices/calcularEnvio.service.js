@@ -8,9 +8,13 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CalcularEnvioService = void 0;
 const DeliverySettings_1 = require("../../../data/postgres/models/DeliverySettings");
+const moment_timezone_1 = __importDefault(require("moment-timezone"));
 class CalcularEnvioService {
     static toNumber(n, def = 0) {
         const v = Number(n);
@@ -54,8 +58,49 @@ class CalcularEnvioService {
             }
             const settings = yield this.getActiveSettingsOrThrow();
             const distanciaKm = this.haversineKm(Number(negocio.latitud), Number(negocio.longitud), Number(latCliente), Number(lngCliente));
-            const costoEnvio = this.calcFee(distanciaKm, settings);
-            return { distanciaKm, costoEnvio, settings };
+            const costoEnvioBase = this.calcFee(distanciaKm, settings);
+            let costoEnvioTotal = costoEnvioBase;
+            let recargoPico = 0;
+            let porcentajePicoAplicado = 0;
+            let isPeakHour = false;
+            // --- EVALUACIÓN DE HORARIOS PICO ---
+            if (settings.peakHours && Array.isArray(settings.peakHours)) {
+                const horaActualEcuador = (0, moment_timezone_1.default)().tz("America/Guayaquil");
+                const currentMinutes = horaActualEcuador.hours() * 60 + horaActualEcuador.minutes();
+                for (const peak of settings.peakHours) {
+                    if (!peak.enabled)
+                        continue;
+                    const [startH, startM] = peak.startTime.split(':').map(Number);
+                    const [endH, endM] = peak.endTime.split(':').map(Number);
+                    const startMinutes = startH * 60 + startM;
+                    let endMinutes = endH * 60 + endM;
+                    // Soporte si el horario cruza la medianoche (ej: 22:00 a 02:00)
+                    let inRange = false;
+                    if (startMinutes <= endMinutes) {
+                        inRange = currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+                    }
+                    else {
+                        // Cruza la medianoche
+                        inRange = currentMinutes >= startMinutes || currentMinutes <= endMinutes;
+                    }
+                    if (inRange) {
+                        isPeakHour = true;
+                        porcentajePicoAplicado = Number(peak.surchargePercentage) || 0;
+                        recargoPico = +(costoEnvioBase * (porcentajePicoAplicado / 100)).toFixed(2);
+                        costoEnvioTotal = +(costoEnvioBase + recargoPico).toFixed(2);
+                        break; // Solo aplicamos el primer horario pico que coincida
+                    }
+                }
+            }
+            return {
+                distanciaKm,
+                costoEnvioBase,
+                costoEnvio: costoEnvioTotal,
+                recargoPico,
+                isPeakHour,
+                porcentajePicoAplicado,
+                settings
+            };
         });
     }
 }

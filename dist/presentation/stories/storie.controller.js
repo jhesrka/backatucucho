@@ -32,12 +32,7 @@ class StorieController {
                 .then((data) => {
                 res.status(201).json(data);
             })
-                .catch((error) => {
-                console.error("Error en createStorie:", error);
-                return res
-                    .status(500)
-                    .json({ message: error.message || "Unknown error" });
-            });
+                .catch((error) => this.handleError(error, res));
         };
         this.findAllStorie = (req, res) => {
             this.storieService
@@ -221,9 +216,13 @@ class StorieController {
         });
         // 6) Purge Old Deleted Stories (+30 days default or specified)
         this.purgeOldStories = (req, res) => __awaiter(this, void 0, void 0, function* () {
+            var _a;
             try {
-                const { days } = req.body; // Optional override
-                const result = yield this.storieService.purgeOldDeletedStories(days ? Number(days) : 30);
+                const { days, pin } = req.body;
+                const adminId = (_a = req.body.sessionUser) === null || _a === void 0 ? void 0 : _a.id;
+                if (!pin)
+                    return res.status(400).json({ message: "El PIN Maestro es obligatorio." });
+                const result = yield this.storieService.purgeOldDeletedStories(adminId, pin, days ? Number(days) : 30);
                 return res.json(Object.assign({ success: true }, result));
             }
             catch (error) {

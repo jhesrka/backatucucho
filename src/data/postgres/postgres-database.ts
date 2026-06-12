@@ -40,6 +40,9 @@ import { MeritocracyCycleLog } from "./models/MeritocracyCycleLog";
 import { TrainingVideo } from "./models/TrainingVideo";
 import { TrainingCategory } from "./models/TrainingCategory";
 import { MeritocracyService } from "../../presentation/services/pedidosServices/meritocracy.service";
+import { CategoriaServicio } from "./models/CategoriaServicio";
+import { SubcategoriaServicio } from "./models/SubcategoriaServicio";
+import { Servicio } from "./models/Servicio";
 
 interface Options {
   host: string;
@@ -100,7 +103,10 @@ export class PostgresDatabase {
         MotorizadoTier,
         MeritocracyCycleLog,
         TrainingVideo,
-        TrainingCategory
+        TrainingCategory,
+        CategoriaServicio,
+        SubcategoriaServicio,
+        Servicio
       ],
       synchronize: false, // PRODUCCIÓN: SIEMPRE FALSE. Usar migraciones.
       ssl: {
@@ -426,6 +432,64 @@ export class PostgresDatabase {
       await runMigrationStep("Step 33: Pedido NotaGeneral", `
         ALTER TABLE "pedido" ADD COLUMN IF NOT EXISTS "notaGeneral" TEXT DEFAULT NULL;
       `);
+
+      await runMigrationStep("Step 34: User Services Module", async () => {
+        await this.datasource.query(`
+          CREATE TABLE IF NOT EXISTS "categoria_servicio" (
+            "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+            "nombre" varchar(100) NOT NULL,
+            "estado" varchar NOT NULL DEFAULT 'ACTIVE',
+            "createdAt" timestamptz NOT NULL DEFAULT now(),
+            "updatedAt" timestamptz NOT NULL DEFAULT now(),
+            CONSTRAINT "PK_categoria_servicio" PRIMARY KEY ("id")
+          );
+        `);
+        await this.datasource.query(`
+          CREATE TABLE IF NOT EXISTS "subcategoria_servicio" (
+            "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+            "nombre" varchar(100) NOT NULL,
+            "estado" varchar NOT NULL DEFAULT 'ACTIVE',
+            "categoriaId" uuid REFERENCES "categoria_servicio"("id") ON DELETE CASCADE,
+            "createdAt" timestamptz NOT NULL DEFAULT now(),
+            "updatedAt" timestamptz NOT NULL DEFAULT now(),
+            CONSTRAINT "PK_subcategoria_servicio" PRIMARY KEY ("id")
+          );
+        `);
+        await this.datasource.query(`
+          CREATE TABLE IF NOT EXISTS "servicio" (
+            "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+            "nombres" varchar(100) NOT NULL,
+            "apellidos" varchar(100) NOT NULL,
+            "whatsapp" varchar(50) NOT NULL,
+            "descripcion" text,
+            "precio" decimal(10,2),
+            "statusServicio" varchar NOT NULL DEFAULT 'PENDIENTE',
+            "fechaInicioSuscripcion" timestamptz,
+            "fechaFinSuscripcion" timestamptz,
+            "autorenovacion" boolean NOT NULL DEFAULT true,
+            "userId" uuid REFERENCES "user"("id") ON DELETE CASCADE,
+            "categoriaId" uuid REFERENCES "categoria_servicio"("id") ON DELETE RESTRICT,
+            "subcategoriaId" uuid REFERENCES "subcategoria_servicio"("id") ON DELETE RESTRICT,
+            "createdAt" timestamptz NOT NULL DEFAULT now(),
+            "updatedAt" timestamptz NOT NULL DEFAULT now(),
+            CONSTRAINT "PK_servicio" PRIMARY KEY ("id")
+          );
+        `);
+        await this.datasource.query(`ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "servicePublicationPrice" DECIMAL(10,2) DEFAULT 5.00;`);
+      });
+
+      await runMigrationStep("Step 36: Multimedia TEXT Fix", async () => {
+        await this.datasource.query(`ALTER TABLE "servicio" ALTER COLUMN "imagenServicio" TYPE TEXT;`);
+        await this.datasource.query(`ALTER TABLE "servicio" ALTER COLUMN "videoUrl" TYPE TEXT;`);
+      });
+
+      await runMigrationStep("Step 37: Add icono to categoria_servicio", async () => {
+        await this.datasource.query(`ALTER TABLE "categoria_servicio" ADD COLUMN IF NOT EXISTS "icono" VARCHAR(50);`);
+      });
+
+      await runMigrationStep("Step 38: Add icono to subcategoria_servicio", async () => {
+        await this.datasource.query(`ALTER TABLE "subcategoria_servicio" ADD COLUMN IF NOT EXISTS "icono" VARCHAR(50);`);
+      });
 
       // 2. Inicializar Meritocracia
       const meritocracy = new MeritocracyService();

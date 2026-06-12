@@ -10,6 +10,7 @@ const like_routes_1 = require("./likes/like.routes");
 const wallet_routes_1 = require("./wallet/wallet.routes");
 const recharge_request_routes_1 = require("./recharge/recharge-request.routes");
 const categoria_routes_1 = require("./categorias/categoria.routes");
+const routes_1 = require("./subcategorias/routes");
 const producto_routes_1 = require("./producto/producto.routes");
 const negocio_routes_1 = require("./negocios/negocio.routes");
 const tipoProducto_routes_1 = require("./tipoProducto/tipoProducto.routes");
@@ -21,7 +22,7 @@ const price_routes_1 = require("./controller/priceController/price.routes");
 const deliverySettingsAdmin_routes_1 = require("./pedidos/deliverySettingsAdmin.routes");
 const productoAdmin_routes_1 = require("./producto/productoAdmin.routes");
 const pedidoMoto_routes_1 = require("./pedidos/pedidoMoto.routes");
-const routes_1 = require("./business/routes");
+const routes_2 = require("./business/routes");
 const dashboard_routes_1 = require("./dashboard/dashboard.routes");
 const wallet_routes_2 = require("./controller/walletController/wallet.routes");
 const advertising_routes_1 = require("./advertising/advertising.routes");
@@ -30,9 +31,14 @@ const moderation_routes_1 = require("./controller/moderation/moderation.routes")
 const global_settings_routes_1 = require("./controller/globalSettings/global-settings.routes");
 const report_routes_1 = require("./controller/report/report.routes");
 const financial_routes_1 = require("./controller/financial/financial.routes");
-const routes_2 = require("./reports/routes");
+const routes_3 = require("./reports/routes");
 const bank_account_routes_1 = require("./bank-account/bank-account.routes");
 const payphone_routes_1 = require("./webhooks/payphone.routes");
+const activity_routes_1 = require("./activity/activity.routes");
+const routes_4 = require("./notifications/routes");
+const meritocracy_routes_1 = require("./meritocracy/meritocracy.routes");
+const training_routes_1 = require("./training/training.routes");
+const routes_5 = require("./serviciosUsuario/routes");
 class AppRoutes {
     //cuando hay metodoos estaticos no necesitams instanciar
     static get routes() {
@@ -55,6 +61,7 @@ class AppRoutes {
         router.use("/api/post", router_1.PostRoutes.routes);
         router.use("/api/storie", storie_routes_1.StorieRoutes.routes);
         router.use("/api/categorias", categoria_routes_1.CategoriaRoutes.routes);
+        router.use("/api/subcategorias", routes_1.SubcategoriaRoutes.routes);
         router.use("/api/negocios", negocio_routes_1.NegocioRoutes.routes);
         router.use("/api/negocios/admin", negocio_admin_routes_1.NegocioAdminRoutes.routes);
         router.use("/api/productos", producto_routes_1.ProductoRoutes.routes);
@@ -71,7 +78,7 @@ class AppRoutes {
         // ⭐ NUEVA RUTA DE PEDIDOS PARA MOTORIZADOS
         router.use("/api/pedido-moto", pedidoMoto_routes_1.PedidoMotoRoutes.routes);
         // 🏢 NUEVA RUTA: Business Dashboard
-        router.use("/api/business", routes_1.BusinessRoutes.routes);
+        router.use("/api/business", routes_2.BusinessRoutes.routes);
         // 📊 NUEVA RUTA: Admin Dashboard Stats
         router.use("/api/admin/dashboard", dashboard_routes_1.DashboardRoutes.routes);
         // 💰 NUEVA RUTA: Admin Wallet Management
@@ -85,11 +92,18 @@ class AppRoutes {
         // 🛡️ NUEVA RUTA: Moderation Module
         router.use("/api/moderation", moderation_routes_1.ModerationRoutes.routes);
         // 🚩 NUEVA RUTA: Admin Reports (Aggregated)
-        router.use("/api/admin/reports", routes_2.AdminReportRoutes.routes);
+        router.use("/api/admin/reports", routes_3.AdminReportRoutes.routes);
         // 🏦 NUEVA RUTA: Bank Accounts
         router.use("/api/bank-accounts", bank_account_routes_1.BankAccountRoutes.routes);
         // 🔗 NUEVA RUTA: Payphone Webhook (Public)
         router.use("/api/webhooks/payphone", payphone_routes_1.PayphoneWebhookRoutes.routes);
+        // ACTIVITY TRACKING
+        router.use("/api/activity", activity_routes_1.ActivityRoutes.routes);
+        router.use("/api/notifications", routes_4.NotificationRoutes.routes);
+        router.use("/api/meritocracy", meritocracy_routes_1.MeritocracyRoutes.routes);
+        router.use("/api/training", training_routes_1.TrainingRoutes.routes);
+        // 👷‍♂️ NUEVA RUTA: Servicios de Usuario
+        router.use("/api/servicios-usuario", routes_5.ServiciosUsuarioRoutes.routes);
         return router;
     }
 }

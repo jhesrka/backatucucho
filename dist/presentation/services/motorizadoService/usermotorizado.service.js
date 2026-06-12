@@ -8,14 +8,22 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UserMotorizadoService = void 0;
 const domain_1 = require("../../../domain");
 const data_1 = require("../../../data");
 const config_1 = require("../../../config");
+const upload_files_cloud_adapter_1 = require("../../../config/upload-files-cloud-adapter");
+const uuid_adapter_1 = require("../../../config/uuid.adapter");
 const socket_1 = require("../../../config/socket");
 const pedidoMoto_service_1 = require("../pedidosServices/pedidoMoto.service");
+const meritocracy_service_1 = require("../pedidosServices/meritocracy.service");
 const typeorm_1 = require("typeorm");
+const moment_timezone_1 = __importDefault(require("moment-timezone"));
+const ECUADOR_TZ = "America/Guayaquil";
 class UserMotorizadoService {
     // ✅ Historial de Pedidos Avanzado (Filtrado y Paginado)
     getOrdersHistory(id, options) {
@@ -30,10 +38,8 @@ class UserMotorizadoService {
                 query.andWhere("pedido.estado = :status", { status });
             }
             if (startDate && endDate) {
-                const start = new Date(startDate);
-                start.setHours(0, 0, 0, 0);
-                const end = new Date(endDate);
-                end.setHours(23, 59, 59, 999);
+                const start = moment_timezone_1.default.tz(startDate, ECUADOR_TZ).startOf('day').toDate();
+                const end = moment_timezone_1.default.tz(endDate, ECUADOR_TZ).endOf('day').toDate();
                 query.andWhere("pedido.createdAt BETWEEN :start AND :end", { start, end });
             }
             if (search) {
@@ -134,6 +140,7 @@ class UserMotorizadoService {
     // ✅ Crear motorizado (Admin)
     createMotorizado(data) {
         return __awaiter(this, void 0, void 0, function* () {
+            var _a;
             const motorizado = new data_1.UserMotorizado();
             motorizado.name = data.name.toLowerCase().trim();
             motorizado.surname = data.surname.toLowerCase().trim();
@@ -145,6 +152,13 @@ class UserMotorizadoService {
             motorizado.estadoCuenta = data_1.EstadoCuentaMotorizado.ACTIVO;
             motorizado.estadoTrabajo = data_1.EstadoTrabajoMotorizado.NO_TRABAJANDO;
             motorizado.quiereTrabajar = false;
+            const topTier = yield data_1.MotorizadoTier.findOne({
+                where: {},
+                order: { commissionPercentage: 'DESC' },
+            });
+            if (topTier) {
+                motorizado.currentTier = topTier;
+            }
             try {
                 const nuevo = yield motorizado.save();
                 return {
@@ -154,6 +168,7 @@ class UserMotorizadoService {
                     whatsapp: nuevo.whatsapp,
                     cedula: nuevo.cedula,
                     estadoCuenta: nuevo.estadoCuenta,
+                    currentTier: (_a = nuevo.currentTier) !== null && _a !== void 0 ? _a : null,
                     createdAt: nuevo.createdAt,
                 };
             }
@@ -184,6 +199,13 @@ class UserMotorizadoService {
             if (!tokenmotorizado || !refreshToken) {
                 throw domain_1.CustomError.internalServer("Error generando Jwt");
             }
+            let photoUrl = "";
+            if (usermotorizado.photoperfil) {
+                photoUrl = (yield upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
+                    bucketName: config_1.envs.AWS_BUCKET_NAME,
+                    key: usermotorizado.photoperfil,
+                }));
+            }
             return {
                 tokenmotorizado,
                 refreshToken,
@@ -193,6 +215,7 @@ class UserMotorizadoService {
                     surname: usermotorizado.surname,
                     cedula: usermotorizado.cedula,
                     whatsapp: usermotorizado.whatsapp,
+                    photoperfil: photoUrl || "",
                 },
             };
         });
@@ -233,10 +256,17 @@ class UserMotorizadoService {
             var _a;
             const motorizado = yield data_1.UserMotorizado.findOne({
                 where: { id },
-                relations: ["pedidos"],
+                relations: ["pedidos", "currentTier"],
             });
             if (!motorizado) {
                 throw domain_1.CustomError.notFound("Motorizado no encontrado");
+            }
+            let photoUrl = "";
+            if (motorizado.photoperfil) {
+                photoUrl = (yield upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
+                    bucketName: config_1.envs.AWS_BUCKET_NAME,
+                    key: motorizado.photoperfil,
+                }));
             }
             return {
                 id: motorizado.id,
@@ -244,6 +274,7 @@ class UserMotorizadoService {
                 surname: motorizado.surname,
                 whatsapp: motorizado.whatsapp,
                 cedula: motorizado.cedula,
+                photoperfil: photoUrl || "",
                 estadoCuenta: motorizado.estadoCuenta,
                 estadoTrabajo: motorizado.estadoTrabajo,
                 quiereTrabajar: motorizado.quiereTrabajar,
@@ -257,6 +288,10 @@ class UserMotorizadoService {
                 createdAt: motorizado.createdAt,
                 ratingPromedio: Number(motorizado.ratingPromedio) || 0,
                 totalResenas: Number(motorizado.totalResenas) || 0,
+                currentTier: motorizado.currentTier,
+                performanceLastPeriod: motorizado.performanceLastPeriod,
+                isManualCommission: motorizado.isManualCommission,
+                manualCommissionPercentage: motorizado.manualCommissionPercentage
             };
         });
     }
@@ -269,7 +304,7 @@ class UserMotorizadoService {
                 },
             });
             if (!usermotorizado) {
-                throw domain_1.CustomError.notFound(`Usuario: ${usermotorizado} o contraseña no validos`);
+                throw domain_1.CustomError.notFound(`Cédula o contraseña incorrectas, o la cuenta no está ACTIVA.`);
             }
             return usermotorizado;
         });
@@ -335,30 +370,107 @@ class UserMotorizadoService {
     // ✅ Ver todos los motorizados
     findAllMotorizados() {
         return __awaiter(this, void 0, void 0, function* () {
-            const motorizados = yield data_1.UserMotorizado.find();
-            return motorizados.map((m) => ({
-                id: m.id,
-                name: m.name,
-                surname: m.surname,
-                whatsapp: m.whatsapp,
-                cedula: m.cedula,
-                estadoCuenta: m.estadoCuenta,
-                estadoTrabajo: m.estadoTrabajo,
-                fechaHoraDisponible: m.fechaHoraDisponible,
-                quiereTrabajar: m.quiereTrabajar,
-                saldo: m.saldo,
-                ratingPromedio: Number(m.ratingPromedio) || 0,
-                totalResenas: Number(m.totalResenas) || 0,
-                createdAt: m.createdAt,
-            }));
+            const motorizados = yield data_1.UserMotorizado.find({ relations: ['currentTier'] });
+            const meritocracyService = new meritocracy_service_1.MeritocracyService();
+            const liveRanking = yield meritocracyService.getLiveRanking().catch(() => null);
+            const rankingArray = (liveRanking === null || liveRanking === void 0 ? void 0 : liveRanking.ranking) || [];
+            // Consultar cantidad de RETIROS pendientes por motorizado
+            const pendingWithdrawals = yield data_1.TransaccionMotorizado.find({
+                where: {
+                    tipo: data_1.TipoTransaccion.RETIRO,
+                    estado: data_1.EstadoTransaccion.PENDIENTE,
+                },
+                relations: ["motorizado"],
+                select: ["id", "motorizado"]
+            });
+            const activePedidosMap = new Map();
+            pendingWithdrawals.forEach((t) => {
+                if (t.motorizado && t.motorizado.id) {
+                    activePedidosMap.set(t.motorizado.id, (activePedidosMap.get(t.motorizado.id) || 0) + 1);
+                }
+            });
+            // Calcular ranking oficial (histórico) basado en performanceLastPeriod
+            const officialRankingArray = [...motorizados].sort((a, b) => {
+                var _a, _b;
+                const partA = ((_a = a.performanceLastPeriod) === null || _a === void 0 ? void 0 : _a.participacion) || 0;
+                const partB = ((_b = b.performanceLastPeriod) === null || _b === void 0 ? void 0 : _b.participacion) || 0;
+                return partB - partA;
+            });
+            const officialRanks = new Map();
+            let offRank = 1;
+            officialRankingArray.forEach(m => {
+                if (!m.isManualCommission) {
+                    officialRanks.set(m.id, offRank++);
+                }
+            });
+            return Promise.all(motorizados.map((m) => __awaiter(this, void 0, void 0, function* () {
+                var _a, _b, _c, _d;
+                let photoUrl = "";
+                if (m.photoperfil) {
+                    photoUrl = (yield upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
+                        bucketName: config_1.envs.AWS_BUCKET_NAME,
+                        key: m.photoperfil,
+                    }));
+                }
+                // Buscar estadísticas de meritocracia en vivo
+                const meritStats = rankingArray.find(r => r.id === m.id);
+                const projectedRank = meritStats ? rankingArray.findIndex(r => r.id === m.id) + 1 : null;
+                const officialRank = officialRanks.get(m.id) || null;
+                return {
+                    id: m.id,
+                    name: m.name,
+                    surname: m.surname,
+                    whatsapp: m.whatsapp,
+                    cedula: m.cedula,
+                    estadoCuenta: m.estadoCuenta,
+                    estadoTrabajo: m.estadoTrabajo,
+                    fechaHoraDisponible: m.fechaHoraDisponible,
+                    quiereTrabajar: m.quiereTrabajar,
+                    saldo: m.saldo,
+                    ratingPromedio: Number(m.ratingPromedio) || 0,
+                    totalResenas: Number(m.totalResenas) || 0,
+                    pedidosPendientes: activePedidosMap.get(m.id) || 0,
+                    createdAt: m.createdAt,
+                    photoperfil: photoUrl || "",
+                    meritocracia: {
+                        ligaActual: ((_a = m.currentTier) === null || _a === void 0 ? void 0 : _a.name) || '📍 START',
+                        ligaActualColor: ((_b = m.currentTier) === null || _b === void 0 ? void 0 : _b.color) || '#94a3b8',
+                        participacionActual: meritStats ? meritStats.participacion : 0,
+                        pedidosActuales: meritStats ? meritStats.pedidosCount : 0,
+                        ligaProyectada: meritStats ? meritStats.proximoTier : (((_c = m.currentTier) === null || _c === void 0 ? void 0 : _c.name) || '📍 START'),
+                        ligaProyectadaColor: meritStats ? meritStats.proximoTierColor : (((_d = m.currentTier) === null || _d === void 0 ? void 0 : _d.color) || '#94a3b8'),
+                        currentRank: projectedRank,
+                        officialRank: officialRank,
+                        totalParticipants: rankingArray.length,
+                        cicloTotalPedidos: (liveRanking === null || liveRanking === void 0 ? void 0 : liveRanking.totalPedidos) || 0
+                    },
+                    isManualCommission: m.isManualCommission,
+                    manualCommissionPercentage: m.manualCommissionPercentage
+                };
+            })));
         });
     }
     // ✅ Ver un motorizado por ID
     findMotorizadoById(id) {
         return __awaiter(this, void 0, void 0, function* () {
-            const motorizado = yield data_1.UserMotorizado.findOneBy({ id });
+            var _a, _b, _c, _d;
+            const motorizado = yield data_1.UserMotorizado.findOne({
+                where: { id },
+                relations: ['currentTier']
+            });
             if (!motorizado)
                 throw domain_1.CustomError.notFound("Motorizado no encontrado");
+            const meritocracyService = new meritocracy_service_1.MeritocracyService();
+            const liveRanking = yield meritocracyService.getLiveRanking().catch(() => null);
+            const rankingArray = (liveRanking === null || liveRanking === void 0 ? void 0 : liveRanking.ranking) || [];
+            const meritStats = rankingArray.find(r => r.id === id);
+            let photoUrl = "";
+            if (motorizado.photoperfil) {
+                photoUrl = (yield upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
+                    bucketName: config_1.envs.AWS_BUCKET_NAME,
+                    key: motorizado.photoperfil,
+                }));
+            }
             return {
                 id: motorizado.id,
                 name: motorizado.name,
@@ -373,6 +485,18 @@ class UserMotorizadoService {
                 ratingPromedio: Number(motorizado.ratingPromedio) || 0,
                 totalResenas: Number(motorizado.totalResenas) || 0,
                 createdAt: motorizado.createdAt,
+                photoperfil: photoUrl || "",
+                meritocracia: {
+                    ligaActual: ((_a = motorizado.currentTier) === null || _a === void 0 ? void 0 : _a.name) || '📍 START',
+                    ligaActualColor: ((_b = motorizado.currentTier) === null || _b === void 0 ? void 0 : _b.color) || '#94a3b8',
+                    participacionActual: meritStats ? meritStats.participacion : 0,
+                    pedidosActuales: meritStats ? meritStats.pedidosCount : 0,
+                    ligaProyectada: meritStats ? meritStats.proximoTier : (((_c = motorizado.currentTier) === null || _c === void 0 ? void 0 : _c.name) || '📍 START'),
+                    ligaProyectadaColor: meritStats ? meritStats.proximoTierColor : (((_d = motorizado.currentTier) === null || _d === void 0 ? void 0 : _d.color) || '#94a3b8'),
+                    historico: motorizado.performanceLastPeriod || null
+                },
+                isManualCommission: motorizado.isManualCommission,
+                manualCommissionPercentage: motorizado.manualCommissionPercentage
             };
         });
     }
@@ -401,13 +525,15 @@ class UserMotorizadoService {
                 // Convertir a booleano real si viene como string
                 motorizado.quiereTrabajar = (q === true || q === 'true');
             }
-            console.log("Updating Motorizado:", {
-                id,
-                recibido: data,
-                estadoCuenta: motorizado.estadoCuenta,
-                estadoTrabajo: motorizado.estadoTrabajo,
-                quiereTrabajar: motorizado.quiereTrabajar
-            });
+            // Configuración especial de comisión manual
+            if (data.isManualCommission !== undefined) {
+                const isManual = data.isManualCommission;
+                motorizado.isManualCommission = (isManual === true || isManual === 'true');
+            }
+            if (data.manualCommissionPercentage !== undefined) {
+                const val = data.manualCommissionPercentage;
+                motorizado.manualCommissionPercentage = val !== null && val !== "" ? Number(val) : null;
+            }
             // 🔒 Limitaciones de Seguridad: El admin no puede asignar estados automáticos
             if (data.estadoTrabajo === data_1.EstadoTrabajoMotorizado.EN_EVALUACION ||
                 data.estadoTrabajo === data_1.EstadoTrabajoMotorizado.ENTREGANDO) {
@@ -435,10 +561,6 @@ class UserMotorizadoService {
                     });
                 }
             }
-            console.log("Saving Motorizado (Normalized):", {
-                estadoTrabajo: motorizado.estadoTrabajo,
-                quiereTrabajar: motorizado.quiereTrabajar
-            });
             try {
                 const actualizado = yield motorizado.save();
                 // 📡 Notificar al motorizado afectado para que su app refresque estado
@@ -516,17 +638,62 @@ class UserMotorizadoService {
             return { message: "Contraseña actualizada con éxito" };
         });
     }
-    // ✅ Historial de transacciones de billetera (Admin)
-    getTransactions(motorizadoId_1) {
-        return __awaiter(this, arguments, void 0, function* (motorizadoId, page = 1, limit = 20) {
-            const skip = (page - 1) * limit;
-            const [transactions, total] = yield data_1.TransaccionMotorizado.findAndCount({
-                where: { motorizado: { id: motorizadoId } },
-                order: { createdAt: "DESC" },
-                skip,
-                take: limit,
-                relations: ['pedido'] // Incluir pedido si existe
+    // ✅ Actualizar foto de perfil (AWS S3)
+    updateProfilePicture(id, file) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const motorizado = yield data_1.UserMotorizado.findOneBy({ id });
+            if (!motorizado)
+                throw domain_1.CustomError.notFound("Motorizado no encontrado");
+            // Borrar imagen anterior de S3 si existe
+            if (motorizado.photoperfil) {
+                yield upload_files_cloud_adapter_1.UploadFilesCloud.deleteFile({
+                    bucketName: config_1.envs.AWS_BUCKET_NAME,
+                    key: motorizado.photoperfil,
+                });
+            }
+            // Subir la nueva imagen a S3
+            const path = `motorizados/${Date.now()}-${(0, uuid_adapter_1.generateUUID)()}-${file.originalname}`;
+            const imgKey = yield upload_files_cloud_adapter_1.UploadFilesCloud.uploadSingleFile({
+                bucketName: config_1.envs.AWS_BUCKET_NAME,
+                key: path,
+                body: file.buffer,
+                contentType: file.mimetype,
             });
+            // Guardar la llave en la DB
+            motorizado.photoperfil = imgKey;
+            yield motorizado.save();
+            // Obtener las URLs generadas (original, thumb, card)
+            const photoUrls = yield upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
+                bucketName: config_1.envs.AWS_BUCKET_NAME,
+                key: imgKey,
+            });
+            return {
+                message: "Foto de perfil actualizada correctamente",
+                photoperfil: photoUrls
+            };
+        });
+    }
+    // ✅ Historial de transacciones de billetera (Admin)
+    // Trigger recompile to refresh service types
+    getTransactions(motorizadoId, options) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const { page = 1, limit = 20, startDate, endDate, tipo } = options;
+            const skip = (page - 1) * limit;
+            const query = data_1.TransaccionMotorizado.createQueryBuilder("t")
+                .leftJoinAndSelect("t.pedido", "pedido")
+                .where("t.motorizadoId = :id", { id: motorizadoId });
+            if (startDate && endDate) {
+                const start = moment_timezone_1.default.tz(startDate, ECUADOR_TZ).startOf('day').toDate();
+                const end = moment_timezone_1.default.tz(endDate, ECUADOR_TZ).endOf('day').toDate();
+                query.andWhere("t.createdAt BETWEEN :start AND :end", { start, end });
+            }
+            if (tipo) {
+                query.andWhere("t.tipo = :tipo", { tipo });
+            }
+            query.orderBy("t.createdAt", "DESC")
+                .skip(skip)
+                .take(limit);
+            const [transactions, total] = yield query.getManyAndCount();
             return {
                 transactions,
                 total,
@@ -825,35 +992,49 @@ class UserMotorizadoService {
                 query.andWhere("t.estado = :status", { status });
             }
             if (date) {
-                const start = new Date(date);
-                start.setHours(0, 0, 0, 0);
-                const end = new Date(date);
-                end.setHours(23, 59, 59, 999);
+                // Usar moment-timezone para crear el rango del día en Ecuador
+                const start = moment_timezone_1.default.tz(date, ECUADOR_TZ).startOf('day').toDate();
+                const end = moment_timezone_1.default.tz(date, ECUADOR_TZ).endOf('day').toDate();
                 query.andWhere("t.createdAt BETWEEN :start AND :end", { start, end });
             }
             const withdrawals = yield query.getMany();
-            return withdrawals.map(w => ({
-                id: w.id,
-                createdAt: w.createdAt,
-                monto: w.monto,
-                estado: w.estado,
-                motorizado: {
-                    id: w.motorizado.id,
-                    name: w.motorizado.name,
-                    surname: w.motorizado.surname,
-                    // email: w.motorizado.email, // Removed as it doesn't exist
-                    whatsapp: w.motorizado.whatsapp,
-                    saldo: w.motorizado.saldo,
-                },
-                detalles: w.detalles ? JSON.parse(w.detalles) : {}
-            }));
+            return Promise.all(withdrawals.map((w) => __awaiter(this, void 0, void 0, function* () {
+                let photoUrl = "";
+                if (w.motorizado.photoperfil) {
+                    photoUrl = (yield upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
+                        bucketName: config_1.envs.AWS_BUCKET_NAME,
+                        key: w.motorizado.photoperfil,
+                    }));
+                }
+                let detalles = w.detalles ? JSON.parse(w.detalles) : {};
+                if (detalles.proofUrl && !detalles.proofUrl.startsWith('http')) {
+                    detalles.proofUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
+                        bucketName: config_1.envs.AWS_BUCKET_NAME,
+                        key: detalles.proofUrl,
+                    }).catch(() => detalles.proofUrl);
+                }
+                return {
+                    id: w.id,
+                    createdAt: w.createdAt,
+                    monto: w.monto,
+                    estado: w.estado,
+                    motorizado: {
+                        id: w.motorizado.id,
+                        name: w.motorizado.name,
+                        surname: w.motorizado.surname,
+                        whatsapp: w.motorizado.whatsapp,
+                        saldo: w.motorizado.saldo,
+                        photoperfil: photoUrl || "",
+                    },
+                    detalles
+                };
+            })));
         });
     }
     // ✅ Obtener estadísticas de retiros de HOY
     getWithdrawalStatsToday() {
         return __awaiter(this, void 0, void 0, function* () {
-            const now = new Date();
-            const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const startOfToday = moment_timezone_1.default.tz(ECUADOR_TZ).startOf('day').toDate();
             const solicitudesHoy = yield data_1.TransaccionMotorizado.createQueryBuilder("t")
                 .where("t.tipo = :tipo", { tipo: data_1.TipoTransaccion.RETIRO })
                 .andWhere("t.createdAt >= :today", { today: startOfToday })
@@ -887,17 +1068,28 @@ class UserMotorizadoService {
         return __awaiter(this, void 0, void 0, function* () {
             const motorizados = yield data_1.UserMotorizado.find({
                 order: { saldo: "DESC" },
-                select: ["id", "name", "surname", "saldo"]
+                select: ["id", "name", "surname", "saldo", "photoperfil"]
             });
             const totalSaldo = motorizados.reduce((acc, m) => acc + Number(m.saldo), 0);
-            return {
-                totalSaldo,
-                motorizados: motorizados.map(m => ({
+            const motorizadosWithPhoto = yield Promise.all(motorizados.map((m) => __awaiter(this, void 0, void 0, function* () {
+                let photoUrl = "";
+                if (m.photoperfil) {
+                    photoUrl = (yield upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
+                        bucketName: config_1.envs.AWS_BUCKET_NAME,
+                        key: m.photoperfil,
+                    }));
+                }
+                return {
                     id: m.id,
                     name: m.name,
                     surname: m.surname,
-                    saldo: m.saldo
-                }))
+                    saldo: m.saldo,
+                    photoperfil: photoUrl || ""
+                };
+            })));
+            return {
+                totalSaldo,
+                motorizados: motorizadosWithPhoto
             };
         });
     }

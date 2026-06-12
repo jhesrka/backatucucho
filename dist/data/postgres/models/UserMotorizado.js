@@ -13,6 +13,7 @@ exports.UserMotorizado = exports.EstadoTrabajoMotorizado = exports.EstadoCuentaM
 const typeorm_1 = require("typeorm");
 const config_1 = require("../../../config");
 const Pedido_1 = require("./Pedido");
+const MotorizadoTier_1 = require("./MotorizadoTier");
 // 🔹 Estado administrativo del motorizado
 var EstadoCuentaMotorizado;
 (function (EstadoCuentaMotorizado) {
@@ -70,6 +71,10 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)("varchar", { nullable: true }),
     __metadata("design:type", Object)
+], UserMotorizado.prototype, "photoperfil", void 0);
+__decorate([
+    (0, typeorm_1.Column)("varchar", { nullable: true }),
+    __metadata("design:type", Object)
 ], UserMotorizado.prototype, "bancoNombre", void 0);
 __decorate([
     (0, typeorm_1.Column)("varchar", { nullable: true }),
@@ -106,17 +111,25 @@ __decorate([
     __metadata("design:type", Boolean)
 ], UserMotorizado.prototype, "quiereTrabajar", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: "timestamp", nullable: true }),
+    (0, typeorm_1.Column)({ type: "timestamptz", nullable: true }),
     __metadata("design:type", Object)
 ], UserMotorizado.prototype, "noDisponibleHasta", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: "timestamp", nullable: true }),
+    (0, typeorm_1.Column)({ type: "timestamptz", nullable: true }),
     __metadata("design:type", Object)
 ], UserMotorizado.prototype, "fechaHoraDisponible", void 0);
 __decorate([
-    (0, typeorm_1.CreateDateColumn)({ type: "timestamp" }),
+    (0, typeorm_1.CreateDateColumn)({ type: "timestamptz" }),
     __metadata("design:type", Date)
 ], UserMotorizado.prototype, "createdAt", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "timestamptz", nullable: true }),
+    __metadata("design:type", Object)
+], UserMotorizado.prototype, "lastSeenAt", void 0);
+__decorate([
+    (0, typeorm_1.UpdateDateColumn)({ type: "timestamptz" }),
+    __metadata("design:type", Date)
+], UserMotorizado.prototype, "updatedAt", void 0);
 __decorate([
     (0, typeorm_1.Column)("decimal", { precision: 2, scale: 1, default: 0.0 }),
     __metadata("design:type", Number)
@@ -129,6 +142,22 @@ __decorate([
     (0, typeorm_1.Column)("int", { default: 0 }),
     __metadata("design:type", Number)
 ], UserMotorizado.prototype, "resetTokenVersion", void 0);
+__decorate([
+    (0, typeorm_1.ManyToOne)(() => MotorizadoTier_1.MotorizadoTier, { nullable: true }),
+    __metadata("design:type", Object)
+], UserMotorizado.prototype, "currentTier", void 0);
+__decorate([
+    (0, typeorm_1.Column)("json", { nullable: true }),
+    __metadata("design:type", Object)
+], UserMotorizado.prototype, "performanceLastPeriod", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "boolean", default: false }),
+    __metadata("design:type", Boolean)
+], UserMotorizado.prototype, "isManualCommission", void 0);
+__decorate([
+    (0, typeorm_1.Column)("decimal", { precision: 10, scale: 2, nullable: true }),
+    __metadata("design:type", Object)
+], UserMotorizado.prototype, "manualCommissionPercentage", void 0);
 __decorate([
     (0, typeorm_1.OneToMany)(() => Pedido_1.Pedido, (pedido) => pedido.motorizado),
     __metadata("design:type", Array)

@@ -14,6 +14,7 @@ const rechargeStatus_model_1 = require("./models/rechargeStatus.model");
 const subscriptionStatus_model_1 = require("./models/subscriptionStatus.model");
 const freePostTracker_model_1 = require("./models/freePostTracker.model");
 const CategoriaNegocio_1 = require("./models/CategoriaNegocio");
+const SubcategoriaNegocio_1 = require("./models/SubcategoriaNegocio");
 const Negocio_1 = require("./models/Negocio");
 const Producto_1 = require("./models/Producto");
 const TipoProducto_1 = require("./models/TipoProducto");
@@ -32,6 +33,11 @@ const PriceSettings_1 = require("./models/PriceSettings");
 const DeliverySettings_1 = require("./models/DeliverySettings");
 const global_settings_model_1 = require("./models/global-settings.model");
 const CommissionLog_1 = require("./models/CommissionLog");
+const MotorizadoTier_1 = require("./models/MotorizadoTier");
+const MeritocracyCycleLog_1 = require("./models/MeritocracyCycleLog");
+const PushToken_1 = require("./models/PushToken");
+const TrainingVideo_1 = require("./models/TrainingVideo");
+const TrainingCategory_1 = require("./models/TrainingCategory");
 exports.AppDataSource = new typeorm_1.DataSource({
     type: "postgres",
     host: config_1.envs.DB_HOST,
@@ -42,14 +48,17 @@ exports.AppDataSource = new typeorm_1.DataSource({
     synchronize: false, // SIEMPRE FALSE EN MIGRACIONES
     logging: false,
     extra: {
-        options: '-c timezone=UTC', // Fuerza UTC en cada sesión de PostgreSQL
+        max: 5,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 30000,
+        keepalives: true,
     },
     entities: [
         user_model_1.User, post_model_1.Post, useradmin_model_1.Useradmin, stories_model_1.Storie, like_model_1.Like, wallet_model_1.Wallet, rechargeStatus_model_1.RechargeRequest, subscriptionStatus_model_1.Subscription,
-        freePostTracker_model_1.FreePostTracker, transactionType_model_1.Transaction, CategoriaNegocio_1.CategoriaNegocio, Negocio_1.Negocio, Producto_1.Producto, TipoProducto_1.TipoProducto,
+        freePostTracker_model_1.FreePostTracker, transactionType_model_1.Transaction, CategoriaNegocio_1.CategoriaNegocio, SubcategoriaNegocio_1.SubcategoriaNegocio, Negocio_1.Negocio, Producto_1.Producto, TipoProducto_1.TipoProducto,
         UserMotorizado_1.UserMotorizado, ProductoPedido_1.ProductoPedido, Pedido_1.Pedido, TransaccionMotorizado_1.TransaccionMotorizado, BalanceNegocio_1.BalanceNegocio,
         PriceSettings_1.PriceSettings, DeliverySettings_1.DeliverySettings, AdminNotification_1.AdminNotification, global_settings_model_1.GlobalSettings, CommissionLog_1.CommissionLog, Campaign_1.Campaign,
-        CampaignLog_1.CampaignLog, FinancialClosing_1.FinancialClosing, report_model_1.Report
+        CampaignLog_1.CampaignLog, FinancialClosing_1.FinancialClosing, report_model_1.Report, PushToken_1.PushToken, TrainingVideo_1.TrainingVideo, TrainingCategory_1.TrainingCategory, MotorizadoTier_1.MotorizadoTier, MeritocracyCycleLog_1.MeritocracyCycleLog
     ],
     migrations: ["src/data/postgres/migrations/*.ts"],
     subscribers: [],

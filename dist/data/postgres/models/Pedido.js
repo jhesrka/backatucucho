@@ -24,6 +24,8 @@ var EstadoPedido;
     EstadoPedido["ENTREGADO"] = "ENTREGADO";
     EstadoPedido["CANCELADO"] = "CANCELADO";
     EstadoPedido["PENDIENTE_PAGO"] = "PENDIENTE_PAGO";
+    EstadoPedido["RETORNO_PENDIENTE"] = "RETORNO_PENDIENTE";
+    EstadoPedido["DEVUELTO_A_LOCAL"] = "DEVUELTO_A_LOCAL";
 })(EstadoPedido || (exports.EstadoPedido = EstadoPedido = {}));
 var MetodoPago;
 (function (MetodoPago) {
@@ -160,6 +162,22 @@ __decorate([
     __metadata("design:type", Number)
 ], Pedido.prototype, "recargo_tarjeta", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: "boolean", default: false }),
+    __metadata("design:type", Boolean)
+], Pedido.prototype, "isPeakHourSurchargeApplied", void 0);
+__decorate([
+    (0, typeorm_1.Column)("decimal", { precision: 10, scale: 2, default: 0 }),
+    __metadata("design:type", Number)
+], Pedido.prototype, "peakHourSurchargeAmount", void 0);
+__decorate([
+    (0, typeorm_1.Column)("decimal", { precision: 10, scale: 2, default: 0 }),
+    __metadata("design:type", Number)
+], Pedido.prototype, "peakHourSurchargeMoto", void 0);
+__decorate([
+    (0, typeorm_1.Column)("decimal", { precision: 10, scale: 2, default: 0 }),
+    __metadata("design:type", Number)
+], Pedido.prototype, "peakHourSurchargeApp", void 0);
+__decorate([
     (0, typeorm_1.ManyToOne)("UserMotorizado", { nullable: true }),
     __metadata("design:type", Object)
 ], Pedido.prototype, "motorizado", void 0);
@@ -196,7 +214,7 @@ __decorate([
     __metadata("design:type", Number)
 ], Pedido.prototype, "rondaAsignacion", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: "timestamp", nullable: true }),
+    (0, typeorm_1.Column)({ type: "timestamptz", nullable: true }),
     __metadata("design:type", Object)
 ], Pedido.prototype, "fechaInicioRonda", void 0);
 __decorate([
@@ -244,9 +262,21 @@ __decorate([
     __metadata("design:type", Boolean)
 ], Pedido.prototype, "delivery_verified", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: "timestamp", nullable: true }),
+    (0, typeorm_1.Column)({ type: "boolean", default: false }),
+    __metadata("design:type", Boolean)
+], Pedido.prototype, "cliente_confirmo_llegada", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "timestamptz", nullable: true }),
     __metadata("design:type", Object)
 ], Pedido.prototype, "arrival_time", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "varchar", nullable: true }),
+    __metadata("design:type", Object)
+], Pedido.prototype, "evidence_at_delivery", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "varchar", nullable: true }),
+    __metadata("design:type", Object)
+], Pedido.prototype, "evidence_at_return", void 0);
 __decorate([
     (0, typeorm_1.Column)("decimal", { precision: 2, scale: 1, nullable: true }),
     __metadata("design:type", Object)
@@ -255,6 +285,18 @@ __decorate([
     (0, typeorm_1.Column)("decimal", { precision: 2, scale: 1, nullable: true }),
     __metadata("design:type", Object)
 ], Pedido.prototype, "ratingMotorizado", void 0);
+__decorate([
+    (0, typeorm_1.Column)("int", { nullable: true }),
+    __metadata("design:type", Object)
+], Pedido.prototype, "tiempoPreparacionElegido", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "timestamptz", nullable: true }),
+    __metadata("design:type", Object)
+], Pedido.prototype, "fecha_aceptado", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "varchar", nullable: true }),
+    __metadata("design:type", Object)
+], Pedido.prototype, "notaGeneral", void 0);
 __decorate([
     (0, typeorm_1.BeforeInsert)(),
     (0, typeorm_1.BeforeUpdate)(),

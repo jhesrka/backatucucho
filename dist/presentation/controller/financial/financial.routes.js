@@ -25,8 +25,9 @@ class FinancialRoutes {
         router.post('/upload-statement', [middlewares_1.AuthAdminMiddleware.protect, (0, config_1.uploadSingleFile)('file')], controller.uploadBankStatement);
         router.get('/day-status', middlewares_1.AuthAdminMiddleware.protect, controller.getDayStatus);
         router.post('/close-day', middlewares_1.AuthAdminMiddleware.protect, controller.closeDay);
-        // Internal Pending Closings
-        router.get('/pending-closings', middlewares_1.AuthAdminMiddleware.protect, controller.getPendingShopClosings);
+        router.get('/unified-transactions', middlewares_1.AuthAdminMiddleware.protect, controller.getUnifiedTransactions);
+        router.get('/comprobantes-auditoria', middlewares_1.AuthAdminMiddleware.protect, controller.getComprobantesAuditoria);
+        router.get('/pending-shop-closings', middlewares_1.AuthAdminMiddleware.protect, controller.getPendingShopClosings);
         // Detailed Revenue (Auditable)
         router.get('/revenue-details', middlewares_1.AuthAdminMiddleware.protect, controller.getAppRevenueDetails);
         return router;

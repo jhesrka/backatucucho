@@ -40,7 +40,7 @@ __decorate([
     __metadata("design:type", useradmin_model_1.Useradmin)
 ], CommissionLog.prototype, "changedBy", void 0);
 __decorate([
-    (0, typeorm_1.CreateDateColumn)({ type: "timestamp" }),
+    (0, typeorm_1.CreateDateColumn)({ type: "timestamptz" }),
     __metadata("design:type", Date)
 ], CommissionLog.prototype, "createdAt", void 0);
 exports.CommissionLog = CommissionLog = __decorate([

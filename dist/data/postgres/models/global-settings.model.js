@@ -19,6 +19,26 @@ __decorate([
     __metadata("design:type", String)
 ], GlobalSettings.prototype, "id", void 0);
 __decorate([
+    (0, typeorm_1.Column)("varchar", { length: 50, default: "Shop " }),
+    __metadata("design:type", String)
+], GlobalSettings.prototype, "appName", void 0);
+__decorate([
+    (0, typeorm_1.Column)("varchar", { length: 1024, nullable: true }),
+    __metadata("design:type", String)
+], GlobalSettings.prototype, "appLogoUrl", void 0);
+__decorate([
+    (0, typeorm_1.Column)("varchar", { length: 255, nullable: true }),
+    __metadata("design:type", String)
+], GlobalSettings.prototype, "appLogoKey", void 0);
+__decorate([
+    (0, typeorm_1.Column)("varchar", { length: 1024, nullable: true }),
+    __metadata("design:type", String)
+], GlobalSettings.prototype, "appFaviconUrl", void 0);
+__decorate([
+    (0, typeorm_1.Column)("varchar", { length: 255, nullable: true }),
+    __metadata("design:type", String)
+], GlobalSettings.prototype, "appFaviconKey", void 0);
+__decorate([
     (0, typeorm_1.Column)("int", { default: 20 }),
     __metadata("design:type", Number)
 ], GlobalSettings.prototype, "orderRetentionDays", void 0);
@@ -30,6 +50,22 @@ __decorate([
     (0, typeorm_1.Column)("int", { default: 30 }),
     __metadata("design:type", Number)
 ], GlobalSettings.prototype, "reportsRetentionDays", void 0);
+__decorate([
+    (0, typeorm_1.Column)("int", { default: 30 }),
+    __metadata("design:type", Number)
+], GlobalSettings.prototype, "postsRetentionDays", void 0);
+__decorate([
+    (0, typeorm_1.Column)("int", { default: 90 }),
+    __metadata("design:type", Number)
+], GlobalSettings.prototype, "paidPostsRetentionDays", void 0);
+__decorate([
+    (0, typeorm_1.Column)("int", { default: 6 }),
+    __metadata("design:type", Number)
+], GlobalSettings.prototype, "paidPurgeInactivityMonths", void 0);
+__decorate([
+    (0, typeorm_1.Column)("boolean", { default: true }),
+    __metadata("design:type", Boolean)
+], GlobalSettings.prototype, "autoPurgeEnabled", void 0);
 __decorate([
     (0, typeorm_1.Column)("int", { default: 60 }),
     __metadata("design:type", Number)
@@ -51,7 +87,7 @@ __decorate([
     __metadata("design:type", String)
 ], GlobalSettings.prototype, "modo_operacion", void 0);
 __decorate([
-    (0, typeorm_1.Column)("timestamp", { nullable: true }),
+    (0, typeorm_1.Column)("timestamptz", { nullable: true }),
     __metadata("design:type", Date)
 ], GlobalSettings.prototype, "ultimo_cambio_automatico", void 0);
 __decorate([
@@ -95,11 +131,15 @@ __decorate([
     __metadata("design:type", Number)
 ], GlobalSettings.prototype, "subscriptionBasicDurationDays", void 0);
 __decorate([
+    (0, typeorm_1.Column)("decimal", { precision: 10, scale: 2, default: 5.00 }),
+    __metadata("design:type", Number)
+], GlobalSettings.prototype, "servicePublicationPrice", void 0);
+__decorate([
     (0, typeorm_1.Column)("varchar", { length: 20, default: "v1.0" }),
     __metadata("design:type", String)
 ], GlobalSettings.prototype, "currentTermsVersion", void 0);
 __decorate([
-    (0, typeorm_1.Column)("timestamp", { default: () => "CURRENT_TIMESTAMP" }),
+    (0, typeorm_1.Column)("timestamptz", { default: () => "CURRENT_TIMESTAMP" }),
     __metadata("design:type", Date)
 ], GlobalSettings.prototype, "termsUpdatedAt", void 0);
 __decorate([
@@ -117,7 +157,55 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)("int", { default: 10 }),
     __metadata("design:type", Number)
-], GlobalSettings.prototype, "max_wait_time_acceptance", void 0);
+], GlobalSettings.prototype, "pendingOrderTimeoutMinutes", void 0);
+__decorate([
+    (0, typeorm_1.Column)("int", { default: 10 }),
+    __metadata("design:type", Number)
+], GlobalSettings.prototype, "acceptedOrderGraceMinutes", void 0);
+__decorate([
+    (0, typeorm_1.Column)("text", { nullable: true }),
+    __metadata("design:type", String)
+], GlobalSettings.prototype, "payphoneToken", void 0);
+__decorate([
+    (0, typeorm_1.Column)("varchar", { length: 100, nullable: true }),
+    __metadata("design:type", String)
+], GlobalSettings.prototype, "payphoneStoreId", void 0);
+__decorate([
+    (0, typeorm_1.Column)("decimal", { precision: 5, scale: 2, default: 0.00 }),
+    __metadata("design:type", Number)
+], GlobalSettings.prototype, "payphoneRechargePercentage", void 0);
+__decorate([
+    (0, typeorm_1.Column)("boolean", { default: true }),
+    __metadata("design:type", Boolean)
+], GlobalSettings.prototype, "cardRechargeEnabled", void 0);
+__decorate([
+    (0, typeorm_1.Column)("jsonb", { nullable: true }),
+    __metadata("design:type", Object)
+], GlobalSettings.prototype, "businessCover", void 0);
+__decorate([
+    (0, typeorm_1.Column)("decimal", { precision: 10, scale: 2, nullable: true }),
+    __metadata("design:type", Object)
+], GlobalSettings.prototype, "minEfectivo", void 0);
+__decorate([
+    (0, typeorm_1.Column)("decimal", { precision: 10, scale: 2, nullable: true }),
+    __metadata("design:type", Object)
+], GlobalSettings.prototype, "maxEfectivo", void 0);
+__decorate([
+    (0, typeorm_1.Column)("decimal", { precision: 10, scale: 2, nullable: true }),
+    __metadata("design:type", Object)
+], GlobalSettings.prototype, "minTransferencia", void 0);
+__decorate([
+    (0, typeorm_1.Column)("decimal", { precision: 10, scale: 2, nullable: true }),
+    __metadata("design:type", Object)
+], GlobalSettings.prototype, "maxTransferencia", void 0);
+__decorate([
+    (0, typeorm_1.Column)("decimal", { precision: 10, scale: 2, nullable: true }),
+    __metadata("design:type", Object)
+], GlobalSettings.prototype, "minTarjeta", void 0);
+__decorate([
+    (0, typeorm_1.Column)("decimal", { precision: 10, scale: 2, nullable: true }),
+    __metadata("design:type", Object)
+], GlobalSettings.prototype, "maxTarjeta", void 0);
 __decorate([
     (0, typeorm_1.UpdateDateColumn)(),
     __metadata("design:type", Date)

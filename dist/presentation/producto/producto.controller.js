@@ -37,11 +37,13 @@ class ProductoController {
         // ======================== READ por negocio ========================
         this.getProductosPorNegocio = (req, res) => {
             const { negocioId } = req.params;
+            const { sessionUser } = req.body; // Viene del AuthMiddleware
             if (!negocioId) {
                 return res.status(400).json({ message: "Falta el ID del negocio" });
             }
+            // Cast a any para evitar bloqueos del compilador por caché de definiciones
             this.productoService
-                .getProductosByNegocio(negocioId)
+                .getProductosByNegocio(negocioId, sessionUser.id)
                 .then((productos) => res.status(200).json(productos))
                 .catch((error) => this.handleError(error, res));
         };
@@ -91,6 +93,16 @@ class ProductoController {
             this.productoService
                 .deleteProducto(id)
                 .then((result) => res.status(200).json(result))
+                .catch((error) => this.handleError(error, res));
+        };
+        this.checkAvailability = (req, res) => {
+            const { ids } = req.body;
+            if (!Array.isArray(ids)) {
+                return res.status(400).json({ message: "Se requiere un array de IDs de productos" });
+            }
+            this.productoService
+                .checkAvailability(ids)
+                .then((results) => res.status(200).json(results))
                 .catch((error) => this.handleError(error, res));
         };
     }

@@ -18,6 +18,9 @@ const domain_1 = require("../../domain");
 const config_1 = require("../../config");
 const typeorm_1 = require("typeorm");
 const json2csv_1 = require("json2csv");
+const socket_1 = require("../../config/socket");
+const NotificationService_1 = require("./NotificationService");
+const notificationService = new NotificationService_1.NotificationService();
 class NegocioAdminService {
     constructor(subscriptionService) {
         this.subscriptionService = subscriptionService;
@@ -40,7 +43,7 @@ class NegocioAdminService {
             }
             const [negocios, total] = yield data_1.Negocio.findAndCount({
                 where,
-                relations: ["categoria", "usuario", "usuario.wallet"],
+                relations: ["categoria", "subcategoria", "usuario", "usuario.wallet"],
                 take: limit,
                 skip: offset,
                 order: { created_at: "DESC" },
@@ -65,7 +68,16 @@ class NegocioAdminService {
                         balance: negocio.usuario.wallet ? Number(negocio.usuario.wallet.balance) : 0,
                     }
                     : null;
-                return Object.assign(Object.assign({}, negocio), { usuario: usuarioSeguro, imagenUrl });
+                // 🔒 Enmascarar Payphone (Seguridad Admin)
+                const payphone_store_id = negocio.payphone_store_id
+                    ? `${negocio.payphone_store_id.slice(0, 4)}...${negocio.payphone_store_id.slice(-4)}`
+                    : null;
+                const payphone_token = negocio.payphone_token
+                    ? `****************${negocio.payphone_token.slice(-6)}`
+                    : null;
+                return Object.assign(Object.assign({}, negocio), { usuario: usuarioSeguro, imagenUrl,
+                    payphone_store_id,
+                    payphone_token });
             })));
             return {
                 total,
@@ -77,7 +89,7 @@ class NegocioAdminService {
         return __awaiter(this, void 0, void 0, function* () {
             const negocio = yield data_1.Negocio.findOne({
                 where: { id },
-                relations: ["categoria", "usuario", "usuario.wallet", "productos"],
+                relations: ["categoria", "subcategoria", "usuario", "usuario.wallet", "productos"],
             });
             if (!negocio)
                 throw domain_1.CustomError.notFound("Negocio no encontrado");
@@ -95,7 +107,16 @@ class NegocioAdminService {
                     balance: negocio.usuario.wallet ? Number(negocio.usuario.wallet.balance) : 0,
                 }
                 : null;
-            return Object.assign(Object.assign({}, negocio), { usuario: usuarioSeguro, imagenUrl });
+            // 🔒 Enmascarar Payphone
+            const payphone_store_id = negocio.payphone_store_id
+                ? `${negocio.payphone_store_id.slice(0, 4)}...${negocio.payphone_store_id.slice(-4)}`
+                : null;
+            const payphone_token = negocio.payphone_token
+                ? `****************${negocio.payphone_token.slice(-6)}`
+                : null;
+            return Object.assign(Object.assign({}, negocio), { usuario: usuarioSeguro, imagenUrl,
+                payphone_store_id,
+                payphone_token });
         });
     }
     // ========================= CREATE =========================
@@ -120,10 +141,20 @@ class NegocioAdminService {
                     contentType: img.mimetype,
                 });
             }
+            let subcategoria = null;
+            if (dto.subcategoriaId) {
+                subcategoria = yield data_1.SubcategoriaNegocio.findOneBy({
+                    id: dto.subcategoriaId,
+                    categoria: { id: categoria.id }
+                });
+                if (!subcategoria)
+                    throw domain_1.CustomError.notFound("Subcategoría no encontrada o no pertenece a la categoría");
+            }
             const negocio = data_1.Negocio.create({
                 nombre: dto.nombre,
                 descripcion: dto.descripcion,
                 categoria,
+                subcategoria: subcategoria,
                 usuario,
                 imagenNegocio: key,
                 modeloMonetizacion: dto.modeloMonetizacion,
@@ -137,6 +168,11 @@ class NegocioAdminService {
                 valorSuscripcion: dto.valorSuscripcion,
                 diaPago: dto.diaPago,
                 orden: (_a = dto.orden) !== null && _a !== void 0 ? _a : 0, // Nuevo campo, default 0
+                tiempoPreparacionMin: dto.tiempoPreparacionMin,
+                tiempoPreparacionMax: dto.tiempoPreparacionMax,
+                permiteProductosProgramados: dto.permiteProductosProgramados,
+                tiempoProgramadoMin: dto.tiempoProgramadoMin,
+                tiempoProgramadoMax: dto.tiempoProgramadoMax,
             });
             const saved = yield negocio.save();
             return saved;
@@ -153,6 +189,12 @@ class NegocioAdminService {
                     ? data_1.EstadoNegocio.CERRADO
                     : data_1.EstadoNegocio.ABIERTO;
             yield negocio.save();
+            // 📡 Notificar por WebSockets
+            (0, socket_1.getIO)().emit("business_status_changed", {
+                businessId: negocio.id,
+                newStatus: negocio.estadoNegocio, // ABIERTO/CERRADO
+                statusNegocio: negocio.statusNegocio, // ACTIVO/...
+            });
             return {
                 message: `El negocio ahora está ${negocio.estadoNegocio.toLowerCase()}`,
                 id: negocio.id,
@@ -177,6 +219,26 @@ class NegocioAdminService {
                 if (!categoria)
                     throw domain_1.CustomError.notFound("Categoría no encontrada");
                 negocio.categoria = categoria;
+                // Si cambiamos categoria, debemos limpiar la subcategoria vieja (ya que no pertenecen) 
+                // A MENOS que el DTO también traiga una subcategoriaId nueva
+                if (!dto.subcategoriaId) {
+                    negocio.subcategoria = null;
+                }
+            }
+            // ========================= ACTUALIZAR SUBCATEGORÍA =========================
+            if (dto.subcategoriaId !== undefined) {
+                if (dto.subcategoriaId === null) {
+                    negocio.subcategoria = null;
+                }
+                else {
+                    const sub = yield data_1.SubcategoriaNegocio.findOneBy({
+                        id: dto.subcategoriaId,
+                        categoria: { id: negocio.categoria.id }
+                    });
+                    if (!sub)
+                        throw domain_1.CustomError.notFound("Subcategoría no encontrada o no pertenece a la categoría del negocio");
+                    negocio.subcategoria = sub;
+                }
             }
             // ========================= ACTUALIZAR MODELO DE MONETIZACIÓN =========================
             if (dto.modeloMonetizacion) {
@@ -218,6 +280,29 @@ class NegocioAdminService {
             }
             if (dto.orden !== undefined) {
                 negocio.orden = dto.orden;
+            }
+            if (dto.tiempoPreparacionMin !== undefined)
+                negocio.tiempoPreparacionMin = dto.tiempoPreparacionMin;
+            if (dto.tiempoPreparacionMax !== undefined)
+                negocio.tiempoPreparacionMax = dto.tiempoPreparacionMax;
+            if (dto.permiteProductosProgramados !== undefined)
+                negocio.permiteProductosProgramados = dto.permiteProductosProgramados;
+            if (dto.tiempoProgramadoMin !== undefined)
+                negocio.tiempoProgramadoMin = dto.tiempoProgramadoMin;
+            if (dto.tiempoProgramadoMax !== undefined)
+                negocio.tiempoProgramadoMax = dto.tiempoProgramadoMax;
+            // ========================= ACTUALIZAR LIMITES PUBLICACION =========================
+            if (dto.puedePublicarProductos !== undefined) {
+                negocio.puedePublicarProductos = dto.puedePublicarProductos;
+            }
+            if (dto.limitePublicacionesSuscripcion !== undefined) {
+                const isNewLimitGreater = dto.limitePublicacionesSuscripcion > (negocio.limitePublicacionesSuscripcion || 0);
+                const diff = dto.limitePublicacionesSuscripcion - (negocio.limitePublicacionesSuscripcion || 0);
+                negocio.limitePublicacionesSuscripcion = dto.limitePublicacionesSuscripcion;
+                // Si aumentamos el límite, sumamos la diferencia a los restantes para que pueda usarlos de inmediato
+                if (isNewLimitGreater) {
+                    negocio.publicacionesRestantes = (negocio.publicacionesRestantes || 0) + diff;
+                }
             }
             // ========================= ACTUALIZAR PAYPHONE =========================
             if (dto.pago_tarjeta_habilitado_admin !== undefined) {
@@ -266,7 +351,7 @@ class NegocioAdminService {
                     }
                 }
                 // 🔄 FLUJO ATÓMICO: Si el admin intenta poner ACTIVO y se requiere cobro:
-                const needsCharge = Number(negocio.valorSuscripcion) > 0 && (negocio.statusNegocio === data_1.StatusNegocio.NO_PAGADO ||
+                const needsCharge = (negocio.statusNegocio === data_1.StatusNegocio.NO_PAGADO ||
                     negocio.statusNegocio === data_1.StatusNegocio.PENDIENTE ||
                     !negocio.fechaFinSuscripcion ||
                     new Date(negocio.fechaFinSuscripcion) <= new Date());
@@ -306,6 +391,24 @@ class NegocioAdminService {
                 negocio.valorSuscripcion = dto.valorSuscripcion;
             }
             const saved = yield negocio.save();
+            // 📡 Notificar por WebSockets
+            (0, socket_1.getIO)().emit("business_status_changed", {
+                businessId: saved.id,
+                newStatus: saved.estadoNegocio,
+                statusNegocio: saved.statusNegocio,
+            });
+            // 🔔 Notificación Push al Dueño de Negocio
+            if (saved.usuario) {
+                let title = "Actualización de Negocio";
+                let body = `El estado de tu negocio '${saved.nombre}' ha cambiado a ${saved.statusNegocio}.`;
+                if (saved.statusNegocio === data_1.StatusNegocio.ACTIVO) {
+                    const settings = yield data_1.GlobalSettings.findOne({ where: {} });
+                    const appName = (settings === null || settings === void 0 ? void 0 : settings.appName) || "Atucucho Shop";
+                    title = "¡Negocio Aprobado!";
+                    body = `Tu negocio '${saved.nombre}' ha sido aprobado y ya puede operar en ${appName}.`;
+                }
+                yield notificationService.sendPushNotification(saved.usuario.id, title, body, { url: '/user/mis-negocios' });
+            }
             return {
                 id: saved.id,
                 nombre: saved.nombre,
@@ -325,11 +428,24 @@ class NegocioAdminService {
                 fechaUltimoCobro: saved.fechaUltimoCobro,
                 intentosCobro: saved.intentosCobro,
                 orden: saved.orden,
+                tiempoPreparacionMin: saved.tiempoPreparacionMin,
+                tiempoPreparacionMax: saved.tiempoPreparacionMax,
+                permiteProductosProgramados: saved.permiteProductosProgramados,
+                tiempoProgramadoMin: saved.tiempoProgramadoMin,
+                tiempoProgramadoMax: saved.tiempoProgramadoMax,
                 pago_tarjeta_habilitado_admin: saved.pago_tarjeta_habilitado_admin,
                 pago_tarjeta_activo_negocio: saved.pago_tarjeta_activo_negocio,
-                payphone_store_id: saved.payphone_store_id,
-                payphone_token: saved.payphone_token,
-                porcentaje_recargo_tarjeta: Number(saved.porcentaje_recargo_tarjeta) || 0,
+                subcategoria: saved.subcategoria ? {
+                    id: saved.subcategoria.id,
+                    nombre: saved.subcategoria.nombre
+                } : null,
+                // 🔒 Enmascarar resultados guardados
+                payphone_store_id: saved.payphone_store_id
+                    ? `${saved.payphone_store_id.slice(0, 4)}...${saved.payphone_store_id.slice(-4)}`
+                    : null,
+                payphone_token: saved.payphone_token
+                    ? `****************${saved.payphone_token.slice(-6)}`
+                    : null
             };
         });
     }
@@ -416,7 +532,7 @@ class NegocioAdminService {
             });
             if (!negocio)
                 throw domain_1.CustomError.notFound("Negocio no encontrado");
-            const needsCharge = Number(negocio.valorSuscripcion) > 0 && (negocio.statusNegocio === data_1.StatusNegocio.NO_PAGADO ||
+            const needsCharge = (negocio.statusNegocio === data_1.StatusNegocio.NO_PAGADO ||
                 negocio.statusNegocio === data_1.StatusNegocio.PENDIENTE ||
                 !negocio.fechaFinSuscripcion ||
                 new Date(negocio.fechaFinSuscripcion) <= new Date());
@@ -432,6 +548,22 @@ class NegocioAdminService {
             }
             negocio.statusNegocio = status;
             yield negocio.save();
+            // 📡 Notificar por WebSockets (Cambio administrativo de status)
+            (0, socket_1.getIO)().emit("business_status_changed", {
+                businessId: negocio.id,
+                newStatus: negocio.estadoNegocio,
+                statusNegocio: negocio.statusNegocio,
+            });
+            // 🔔 Notificación Push al Dueño de Negocio
+            if (negocio.usuario) {
+                let title = "Actualización de Negocio";
+                let body = `El estado de tu negocio '${negocio.nombre}' ha cambiado a ${negocio.statusNegocio}.`;
+                if (negocio.statusNegocio === data_1.StatusNegocio.ACTIVO) {
+                    title = "¡Negocio Aprobado!";
+                    body = `Tu negocio '${negocio.nombre}' ha sido aprobado y ya puede operar.`;
+                }
+                yield notificationService.sendPushNotification(negocio.usuario.id, title, body, { url: '/user/mis-negocios' });
+            }
             return { message: `Estado cambiado a ${status}`, status: negocio.statusNegocio };
         });
     }
@@ -450,7 +582,7 @@ class NegocioAdminService {
             const skip = (page - 1) * limit;
             const [negocios, total] = yield data_1.Negocio.findAndCount({
                 where: { usuario: { id: userId } },
-                relations: ["categoria", "productos"], // Include products to count them
+                relations: ["categoria", "subcategoria", "productos"], // Include products to count them
                 order: { created_at: "DESC" },
                 take: limit,
                 skip: skip,
@@ -459,7 +591,7 @@ class NegocioAdminService {
             });
             // Process images and stats
             const formattedNegocios = yield Promise.all(negocios.map((negocio) => __awaiter(this, void 0, void 0, function* () {
-                var _a, _b, _c;
+                var _a, _b, _c, _d;
                 const resolvedImg = negocio.imagenNegocio
                     ? yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
                         bucketName: config_1.envs.AWS_BUCKET_NAME,
@@ -487,19 +619,25 @@ class NegocioAdminService {
                     statusNegocio: negocio.statusNegocio,
                     estadoNegocio: negocio.estadoNegocio, // Abierto/Cerrado
                     categoria: (_b = negocio.categoria) === null || _b === void 0 ? void 0 : _b.nombre,
+                    subcategoria: (_c = negocio.subcategoria) === null || _c === void 0 ? void 0 : _c.nombre,
                     modeloMonetizacion: negocio.modeloMonetizacion,
                     valorSuscripcion: negocio.valorSuscripcion,
                     diaPago: negocio.diaPago,
                     fechaUltimoCobro: negocio.fechaUltimoCobro,
                     intentosCobro: negocio.intentosCobro,
                     orden: negocio.orden,
+                    tiempoPreparacionMin: negocio.tiempoPreparacionMin,
+                    tiempoPreparacionMax: negocio.tiempoPreparacionMax,
+                    permiteProductosProgramados: negocio.permiteProductosProgramados,
+                    tiempoProgramadoMin: negocio.tiempoProgramadoMin,
+                    tiempoProgramadoMax: negocio.tiempoProgramadoMax,
                     fechaInicioSuscripcion: negocio.fechaInicioSuscripcion,
                     fechaFinSuscripcion: negocio.fechaFinSuscripcion,
                     direccion: negocio.direccionTexto,
                     latitud: negocio.latitud,
                     longitud: negocio.longitud,
                     direccionTexto: negocio.direccionTexto,
-                    whatsapp: (_c = negocio.usuario) === null || _c === void 0 ? void 0 : _c.whatsapp,
+                    whatsapp: (_d = negocio.usuario) === null || _d === void 0 ? void 0 : _d.whatsapp,
                     created_at: negocio.created_at,
                     updated_at: negocio.updated_at,
                     imagenUrl: resolvedImg,

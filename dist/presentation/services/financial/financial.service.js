@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -111,12 +144,12 @@ class FinancialService {
                         take: limit,
                         skip: skip
                     });
-                    const { Storie } = require("../../../data/postgres/models/stories.model");
+                    // data = await Promise.all(storiesTx.map(async (t) => {
                     data = yield Promise.all(storiesTx.map((t) => __awaiter(this, void 0, void 0, function* () {
                         var _a, _b;
                         let storyDetail = 'Historia';
                         if (t.reference) {
-                            const s = yield Storie.findOne({ where: { id: t.reference } });
+                            const s = yield data_1.Storie.findOne({ where: { id: t.reference } });
                             if (s) {
                                 storyDetail = s.description || `Historia #${s.id.slice(0, 5)}`;
                             }
@@ -271,10 +304,47 @@ class FinancialService {
                 .select("SUM(r.amount)", "total")
                 .addSelect("COUNT(r.id)", "count")
                 .where("r.status = :status", { status: data_1.StatusRecarga.APROBADO })
+                .andWhere("r.payment_method <> 'CASH'") // EXCLUDE CASH TO AVOID DOUBLE COUNTING WITH MANUALTX
                 .andWhere("r.created_at BETWEEN :start AND :end", { start: start, end: end })
                 .getRawOne();
-            const totalRecargasObjectivo = Number(recharges.total || 0);
-            // 2. INGRESOS APP (GANANCIA REAL)
+            const totalRecargasAprobadas = Number(recharges.total || 0);
+            // 1.5. RECARGAS MANUALES (ADMIN_ADJUSTMENT / CASH_RECHARGE)
+            // A. SOLO EFECTIVO (CASH_RECHARGE)
+            const cashRaw = yield data_1.Transaction.createQueryBuilder("t")
+                .select("SUM(t.amount)", "total")
+                .addSelect("COUNT(t.id)", "count")
+                .where("t.reason = 'CASH_RECHARGE'")
+                .andWhere("t.status = 'APPROVED'")
+                .andWhere("t.created_at BETWEEN :start AND :end", { start, end })
+                .getRawOne();
+            const totalEfectivo = Number(cashRaw.total || 0);
+            // B. SOLO AJUSTES (ADMIN_ADJUSTMENT)
+            const adjustmentsRaw = yield data_1.Transaction.createQueryBuilder("t")
+                .select("SUM(t.amount)", "total")
+                .addSelect("COUNT(t.id)", "count")
+                .where("t.reason = 'ADMIN_ADJUSTMENT'")
+                .andWhere("t.status = 'APPROVED'")
+                .andWhere("t.created_at BETWEEN :start AND :end", { start, end })
+                .getRawOne();
+            const totalAjustes = Number(adjustmentsRaw.total || 0);
+            // C. BREAKDOWN RECARGAS TABLA (TRANSFER vs CARD)
+            const transferRaw = yield data_1.RechargeRequest.createQueryBuilder("r")
+                .select("SUM(r.amount)", "total")
+                .where("r.status = :status", { status: data_1.StatusRecarga.APROBADO })
+                .andWhere("r.payment_method = 'TRANSF'")
+                .andWhere("r.created_at BETWEEN :start AND :end", { start, end })
+                .getRawOne();
+            const totalTransferencia = Number(transferRaw.total || 0);
+            const cardRaw = yield data_1.RechargeRequest.createQueryBuilder("r")
+                .select("SUM(r.amount)", "total")
+                .where("r.status = :status", { status: data_1.StatusRecarga.APROBADO })
+                .andWhere("r.payment_method = 'CARD'")
+                .andWhere("r.created_at BETWEEN :start AND :end", { start, end })
+                .getRawOne();
+            const totalTarjeta = Number(cardRaw.total || 0);
+            const totalRecargasManuales = totalEfectivo + totalAjustes;
+            const totalRecargasObjectivo = totalRecargasAprobadas + totalRecargasManuales;
+            const countRecargas = Number(recharges.count || 0) + (Number(cashRaw.count || 0) || 0) + (Number(adjustmentsRaw.count || 0) || 0);
             // 2. INGRESOS APP (GANANCIA REAL)
             // A. Suscripciones Usuarios (Transaction -> Reason SUBSCRIPTION + Ref OK)
             const subsUserIncome = yield data_1.Transaction.createQueryBuilder("t")
@@ -303,7 +373,7 @@ class FinancialService {
             // We look at ENTREGADO and CANCELADO orders in the period
             const orders = yield data_1.Pedido.find({
                 where: {
-                    estado: (0, typeorm_1.In)([data_1.EstadoPedido.ENTREGADO, data_1.EstadoPedido.CANCELADO]),
+                    estado: (0, typeorm_1.In)([data_1.EstadoPedido.ENTREGADO, data_1.EstadoPedido.CANCELADO, data_1.EstadoPedido.RETORNO_PENDIENTE, data_1.EstadoPedido.DEVUELTO_A_LOCAL]),
                     updatedAt: (0, typeorm_1.Between)(start, end)
                 },
                 relations: ["productos"]
@@ -388,16 +458,25 @@ class FinancialService {
                 period: { start: start, end: end },
                 bank: {
                     totalRecargas: totalRecargasObjectivo,
-                    countRecargas: Number(recharges.count || 0)
+                    countRecargas: countRecargas,
+                    breakdown: {
+                        transferencia: totalTransferencia,
+                        tarjeta: totalTarjeta,
+                        efectivo: totalEfectivo,
+                        ajustes: totalAjustes
+                    }
                 },
                 appRevenue: {
-                    total: totalIngresosApp,
+                    total: totalIngresosApp + totalRecargasManuales,
+                    directos: totalSubsUser + totalSubsBiz + totalStories,
+                    comisiones: totalComisionProductos + totalComisionDomicilios,
                     breakdown: {
                         suscripciones: totalSubsUser,
                         suscripcionesNegocios: totalSubsBiz,
                         historias: totalStories,
                         comisionProductos: totalComisionProductos,
-                        comisionDomicilio: totalComisionDomicilios
+                        comisionDomicilio: totalComisionDomicilios,
+                        recargasManuales: totalRecargasManuales
                     }
                 },
                 deposits: {
@@ -407,8 +486,8 @@ class FinancialService {
                 liabilities: {
                     usuarios: totalSaldoUsuarios,
                     motorizados: totalPorPagarMotorizados,
-                    tiendasPagar: totalPorPagarTiendas, // We owe them
-                    tiendasCobrar: totalPorCobrarTiendas // They owe us
+                    tiendasPagar: totalPorPagarTiendas,
+                    tiendasCobrar: totalPorCobrarTiendas
                 },
                 expenses: {
                     motorizados: totalPagoMotorizadosArr
@@ -418,16 +497,275 @@ class FinancialService {
             };
         });
     }
+    getUnifiedTransactions(date, types, statuses) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const { start, end } = date_utils_1.DateUtils.getDayRange(date);
+            // 1. Fetch Manual Transactions (The Ledger)
+            const manualTxQuery = data_1.Transaction.createQueryBuilder("t")
+                .leftJoinAndSelect("t.wallet", "wallet")
+                .leftJoinAndSelect("wallet.user", "user")
+                .leftJoinAndSelect("t.admin", "admin")
+                .where("(t.reason = 'ADMIN_ADJUSTMENT' OR t.reason = 'CASH_RECHARGE' OR t.reason = 'RECHARGE')", {})
+                .andWhere("t.created_at BETWEEN :start AND :end", { start, end })
+                .orderBy("t.created_at", "DESC");
+            if (statuses && statuses.length > 0) {
+                const dbStatuses = statuses.map(s => {
+                    const map = { 'APROBADO': 'APPROVED', 'PENDIENTE': 'PENDING', 'RECHAZADO': 'REJECTED' };
+                    return map[s] || s;
+                });
+                manualTxQuery.andWhere("t.status IN (:...statuses)", { statuses: dbStatuses });
+            }
+            // Apply types to Transaction (Manual)
+            if (types && types.length > 0) {
+                const txParts = [];
+                if (types.includes('recarga_efectivo'))
+                    txParts.push("t.reason = 'CASH_RECHARGE'");
+                if (types.includes('recarga_transferencia'))
+                    txParts.push("t.reason = 'RECHARGE'");
+                if (types.includes('credito_manual'))
+                    txParts.push("(t.reason = 'ADMIN_ADJUSTMENT' AND t.type = 'credit')");
+                if (types.includes('debito_manual'))
+                    txParts.push("(t.reason = 'ADMIN_ADJUSTMENT' AND t.type = 'debit')");
+                if (txParts.length > 0) {
+                    manualTxQuery.andWhere(`(${txParts.join(" OR ")})`);
+                }
+                else if (!types.includes('payphone')) {
+                    manualTxQuery.andWhere("1=0");
+                }
+            }
+            const manualTx = yield manualTxQuery.getMany();
+            // 2. Recharge Requests (Automatic/Bank)
+            const linkedRequestIds = manualTx
+                .filter(t => t.reason === data_1.TransactionReason.RECHARGE && t.reference)
+                .map(t => t.reference);
+            const requestsQuery = data_1.RechargeRequest.createQueryBuilder("r")
+                .leftJoinAndSelect("r.user", "user")
+                .leftJoinAndSelect("user.wallet", "wallet")
+                .where("r.created_at BETWEEN :start AND :end", { start, end })
+                .andWhere("r.payment_method <> 'CASH'");
+            if (statuses && statuses.length > 0) {
+                requestsQuery.andWhere("r.status IN (:...reqStatuses)", { reqStatuses: statuses });
+            }
+            // Apply types to RechargeRequest
+            if (types && types.length > 0) {
+                const reqParts = [];
+                if (types.includes('payphone'))
+                    reqParts.push("r.payment_method = 'CARD'");
+                if (types.includes('recarga_transferencia'))
+                    reqParts.push("r.payment_method = 'TRANSFER'");
+                if (reqParts.length > 0) {
+                    requestsQuery.andWhere(`(${reqParts.join(" OR ")})`);
+                }
+                else if (!types.includes('recarga_efectivo') && !types.includes('credito_manual') && !types.includes('debito_manual')) {
+                    requestsQuery.andWhere("1=0");
+                }
+            }
+            if (linkedRequestIds.length > 0) {
+                requestsQuery.andWhere("r.id NOT IN (:...ids)", { ids: linkedRequestIds });
+            }
+            const requests = yield requestsQuery.getMany();
+            const formattedRequests = yield Promise.all(requests.map((r) => __awaiter(this, void 0, void 0, function* () {
+                var _a;
+                // If approved, try to find the actual transaction to get balance_after
+                let balanceAfter = null;
+                if (r.status === data_1.StatusRecarga.APROBADO) {
+                    const tx = yield data_1.Transaction.findOneBy({ reference: r.id });
+                    if (tx)
+                        balanceAfter = Number(tx.resultingBalance);
+                }
+                return {
+                    id: r.id,
+                    created_at: r.created_at,
+                    amount: Number(r.amount),
+                    status: r.status,
+                    bank_name: r.bank_name || 'RECARGA EXTERNA',
+                    receipt_number: r.receipt_number || 'S/N',
+                    type: r.payment_method === 'CARD' ? 'payphone' : 'recarga_transferencia',
+                    user: {
+                        name: r.user.name,
+                        surname: r.user.surname,
+                        email: r.user.email,
+                        whatsapp: r.user.whatsapp,
+                        current_balance: Number(((_a = r.user.wallet) === null || _a === void 0 ? void 0 : _a.balance) || 0)
+                    },
+                    balance_after: balanceAfter
+                };
+            })));
+            const formattedManual = yield Promise.all(manualTx.map((t) => __awaiter(this, void 0, void 0, function* () {
+                var _a;
+                let imageUrl = null;
+                try {
+                    if (t.receipt_image) {
+                        imageUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
+                            bucketName: config_1.envs.AWS_BUCKET_NAME,
+                            key: t.receipt_image,
+                        });
+                    }
+                }
+                catch (e) {
+                    console.error("Error fetching receipt image:", e);
+                }
+                // Attempt to enrich "RECHARGE" with info from the request if reference exists
+                let bankInfo = (t.reason === 'RECHARGE' || t.reason === 'CASH_RECHARGE') ? 'BANCO / EFECTIVO' : 'AJUSTE INTERNO';
+                let refInfo = t.admin ? `ADMIN: ${t.admin.name}` : 'SISTEMA';
+                if (t.reason === data_1.TransactionReason.RECHARGE && t.reference) {
+                    const req = yield data_1.RechargeRequest.findOneBy({ id: t.reference });
+                    if (req) {
+                        bankInfo = req.bank_name || bankInfo;
+                        refInfo = req.receipt_number || refInfo;
+                    }
+                }
+                return {
+                    id: t.id,
+                    created_at: t.created_at,
+                    amount: Number(t.amount),
+                    status: 'APROBADO', // Manuals are approved if they exist
+                    bank_name: bankInfo,
+                    receipt_number: refInfo,
+                    receiptImage: imageUrl,
+                    type: (t.reason === 'CASH_RECHARGE') ? 'recarga_efectivo' :
+                        (t.reason === 'RECHARGE') ? 'recarga_transferencia' :
+                            (t.type === 'credit') ? 'credito_manual' : 'debito_manual',
+                    user: {
+                        name: t.wallet.user.name,
+                        surname: t.wallet.user.surname,
+                        email: t.wallet.user.email,
+                        whatsapp: t.wallet.user.whatsapp,
+                        current_balance: Number(((_a = t.wallet.user.wallet) === null || _a === void 0 ? void 0 : _a.balance) || 0)
+                    },
+                    balance_after: Number(t.resultingBalance)
+                };
+            })));
+            // Combine and Sort
+            return [...formattedRequests, ...formattedManual].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        });
+    }
+    // ===================================
+    // 🔎 AUDITORÍA DE COMPROBANTES
+    // ===================================
+    getComprobantesAuditoria(query_1, startDate_1, endDate_1, amount_1, type_1) {
+        return __awaiter(this, arguments, void 0, function* (query, startDate, endDate, amount, type, page = 1, limit = 20) {
+            let allReceipts = [];
+            // Parsing dates
+            let start = new Date(0);
+            let end = new Date();
+            if (startDate) {
+                start = date_utils_1.DateUtils.parseLocalDate(startDate);
+                start.setHours(0, 0, 0, 0);
+            }
+            if (endDate) {
+                end = date_utils_1.DateUtils.parseLocalDate(endDate);
+                end.setHours(23, 59, 59, 999);
+            }
+            else if (startDate) {
+                end = new Date(start);
+                end.setHours(23, 59, 59, 999);
+            }
+            // 1. Fetch from RechargeRequest
+            if (!type || type === 'ALL' || type === 'RECARGA') {
+                const reqQuery = data_1.RechargeRequest.createQueryBuilder("r")
+                    .leftJoinAndSelect("r.user", "user")
+                    .where("r.receipt_image IS NOT NULL")
+                    .andWhere("r.created_at BETWEEN :start AND :end", { start, end });
+                if (amount) {
+                    reqQuery.andWhere("r.amount = :amount", { amount });
+                }
+                if (query) {
+                    reqQuery.andWhere("(r.receipt_number ILIKE :query OR user.name ILIKE :query OR user.email ILIKE :query OR user.surname ILIKE :query)", { query: `%${query}%` });
+                }
+                const recargas = yield reqQuery.getMany();
+                const mappedRecargas = recargas.map(r => ({
+                    id: r.id,
+                    origin: 'RECARGA',
+                    date: r.created_at,
+                    amount: Number(r.amount),
+                    status: r.status,
+                    user: {
+                        id: r.user.id,
+                        name: `${r.user.name} ${r.user.surname}`,
+                        email: r.user.email
+                    },
+                    receipt_number: r.receipt_number || 'S/N',
+                    rawUrl: r.receipt_image
+                }));
+                allReceipts = allReceipts.concat(mappedRecargas);
+            }
+            // 2. Fetch from Pedido
+            if (!type || type === 'ALL' || type === 'PEDIDO') {
+                const pQuery = data_1.Pedido.createQueryBuilder("p")
+                    .leftJoinAndSelect("p.cliente", "cliente")
+                    .leftJoinAndSelect("p.negocio", "negocio")
+                    .where("p.comprobantePagoUrl IS NOT NULL")
+                    .andWhere("p.updatedAt BETWEEN :start AND :end", { start, end });
+                if (amount) {
+                    pQuery.andWhere("p.total = :amount", { amount });
+                }
+                if (query) {
+                    pQuery.andWhere("(p.id::text ILIKE :query OR cliente.name ILIKE :query OR cliente.email ILIKE :query OR cliente.surname ILIKE :query OR negocio.nombre ILIKE :query)", { query: `%${query}%` });
+                }
+                const pedidos = yield pQuery.getMany();
+                const mappedPedidos = pedidos.map(p => {
+                    var _a, _b, _c, _d, _e;
+                    return ({
+                        id: p.id,
+                        origin: 'PEDIDO',
+                        date: p.updatedAt,
+                        amount: Number(p.total),
+                        status: p.estado,
+                        user: {
+                            id: (_a = p.cliente) === null || _a === void 0 ? void 0 : _a.id,
+                            name: `${((_b = p.cliente) === null || _b === void 0 ? void 0 : _b.name) || ''} ${((_c = p.cliente) === null || _c === void 0 ? void 0 : _c.surname) || ''}`.trim(),
+                            email: (_d = p.cliente) === null || _d === void 0 ? void 0 : _d.email
+                        },
+                        receipt_number: `Order ID: ${p.id.split('-')[0]}`,
+                        rawUrl: p.comprobantePagoUrl,
+                        shopName: (_e = p.negocio) === null || _e === void 0 ? void 0 : _e.nombre
+                    });
+                });
+                allReceipts = allReceipts.concat(mappedPedidos);
+            }
+            // Sort globally
+            allReceipts.sort((a, b) => b.date.getTime() - a.date.getTime());
+            // Pagination
+            const total = allReceipts.length;
+            const skip = (page - 1) * limit;
+            const paginated = allReceipts.slice(skip, skip + limit);
+            // Sign URLs
+            const resultsWithSignedUrls = yield Promise.all(paginated.map((r) => __awaiter(this, void 0, void 0, function* () {
+                let signedUrl = r.rawUrl;
+                if (r.rawUrl && !r.rawUrl.startsWith('http')) {
+                    try {
+                        signedUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({ bucketName: config_1.envs.AWS_BUCKET_NAME, key: r.rawUrl });
+                    }
+                    catch (e) {
+                        console.error("Error signing URL", e);
+                    }
+                }
+                return Object.assign(Object.assign({}, r), { imageUrl: signedUrl });
+            })));
+            return {
+                data: resultsWithSignedUrls,
+                pagination: {
+                    page,
+                    limit,
+                    total,
+                    totalPages: Math.ceil(total / limit)
+                }
+            };
+        });
+    }
     // ===================================
     // 🏪 SHOP RECONCILIATION (CUADRE POR LOCAL)
     // ===================================
     getShopReconciliation(startDate, endDate) {
         return __awaiter(this, void 0, void 0, function* () {
-            const start = new Date(startDate);
-            start.setHours(0, 0, 0, 0);
-            const end = new Date(endDate);
-            end.setHours(23, 59, 59, 999);
-            const dateStr = date_utils_1.DateUtils.toLocalDateString(endDate);
+            const { DateUtils } = yield Promise.resolve().then(() => __importStar(require("../../../utils/date-utils")));
+            // Convert to string to avoid timezone shifts when passing to getDayRange
+            const startStr = DateUtils.toLocalDateString(startDate);
+            const endStr = DateUtils.toLocalDateString(endDate);
+            const { start } = DateUtils.getDayRange(startStr);
+            const { end } = DateUtils.getDayRange(endStr);
+            const dateStr = DateUtils.toLocalDateString(endDate);
             // 1. Get all businesses
             const businesses = yield data_1.Negocio.find();
             const results = [];
@@ -461,8 +799,13 @@ class FinancialService {
                 const orders = yield data_1.Pedido.find({
                     where: {
                         negocio: { id: biz.id },
-                        estado: (0, typeorm_1.In)([data_1.EstadoPedido.ENTREGADO, data_1.EstadoPedido.CANCELADO]),
-                        updatedAt: (0, typeorm_1.Between)(start, end)
+                        estado: (0, typeorm_1.In)([
+                            data_1.EstadoPedido.ENTREGADO,
+                            data_1.EstadoPedido.CANCELADO,
+                            data_1.EstadoPedido.RETORNO_PENDIENTE,
+                            data_1.EstadoPedido.DEVUELTO_A_LOCAL
+                        ]),
+                        createdAt: (0, typeorm_1.Between)(start, end)
                     }
                 });
                 let totalVentas = 0;
@@ -477,7 +820,7 @@ class FinancialService {
                     const comEnvio = Number(order.costoEnvio || 0);
                     // precioApp is what shop should get for products
                     const precioApp = Number(order.total_precio_app || (total - comProd - comEnvio));
-                    if (order.estado === data_1.EstadoPedido.CANCELADO) {
+                    if ([data_1.EstadoPedido.CANCELADO, data_1.EstadoPedido.RETORNO_PENDIENTE, data_1.EstadoPedido.DEVUELTO_A_LOCAL].includes(order.estado)) {
                         if (order.metodoPago === data_1.MetodoPago.TRANSFERENCIA) {
                             // User Rule: If canceled transfer, local has the money and owes 100% to App (App returns it to client)
                             totalTransfer += total;
@@ -542,15 +885,40 @@ class FinancialService {
                     estado: (0, typeorm_1.In)([data_1.EstadoPedido.ENTREGADO, data_1.EstadoPedido.CANCELADO]),
                     updatedAt: (0, typeorm_1.Between)(start, end)
                 },
-                relations: ["cliente"]
+                relations: ["cliente", "productos", "productos.producto"]
             });
             const transfers = [];
             const cash = [];
             for (const o of orders) {
                 const isCanceled = o.estado === data_1.EstadoPedido.CANCELADO;
-                let comProd = Number(o.total_comision_productos || 0);
-                let comEnvio = Number(o.costoEnvio || 0);
-                let precioApp = Number(o.total_precio_app || (Number(o.total) - comProd - comEnvio));
+                let comEnvio = Number(o.costoEnvio) || 0;
+                let rawComProd = Number(o.total_comision_productos);
+                let comProd = rawComProd ? rawComProd : 0;
+                let rawTotalPub = Number(o.total_precio_venta_publico);
+                let totalProducts = rawTotalPub ? rawTotalPub : (Number(o.total) - comEnvio);
+                // FALLBACK FOR LEGACY ORDERS THAT DON'T HAVE total_comision_productos
+                if (!rawComProd && o.productos && o.productos.length > 0) {
+                    let calcComProd = 0;
+                    let calcTotalProducts = 0;
+                    for (const pp of o.productos) {
+                        const p = pp.producto;
+                        const q = Number(pp.cantidad || 1);
+                        if (p) {
+                            calcTotalProducts += Number(p.precio_venta || 0) * q;
+                            calcComProd += (Number(p.precio_venta || 0) - Number(p.precio_app || 0)) * q;
+                        }
+                    }
+                    if (calcComProd > 0)
+                        comProd = calcComProd;
+                    if (calcTotalProducts > 0)
+                        totalProducts = calcTotalProducts;
+                }
+                let rawPrecioApp = Number(o.total_precio_app);
+                let precioApp = rawPrecioApp ? rawPrecioApp : (totalProducts - comProd);
+                let rawGananciaMoto = Number(o.ganancia_motorizado);
+                let gananciaMoto = rawGananciaMoto ? rawGananciaMoto : Number((comEnvio * 0.8).toFixed(2));
+                let rawComEnvioApp = Number(o.comision_app_domicilio);
+                let comisionAppEnvio = rawComEnvioApp ? rawComEnvioApp : Number((comEnvio - gananciaMoto).toFixed(2));
                 // Adjust values for specialized canceled logic
                 if (isCanceled) {
                     if (o.metodoPago === data_1.MetodoPago.TRANSFERENCIA) {
@@ -587,12 +955,12 @@ class FinancialService {
                     isCanceled,
                     comprobanteUrl: resolvedComprobante,
                     breakdown: {
-                        totalProducts: isCanceled ? 0 : Number(o.total_precio_venta_publico || (Number(o.total) - comEnvio)),
+                        totalProducts: isCanceled ? 0 : totalProducts,
                         comisionProd: comProd,
                         precioApp: precioApp,
                         totalEnvio: comEnvio,
-                        gananciaMoto: isCanceled ? 0 : Number(o.ganancia_motorizado || 0),
-                        comisionAppEnvio: isCanceled ? 0 : Number(o.comision_app_domicilio || 0)
+                        gananciaMoto: isCanceled ? 0 : gananciaMoto,
+                        comisionAppEnvio: isCanceled ? 0 : comisionAppEnvio
                     }
                 };
                 if (o.metodoPago === data_1.MetodoPago.TRANSFERENCIA) {
@@ -954,10 +1322,10 @@ class FinancialService {
                 }
                 // 3. Fallback calculation
                 if (gananciaMoto === 0) {
-                    let comisionApp = Number(order.comision_moto_app || order.comision_app_domicilio || 0);
+                    let comisionApp = Number(order.comision_moto_app) || Number(order.comision_app_domicilio) || 0;
                     if (comisionApp === 0)
-                        comisionApp = Number(order.costoEnvio || 0) * 0.20;
-                    gananciaMoto = Number(order.costoEnvio || 0) - comisionApp;
+                        comisionApp = Number(order.costoEnvio) * 0.20 || 0;
+                    gananciaMoto = Number(order.costoEnvio) - comisionApp || 0;
                 }
                 // Format Time (Ecuador America/Guayaquil)
                 const dateObj = new Date(order.updatedAt);

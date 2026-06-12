@@ -103,10 +103,12 @@ class SubscriptionController {
                 const userId = (_a = req.body.sessionUser) === null || _a === void 0 ? void 0 : _a.id;
                 if (!userId)
                     return res.status(401).json({ message: "Usuario no autenticado" });
-                const tracker = yield this.freePostTrackerService.getOrCreateTracker(userId);
-                const settings = yield this.globalSettingsService.getSettings();
+                const [tracker, settings, latest] = yield Promise.all([
+                    this.freePostTrackerService.getOrCreateTracker(userId),
+                    this.globalSettingsService.getSettings(),
+                    this.subscriptionService.getLatestSubscription(userId)
+                ]);
                 const freePostsRemaining = Math.max(0, settings.freePostsLimit - tracker.count);
-                const latest = yield this.subscriptionService.getLatestSubscription(userId);
                 const subscriptionStatus = latest ? latest.status : "NO_SUBSCRIPTION";
                 return res.status(200).json({
                     success: true,
@@ -168,11 +170,11 @@ class SubscriptionController {
          */
         this.activateSubscriptionWithoutCharge = (req, res) => __awaiter(this, void 0, void 0, function* () {
             try {
-                const { userId, masterPin, plan } = req.body;
+                const { userId, masterPin, plan, days } = req.body;
                 if (!userId || !masterPin) {
                     return res.status(400).json({ message: "userId y masterPin son requeridos" });
                 }
-                const subscription = yield this.subscriptionService.activateSubscriptionWithoutCharge(userId, masterPin, plan);
+                const subscription = yield this.subscriptionService.activateSubscriptionWithoutCharge(userId, masterPin, plan, days ? Number(days) : undefined);
                 res.json({
                     success: true,
                     message: "Suscripción activada sin cobro por administrador",
@@ -269,6 +271,28 @@ class SubscriptionController {
             }
         });
         /**
+         * 🔐 Verificar Master PIN
+         */
+        this.verifyMasterPin = (req, res) => __awaiter(this, void 0, void 0, function* () {
+            try {
+                const { masterPin } = req.body;
+                if (!masterPin) {
+                    return res.status(400).json({ message: "masterPin es requerido" });
+                }
+                const isValid = yield this.subscriptionService.validateMasterPin(masterPin);
+                if (!isValid) {
+                    return res.status(403).json({ message: "PIN Maestro incorrecto" });
+                }
+                res.json({
+                    success: true,
+                    message: "PIN validado correctamente"
+                });
+            }
+            catch (error) {
+                this.handleError(error, res);
+            }
+        });
+        /**
          * Actualizar configuración de posts gratuitos (solo admin)
          */
         this.updateFreePostSettings = (req, res) => __awaiter(this, void 0, void 0, function* () {
@@ -291,6 +315,10 @@ class SubscriptionController {
                         freePostsLimit: settings.freePostsLimit,
                         freePostDurationDays: settings.freePostDurationDays,
                         freePostDurationHours: settings.freePostDurationHours,
+                        postsRetentionDays: settings.postsRetentionDays,
+                        paidPostsRetentionDays: settings.paidPostsRetentionDays,
+                        paidPurgeInactivityMonths: settings.paidPurgeInactivityMonths,
+                        autoPurgeEnabled: settings.autoPurgeEnabled,
                     }
                 });
             }
@@ -310,6 +338,10 @@ class SubscriptionController {
                         freePostsLimit: settings.freePostsLimit,
                         freePostDurationDays: settings.freePostDurationDays,
                         freePostDurationHours: settings.freePostDurationHours,
+                        postsRetentionDays: settings.postsRetentionDays,
+                        paidPostsRetentionDays: settings.paidPostsRetentionDays,
+                        paidPurgeInactivityMonths: settings.paidPurgeInactivityMonths,
+                        autoPurgeEnabled: settings.autoPurgeEnabled,
                     }
                 });
             }

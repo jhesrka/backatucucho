@@ -36,7 +36,7 @@ class DeliverySettingsController {
             var _a;
             try {
                 const { firstRangeKm, firstRangeFee, extraStepKm, extraStepFee, isActive, // opcional; si no viene, se asume true en el service
-                 } = (_a = req.body) !== null && _a !== void 0 ? _a : {};
+                masterPin, peakHours, } = (_a = req.body) !== null && _a !== void 0 ? _a : {};
                 // Validaciones mínimas (opcionales; el service también valida)
                 const toNum = (v) => (v === undefined ? undefined : Number(v));
                 const payload = {
@@ -45,6 +45,8 @@ class DeliverySettingsController {
                     extraStepKm: toNum(extraStepKm),
                     extraStepFee: toNum(extraStepFee),
                     isActive: typeof isActive === "boolean" ? isActive : true,
+                    masterPin,
+                    peakHours,
                 };
                 const created = yield this.service.createOrActivate(payload);
                 return res.status(201).json(created);
@@ -60,7 +62,7 @@ class DeliverySettingsController {
                 const { id } = req.params;
                 if (!id)
                     return res.status(400).json({ message: "Falta el ID de la configuración" });
-                const { firstRangeKm, firstRangeFee, extraStepKm, extraStepFee, isActive, } = (_a = req.body) !== null && _a !== void 0 ? _a : {};
+                const { firstRangeKm, firstRangeFee, extraStepKm, extraStepFee, isActive, masterPin, peakHours, } = (_a = req.body) !== null && _a !== void 0 ? _a : {};
                 const toNum = (v) => (v === undefined ? undefined : Number(v));
                 const payload = {
                     firstRangeKm: toNum(firstRangeKm),
@@ -68,6 +70,8 @@ class DeliverySettingsController {
                     extraStepKm: toNum(extraStepKm),
                     extraStepFee: toNum(extraStepFee),
                     isActive: typeof isActive === "boolean" ? isActive : undefined,
+                    masterPin,
+                    peakHours,
                 };
                 const updated = yield this.service.update(id, payload);
                 return res.status(200).json(updated);

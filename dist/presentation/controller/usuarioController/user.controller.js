@@ -106,10 +106,10 @@ class UserController {
             }
         });
         this.completeProfile = (req, res) => {
-            const { whatsapp, password, acceptedTerms, acceptedPrivacy } = req.body;
+            const { whatsapp, password, acceptedTerms, acceptedPrivacy, birthday, isUnderage } = req.body;
             const userId = req.body.sessionUser.id;
             this.userService
-                .completeProfile(userId, { whatsapp, password, acceptedTerms, acceptedPrivacy })
+                .completeProfile(userId, { whatsapp, password, acceptedTerms, acceptedPrivacy, birthday, isUnderage })
                 .then((data) => res.status(200).json(data))
                 .catch((error) => this.handleError(error, res));
         };
@@ -143,7 +143,7 @@ class UserController {
             const { token } = req.params;
             this.userService
                 .validateEmail(token)
-                .then((data) => res.status(200).json(data))
+                .then((data) => res.status(200).json({ success: true, message: "Cuenta activada correctamente", data }))
                 .catch((error) => this.handleError(error, res));
         };
         this.getProfile = (req, res) => {
@@ -159,11 +159,14 @@ class UserController {
                 .catch((error) => this.handleError(error, res));
         };
         //ADMINISTRADOR
-        // 1. Listar todos los usuarios
         this.findAllUsers = (req, res) => {
             const page = parseInt(req.query.page) || 1;
+            const limit = parseInt(req.query.limit) || 5;
+            const status = req.query.status;
+            const date = req.query.date;
+            // Forced recompile to sync with user.service.ts
             this.userService
-                .findAllUsers(page)
+                .findAllUsersWithDate(page, status, date, limit)
                 .then((data) => res.status(200).json(data))
                 .catch((error) => this.handleError(error, res));
         };
@@ -215,11 +218,13 @@ class UserController {
         };
         // 6. Cambiar estado del usuario
         this.changeUserStatus = (req, res) => {
+            var _a;
+            const adminId = (_a = req.body.sessionUser) === null || _a === void 0 ? void 0 : _a.id;
             const [error, dto] = domain_1.UpdateUserStatusDTO.create(req.body);
             if (error)
                 return res.status(400).json({ message: error });
             this.userService
-                .changeUserStatus(dto.id, dto)
+                .changeUserStatus(dto.id, dto, adminId)
                 .then(() => res.status(200).json({ message: "Estado actualizado correctamente" }))
                 .catch((err) => this.handleError(err, res));
         };
@@ -274,6 +279,15 @@ class UserController {
                 return this.handleError(error, res);
             }
         });
+        this.countUsersByStatus = (_req, res) => __awaiter(this, void 0, void 0, function* () {
+            try {
+                const stats = yield this.userService.countUsersByStatus();
+                return res.status(200).json({ success: true, stats });
+            }
+            catch (error) {
+                return this.handleError(error, res);
+            }
+        });
         // Usuarios registrados en las últimas 24 horas
         this.countUsersRegisteredLast24h = (_req, res) => __awaiter(this, void 0, void 0, function* () {
             try {
@@ -295,9 +309,9 @@ class UserController {
         // ===================== NUEVOS MÉTODOS DE GESTIÓN AVANZADA =====================
         this.updateUserAdminAction = (req, res) => __awaiter(this, void 0, void 0, function* () {
             const { id } = req.params;
-            const { email, whatsapp, status } = req.body;
+            const { email, whatsapp, status, masterPin } = req.body;
             try {
-                const result = yield this.userService.updateUserAdmin(id, { email, whatsapp, status });
+                const result = yield this.userService.updateUserAdmin(id, { email, whatsapp, status, masterPin });
                 return res.status(200).json(result);
             }
             catch (error) {
@@ -326,9 +340,24 @@ class UserController {
         });
         this.purgeUserAdminAction = (req, res) => __awaiter(this, void 0, void 0, function* () {
             const { id } = req.params;
+            const { masterPin } = req.body;
             try {
-                const result = yield this.userService.purgeUserAdmin(id);
+                const result = yield this.userService.purgeUserAdmin(id, masterPin);
                 return res.status(200).json(result);
+            }
+            catch (error) {
+                this.handleError(error, res);
+            }
+        });
+        this.resendActivationAdminAction = (req, res) => __awaiter(this, void 0, void 0, function* () {
+            const { id } = req.params;
+            try {
+                const user = yield this.userService.findOneUser(id);
+                if (user.status !== "INACTIVE") {
+                    return res.status(400).json({ message: "El usuario no está en estado INACTIVO." });
+                }
+                yield this.userService.sendEmailValidationLink(user.email);
+                return res.status(200).json({ message: "Correo de activación reenviado exitosamente." });
             }
             catch (error) {
                 this.handleError(error, res);

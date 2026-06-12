@@ -16,6 +16,8 @@ class UseradminRoutes {
         const useradminController = new useradmin_controller_1.UseradminController(useradminService);
         const upload = (0, multer_1.default)(); // Inicializamos multer
         //ADMINISTRADOR
+        router.get("/setup/status", useradminController.checkSetupStatus);
+        router.post("/setup", upload.none(), useradminController.setupFirstAdmin);
         router.post("/register", upload.none(), middlewares_1.AuthAdminMiddleware.protect, useradminController.createUseradmin);
         router.post("/validate-pin", middlewares_1.AuthAdminMiddleware.protect, useradminController.validateMasterPin);
         router.post("/loginadmin", useradminController.loginAdmin);
@@ -24,7 +26,7 @@ class UseradminRoutes {
         router.patch("/update-password", middlewares_1.AuthAdminMiddleware.protect, useradminController.updatePassword);
         router.patch("/update-security-pin", middlewares_1.AuthAdminMiddleware.protect, useradminController.updateSecurityPin);
         // Buscar todos los usuarios administrativos
-        router.get("/", useradminController.findAllUsersadmin);
+        router.get("/", middlewares_1.AuthAdminMiddleware.protect, useradminController.findAllUsersadmin);
         return router;
     }
 }

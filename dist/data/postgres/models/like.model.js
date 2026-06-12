@@ -30,7 +30,7 @@ __decorate([
     __metadata("design:type", index_1.Post)
 ], Like.prototype, "post", void 0);
 __decorate([
-    (0, typeorm_1.Column)("timestamp", {
+    (0, typeorm_1.Column)("timestamptz", {
         default: () => "CURRENT_TIMESTAMP",
     }),
     __metadata("design:type", Date)

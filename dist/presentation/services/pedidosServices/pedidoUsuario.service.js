@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -8,13 +41,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PedidoUsuarioService = void 0;
 const typeorm_1 = require("typeorm");
-const moment_timezone_1 = __importDefault(require("moment-timezone"));
 const socket_1 = require("../../../config/socket");
 const data_1 = require("../../../data");
 const domain_1 = require("../../../domain");
@@ -22,15 +51,16 @@ const upload_files_cloud_adapter_1 = require("../../../config/upload-files-cloud
 const env_1 = require("../../../config/env");
 const calcularEnvio_service_1 = require("./calcularEnvio.service");
 const payphone_service_1 = require("../payphone.service");
+const NotificationService_1 = require("../NotificationService");
+const notificationService = new NotificationService_1.NotificationService();
 class PedidoUsuarioService {
     static calcularEnvio(dto) {
         return __awaiter(this, void 0, void 0, function* () {
             const negocio = yield data_1.Negocio.findOneBy({ id: dto.negocioId });
             if (!negocio)
                 throw domain_1.CustomError.notFound("Negocio no encontrado");
-            if (!dto.lat || !dto.lng) {
+            if (!dto.lat || !dto.lng)
                 throw domain_1.CustomError.badRequest("Coordenadas inválidas");
-            }
             const { distanciaKm, costoEnvio } = yield calcularEnvio_service_1.CalcularEnvioService.calcularParaPedido({
                 negocio,
                 latCliente: dto.lat,
@@ -41,7 +71,6 @@ class PedidoUsuarioService {
     }
     confirmarPago(id, clientTxId) {
         return __awaiter(this, void 0, void 0, function* () {
-            // ✂️ Si el ID trae sufijo de reintento (ej: UUID--timestamp), extraemos solo el UUID del pedido (36 caracteres)
             const realOrderId = clientTxId.includes('--') ? clientTxId.split('--')[0] : clientTxId;
             const pedido = yield data_1.Pedido.findOne({
                 where: { id: realOrderId },
@@ -50,512 +79,508 @@ class PedidoUsuarioService {
             if (!pedido)
                 throw domain_1.CustomError.notFound("Pedido no encontrado");
             if (!pedido.negocio.payphone_token)
-                throw domain_1.CustomError.badRequest("El negocio no tiene token de Payphone configurado");
+                throw domain_1.CustomError.badRequest("Negocio sin token Payphone");
             const result = yield payphone_service_1.PayphoneService.confirmPayment(id, clientTxId, pedido.negocio.payphone_token);
-            if (result.transactionStatus === "Approved") {
-                pedido.estado = data_1.EstadoPedido.PENDIENTE; // Ya entra a la cola del restaurante
+            if (result && (result.transactionStatus === "Approved" ||
+                result.status === "Approved" ||
+                result.transactionStatus === "approved" ||
+                result.status === "approved" ||
+                Number(result.statusCode) === 3)) {
+                pedido.estado = data_1.EstadoPedido.PENDIENTE;
                 pedido.estadoPago = "PAGADO";
                 pedido.referenciaPago = id.toString();
                 yield pedido.save();
-                // 🔔 Notificar al negocio por Socket.io
-                console.log(`🔔 [Socket] Pago confirmado. Emitiendo nuevo pedido a sala: ${pedido.negocio.id}`);
-                const socketIO = (0, socket_1.getIO)();
-                if (socketIO) {
-                    socketIO.to(pedido.negocio.id).emit("nuevo_pedido", {
-                        id: pedido.id,
-                        estado: pedido.estado,
-                        total: pedido.total,
-                        productos: pedido.productos,
-                        cliente: {
-                            id: pedido.cliente.id,
-                            name: pedido.cliente.name,
-                            surname: pedido.cliente.surname
-                        },
-                        createdAt: pedido.createdAt
-                    });
-                }
-                return { success: true, message: "Pago aprobado y pedido activado", status: result.transactionStatus };
-            }
-            else {
-                pedido.estado = "CANCELADO";
-                pedido.estadoPago = "FALLIDO";
                 yield pedido.save();
-                return { success: false, message: "El pago no fue aprobado", status: result.transactionStatus };
+                (0, socket_1.getIO)().to(pedido.negocio.id).emit("nuevo_pedido", {
+                    id: pedido.id, estado: pedido.estado, total: pedido.total, productos: pedido.productos,
+                    cliente: { id: pedido.cliente.id, name: pedido.cliente.name, surname: pedido.cliente.surname },
+                    createdAt: pedido.createdAt,
+                    notaGeneral: pedido.notaGeneral
+                });
+                // 🔔 Notificación Push al Dueño de Negocio
+                if (pedido.negocio.usuario) {
+                    yield notificationService.sendPushNotification(pedido.negocio.usuario.id, "¡Nuevo Pedido Recibido!", `Has recibido un nuevo pedido (#${pedido.id.split('-')[0]}) por $${pedido.total}`, { url: `/business/dashboard/${pedido.negocio.id}/orders/pending` });
+                }
+                return { success: true, status: result.transactionStatus || result.status };
             }
+            return { success: false, status: result.transactionStatus || result.status, message: "El pago no fue aprobado por el banco." };
         });
     }
-    // Crear un pedido desde el frontend del cliente
     crearPedido(dto) {
         return __awaiter(this, void 0, void 0, function* () {
-            var _a, _b, _c, _d, _e;
-            try {
-                const fs = require('fs');
-                const logPath = 'c:/Users/jhesr/OneDrive/Escritorio/academlo/proyectReales/atucuchoShop/atucuchoFull/atucuchoBack/tmp/order_debug.log';
-                const logData = `[${new Date().toISOString()}] CREAR PEDIDO: negocioId=${dto.negocioId} | metodoPago=${dto.metodoPago}\n`;
-                fs.appendFileSync(logPath, logData);
-            }
-            catch (e) { }
-            // ... (validation logic identical to original)
-            const { clienteId, negocioId, productos, ubicacionCliente, metodoPago, montoVuelto, comprobantePagoUrl, } = dto;
+            const { clienteId, negocioId, productos, ubicacionCliente, metodoPago, comprobantePagoUrl } = dto;
             const cliente = yield data_1.User.findOneBy({ id: clienteId });
-            if (!cliente)
-                throw domain_1.CustomError.notFound("Cliente no encontrado");
             const negocio = yield data_1.Negocio.findOneBy({ id: negocioId });
-            if (!negocio)
-                throw domain_1.CustomError.notFound("Negocio no encontrado");
-            if (!productos || productos.length === 0) {
-                throw domain_1.CustomError.badRequest("Debe incluir al menos un producto");
-            }
-            if (!((_a = dto.ubicacionCliente) === null || _a === void 0 ? void 0 : _a.lat) || !((_b = dto.ubicacionCliente) === null || _b === void 0 ? void 0 : _b.lng)) {
-                throw domain_1.CustomError.badRequest("Ubicación del cliente es obligatoria para calcular el envío");
-            }
-            // 🛒 1. Obtener porcentajes de comisión actuales
+            if (!cliente || !negocio)
+                throw domain_1.CustomError.notFound("No encontrado");
             const config = yield data_1.PriceSettings.findOne({ where: {} });
             const percMoto = config ? Number(config.motorizadoPercentage) : 80;
             const percApp = config ? Number(config.appPercentage) : 20;
-            // 🛒 2. Obtener productos de la BD para auditoría de precios y comisiones
-            const productIds = dto.productos.map(p => p.productoId);
-            const dbProductos = yield data_1.Producto.findBy({ id: (0, typeorm_1.In)(productIds) });
-            // Subtotal y comisiones de productos
-            let calculatedSubtotal = 0;
-            let comisionProductosApp = 0;
-            let totalPrecioVentaPublico = 0;
-            let totalPrecioApp = 0;
-            let totalComisionProductos = 0;
-            const productosDetalle = dto.productos.map((item) => {
-                const dbProd = dbProductos.find((p) => p.id === item.productoId);
-                if (!dbProd)
-                    throw domain_1.CustomError.notFound(`Producto ${item.productoId} no encontrado`);
+            const dbStore = yield data_1.Producto.findBy({ id: (0, typeorm_1.In)(productos.map(p => p.productoId)) });
+            let totalVP = 0;
+            let totalApp = 0;
+            let comAppProd = 0;
+            const items = productos.map(item => {
+                const p = dbStore.find(db => db.id === item.productoId);
+                if (!p)
+                    throw domain_1.CustomError.notFound("Producto no encontrado");
+                // 🛡️ Regla de Negocio: Pedidos Programados no aceptan EFECTIVO
+                if (p.tipoProducto === 'PROGRAMADO' && metodoPago === 'EFECTIVO') {
+                    throw domain_1.CustomError.badRequest("Los pedidos programados solo aceptan Transferencia o Tarjeta. No se permite efectivo.");
+                }
                 const pp = new data_1.ProductoPedido();
-                pp.producto = dbProd;
-                pp.cantidad = Number(item.cantidad);
-                pp.precio_venta = dbProd.precio_venta;
-                pp.precio_app = dbProd.precio_app;
-                pp.comision_producto = Number(dbProd.precio_venta) - Number(dbProd.precio_app);
-                pp.subtotal = +(pp.cantidad * pp.precio_app).toFixed(2);
-                calculatedSubtotal += pp.subtotal;
-                comisionProductosApp += (pp.comision_producto * pp.cantidad);
-                // Accumulate totals for Pedido
-                totalPrecioVentaPublico += (pp.precio_venta * pp.cantidad);
-                totalPrecioApp += (pp.precio_app * pp.cantidad);
-                totalComisionProductos += (pp.comision_producto * pp.cantidad);
+                pp.producto = p;
+                pp.cantidad = item.cantidad;
+                pp.precio_venta = p.precio_venta;
+                pp.precio_app = p.precio_app;
+                // ✅ Snapshot para históricos invariables
+                pp.producto_nombre = p.nombre;
+                pp.producto_imagen = p.imagen;
+                pp.subtotal = +(pp.cantidad * p.precio_app).toFixed(2);
+                totalVP += (p.precio_venta * pp.cantidad);
+                totalApp += (p.precio_app * pp.cantidad);
+                comAppProd += ((p.precio_venta - p.precio_app) * pp.cantidad);
                 return pp;
             });
-            // 🚚 3. Calcular distancia y envío (server-side, confiable)
-            const { distanciaKm, costoEnvio } = yield calcularEnvio_service_1.CalcularEnvioService.calcularParaPedido({
-                negocio,
-                latCliente: dto.ubicacionCliente.lat,
-                lngCliente: dto.ubicacionCliente.lng,
+            const { costoEnvio, distanciaKm, recargoPico, isPeakHour } = yield calcularEnvio_service_1.CalcularEnvioService.calcularParaPedido({
+                negocio, latCliente: ubicacionCliente.lat, lngCliente: ubicacionCliente.lng,
             });
-            // 💰 4. Desglose Financiero (Persistencia)
-            const gananciaMoto = +(costoEnvio * (percMoto / 100)).toFixed(2);
-            const comisionAppDom = +(costoEnvio * (percApp / 100)).toFixed(2);
-            // Domicilio / motorizado specific fields
-            const pago_motorizado = gananciaMoto; // Based on percMoto
-            const comision_moto_app = +(costoEnvio - pago_motorizado).toFixed(2);
-            // Total final pagado por el usuario (Precio Público + Envío)
-            const total = +(totalPrecioVentaPublico + costoEnvio).toFixed(2);
-            // Ganancia total de la APP (Comisión de Productos + Comisión Domicilio)
-            const comisionTotalApp = +(totalComisionProductos + comisionAppDom).toFixed(2);
-            // Lo que le queda al negocio (Equivalente a total_precio_app)
-            const totalNegocio = +totalPrecioApp.toFixed(2);
-            // 💳 5. Calcular recargo de Tarjeta (si aplica)
-            let recargoTarjeta = 0;
-            let checkoutUrl = null;
-            if (metodoPago === "TARJETA") {
-                if (!negocio.pago_tarjeta_habilitado_admin) {
-                    throw domain_1.CustomError.badRequest("El pago con tarjeta está deshabilitado para este negocio por el administrador.");
-                }
-                if (!negocio.payphone_store_id || !negocio.payphone_token) {
-                    const missing = !negocio.payphone_store_id ? "Store ID" : "Token";
-                    throw domain_1.CustomError.badRequest(`Configuración incompleta: falta ${missing} de Payphone.`);
-                }
-                const porcentaje = Number(negocio.porcentaje_recargo_tarjeta) || 0;
-                recargoTarjeta = +(total * (porcentaje / 100)).toFixed(2);
-                try {
-                    const fs = require('fs');
-                    const logPath = 'c:/Users/jhesr/OneDrive/Escritorio/academlo/proyectReales/atucuchoShop/atucuchoFull/atucuchoBack/tmp/order_debug.log';
-                    const logData = `[${new Date().toISOString()}] PAYPHONE VALIDATED: ${negocio.nombre} | storeId=${negocio.payphone_store_id} | percentage=${porcentaje}%\n`;
-                    fs.appendFileSync(logPath, logData);
-                }
-                catch (e) { }
+            const costoEnvioBase = costoEnvio - (recargoPico || 0);
+            const gananciaMotoBase = +(costoEnvioBase * (percMoto / 100)).toFixed(2);
+            const comisionAppEnvioBase = +(costoEnvioBase - gananciaMotoBase).toFixed(2);
+            let peakHourSurchargeMoto = 0;
+            let peakHourSurchargeApp = 0;
+            if (isPeakHour && recargoPico > 0) {
+                peakHourSurchargeMoto = +(recargoPico * (percMoto / 100)).toFixed(2);
+                peakHourSurchargeApp = +(recargoPico - peakHourSurchargeMoto).toFixed(2);
             }
-            const totalFinal = +(total + recargoTarjeta).toFixed(2);
-            // Construir pedido + items (cascade)
+            const gananciaMoto = +(gananciaMotoBase + peakHourSurchargeMoto).toFixed(2);
+            const comisionAppEnvio = +(comisionAppEnvioBase + peakHourSurchargeApp).toFixed(2);
+            const total = +(totalVP + costoEnvio).toFixed(2);
+            let recargo = 0;
+            if (metodoPago === "TARJETA") {
+                recargo = +(total * ((Number(negocio.porcentaje_recargo_tarjeta) || 0) / 100)).toFixed(2);
+            }
             const pedido = new data_1.Pedido();
             pedido.cliente = cliente;
             pedido.negocio = negocio;
-            // Si es tarjeta, el pedido queda "PENDIENTE_PAGO" hasta que el webhook confirme
-            pedido.estado =
-                metodoPago === "TARJETA" ? "PENDIENTE_PAGO" : data_1.EstadoPedido.PENDIENTE;
+            pedido.estado = metodoPago === "TARJETA" ? "PENDIENTE_PAGO" : data_1.EstadoPedido.PENDIENTE;
+            pedido.total = +(total + recargo).toFixed(2);
             pedido.costoEnvio = costoEnvio;
-            pedido.total = totalFinal;
-            pedido.recargo_tarjeta = recargoTarjeta;
-            pedido.estadoPago = metodoPago === "TARJETA" ? "PENDIENTE" : "N/A";
-            // Asignar auditoría financiera
-            pedido.porcentaje_motorizado_aplicado = percMoto;
-            pedido.porcentaje_app_aplicado = percApp;
-            pedido.ganancia_motorizado = gananciaMoto;
-            pedido.comision_app_domicilio = comisionAppDom;
-            pedido.ganancia_app_producto = comisionProductosApp;
-            pedido.comisionTotal = comisionTotalApp;
-            pedido.totalNegocio = totalNegocio;
-            // New Pedido financial fields
-            pedido.total_precio_venta_publico = +totalPrecioVentaPublico.toFixed(2);
-            pedido.total_precio_app = +totalPrecioApp.toFixed(2);
-            pedido.total_comision_productos = +totalComisionProductos.toFixed(2);
-            pedido.pago_motorizado = pago_motorizado;
-            pedido.comision_moto_app = comision_moto_app;
             pedido.distanciaKm = distanciaKm;
-            pedido.latCliente = dto.ubicacionCliente.lat;
-            pedido.lngCliente = dto.ubicacionCliente.lng;
-            pedido.direccionTexto = (_c = dto.ubicacionCliente.direccionTexto) !== null && _c !== void 0 ? _c : null;
-            // 💶 Datos de Pago
-            if (dto.metodoPago) {
-                pedido.metodoPago = dto.metodoPago;
-            }
-            if (dto.montoVuelto !== undefined)
-                pedido.montoVuelto = dto.montoVuelto;
-            if (dto.comprobantePagoUrl)
-                pedido.comprobantePagoUrl = dto.comprobantePagoUrl; // Saves Key if provided
-            pedido.productos = productosDetalle;
-            let nuevo;
-            try {
-                nuevo = yield pedido.save();
-            }
-            catch (dbError) {
-                // 🧪 AUTOCURACIÓN: Si falla por el Enum de PENDIENTE_PAGO
-                if (dbError.message.includes("PENDIENTE_PAGO") || dbError.message.includes("enum")) {
-                    console.log("⚠️ Falló PENDIENTE_PAGO, reintentando con PENDIENTE...");
-                    pedido.estado = data_1.EstadoPedido.PENDIENTE;
-                    nuevo = yield pedido.save();
-                }
-                else {
-                    throw dbError;
-                }
-            }
-            // 🚀 6. Configuración Payphone (BOX FLOW)
-            let payphoneConfig = null;
+            pedido.latCliente = ubicacionCliente.lat;
+            pedido.lngCliente = ubicacionCliente.lng;
+            pedido.direccionTexto = ubicacionCliente.direccionTexto || null;
+            pedido.notaGeneral = dto.notaGeneral || null;
+            pedido.metodoPago = metodoPago;
+            pedido.comprobantePagoUrl = comprobantePagoUrl || null;
+            pedido.productos = items;
+            // ... audit fields
+            pedido.ganancia_app_producto = comAppProd;
+            pedido.totalNegocio = totalApp;
+            pedido.total_precio_venta_publico = totalVP;
+            pedido.total_precio_app = totalApp;
+            pedido.total_comision_productos = comAppProd;
+            pedido.ganancia_motorizado = gananciaMoto;
+            pedido.comision_app_domicilio = comisionAppEnvio;
+            pedido.isPeakHourSurchargeApplied = isPeakHour || false;
+            pedido.peakHourSurchargeAmount = recargoPico || 0;
+            pedido.peakHourSurchargeMoto = peakHourSurchargeMoto || 0;
+            pedido.peakHourSurchargeApp = peakHourSurchargeApp || 0;
+            const guardado = yield pedido.save();
+            let payphone = null;
             if (metodoPago === "TARJETA") {
-                payphoneConfig = {
-                    token: (_d = negocio.payphone_token) === null || _d === void 0 ? void 0 : _d.trim(),
-                    storeId: (_e = negocio.payphone_store_id) === null || _e === void 0 ? void 0 : _e.trim(),
-                    clientTransactionId: `${nuevo.id}--${Math.random().toString(36).substring(2, 8)}`,
-                    amount: Math.round(totalFinal * 100),
-                    amountWithoutTax: Math.round(totalFinal * 100),
-                    currency: "USD",
-                    reference: `Orden #${nuevo.id} - Atucucho Shop`
+                payphone = {
+                    token: negocio.payphone_token, storeId: negocio.payphone_store_id,
+                    clientTransactionId: `${guardado.id}--${Math.random().toString(36).substring(7)}`,
+                    amount: Math.round(pedido.total * 100), currency: "USD"
                 };
             }
-            // 🔔 7. Notificar al negocio (SOLO si NO es tarjeta, o si se confirma pago)
-            // Para TARJETA, el webhook hará esta notificación.
             if (metodoPago !== "TARJETA") {
-                console.log(`🔔 [Socket] Emitiendo nuevo pedido a sala: ${negocio.id} (ID Pedido: ${nuevo.id})`);
-                (0, socket_1.getIO)().to(negocio.id).emit("nuevo_pedido", {
-                    id: nuevo.id,
-                    estado: nuevo.estado,
-                    total: nuevo.total,
-                    productos: nuevo.productos,
-                    cliente: {
-                        id: cliente.id,
-                        name: cliente.name,
-                        surname: cliente.surname
-                    },
-                    createdAt: nuevo.createdAt
-                });
+                (0, socket_1.getIO)().to(negocio.id).emit("nuevo_pedido", { id: guardado.id, estado: guardado.estado, total: guardado.total, notaGeneral: guardado.notaGeneral });
+                // 🔔 Notificación Push al Dueño de Negocio
+                if (negocio.usuario) {
+                    yield notificationService.sendPushNotification(negocio.usuario.id, "¡Nuevo Pedido Recibido!", `Has recibido un nuevo pedido (#${guardado.id.split('-')[0]}) por $${pedido.total}`, { url: `/business/dashboard/${negocio.id}/orders/pending` });
+                }
             }
-            // Resolve URL for response (WhatsApp link)
-            let solvedUrl = nuevo.comprobantePagoUrl;
-            if (nuevo.comprobantePagoUrl && !nuevo.comprobantePagoUrl.startsWith('http')) {
-                solvedUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
-                    bucketName: env_1.envs.AWS_BUCKET_NAME,
-                    key: nuevo.comprobantePagoUrl
-                });
-            }
-            return {
-                id: nuevo.id,
-                estado: nuevo.estado,
-                total: nuevo.total,
-                costoEnvio: nuevo.costoEnvio,
-                distanciaKm: nuevo.distanciaKm,
-                createdAt: nuevo.createdAt,
-                metodoPago: nuevo.metodoPago,
-                montoVuelto: nuevo.montoVuelto,
-                comprobantePagoUrl: solvedUrl,
-                payphoneConfig: payphoneConfig // 💳 Configuración Cajita
-            };
+            return { id: guardado.id, estado: guardado.estado, total: guardado.total, payphoneConfig: payphone };
         });
     }
-    // ... (cambiarEstado remains same)
-    // Ver los pedidos de un cliente
     obtenerPedidosCliente(clienteId_1) {
         return __awaiter(this, arguments, void 0, function* (clienteId, page = 1, limit = 5, filters = {}) {
             const skip = (page - 1) * limit;
             const query = data_1.Pedido.createQueryBuilder("pedido")
-                .leftJoinAndSelect("pedido.negocio", "negocio")
-                .leftJoinAndSelect("pedido.productos", "productos")
-                .leftJoinAndSelect("productos.producto", "producto")
-                .leftJoinAndSelect("pedido.motorizado", "motorizado")
-                .where("pedido.clienteId = :clienteId", { clienteId })
-                .orderBy("pedido.createdAt", "DESC")
-                .skip(skip)
-                .take(limit);
+                .leftJoin("pedido.negocio", "negocio")
+                .leftJoin("pedido.productos", "productos")
+                .leftJoin("productos.producto", "producto")
+                .leftJoin("pedido.cliente", "cliente")
+                .leftJoin("pedido.motorizado", "motorizado")
+                .select([
+                "pedido.id", "pedido.estado", "pedido.total", "pedido.costoEnvio", "pedido.createdAt", "pedido.fecha_aceptado",
+                "pedido.tiempoPreparacionElegido", "pedido.latCliente", "pedido.lngCliente", "pedido.metodoPago", "pedido.comprobantePagoUrl",
+                "pedido.delivery_code", "pedido.arrival_time", "pedido.pickup_code", "pedido.motivoCancelacion", "pedido.ratingNegocio", "pedido.ratingMotorizado",
+                "pedido.isPeakHourSurchargeApplied", "pedido.peakHourSurchargeAmount", "pedido.peakHourSurchargeMoto", "pedido.peakHourSurchargeApp", "pedido.notaGeneral",
+                "negocio.id", "negocio.nombre", "negocio.latitud", "negocio.longitud", "negocio.tiempoPreparacionMax",
+                "productos.id", "productos.cantidad", "productos.subtotal", "productos.precio_venta", "productos.producto_nombre", "productos.producto_imagen",
+                "producto.id", "producto.nombre", "producto.tipoProducto",
+                "cliente.id", "cliente.name", "cliente.surname", "cliente.whatsapp", "cliente.cancellation_strikes",
+                "motorizado.id", "motorizado.name", "motorizado.surname", "motorizado.whatsapp"
+            ]);
+            // 🛡️ FILTRO PRINCIPAL: CLIENTE + FECHA (Prioritario)
+            query.where("pedido.clienteId = :clienteId", { clienteId });
+            if (filters.startDate) {
+                // 🚀 Búsqueda optimizada por rango (Index-Friendly)
+                const nextDay = new Date(filters.startDate);
+                nextDay.setDate(nextDay.getDate() + 1);
+                const nextDayStr = nextDay.toISOString().split('T')[0];
+                query.andWhere(`pedido.createdAt >= :startDate AND pedido.createdAt < :endDate`, {
+                    startDate: `${filters.startDate} 00:00:00`,
+                    endDate: `${nextDayStr} 00:00:00`
+                });
+            }
             if (filters.estado) {
                 query.andWhere("pedido.estado = :estado", { estado: filters.estado });
             }
-            if (filters.startDate) {
-                const start = moment_timezone_1.default.tz(filters.startDate, "America/Guayaquil").startOf('day').toDate();
-                query.andWhere("pedido.createdAt >= :startDate", { startDate: start });
-            }
-            if (filters.endDate) {
-                const end = moment_timezone_1.default.tz(filters.endDate, "America/Guayaquil").endOf('day').toDate();
-                query.andWhere("pedido.createdAt <= :endDate", { endDate: end });
-            }
+            query
+                .orderBy("pedido.createdAt", "DESC")
+                .skip(skip)
+                .take(limit);
             const [pedidos, total] = yield query.getManyAndCount();
             const pedidosMapeados = yield Promise.all(pedidos.map((p) => __awaiter(this, void 0, void 0, function* () {
-                var _a, _b;
-                // Self-healing: Generar códigos si faltan
-                let changed = false;
-                if (p.estado === data_1.EstadoPedido.PREPARANDO_ASIGNADO && !p.pickup_code) {
-                    p.pickup_code = Math.floor(1000 + Math.random() * 9000).toString();
-                    p.pickup_verified = false;
-                    changed = true;
-                }
-                if (p.estado === data_1.EstadoPedido.EN_CAMINO && !p.delivery_code) {
-                    p.delivery_code = Math.floor(1000 + Math.random() * 9000).toString();
-                    p.delivery_verified = false;
-                    changed = true;
-                }
-                if (changed)
-                    yield p.save();
-                let solvedUrl = p.comprobantePagoUrl;
-                if (p.comprobantePagoUrl && !p.comprobantePagoUrl.startsWith('http')) {
-                    solvedUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
-                        bucketName: env_1.envs.AWS_BUCKET_NAME,
-                        key: p.comprobantePagoUrl
-                    });
+                var _a, _b, _c, _d;
+                let resolvedComprobante = p.comprobantePagoUrl;
+                if (resolvedComprobante && !resolvedComprobante.startsWith('http')) {
+                    resolvedComprobante = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({ bucketName: env_1.envs.AWS_BUCKET_NAME, key: resolvedComprobante });
                 }
                 return {
-                    id: p.id,
-                    estado: p.estado,
-                    total: p.total,
-                    costoEnvio: p.costoEnvio,
-                    motivoCancelacion: p.motivoCancelacion,
-                    delivery_code: p.delivery_code,
-                    delivery_verified: p.delivery_verified,
-                    pickup_code: p.pickup_code,
-                    pickup_verified: p.pickup_verified,
-                    arrival_time: p.arrival_time,
-                    createdAt: p.createdAt,
+                    id: p.id, estado: p.estado, total: p.total, costoEnvio: p.costoEnvio,
+                    createdAt: p.createdAt, fecha: p.createdAt, fecha_aceptado: p.fecha_aceptado,
+                    tiempoPreparacionElegido: p.tiempoPreparacionElegido,
+                    latCliente: p.latCliente, lngCliente: p.lngCliente,
                     negocio: {
                         id: p.negocio.id,
                         nombre: p.negocio.nombre,
+                        latitud: (_a = p.negocio) === null || _a === void 0 ? void 0 : _a.latitud,
+                        longitud: (_b = p.negocio) === null || _b === void 0 ? void 0 : _b.longitud,
+                        tiempoPreparacionMax: (_c = p.negocio) === null || _c === void 0 ? void 0 : _c.tiempoPreparacionMax
                     },
-                    productos: p.productos.map((pp) => ({
-                        id: pp.id,
-                        productoId: pp.producto.id,
-                        nombre: pp.producto.nombre,
-                        cantidad: pp.cantidad,
-                        precio_venta: pp.precio_venta,
-                        precio_app: pp.precio_app,
-                        subtotal: pp.subtotal,
-                    })),
-                    fecha: p.createdAt,
-                    metodoPago: p.metodoPago,
-                    vuelto: p.montoVuelto ? true : false,
-                    montoVuelto: p.montoVuelto,
-                    comprobantePagoUrl: solvedUrl,
+                    isProgrammed: ((_d = p.productos) === null || _d === void 0 ? void 0 : _d.some(pp => { var _a; return ((_a = pp.producto) === null || _a === void 0 ? void 0 : _a.tipoProducto) === 'PROGRAMADO'; })) || false,
+                    metodoPago: p.metodoPago, comprobantePagoUrl: resolvedComprobante,
+                    delivery_code: p.delivery_code, arrival_time: p.arrival_time,
+                    pickup_code: p.pickup_code,
+                    motivoCancelacion: p.motivoCancelacion,
+                    notaGeneral: p.notaGeneral,
+                    cliente: p.cliente ? {
+                        id: p.cliente.id,
+                        name: p.cliente.name,
+                        surname: p.cliente.surname,
+                        whatsapp: p.cliente.whatsapp,
+                        cancellation_strikes: p.cliente.cancellation_strikes
+                    } : null,
                     motorizado: p.motorizado ? {
                         id: p.motorizado.id,
                         name: p.motorizado.name,
                         surname: p.motorizado.surname,
-                        telefono: p.motorizado.whatsapp,
-                        whatsapp: p.motorizado.whatsapp,
+                        whatsapp: p.motorizado.whatsapp
                     } : null,
-                    // 💳 Configuración para reintentar pago
-                    payphoneConfig: p.estado === "PENDIENTE_PAGO" ? {
-                        token: (_a = p.negocio.payphone_token) === null || _a === void 0 ? void 0 : _a.trim(),
-                        storeId: (_b = p.negocio.payphone_store_id) === null || _b === void 0 ? void 0 : _b.trim(),
-                        clientTransactionId: `${p.id}--${Math.random().toString(36).substring(2, 8)}`,
-                        amount: Math.round(Number(p.total) * 100),
-                        amountWithoutTax: Math.round(Number(p.total) * 100),
-                        currency: "USD",
-                        reference: `Orden #${p.id} - Atucucho Shop`
-                    } : null
+                    ratingNegocio: p.ratingNegocio,
+                    ratingMotorizado: p.ratingMotorizado,
+                    isPeakHourSurchargeApplied: p.isPeakHourSurchargeApplied,
+                    peakHourSurchargeAmount: p.peakHourSurchargeAmount,
+                    peakHourSurchargeMoto: p.peakHourSurchargeMoto,
+                    peakHourSurchargeApp: p.peakHourSurchargeApp
                 };
             })));
-            return {
-                total,
-                page,
-                totalPages: Math.ceil(total / limit),
-                pedidos: pedidosMapeados,
-            };
+            return { total, page, totalPages: Math.ceil(total / limit), pedidos: pedidosMapeados };
         });
     }
-    // Eliminar pedido del cliente (solo si está pendiente)
-    eliminarPedidoCliente(pedidoId, clienteId) {
+    obtenerProductosPorPedido(pedidoId, clienteId) {
         return __awaiter(this, void 0, void 0, function* () {
-            var _a, _b, _c;
-            const pedido = yield data_1.Pedido.findOne({
-                where: { id: pedidoId },
-                relations: ["cliente"],
-            });
-            if (!pedido)
-                throw domain_1.CustomError.notFound("Pedido no encontrado");
-            if (pedido.cliente.id !== clienteId)
-                throw domain_1.CustomError.unAuthorized("No tiene permiso para eliminar este pedido");
-            if (pedido.estado !== data_1.EstadoPedido.PENDIENTE)
-                throw domain_1.CustomError.badRequest("Solo puede eliminar pedidos pendientes");
-            const negocioId = ((_a = pedido.negocio) === null || _a === void 0 ? void 0 : _a.id) || ((_c = (_b = (yield data_1.Pedido.findOne({ where: { id: pedidoId }, relations: ['negocio'] }))) === null || _b === void 0 ? void 0 : _b.negocio) === null || _c === void 0 ? void 0 : _c.id);
-            yield data_1.Pedido.remove(pedido);
-            if (negocioId) {
-                (0, socket_1.getIO)().to(negocioId).emit("pedido_cancelado", { pedidoId });
+            const pedido = yield data_1.Pedido.createQueryBuilder("pedido")
+                .where("pedido.id = :pedidoId", { pedidoId })
+                .andWhere("pedido.clienteId = :clienteId", { clienteId })
+                .leftJoinAndSelect("pedido.productos", "productos")
+                .leftJoinAndSelect("productos.producto", "producto")
+                .getOne();
+            if (!pedido) {
+                throw domain_1.CustomError.notFound("Pedido no encontrado o no pertenece a este cliente");
             }
-            return { message: "Pedido eliminado correctamente" };
-        });
-    }
-    // Subir comprobante (servicio)
-    // Subir comprobante (AWS S3)
-    subirComprobante(file) {
-        return __awaiter(this, void 0, void 0, function* () {
-            if (!file)
-                throw domain_1.CustomError.badRequest("No se recibió ningún archivo");
-            // Generar path único para S3: comprobantes/TIMESTAMP-name
-            const originalName = file.originalname || file.name || "comprobante.jpg";
-            // Limpieza básica del nombre
-            const cleanName = originalName.replace(/\s+/g, "_");
-            const pathKey = `comprobantes/${Date.now()}-${cleanName}`;
-            // Obtener buffer (Multer usa .buffer, express-fileupload usa .data)
-            const fileContent = file.buffer || file.data;
-            const contentType = file.mimetype || "image/jpeg";
-            if (!fileContent) {
-                throw domain_1.CustomError.badRequest("El archivo está vacío o corrupto");
-            }
-            // Subir a AWS S3
-            const uploadedKey = yield upload_files_cloud_adapter_1.UploadFilesCloud.uploadSingleFile({
-                bucketName: env_1.envs.AWS_BUCKET_NAME,
-                key: pathKey,
-                body: fileContent,
-                contentType: contentType,
+            return pedido.productos.map(pp => {
+                var _a, _b;
+                return ({
+                    nombre: ((_a = pp.producto) === null || _a === void 0 ? void 0 : _a.nombre) || pp.producto_nombre || "Producto no disponible",
+                    cantidad: pp.cantidad,
+                    subtotal: pp.subtotal,
+                    precio_venta: pp.precio_venta,
+                    imagen: pp.producto_imagen,
+                    tipoProducto: ((_b = pp.producto) === null || _b === void 0 ? void 0 : _b.tipoProducto) || 'NORMAL'
+                });
             });
-            // Retonar la URL firmada para que el frontend pueda visualizarlo inmediatamente
-            const url = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
-                bucketName: env_1.envs.AWS_BUCKET_NAME,
-                key: uploadedKey
-            });
-            return { url, key: uploadedKey };
         });
     }
     notificarYaVoy(pedidoId, clienteId) {
         return __awaiter(this, void 0, void 0, function* () {
             const pedido = yield data_1.Pedido.findOne({
                 where: { id: pedidoId, cliente: { id: clienteId } },
-                relations: ["motorizado", "cliente"]
+                relations: ["cliente", "motorizado"]
             });
             if (!pedido)
                 throw domain_1.CustomError.notFound("Pedido no encontrado");
-            if (!pedido.motorizado)
-                throw domain_1.CustomError.badRequest("No hay un motorizado asignado aún");
-            // Notificar al motorizado
-            (0, socket_1.getIO)().to(pedido.motorizado.id).emit("cliente_ya_va", {
-                pedidoId: pedido.id,
-                mensaje: "El cliente ya está saliendo",
-            });
-            return { message: "Notificación enviada al motorizado" };
+            pedido.cliente_confirmo_llegada = true;
+            yield pedido.save();
+            if (pedido.motorizado) {
+                (0, socket_1.getIO)().to(pedido.motorizado.id).emit("cliente_ya_va", {
+                    pedidoId: pedido.id,
+                    mensaje: "¡El cliente ya confirmó que sale a recibirte!"
+                });
+            }
+            return { success: true };
         });
     }
     calificarPedido(dto) {
         return __awaiter(this, void 0, void 0, function* () {
+            const { pedidoId, ratingNegocio, ratingMotorizado } = dto;
             const pedido = yield data_1.Pedido.findOne({
-                where: { id: dto.pedidoId },
+                where: { id: pedidoId },
                 relations: ["negocio", "motorizado"]
             });
             if (!pedido)
                 throw domain_1.CustomError.notFound("Pedido no encontrado");
-            if (pedido.estado !== data_1.EstadoPedido.ENTREGADO)
-                throw domain_1.CustomError.badRequest("Solo puedes calificar pedidos entregados");
-            const response = {
-                message: "Calificación procesada",
-                ratedNegocio: false,
-                ratedMotorizado: false
-            };
-            // --- Calificar Negocio ---
-            if (dto.ratingNegocio !== undefined) {
-                if (pedido.ratingNegocio && Number(pedido.ratingNegocio) > 0) {
-                    throw domain_1.CustomError.badRequest("Este pedido ya ha calificado al restaurante");
-                }
-                pedido.ratingNegocio = dto.ratingNegocio;
-                if (pedido.negocio) {
-                    const negocio = yield data_1.Negocio.findOneBy({ id: pedido.negocio.id });
-                    if (negocio) {
-                        const totalActual = Number(negocio.totalResenas) || 0;
-                        const promedioActual = Number(negocio.ratingPromedio) || 0;
-                        const nuevoTotal = totalActual + 1;
-                        const nuevoPromedio = (promedioActual * totalActual + dto.ratingNegocio) / nuevoTotal;
-                        negocio.totalResenas = nuevoTotal;
-                        negocio.ratingPromedio = Number(nuevoPromedio.toFixed(1));
-                        yield negocio.save();
-                        response.ratedNegocio = true;
-                    }
-                }
-            }
-            // --- Calificar Motorizado ---
-            if (dto.ratingMotorizado !== undefined) {
-                if (pedido.ratingMotorizado && Number(pedido.ratingMotorizado) > 0) {
-                    throw domain_1.CustomError.badRequest("Este pedido ya ha calificado al motorizado");
-                }
-                pedido.ratingMotorizado = dto.ratingMotorizado;
-                if (pedido.motorizado) {
-                    const moto = yield data_1.UserMotorizado.findOneBy({ id: pedido.motorizado.id });
-                    if (moto) {
-                        const totalActual = Number(moto.totalResenas) || 0;
-                        const promedioActual = Number(moto.ratingPromedio) || 0;
-                        const nuevoTotal = totalActual + 1;
-                        const nuevoPromedio = (promedioActual * totalActual + dto.ratingMotorizado) / nuevoTotal;
-                        moto.totalResenas = nuevoTotal;
-                        moto.ratingPromedio = Number(nuevoPromedio.toFixed(1));
-                        yield moto.save();
-                        response.ratedMotorizado = true;
-                    }
-                }
-            }
+            if (ratingNegocio !== undefined)
+                pedido.ratingNegocio = ratingNegocio;
+            if (ratingMotorizado !== undefined)
+                pedido.ratingMotorizado = ratingMotorizado;
             yield pedido.save();
-            return response;
+            return { success: true };
         });
     }
-    // 🔄 Recargar el tiempo de vida (5 min adicionales)
-    refreshTimer(id) {
+    eliminarPedidoCliente(pedidoId, clienteId) {
         return __awaiter(this, void 0, void 0, function* () {
-            const pedido = yield data_1.Pedido.findOneBy({ id });
+            var _a;
+            const p = yield data_1.Pedido.findOne({ where: { id: pedidoId, cliente: { id: clienteId } } });
+            if (!p || p.estado !== data_1.EstadoPedido.PENDIENTE)
+                throw domain_1.CustomError.notFound("No encontrado o no cancelable");
+            // 🔔 Notificación Push al Negocio (Cancelación por Cliente)
+            const orderWithBusiness = yield data_1.Pedido.findOne({ where: { id: pedidoId }, relations: ["negocio", "negocio.usuario"] });
+            if ((_a = orderWithBusiness === null || orderWithBusiness === void 0 ? void 0 : orderWithBusiness.negocio) === null || _a === void 0 ? void 0 : _a.usuario) {
+                yield notificationService.sendPushNotification(orderWithBusiness.negocio.usuario.id, "Pedido Cancelado por Cliente", `El cliente ha cancelado el pedido #${pedidoId.split('-')[0]}.`, { url: `/business/dashboard/${orderWithBusiness.negocio.id}/orders/history` });
+            }
+            yield data_1.Pedido.remove(p);
+            return { ok: true };
+        });
+    }
+    cancelarPedidoPorDemora(pedidoId, clienteId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            const pedido = yield data_1.Pedido.findOne({
+                where: { id: pedidoId, cliente: { id: clienteId } },
+                relations: ["negocio", "negocio.usuario", "productos", "productos.producto"]
+            });
             if (!pedido)
                 throw domain_1.CustomError.notFound("Pedido no encontrado");
-            // Solo si está esperando pago
-            if (pedido.estado !== "PENDIENTE_PAGO")
-                return { success: false, message: "El pedido no está en espera de pago" };
-            pedido.createdAt = new Date(); // Resetear a NOW
+            if (pedido.estado !== data_1.EstadoPedido.ACEPTADO) {
+                throw domain_1.CustomError.badRequest("Solo se pueden cancelar por demora los pedidos en estado ACEPTADO");
+            }
+            // Validar si tiene productos programados
+            const tieneProgramados = pedido.productos.some(p => { var _a; return ((_a = p.producto) === null || _a === void 0 ? void 0 : _a.tipoProducto) === 'PROGRAMADO'; });
+            if (tieneProgramados) {
+                throw domain_1.CustomError.badRequest("Los pedidos con productos programados no permiten cancelación por demora");
+            }
+            // Validar tiempo (Eliminado tiempo de gracia de 10 min a petición del usuario)
+            const fechaBase = pedido.fecha_aceptado || pedido.createdAt;
+            const prepTimeMax = pedido.tiempoPreparacionElegido || ((_a = pedido.negocio) === null || _a === void 0 ? void 0 : _a.tiempoPreparacionMax) || 30;
+            const ahora = new Date();
+            const limite = new Date(fechaBase.getTime() + prepTimeMax * 60000);
+            if (ahora < limite) {
+                throw domain_1.CustomError.badRequest("Aún no se ha cumplido el tiempo de gracia para cancelar por demora");
+            }
+            // Proceder con cancelación
+            pedido.estado = data_1.EstadoPedido.CANCELADO;
+            pedido.motivoCancelacion = "Cancelación por demora excesiva en la preparación";
             yield pedido.save();
-            return { success: true, newCreatedAt: pedido.createdAt };
+            // Notificar al Negocio
+            const io = (0, socket_1.getIO)();
+            const updateData = {
+                pedidoId: pedido.id,
+                estado: pedido.estado,
+                motivoCancelacion: pedido.motivoCancelacion,
+                timestamp: ahora.toISOString()
+            };
+            io.to(pedido.negocio.id).emit("pedido_actualizado", updateData);
+            io.to(clienteId).emit("pedido_actualizado", updateData);
+            if (pedido.negocio.usuario) {
+                yield notificationService.sendPushNotification(pedido.negocio.usuario.id, "Pedido Cancelado por Demora", `El cliente canceló el pedido #${pedido.id.split('-')[0]} debido a demora en la preparación.`, { url: `/business/dashboard/${pedido.negocio.id}/orders/history` });
+            }
+            return { ok: true };
         });
     }
-    // 🕒 Vigilante de limpieza (Pedidos expirados)
+    refreshTimer(id_1) {
+        return __awaiter(this, arguments, void 0, function* (id, minutosExtras = 0) {
+            const pedido = yield data_1.Pedido.findOne({
+                where: { id },
+                relations: ['negocio', 'cliente']
+            });
+            if (!pedido)
+                return { success: false, message: "Pedido no encontrado" };
+            // 1. Obtener horario de cierre global
+            const { GlobalSettings } = require("../../../data");
+            const settings = yield GlobalSettings.findOne({ where: {}, order: { updatedAt: 'DESC' } });
+            const horaCierreStr = (settings === null || settings === void 0 ? void 0 : settings.hora_cierre) || "22:00:00"; // Fallback 10 PM
+            // 2. Validar que no pase la hora de cierre
+            const ahora = new Date();
+            const [h, m, s] = horaCierreStr.split(':').map(Number);
+            const limiteCierre = new Date();
+            limiteCierre.setHours(h, m, s, 0);
+            const nuevaFechaExpira = new Date(ahora.getTime() + (minutosExtras * 60000));
+            if (nuevaFechaExpira > limiteCierre) {
+                return {
+                    success: false,
+                    message: `No puedes extender el tiempo más allá de la hora de cierre (${horaCierreStr.substring(0, 5)})`
+                };
+            }
+            // 3. Actualizar tiempos y elección del usuario
+            const nuevaFechaBase = new Date();
+            pedido.createdAt = nuevaFechaBase;
+            pedido.fecha_aceptado = nuevaFechaBase;
+            pedido.tiempoPreparacionElegido = minutosExtras; // Guardamos la elección del usuario
+            yield pedido.save();
+            // 4. Notificar vía Sockets
+            const io = require("../../../config/socket").getIO();
+            const updateData = {
+                pedidoId: pedido.id,
+                id: pedido.id,
+                newCreatedAt: nuevaFechaBase.toISOString(),
+                fecha_aceptado: nuevaFechaBase.toISOString(),
+                tiempoPreparacionElegido: minutosExtras
+            };
+            io.to(pedido.negocio.id).emit("pedido_actualizado", updateData);
+            io.to(pedido.cliente.id).emit("pedido_actualizado", updateData);
+            return {
+                success: true,
+                newCreatedAt: nuevaFechaBase.toISOString()
+            };
+        });
+    }
+    subirComprobante(file) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const key = `comprobantes/${Date.now()}-${file.originalname}`;
+            const uploaded = yield upload_files_cloud_adapter_1.UploadFilesCloud.uploadSingleFile({
+                bucketName: env_1.envs.AWS_BUCKET_NAME, key, body: file.buffer, contentType: file.mimetype
+            });
+            const url = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({ bucketName: env_1.envs.AWS_BUCKET_NAME, key: uploaded });
+            return { url, key: uploaded };
+        });
+    }
     static startMaintenanceJob() {
+        console.log("🕒 [Mantenimiento] Iniciando vigilante de pedidos...");
+        // Tarea 1: Auto-cancelación de pedidos (Cada 1 minuto)
         setInterval(() => __awaiter(this, void 0, void 0, function* () {
+            var _a, _b;
             try {
-                const repo = data_1.Pedido.getRepository();
-                // Cancelar pedidos PENDIENTE_PAGO de más de 6 minutos (le damos 1 extra por si acaso)
-                const result = yield repo.query(`
-                UPDATE pedido 
-                SET estado = 'CANCELADO', motivo_cancelacion = 'Tiempo de pago excedido (5 min)' 
-                WHERE estado = 'PENDIENTE_PAGO' 
-                AND "createdAt" < NOW() - INTERVAL '6 minutes'
-            `);
-                if (result[1] > 0)
-                    console.log(`🧹 [Maintenance] ${result[1]} pedidos expirados cancelados.`);
+                const ahora = new Date();
+                const horaEcuador = ahora.toLocaleTimeString('en-US', { hour12: false, timeZone: 'America/Guayaquil' });
+                // 1. Limpieza rápida de PENDIENTE_PAGO (6 minutos)
+                yield data_1.Pedido.getRepository().query(`UPDATE pedido SET estado = 'CANCELADO', "motivoCancelacion" = 'Pago no registrado en el tiempo límite.' WHERE estado = 'PENDIENTE_PAGO' AND "createdAt" < NOW() - INTERVAL '6 minutes'`);
+                const { GlobalSettings } = require("../../../data");
+                const settings = yield GlobalSettings.findOne({ where: {} });
+                const graceMinutes = (settings === null || settings === void 0 ? void 0 : settings.acceptedOrderGraceMinutes) || 10;
+                // 2. Vigilante de ACEPTADOS (Optimizado: Query Filtering + Lazy Loading)
+                const pedidosExpirados = yield data_1.Pedido.createQueryBuilder('p')
+                    .leftJoinAndSelect('p.negocio', 'n')
+                    .leftJoinAndSelect('n.usuario', 'u')
+                    .where('p.estado = :estado', { estado: data_1.EstadoPedido.ACEPTADO })
+                    // 🛡️ Filtro 1: Excluir pedidos con productos PROGRAMADOS (Subquery para no cargar relaciones innecesarias)
+                    .andWhere((qb) => {
+                    const subQuery = qb.subQuery()
+                        .select('1')
+                        .from(data_1.ProductoPedido, 'pp')
+                        .innerJoin('pp.producto', 'prod')
+                        .where('pp."pedidoId" = p.id')
+                        .andWhere('prod."tipoProducto" = :tipo', { tipo: 'PROGRAMADO' })
+                        .getQuery();
+                    return `NOT EXISTS ${subQuery}`;
+                })
+                    // 🛡️ Filtro 2: Solo pedidos cuya fecha (aceptado o creado) + tiempo de preparación + graceMinutes min sea menor a NOW()
+                    .andWhere(`
+            (COALESCE(p.fecha_aceptado, p.createdAt) + 
+            (COALESCE(p.tiempoPreparacionElegido, n.tiempoPreparacionMax, 30) + :graceMinutes) * INTERVAL '1 minute') < NOW()
+          `, { graceMinutes })
+                    .getMany();
+                const io = (0, socket_1.getIO)();
+                const notificationService = new NotificationService_1.NotificationService();
+                for (const pedido of pedidosExpirados) {
+                    try {
+                        // Si es medianoche (23:30 - 23:59), es un barrido nocturno
+                        const isNightSweepTime = horaEcuador.startsWith("23:3") || horaEcuador.startsWith("23:4") || horaEcuador.startsWith("23:5");
+                        console.log(`[Auto-Cancel] 🚨 Pedido ${pedido.id} cancelando por expiración...`);
+                        pedido.estado = data_1.EstadoPedido.CANCELADO;
+                        pedido.motivoCancelacion = isNightSweepTime
+                            ? "Cierre operativo nocturno: Pedido expirado sin finalizar."
+                            : "Cancelación automática por demora excesiva en la preparación sin respuesta del cliente.";
+                        yield pedido.save();
+                        io.emit("pedido_actualizado", { id: pedido.id, estado: pedido.estado });
+                        io.emit("admin_live_update", { type: 'ORDER_UPDATED', pedidoId: pedido.id });
+                        if ((_b = (_a = pedido.negocio) === null || _a === void 0 ? void 0 : _a.usuario) === null || _b === void 0 ? void 0 : _b.id) {
+                            yield notificationService.sendPushNotification(pedido.negocio.usuario.id, "🚨 Pedido Auto-Cancelado", `El pedido #${pedido.id.substring(0, 8)} fue cancelado por demora excesiva.`, { url: `/business/dashboard/${pedido.negocio.id}/orders/history` });
+                        }
+                    }
+                    catch (err) {
+                        console.error(`[Auto-Cancel] Error procesando pedido ${pedido === null || pedido === void 0 ? void 0 : pedido.id}:`, err);
+                    }
+                }
             }
             catch (error) {
-                console.error("❌ Error en MaintenanceJob:", error);
+                console.error("❌ [Mantenimiento] Error en tarea de auto-cancelación:", error);
             }
-        }), 60000); // Revisar cada minuto
+        }), 60000);
+        // Tarea 2: Cobro de Suscripciones (Cada hora)
+        setInterval(() => __awaiter(this, void 0, void 0, function* () {
+            try {
+                const { SubscriptionService } = yield Promise.resolve().then(() => __importStar(require("../subscription.service")));
+                const subService = new SubscriptionService();
+                const results = yield subService.processDailySubscriptions();
+                if (results.totalProcessed > 0) {
+                    console.log(`[Maintenance] Suscripciones procesadas: ${results.successful} exitosas, ${results.failed} fallidas.`);
+                }
+            }
+            catch (e) {
+                console.error("[Maintenance] Error procesando suscripciones:", e);
+            }
+        }), 3600000);
+    }
+    static manualCleanup() {
+        return __awaiter(this, void 0, void 0, function* () {
+            var _a, _b;
+            console.log("🧹 [Mantenimiento] Ejecutando limpieza manual de pedidos...");
+            const pedidosExpirados = yield data_1.Pedido.find({
+                where: { estado: data_1.EstadoPedido.ACEPTADO },
+                relations: ["negocio", "negocio.usuario", "productos", "productos.producto"]
+            });
+            let cancelados = 0;
+            const ahora = new Date();
+            const io = (0, socket_1.getIO)();
+            for (const pedido of pedidosExpirados) {
+                // 🛡️ Saltar pedidos programados (ellos no expiran por tiempo de aceptación normal)
+                const esProgramado = (_a = pedido.productos) === null || _a === void 0 ? void 0 : _a.some(p => { var _a; return ((_a = p.producto) === null || _a === void 0 ? void 0 : _a.tipoProducto) === 'PROGRAMADO'; });
+                if (esProgramado)
+                    continue;
+                const { GlobalSettings } = require("../../../data");
+                const settings = yield GlobalSettings.findOne({ where: {} });
+                const graceMinutes = (settings === null || settings === void 0 ? void 0 : settings.acceptedOrderGraceMinutes) || 10;
+                const fechaBase = pedido.fecha_aceptado || pedido.createdAt;
+                const prepTimeMax = Number(pedido.tiempoPreparacionElegido || ((_b = pedido.negocio) === null || _b === void 0 ? void 0 : _b.tiempoPreparacionMax) || 30);
+                const totalLimitMinutes = prepTimeMax + graceMinutes;
+                const limiteAutoCancel = new Date(fechaBase.getTime() + totalLimitMinutes * 60000);
+                if (ahora > limiteAutoCancel) {
+                    pedido.estado = data_1.EstadoPedido.CANCELADO;
+                    pedido.motivoCancelacion = "Limpieza manual de pedidos expirados.";
+                    yield pedido.save();
+                    io.emit("pedido_actualizado", { id: pedido.id, estado: pedido.estado });
+                    cancelados++;
+                }
+            }
+            return { success: true, count: cancelados };
+        });
     }
 }
 exports.PedidoUsuarioService = PedidoUsuarioService;

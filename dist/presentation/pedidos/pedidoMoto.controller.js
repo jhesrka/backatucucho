@@ -13,7 +13,11 @@ exports.PedidoMotoController = void 0;
 const domain_1 = require("../../domain");
 const pedidoMoto_service_1 = require("../services/pedidosServices/pedidoMoto.service");
 const Pedido_1 = require("../../data/postgres/models/Pedido");
+const upload_files_cloud_adapter_1 = require("../../config/upload-files-cloud-adapter");
+const env_1 = require("../../config/env");
+const uuid_1 = require("uuid");
 class PedidoMotoController {
+    /** Controlador para la gestion de pedidos por parte de los motorizados */
     constructor(pedidoMotoService) {
         this.pedidoMotoService = pedidoMotoService;
         // ======================== Manejo de errores ========================
@@ -30,12 +34,10 @@ class PedidoMotoController {
             try {
                 const { pedidoId } = req.body;
                 const motorizadoId = (_a = req.body.sessionMotorizado) === null || _a === void 0 ? void 0 : _a.id;
-                if (!pedidoId) {
+                if (!pedidoId)
                     return res.status(400).json({ message: "Falta el pedidoId" });
-                }
-                if (!motorizadoId) {
+                if (!motorizadoId)
                     return res.status(401).json({ message: "Motorizado no autenticado" });
-                }
                 const pedido = yield pedidoMoto_service_1.PedidoMotoService.aceptarPedido(pedidoId, motorizadoId);
                 return res.status(200).json(pedido);
             }
@@ -49,12 +51,10 @@ class PedidoMotoController {
             try {
                 const { pedidoId } = req.body;
                 const motorizadoId = (_a = req.body.sessionMotorizado) === null || _a === void 0 ? void 0 : _a.id;
-                if (!pedidoId) {
+                if (!pedidoId)
                     return res.status(400).json({ message: "Falta el pedidoId" });
-                }
-                if (!motorizadoId) {
+                if (!motorizadoId)
                     return res.status(401).json({ message: "Motorizado no autenticado" });
-                }
                 const pedido = yield pedidoMoto_service_1.PedidoMotoService.rechazarPedido(pedidoId, motorizadoId);
                 return res.status(200).json(pedido);
             }
@@ -68,12 +68,10 @@ class PedidoMotoController {
             try {
                 const { pedidoId } = req.body;
                 const motorizadoId = (_a = req.body.sessionMotorizado) === null || _a === void 0 ? void 0 : _a.id;
-                if (!pedidoId) {
+                if (!pedidoId)
                     return res.status(400).json({ message: "Falta el pedidoId" });
-                }
-                if (!motorizadoId) {
+                if (!motorizadoId)
                     return res.status(401).json({ message: "Motorizado no autenticado" });
-                }
                 const pedido = yield pedidoMoto_service_1.PedidoMotoService.marcarEnCamino(pedidoId, motorizadoId);
                 return res.status(200).json(pedido);
             }
@@ -87,15 +85,12 @@ class PedidoMotoController {
             try {
                 const { pedidoId, code } = req.body;
                 const motorizadoId = (_a = req.body.sessionMotorizado) === null || _a === void 0 ? void 0 : _a.id;
-                if (!pedidoId) {
+                if (!pedidoId)
                     return res.status(400).json({ message: "Falta el pedidoId" });
-                }
-                if (!code) {
-                    return res.status(400).json({ message: "Falta el código de entrega" });
-                }
-                if (!motorizadoId) {
+                if (!code)
+                    return res.status(400).json({ message: "Falta el codigo de entrega" });
+                if (!motorizadoId)
                     return res.status(401).json({ message: "Motorizado no autenticado" });
-                }
                 const pedido = yield pedidoMoto_service_1.PedidoMotoService.entregarPedido(pedidoId, motorizadoId, code);
                 return res.status(200).json(pedido);
             }
@@ -109,15 +104,12 @@ class PedidoMotoController {
             try {
                 const { pedidoId, motivo } = req.body;
                 const motorizadoId = (_a = req.body.sessionMotorizado) === null || _a === void 0 ? void 0 : _a.id;
-                if (!pedidoId) {
+                if (!pedidoId)
                     return res.status(400).json({ message: "Falta el pedidoId" });
-                }
-                if (!motivo) {
+                if (!motivo)
                     return res.status(400).json({ message: "Falta el motivo cancelacion" });
-                }
-                if (!motorizadoId) {
+                if (!motorizadoId)
                     return res.status(401).json({ message: "Motorizado no autenticado" });
-                }
                 const pedido = yield pedidoMoto_service_1.PedidoMotoService.cancelarPedido(pedidoId, motorizadoId, motivo);
                 return res.status(200).json(pedido);
             }
@@ -131,12 +123,10 @@ class PedidoMotoController {
             try {
                 const { pedidoId } = req.body;
                 const motorizadoId = (_a = req.body.sessionMotorizado) === null || _a === void 0 ? void 0 : _a.id;
-                if (!pedidoId) {
+                if (!pedidoId)
                     return res.status(400).json({ message: "Falta el pedidoId" });
-                }
-                if (!motorizadoId) {
+                if (!motorizadoId)
                     return res.status(401).json({ message: "Motorizado no autenticado" });
-                }
                 const result = yield pedidoMoto_service_1.PedidoMotoService.marcarLlegada(pedidoId, motorizadoId);
                 return res.status(200).json(result);
             }
@@ -150,9 +140,8 @@ class PedidoMotoController {
             try {
                 const motorizadoId = (_a = req.body.sessionMotorizado) === null || _a === void 0 ? void 0 : _a.id;
                 const { fecha, page, limit } = req.query;
-                if (!motorizadoId) {
+                if (!motorizadoId)
                     return res.status(401).json({ message: "Motorizado no autenticado" });
-                }
                 const historial = yield this.pedidoMotoService.obtenerHistorial(motorizadoId, fecha, page ? Number(page) : 1, limit ? Number(limit) : 10);
                 return res.json(historial);
             }
@@ -166,9 +155,8 @@ class PedidoMotoController {
             try {
                 const motorizadoId = (_a = req.body.sessionMotorizado) === null || _a === void 0 ? void 0 : _a.id;
                 const { fecha, page = 1, limit = 10 } = req.query;
-                if (!motorizadoId) {
+                if (!motorizadoId)
                     return res.status(401).json({ message: "Motorizado no autenticado" });
-                }
                 const billetera = yield this.pedidoMotoService.obtenerBilletera(motorizadoId, fecha, Number(page), Number(limit));
                 return res.json(billetera);
             }
@@ -182,9 +170,8 @@ class PedidoMotoController {
             try {
                 const motorizadoId = (_a = req.body.sessionMotorizado) === null || _a === void 0 ? void 0 : _a.id;
                 const { banco, tipo, numero, titular, identificacion } = req.body;
-                if (!motorizadoId) {
+                if (!motorizadoId)
                     return res.status(401).json({ message: "No autenticado" });
-                }
                 const result = yield pedidoMoto_service_1.PedidoMotoService.guardarDatosBancarios(motorizadoId, { banco, tipo, numero, titular, identificacion });
                 return res.json(result);
             }
@@ -198,12 +185,10 @@ class PedidoMotoController {
             try {
                 const motorizadoId = (_a = req.body.sessionMotorizado) === null || _a === void 0 ? void 0 : _a.id;
                 const { monto } = req.body;
-                if (!motorizadoId) {
+                if (!motorizadoId)
                     return res.status(401).json({ message: "No autenticado" });
-                }
-                if (!monto) {
+                if (!monto)
                     return res.status(400).json({ message: "Monto requerido" });
-                }
                 const tx = yield pedidoMoto_service_1.PedidoMotoService.solicitarRetiro(motorizadoId, Number(monto));
                 return res.json(tx);
             }
@@ -212,15 +197,14 @@ class PedidoMotoController {
             }
         });
         // ============================================================
-        // 🔍 OBTENER PEDIDO PENDIENTE (refrescar pantalla del motorizado)
+        // OBTENER PEDIDO PENDIENTE (refrescar pantalla del motorizado)
         // ============================================================
         this.obtenerPedidoPendiente = (req, res) => __awaiter(this, void 0, void 0, function* () {
             var _a, _b;
             try {
                 const motorizadoId = ((_a = req.body.sessionMotorizado) === null || _a === void 0 ? void 0 : _a.id) || req.body.motorizadoId;
-                if (!motorizadoId) {
+                if (!motorizadoId)
                     return res.status(401).json({ message: "Motorizado no identificado" });
-                }
                 const pedido = yield Pedido_1.Pedido.findOne({
                     where: {
                         motorizadoEnEvaluacion: motorizadoId,
@@ -230,9 +214,6 @@ class PedidoMotoController {
                 });
                 if (!pedido)
                     return res.json(null);
-                // ===========================
-                // FIX DE SEGURIDAD (SE MANTIENE)
-                // ===========================
                 if (!pedido.fechaInicioRonda) {
                     pedido.fechaInicioRonda = new Date();
                     yield pedido.save();
@@ -246,6 +227,7 @@ class PedidoMotoController {
                     expiresAt,
                     duration: timeout,
                     costoEnvio: pedido.costoEnvio,
+                    rondaAsignacion: pedido.rondaAsignacion || 1,
                 });
             }
             catch (error) {
@@ -253,16 +235,14 @@ class PedidoMotoController {
             }
         });
         // ============================================================
-        // 🚚 OBTENER PEDIDO ACTIVO (para tab "Activos")
+        // OBTENER PEDIDO ACTIVO (para tab Activos)
         // ============================================================
         this.obtenerPedidoActivo = (req, res) => __awaiter(this, void 0, void 0, function* () {
             var _a;
             try {
                 const motorizadoId = (_a = req.body.sessionMotorizado) === null || _a === void 0 ? void 0 : _a.id;
-                if (!motorizadoId) {
+                if (!motorizadoId)
                     return res.status(401).json({ message: "Motorizado no autenticado" });
-                }
-                // Usar el servicio para evitar duplicación de lógica y dependencias
                 const pedido = yield pedidoMoto_service_1.PedidoMotoService.obtenerPedidoActivo(motorizadoId);
                 if (!pedido)
                     return res.json(null);
@@ -276,26 +256,21 @@ class PedidoMotoController {
             try {
                 const motorizadoId = req.body.sessionMotorizado.id;
                 const { quiereTrabajar } = req.body;
-                if (typeof quiereTrabajar !== "boolean") {
-                    return res.status(400).json({ message: "Valor inválido" });
-                }
+                if (typeof quiereTrabajar !== "boolean")
+                    return res.status(400).json({ message: "Valor invalido" });
                 const result = yield pedidoMoto_service_1.PedidoMotoService.cambiarDisponibilidad(motorizadoId, quiereTrabajar);
                 return res.json(result);
             }
             catch (error) {
-                if (error instanceof domain_1.CustomError) {
-                    return res.status(error.statusCode).json({ message: error.message });
-                }
-                return res.status(500).json({ message: "Error interno" });
+                return this.handleError(error, res);
             }
         });
         this.obtenerEstado = (req, res) => __awaiter(this, void 0, void 0, function* () {
             var _a;
             try {
                 const motorizadoId = (_a = req.body.sessionMotorizado) === null || _a === void 0 ? void 0 : _a.id;
-                if (!motorizadoId) {
+                if (!motorizadoId)
                     return res.status(401).json({ message: "Motorizado no autenticado" });
-                }
                 const estado = yield pedidoMoto_service_1.PedidoMotoService.obtenerEstadoMotorizado(motorizadoId);
                 return res.json(estado);
             }
@@ -305,7 +280,6 @@ class PedidoMotoController {
         });
         this.obtenerTableroOperativo = (req, res) => __awaiter(this, void 0, void 0, function* () {
             try {
-                // Nota: Esta información es pública para motorizados disponibles
                 const result = yield pedidoMoto_service_1.PedidoMotoService.obtenerTableroOperativo();
                 return res.json(result);
             }
@@ -324,6 +298,70 @@ class PedidoMotoController {
                     return res.status(401).json({ message: "No autenticado" });
                 const pedido = yield pedidoMoto_service_1.PedidoMotoService.aceptarPedidoEnEspera(pedidoId, motorizadoId);
                 return res.json(pedido);
+            }
+            catch (error) {
+                return this.handleError(error, res);
+            }
+        });
+        this.cancelarPedidoPorAusencia = (req, res) => __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            try {
+                const { pedidoId, evidenceKey } = req.body;
+                const motorizadoId = (_a = req.body.sessionMotorizado) === null || _a === void 0 ? void 0 : _a.id;
+                if (!pedidoId)
+                    return res.status(400).json({ message: "Falta el pedidoId" });
+                if (!evidenceKey)
+                    return res.status(400).json({ message: "Falta la evidencia fotografica" });
+                if (!motorizadoId)
+                    return res.status(401).json({ message: "No autenticado" });
+                const result = yield pedidoMoto_service_1.PedidoMotoService.cancelarPedidoPorAusencia(pedidoId, motorizadoId, evidenceKey);
+                return res.json(result);
+            }
+            catch (error) {
+                return this.handleError(error, res);
+            }
+        });
+        this.confirmarRetornoLocal = (req, res) => __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            try {
+                const { pedidoId, evidenceKey } = req.body;
+                const motorizadoId = (_a = req.body.sessionMotorizado) === null || _a === void 0 ? void 0 : _a.id;
+                if (!pedidoId)
+                    return res.status(400).json({ message: "Falta el pedidoId" });
+                if (!evidenceKey)
+                    return res.status(400).json({ message: "Falta la evidencia del retorno" });
+                if (!motorizadoId)
+                    return res.status(401).json({ message: "No autenticado" });
+                const result = yield pedidoMoto_service_1.PedidoMotoService.confirmarRetornoLocal(pedidoId, motorizadoId, evidenceKey);
+                return res.json(result);
+            }
+            catch (error) {
+                return this.handleError(error, res);
+            }
+        });
+        this.uploadEvidence = (req, res) => __awaiter(this, void 0, void 0, function* () {
+            try {
+                if (!req.file)
+                    return res.status(400).json({ message: "No file uploaded" });
+                const fileExtension = req.file.originalname.split(".").pop() || "jpg";
+                const fileName = `${(0, uuid_1.v4)()}.${fileExtension}`;
+                const folder = "pedidos/evidence";
+                const key = `${folder}/${fileName}`;
+                const uploadedKey = yield upload_files_cloud_adapter_1.UploadFilesCloud.uploadSingleFile({
+                    bucketName: env_1.envs.AWS_BUCKET_NAME,
+                    key: key,
+                    body: req.file.buffer,
+                    contentType: req.file.mimetype,
+                });
+                const signedUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
+                    bucketName: env_1.envs.AWS_BUCKET_NAME,
+                    key: uploadedKey
+                });
+                return res.status(200).json({
+                    success: true,
+                    url: signedUrl,
+                    key: uploadedKey
+                });
             }
             catch (error) {
                 return this.handleError(error, res);

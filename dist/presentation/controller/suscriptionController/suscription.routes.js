@@ -43,6 +43,8 @@ class SubscriptionRoutes {
         router.post("/admin/master-pin/change", [middlewares_1.AuthAdminMiddleware.protect], subscriptionController.changeMasterPin);
         // Verificar estado del Master PIN
         router.get("/admin/master-pin/status", [middlewares_1.AuthAdminMiddleware.protect], subscriptionController.getMasterPinStatus);
+        // Verificar Master PIN (solo verificación)
+        router.post("/admin/master-pin/verify", [middlewares_1.AuthAdminMiddleware.protect], subscriptionController.verifyMasterPin);
         return router;
     }
 }

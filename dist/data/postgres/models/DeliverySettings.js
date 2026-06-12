@@ -39,6 +39,10 @@ __decorate([
     __metadata("design:type", Boolean)
 ], DeliverySettings.prototype, "isActive", void 0);
 __decorate([
+    (0, typeorm_1.Column)("jsonb", { nullable: true, default: [] }),
+    __metadata("design:type", Array)
+], DeliverySettings.prototype, "peakHours", void 0);
+__decorate([
     (0, typeorm_1.CreateDateColumn)(),
     __metadata("design:type", Date)
 ], DeliverySettings.prototype, "createdAt", void 0);

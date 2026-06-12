@@ -27,11 +27,12 @@ class ProductoControllerAdmin {
         // ======================== GET PRODUCTOS ADMIN ========================
         this.getProductosAdmin = (req, res) => __awaiter(this, void 0, void 0, function* () {
             try {
-                const { limit, offset, status, search, negocioId } = req.query;
+                const { limit, offset, status, search, negocioId, tipoId } = req.query;
                 const parsedLimit = limit ? Number(limit) : 5;
                 const parsedOffset = offset ? Number(offset) : 0;
                 const parsedStatus = status ? String(status).toUpperCase() : undefined;
                 const parsedNegocioId = negocioId ? String(negocioId) : undefined;
+                const parsedTipoId = tipoId ? String(tipoId) : undefined;
                 // Validaciones básicas
                 if (isNaN(parsedLimit) || parsedLimit < 0)
                     return res
@@ -52,6 +53,7 @@ class ProductoControllerAdmin {
                     status: parsedStatus,
                     search: search ? String(search) : undefined,
                     negocioId: parsedNegocioId,
+                    tipoId: parsedTipoId,
                 });
                 return res.status(200).json(result);
             }
@@ -102,8 +104,20 @@ class ProductoControllerAdmin {
         });
         this.deleteProductoAdmin = (req, res) => __awaiter(this, void 0, void 0, function* () {
             const { id } = req.params;
+            const { pin } = req.body; // Recibimos el PIN de 4 dígitos
             try {
-                const result = yield this.productoServiceAdmin.deleteProductoAdmin(id);
+                const result = yield this.productoServiceAdmin.deleteProductoAdmin(id, pin);
+                return res.status(200).json(result);
+            }
+            catch (error) {
+                this.handleError(error, res);
+            }
+        });
+        this.bulkCreateProductos = (req, res) => __awaiter(this, void 0, void 0, function* () {
+            const { negocioId } = req.params;
+            const { productos, pin } = req.body;
+            try {
+                const result = yield this.productoServiceAdmin.bulkCreateProductosAdmin(negocioId, productos, pin);
                 return res.status(200).json(result);
             }
             catch (error) {

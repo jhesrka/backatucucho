@@ -12,6 +12,7 @@ export enum TransactionOrigin {
 export enum TransactionReason {
   RECHARGE = 'RECHARGE',                    // Recarga de saldo
   SUBSCRIPTION = 'SUBSCRIPTION',            // Débito por suscripción
+  SERVICE_SUBSCRIPTION = 'SERVICE_SUBSCRIPTION', // Débito por publicación de servicio
   ADMIN_ADJUSTMENT = 'ADMIN_ADJUSTMENT',    // Ajuste administrativo
   REVERSAL = 'REVERSAL',                    // Reverso/devolución
   ORDER = 'ORDER',                          // Débito por pedido

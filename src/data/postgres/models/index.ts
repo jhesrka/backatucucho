@@ -27,3 +27,6 @@ export * from './MotorizadoTier';
 export * from './MeritocracyCycleLog';
 export * from './TrainingVideo';
 export * from './TrainingCategory';
+export * from './CategoriaServicio';
+export * from './SubcategoriaServicio';
+export * from './Servicio';

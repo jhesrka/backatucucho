@@ -18,6 +18,9 @@ var StatusPost;
     StatusPost["FLAGGED"] = "FLAGGED";
     StatusPost["HIDDEN"] = "HIDDEN";
     StatusPost["DELETED"] = "DELETED";
+    StatusPost["SCHEDULED"] = "SCHEDULED";
+    StatusPost["CANCELLED"] = "CANCELLED";
+    StatusPost["FAILED"] = "FAILED";
 })(StatusPost || (exports.StatusPost = StatusPost = {}));
 let Post = class Post extends typeorm_1.BaseEntity {
 };
@@ -65,6 +68,14 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)({ type: "timestamptz", nullable: true }),
     __metadata("design:type", Date)
+], Post.prototype, "scheduledAt", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "timestamptz", nullable: true }),
+    __metadata("design:type", Date)
+], Post.prototype, "publishedAt", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "timestamptz", nullable: true }),
+    __metadata("design:type", Date)
 ], Post.prototype, "expiresAt", void 0);
 __decorate([
     (0, typeorm_1.Column)("enum", {
@@ -73,6 +84,10 @@ __decorate([
     }),
     __metadata("design:type", String)
 ], Post.prototype, "statusPost", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "timestamptz", nullable: true }),
+    __metadata("design:type", Date)
+], Post.prototype, "deletedAt", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: "int", default: 0 }),
     __metadata("design:type", Number)
@@ -89,6 +104,26 @@ __decorate([
     (0, typeorm_1.Column)({ type: "uuid", nullable: true }),
     __metadata("design:type", String)
 ], Post.prototype, "freePostTrackerId", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "uuid", nullable: true }),
+    __metadata("design:type", String)
+], Post.prototype, "productoId", void 0);
+__decorate([
+    (0, typeorm_1.Column)("decimal", { precision: 10, scale: 2, nullable: true }),
+    __metadata("design:type", Number)
+], Post.prototype, "precioProducto", void 0);
+__decorate([
+    (0, typeorm_1.Column)("varchar", { nullable: true }),
+    __metadata("design:type", String)
+], Post.prototype, "videoUrl", void 0);
+__decorate([
+    (0, typeorm_1.Column)("varchar", { nullable: true }),
+    __metadata("design:type", String)
+], Post.prototype, "videoPlatform", void 0);
+__decorate([
+    (0, typeorm_1.Column)("varchar", { nullable: true }),
+    __metadata("design:type", String)
+], Post.prototype, "videoEmbedUrl", void 0);
 __decorate([
     (0, typeorm_1.ManyToOne)(() => index_1.User, (user) => user.posts, {
         eager: false,

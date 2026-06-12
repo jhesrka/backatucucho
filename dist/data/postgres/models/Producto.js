@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Producto = exports.StatusProducto = void 0;
+exports.Producto = exports.TipoProductoEnum = exports.StatusProducto = void 0;
 const typeorm_1 = require("typeorm");
 const Negocio_1 = require("./Negocio");
 const TipoProducto_1 = require("./TipoProducto");
@@ -20,6 +20,11 @@ var StatusProducto;
     StatusProducto["SUSPENDIDO"] = "SUSPENDIDO";
     StatusProducto["BLOQUEADO"] = "BLOQUEADO";
 })(StatusProducto || (exports.StatusProducto = StatusProducto = {}));
+var TipoProductoEnum;
+(function (TipoProductoEnum) {
+    TipoProductoEnum["NORMAL"] = "NORMAL";
+    TipoProductoEnum["PROGRAMADO"] = "PROGRAMADO";
+})(TipoProductoEnum || (exports.TipoProductoEnum = TipoProductoEnum = {}));
 let Producto = class Producto extends typeorm_1.BaseEntity {
 };
 exports.Producto = Producto;
@@ -27,6 +32,14 @@ __decorate([
     (0, typeorm_1.PrimaryGeneratedColumn)("uuid"),
     __metadata("design:type", String)
 ], Producto.prototype, "id", void 0);
+__decorate([
+    (0, typeorm_1.Column)({
+        type: "enum",
+        enum: TipoProductoEnum,
+        default: TipoProductoEnum.NORMAL,
+    }),
+    __metadata("design:type", String)
+], Producto.prototype, "tipoProducto", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: "varchar", length: 100 }),
     __metadata("design:type", String)

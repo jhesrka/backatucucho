@@ -52,11 +52,11 @@ __decorate([
     __metadata("design:type", String)
 ], TransaccionMotorizado.prototype, "descripcion", void 0);
 __decorate([
-    (0, typeorm_1.CreateDateColumn)(),
+    (0, typeorm_1.CreateDateColumn)({ type: "timestamptz" }),
     __metadata("design:type", Date)
 ], TransaccionMotorizado.prototype, "createdAt", void 0);
 __decorate([
-    (0, typeorm_1.UpdateDateColumn)({ name: 'updated_at' }),
+    (0, typeorm_1.UpdateDateColumn)({ name: 'updated_at', type: "timestamptz" }),
     __metadata("design:type", Date)
 ], TransaccionMotorizado.prototype, "updatedAt", void 0);
 __decorate([

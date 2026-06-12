@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CreatePedidoDTO = void 0;
 const ProductoPedidoInput_1 = require("./ProductoPedidoInput");
 class CreatePedidoDTO {
-    constructor(clienteId, negocioId, productos, ubicacionCliente, metodoPago, montoVuelto, comprobantePagoUrl) {
+    constructor(clienteId, negocioId, productos, ubicacionCliente, metodoPago, montoVuelto, comprobantePagoUrl, notaGeneral) {
         this.clienteId = clienteId;
         this.negocioId = negocioId;
         this.productos = productos;
@@ -11,6 +11,7 @@ class CreatePedidoDTO {
         this.metodoPago = metodoPago;
         this.montoVuelto = montoVuelto;
         this.comprobantePagoUrl = comprobantePagoUrl;
+        this.notaGeneral = notaGeneral;
     }
     static create(object) {
         const { clienteId, negocioId, productos, ubicacionCliente } = object !== null && object !== void 0 ? object : {};
@@ -40,10 +41,10 @@ class CreatePedidoDTO {
             return ["Coordenadas de ubicación inválidas (lat/lng numéricos)"];
         }
         // Metodo de Pago (opcionales)
-        const { metodoPago, montoVuelto, comprobantePagoUrl } = object;
+        const { metodoPago, montoVuelto, comprobantePagoUrl, notaGeneral } = object;
         return [
             undefined,
-            new CreatePedidoDTO(String(clienteId), String(negocioId), items, { lat: nlat, lng: nlng, direccionTexto: direccionTexto ? String(direccionTexto) : undefined }, metodoPago, montoVuelto ? Number(montoVuelto) : undefined, comprobantePagoUrl ? String(comprobantePagoUrl) : undefined),
+            new CreatePedidoDTO(String(clienteId), String(negocioId), items, { lat: nlat, lng: nlng, direccionTexto: direccionTexto ? String(direccionTexto) : undefined }, metodoPago, montoVuelto ? Number(montoVuelto) : undefined, comprobantePagoUrl ? String(comprobantePagoUrl) : undefined, notaGeneral ? String(notaGeneral) : undefined),
         ];
     }
 }

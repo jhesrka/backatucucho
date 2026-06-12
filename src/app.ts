@@ -20,6 +20,7 @@ import { startPostPurgeCron } from "./cron/post-purge.cron";
 import { startPostSchedulerCron } from "./cron/post-scheduler.cron";
 import { startMeritocracyCron } from "./cron/meritocracy.cron";
 import { startRechargeCleanupCron } from "./cron/recharge-cleanup.cron";
+import { startServiceSubscriptionCron } from "./cron/service-subscription.cron";
 
 import { ActivityService } from "./presentation/services/activity.service";
 import { getIO } from "./config/socket";
@@ -56,6 +57,7 @@ async function main() {
     startPostSchedulerCron();
     startMeritocracyCron();
     startRechargeCleanupCron();
+    startServiceSubscriptionCron();
     PedidoUsuarioService.startMaintenanceJob(); // 🚀 Activar limpieza de pedidos y auto-cancelación
   } else {
     console.log("⏸️ Cron jobs deshabilitados por variable de entorno.");

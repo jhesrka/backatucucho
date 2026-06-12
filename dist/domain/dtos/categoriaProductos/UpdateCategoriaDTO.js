@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.UpdateCategoriaDTO = void 0;
 const data_1 = require("../../../data");
 class UpdateCategoriaDTO {
-    constructor(name, icon, restriccionModeloMonetizacion, soloComision, statusCategoria, orden, modeloBloqueado, modeloMonetizacionDefault) {
+    constructor(name, icon, restriccionModeloMonetizacion, soloComision, statusCategoria, orden, modeloBloqueado, modeloMonetizacionDefault, cover) {
         this.name = name;
         this.icon = icon;
         this.restriccionModeloMonetizacion = restriccionModeloMonetizacion;
@@ -12,10 +12,19 @@ class UpdateCategoriaDTO {
         this.orden = orden;
         this.modeloBloqueado = modeloBloqueado;
         this.modeloMonetizacionDefault = modeloMonetizacionDefault;
+        this.cover = cover;
     }
     static create(obj) {
-        const { name, icon, restriccionModeloMonetizacion, soloComision, statusCategoria, modeloBloqueado, modeloMonetizacionDefault } = obj;
-        if (!name && !icon && !restriccionModeloMonetizacion && statusCategoria === undefined && soloComision === undefined && obj.orden === undefined && modeloBloqueado === undefined && modeloMonetizacionDefault === undefined) {
+        let { name, icon, restriccionModeloMonetizacion, soloComision, statusCategoria, modeloBloqueado, modeloMonetizacionDefault, cover } = obj;
+        if (typeof cover === "string") {
+            try {
+                cover = JSON.parse(cover);
+            }
+            catch (e) {
+                return ["El campo cover no es un JSON válido"];
+            }
+        }
+        if (!name && !icon && !restriccionModeloMonetizacion && statusCategoria === undefined && soloComision === undefined && obj.orden === undefined && modeloBloqueado === undefined && modeloMonetizacionDefault === undefined && cover === undefined) {
             return [
                 "Debes enviar al menos un campo para actualizar",
             ];
@@ -46,9 +55,17 @@ class UpdateCategoriaDTO {
             }
             updates.statusCategoria = statusCategoria;
         }
+        // Validación básica de cover si viene
+        if (cover !== undefined && cover !== null) {
+            if (typeof cover !== "object")
+                return ["El campo cover debe ser un objeto o JSON válido"];
+            if (cover.type && !["image", "video"].includes(cover.type)) {
+                return ["El tipo de portada debe ser image o video"];
+            }
+        }
         return [
             undefined,
-            new UpdateCategoriaDTO(updates.name, updates.icon, updates.restriccionModeloMonetizacion, soloComision === undefined ? undefined : !!soloComision, updates.statusCategoria, obj.orden !== undefined ? Number(obj.orden) : undefined, modeloBloqueado === undefined ? undefined : !!modeloBloqueado, modeloMonetizacionDefault),
+            new UpdateCategoriaDTO(updates.name, updates.icon, updates.restriccionModeloMonetizacion, soloComision === undefined ? undefined : !!soloComision, updates.statusCategoria, obj.orden !== undefined ? Number(obj.orden) : undefined, modeloBloqueado === undefined ? undefined : !!modeloBloqueado, modeloMonetizacionDefault, cover),
         ];
     }
 }

@@ -9,10 +9,10 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.WalletController = void 0;
+exports.UserWalletController = void 0;
 const domain_1 = require("../../domain");
 const CreateWallet_dto_1 = require("../../domain/dtos/wallet/CreateWallet.dto");
-class WalletController {
+class UserWalletController {
     constructor(walletService) {
         this.walletService = walletService;
         this.handleError = (error, res) => {
@@ -156,6 +156,61 @@ class WalletController {
                 return this.handleError(err, res);
             }
         });
+        this.initializePayphoneRecharge = (req, res) => __awaiter(this, void 0, void 0, function* () {
+            const { userId } = req.params;
+            const { amount } = req.body;
+            try {
+                const result = yield this.walletService.initializePayphoneRecharge(userId, Number(amount));
+                return res.status(200).json(result);
+            }
+            catch (err) {
+                return this.handleError(err, res);
+            }
+        });
+        this.verifyPayphoneRecharge = (req, res) => __awaiter(this, void 0, void 0, function* () {
+            const { rechargeId } = req.params;
+            const { transactionId } = req.query; // Capturar ID de PayPhone si viene del front
+            try {
+                console.log(`🔍 [Payphone Controller] Verificando recarga: ${rechargeId} | Remote ID: ${transactionId || 'Searching...'}`);
+                const result = yield this.walletService.confirmPayphoneRecharge(rechargeId, transactionId);
+                return res.status(200).json(result);
+            }
+            catch (err) {
+                return this.handleError(err, res);
+            }
+        });
+        /**
+         * 🔍 Buscar usuario por email para recarga manual
+         */
+        this.findUserForRecharge = (req, res) => __awaiter(this, void 0, void 0, function* () {
+            const { email } = req.params;
+            try {
+                const result = yield this.walletService.findUserForRecharge(email);
+                return res.status(200).json(result);
+            }
+            catch (err) {
+                return this.handleError(err, res);
+            }
+        });
+        /**
+         * 💵 Ejecutar recarga en efectivo (Solo Admin)
+         */
+        this.adminCashRecharge = (req, res) => __awaiter(this, void 0, void 0, function* () {
+            const { userId, amount } = req.body;
+            // El middleware AuthAdminMiddleware inyecta sessionAdmin en req y en req.body
+            const admin = req.sessionAdmin || req.body.sessionAdmin;
+            const adminId = admin === null || admin === void 0 ? void 0 : admin.id;
+            if (!adminId) {
+                return res.status(403).json({ message: "No se identificó el administrador responsable" });
+            }
+            try {
+                const result = yield this.walletService.adminCashRecharge(userId, Number(amount), adminId);
+                return res.status(200).json(result);
+            }
+            catch (err) {
+                return this.handleError(err, res);
+            }
+        });
     }
 }
-exports.WalletController = WalletController;
+exports.UserWalletController = UserWalletController;

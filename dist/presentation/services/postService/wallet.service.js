@@ -82,15 +82,16 @@ class WalletService {
         return __awaiter(this, arguments, void 0, function* (walletId, page = 1, limit = 20, startDate, endDate, type // 'credit' | 'debit' or specific reasons logic
         ) {
             const skip = (page - 1) * limit;
+            const { DateUtils } = yield Promise.resolve().then(() => __importStar(require("../../../utils/date-utils")));
+            const start = DateUtils.getDayRange(startDate || new Date()).start;
+            const end = DateUtils.getDayRange(endDate || startDate || new Date()).end;
             const query = transactionType_model_1.Transaction.createQueryBuilder("t")
                 .leftJoinAndSelect("t.admin", "admin")
-                .where("t.walletId = :walletId", { walletId })
+                .where("t.wallet = :walletId", { walletId })
+                .andWhere("t.created_at BETWEEN :start AND :end", { start, end })
                 .orderBy("t.created_at", "DESC")
                 .skip(skip)
                 .take(limit);
-            if (startDate && endDate) {
-                query.andWhere("t.created_at BETWEEN :start AND :end", { start: startDate, end: endDate });
-            }
             if (type && type !== 'ALL') {
                 // If type matches 'credit'/'debit', filter by type.
                 // If type is a Reason (e.g. SUBSCRIPTION), filter by reason.
@@ -300,80 +301,53 @@ class WalletService {
     /**
      * 📈 Obtener estadísticas globales de billeteras (Dashboard)
      */
-    getGlobalWalletStats() {
-        return __awaiter(this, arguments, void 0, function* (period = 'today') {
-            const startOfPeriod = new Date();
-            if (period === 'today')
-                startOfPeriod.setHours(0, 0, 0, 0);
-            if (period === '7days')
-                startOfPeriod.setDate(startOfPeriod.getDate() - 7);
-            if (period === '30days')
-                startOfPeriod.setDate(startOfPeriod.getDate() - 30);
-            if (period === 'all')
-                startOfPeriod.setFullYear(2000);
-            // 1. Resumen General
+    getGlobalWalletStats(dateStr) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const { DateUtils } = yield Promise.resolve().then(() => __importStar(require("../../../utils/date-utils")));
+            const { start, end } = DateUtils.getDayRange(dateStr);
+            // 1. Saldo en Circulación (TOTAL GLOBAL - no depende de fecha)
             const totalBalanceData = yield data_1.Wallet.createQueryBuilder("wallet")
                 .select("SUM(wallet.balance)", "total")
                 .getRawOne();
             const totalBalance = parseFloat(totalBalanceData.total || "0");
-            const positivewallets = yield data_1.Wallet.createQueryBuilder("w").where("w.balance > 0").getCount();
-            // 2. Regularizaciones
-            const regularizations = yield transactionType_model_1.Transaction.createQueryBuilder("t")
-                .where("t.created_at >= :start", { start: startOfPeriod })
-                .andWhere("t.reason = :reason", { reason: transactionType_model_1.TransactionReason.ADMIN_ADJUSTMENT })
-                .getCount();
-            // 3. Gastos: Historias (Storie) vs Suscripciones (Transaction)
-            // A) Historias: Total pagado en Storie
+            // 2. Gasto en Historias (Día Seleccionado)
             const storiesData = yield data_1.Storie.createQueryBuilder("s")
                 .select("SUM(s.total_pagado)", "total")
-                .where("s.createdAt >= :start", { start: startOfPeriod })
+                .where("s.createdAt >= :start AND s.createdAt <= :end", { start, end })
                 .getRawOne();
             const totalStories = parseFloat(storiesData.total || "0");
-            // B) Suscripciones: Total debitado por SUBSCRIPTION en Transacciones
-            const subsData = yield transactionType_model_1.Transaction.createQueryBuilder("t")
-                .select("SUM(t.amount)", "total")
-                .where("t.created_at >= :start", { start: startOfPeriod })
+            // 3. Suscripciones (Día Seleccionado)
+            // Necesitamos unir con la tabla Subscription para filtrar por plan (BUSINESS vs others)
+            const subsQuery = transactionType_model_1.Transaction.createQueryBuilder("t")
+                .leftJoin(data_1.Subscription, "sub", "t.reference = CAST(sub.id AS VARCHAR)")
+                .select([
+                "SUM(CASE WHEN sub.plan = 'business' THEN t.amount ELSE 0 END) AS businessTotal",
+                "SUM(CASE WHEN sub.plan != 'business' OR sub.id IS NULL THEN t.amount ELSE 0 END) AS userTotal"
+            ])
+                .where("t.created_at >= :start AND t.created_at <= :end", { start, end })
                 .andWhere("t.reason = :reason", { reason: transactionType_model_1.TransactionReason.SUBSCRIPTION })
-                .andWhere("t.type = :type", { type: 'debit' })
-                .getRawOne();
-            const totalSubscriptions = parseFloat(subsData.total || "0");
-            // 4. Top Gastadores (Total Debitado excluyendo admin)
-            const topSpendersRaw = yield transactionType_model_1.Transaction.createQueryBuilder("t")
-                .leftJoinAndSelect("t.wallet", "wallet")
-                .leftJoinAndSelect("wallet.user", "user")
-                .select(["user.name AS name", "user.surname AS surname", "user.email AS email", "SUM(t.amount) AS totalSpent"])
-                .where("t.created_at >= :start", { start: startOfPeriod })
                 .andWhere("t.type = 'debit'")
-                .andWhere("t.reason != :reason", { reason: transactionType_model_1.TransactionReason.ADMIN_ADJUSTMENT })
-                .groupBy("wallet.id, user.id")
-                .orderBy("SUM(t.amount)", "DESC")
-                .limit(5)
-                .getRawMany();
-            // 5. Top Acumuladores (Mayor Saldo Actual)
-            const topSaversRaw = yield data_1.Wallet.createQueryBuilder("w")
-                .leftJoinAndSelect("w.user", "user")
-                .orderBy("w.balance", "DESC")
-                .take(5)
-                .getMany();
+                .andWhere("t.status = 'APPROVED'");
+            const subsData = yield subsQuery.getRawOne();
+            const totalUserSubs = parseFloat(subsData.userTotal || "0");
+            const totalBusinessSubs = parseFloat(subsData.businessTotal || "0");
+            // 4. Suscripciones de Servicios (Día Seleccionado)
+            const serviceSubsQuery = yield transactionType_model_1.Transaction.createQueryBuilder("t")
+                .select("SUM(t.amount)", "total")
+                .where("t.created_at >= :start AND t.created_at <= :end", { start, end })
+                .andWhere("t.reason = :reason", { reason: transactionType_model_1.TransactionReason.SERVICE_SUBSCRIPTION })
+                .andWhere("t.type = 'debit'")
+                .andWhere("t.status = 'APPROVED'")
+                .getRawOne();
+            const totalServiceSubs = parseFloat(serviceSubsQuery.total || "0");
             return {
                 totalBalance,
-                usersWithBalance: positivewallets,
-                averageBalance: positivewallets > 0 ? (totalBalance / positivewallets).toFixed(2) : 0,
-                regularizationsInPeriod: regularizations,
-                spendingStats: {
+                dailyStats: {
                     stories: totalStories,
-                    subscriptions: totalSubscriptions
-                },
-                topSpenders: topSpendersRaw.map(r => ({
-                    name: `${r.name} ${r.surname}`,
-                    email: r.email,
-                    amount: parseFloat(r.totalSpent || "0")
-                })),
-                topSavers: topSaversRaw.map(w => ({
-                    name: `${w.user.name} ${w.user.surname}`,
-                    email: w.user.email,
-                    amount: Number(w.balance)
-                }))
+                    userSubscriptions: totalUserSubs,
+                    businessSubscriptions: totalBusinessSubs,
+                    servicesSubscriptions: totalServiceSubs
+                }
             };
         });
     }
@@ -416,10 +390,12 @@ class WalletService {
             const expensesByType = expensesDetails.reduce((acc, t) => {
                 if (t.reason === transactionType_model_1.TransactionReason.SUBSCRIPTION)
                     acc.subscriptions += Number(t.amount);
+                else if (t.reason === transactionType_model_1.TransactionReason.SERVICE_SUBSCRIPTION)
+                    acc.services += Number(t.amount);
                 else
                     acc.stories += Number(t.amount);
                 return acc;
-            }, { stories: 0, subscriptions: 0 });
+            }, { stories: 0, subscriptions: 0, services: 0 });
             return {
                 date: dateStr,
                 isClosed: !!existingClosing,
@@ -491,6 +467,109 @@ class WalletService {
             closing.totalRechargesCount = data.totalCount;
             closing.closedBy = { id: data.adminId };
             return yield closing.save();
+        });
+    }
+    /**
+     * 💳 Iniciar recarga con PayPhone (Tarjeta)
+     */
+    initializePayphoneRecharge(userId, amount) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (amount <= 0)
+                throw domain_1.CustomError.badRequest("Monto inválido");
+            // 1. Obtener credenciales globales de PayPhone
+            const settings = yield data_1.GlobalSettings.findOne({ where: {} });
+            if (!(settings === null || settings === void 0 ? void 0 : settings.payphoneToken) || !(settings === null || settings === void 0 ? void 0 : settings.payphoneStoreId)) {
+                throw domain_1.CustomError.badRequest("La pasarela de pago PayPhone no está configurada por el administrador.");
+            }
+            // 2. Crear solicitud de recarga pendiente
+            const recharge = new data_1.RechargeRequest();
+            recharge.user = { id: userId };
+            recharge.amount = amount;
+            recharge.bank_name = "PayPhone (Tarjeta)";
+            recharge.payment_method = "CARD";
+            recharge.status = data_1.StatusRecarga.PENDIENTE;
+            recharge.receipt_image = "https://pay.payphonetodoesposible.com/images/Logotipo.png"; // Placeholder representativo
+            recharge.transaction_date = new Date();
+            yield recharge.save();
+            console.log(`🚀 [Wallet PayPhone] Iniciando recarga`);
+            // En lugar de llamar a createCheckout (V1), simplemente devolvemos la configuración V3 al Frontend
+            const payphoneConfig = {
+                token: settings.payphoneToken,
+                storeId: settings.payphoneStoreId,
+                clientTransactionId: recharge.id,
+                amount: Math.round(amount * 100),
+                amountWithoutTax: Math.round(amount * 100),
+                amountWithTax: 0,
+                tax: 0,
+                reference: `Recarga de Billetera - ${userId}`,
+                currency: "USD"
+            };
+            console.log(`✅ [Wallet PayPhone] Configuración Generada para frontend (Botón V3) | Amount Cents: ${payphoneConfig.amount}`);
+            return {
+                rechargeId: recharge.id,
+                payphoneConfig
+            };
+        });
+    }
+    /**
+     * ✅ Confirmación automática de recarga PayPhone
+     */
+    confirmPayphoneRecharge(rechargeId, remoteId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const recharge = yield data_1.RechargeRequest.findOne({
+                where: { id: rechargeId },
+                relations: ["user"]
+            });
+            if (!recharge)
+                throw domain_1.CustomError.notFound("Solicitud de recarga no encontrada");
+            if (recharge.status === data_1.StatusRecarga.APROBADO)
+                return { message: "Recarga ya procesada" };
+            const settings = yield data_1.GlobalSettings.findOne({ where: {} });
+            if (!(settings === null || settings === void 0 ? void 0 : settings.payphoneToken))
+                throw domain_1.CustomError.internalServer("Error de configuración PayPhone");
+            // Verificar con PayPhone usando Get en lugar de Confirm para links de tipo Prepare
+            const { PayphoneService } = yield Promise.resolve().then(() => __importStar(require("../payphone.service")));
+            console.log(`🔍 [Wallet PayPhone] Verificando estado | Recharge ID: ${rechargeId} | Remote ID: ${remoteId}`);
+            const verification = yield PayphoneService.getTransactionByClientTxId(rechargeId, settings.payphoneToken);
+            console.log(`📡 [Wallet PayPhone] Respuesta de Verificación:`, JSON.stringify(verification));
+            if (verification && (verification.transactionStatus === "Approved" ||
+                verification.status === "Approved" ||
+                verification.transactionStatus === "approved" ||
+                verification.statusCode === 3)) {
+                // Acreditar saldo directamente
+                const wallet = yield this.getWalletByUserId(recharge.user.id);
+                const previousBalance = Number(wallet.balance);
+                const amount = Number(recharge.amount);
+                wallet.balance = previousBalance + amount;
+                yield wallet.save();
+                // Actualizar solicitud
+                recharge.status = data_1.StatusRecarga.APROBADO;
+                recharge.external_transaction_id = remoteId.toString();
+                recharge.resolved_at = new Date();
+                yield recharge.save();
+                // Crear registro de transacción
+                const transaction = new transactionType_model_1.Transaction();
+                transaction.wallet = wallet;
+                transaction.amount = amount;
+                transaction.type = 'credit';
+                transaction.status = 'APPROVED'; // Aprobado automáticamente
+                transaction.reason = transactionType_model_1.TransactionReason.RECHARGE;
+                transaction.origin = transactionType_model_1.TransactionOrigin.USER;
+                transaction.previousBalance = previousBalance;
+                transaction.resultingBalance = Number(wallet.balance);
+                transaction.observation = "Recarga automática con PayPhone (Tarjeta)";
+                transaction.reference = recharge.id;
+                yield transaction.save();
+                console.log(`💰 [Wallet PayPhone] Saldo Acreditado Exitosamente | User ID: ${recharge.user.id} | Nuevo Saldo: ${wallet.balance}`);
+                return { success: true, newBalance: wallet.balance };
+            }
+            else {
+                recharge.status = data_1.StatusRecarga.RECHAZADO;
+                recharge.admin_comment = "Pago denegado por PayPhone";
+                yield recharge.save();
+                console.error(`❌ [Wallet PayPhone] Confirmación Fallida o Rechazada | Recharge ID: ${rechargeId}`);
+                throw domain_1.CustomError.badRequest("El pago no fue aprobado por el banco.");
+            }
         });
     }
 }

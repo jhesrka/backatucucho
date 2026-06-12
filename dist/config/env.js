@@ -24,4 +24,9 @@ exports.envs = {
     WEBSERVICE_URL: (0, env_var_1.get)("WEBSERVICE_URL").required().asString(),
     WEBSERVICE_URL_FRONT: (0, env_var_1.get)("WEBSERVICE_URL_FRONT").required().asString(),
     GOOGLE_CLIENT_ID: (0, env_var_1.get)("GOOGLE_CLIENT_ID").required().asString(),
+    // Redis (opcional: solo requerido en producción con múltiples instancias)
+    REDIS_URL: (0, env_var_1.get)("REDIS_URL").default("").asString(),
+    FIREBASE_SERVICE_ACCOUNT: (0, env_var_1.get)("FIREBASE_SERVICE_ACCOUNT").asString(),
+    ENABLE_CRON_JOBS: (0, env_var_1.get)("ENABLE_CRON_JOBS").default("false").asBool(),
+    ALLOW_SETUP: (0, env_var_1.get)("ALLOW_SETUP").default("false").asBool(),
 };

@@ -454,7 +454,6 @@ class AdvertisingService {
     }
     processCampaign(id) {
         return __awaiter(this, void 0, void 0, function* () {
-            var _a;
             console.log(`[ENGINE] 🚀 Iniciando procesamiento automático para campaña: ${id}`);
             const campaign = yield data_1.Campaign.findOne({ where: { id } });
             if (!campaign) {
@@ -466,8 +465,7 @@ class AdvertisingService {
                 console.log(`[ENGINE] ⚠️ Campaña ${id} no es de tipo EMAIL. Abortando auto-procesamiento.`);
                 return;
             }
-            campaign.status = data_1.CampaignStatus.PROCESSING;
-            yield campaign.save();
+            yield data_1.Campaign.update(id, { status: data_1.CampaignStatus.PROCESSING });
             const logs = yield data_1.CampaignLog.find({
                 where: { campaign: { id }, status: data_1.LogStatus.PENDING },
                 relations: ['user']
@@ -475,47 +473,77 @@ class AdvertisingService {
             console.log(`[ENGINE] 📬 Encontrados ${logs.length} destinatarios pendientes para campaña: ${campaign.name}`);
             if (logs.length === 0) {
                 console.warn(`[ENGINE] ⚠️ No hay logs pendientes para procesar.`);
-                campaign.status = data_1.CampaignStatus.COMPLETED;
-                yield campaign.save();
+                yield data_1.Campaign.update(id, { status: data_1.CampaignStatus.COMPLETED });
                 return;
             }
-            for (const log of logs) {
-                try {
-                    const attr = log.dynamicAttributes || {};
-                    const subject = this.replaceTags(campaign.subject || "No Subject", attr);
-                    const content = this.replaceTags(campaign.content, attr);
-                    if (((_a = log.user) === null || _a === void 0 ? void 0 : _a.email) && log.user.email.includes('@')) {
-                        console.log(`[ENGINE] 📧 Enviando a: ${log.user.email}...`);
-                        const result = yield this.emailService.sendEmail({
-                            to: log.user.email,
-                            subject,
-                            htmlBody: content
-                        });
-                        if (result) {
-                            log.status = data_1.LogStatus.SENT;
-                            yield data_1.Campaign.getRepository().increment({ id: campaign.id }, 'sentCount', 1);
-                            console.log(`[ENGINE] ✅ Éxito: ${log.user.email}`);
+            const delay = (ms) => new Promise(res => setTimeout(res, ms));
+            if (logs.length <= 20) {
+                console.log(`[ENGINE] 🟢 Campaña pequeña detectada. Procesando en un solo lote con pausas cortas...`);
+                for (let i = 0; i < logs.length; i++) {
+                    yield this.sendCampaignLog(logs[i], campaign);
+                    if (i < logs.length - 1) {
+                        console.log(`[ENGINE] ⏳ Esperando 2 segundos antes del siguiente correo...`);
+                        yield delay(2000);
+                    }
+                }
+            }
+            else {
+                console.log(`[ENGINE] 🟠 Campaña grande detectada. Procesando por lotes para evitar bloqueo (Anti-Spam)...`);
+                const BATCH_SIZE = 15;
+                for (let i = 0; i < logs.length; i += BATCH_SIZE) {
+                    const chunk = logs.slice(i, i + BATCH_SIZE);
+                    console.log(`[ENGINE] 📦 Procesando Lote ${Math.floor(i / BATCH_SIZE) + 1} de ${Math.ceil(logs.length / BATCH_SIZE)} (${chunk.length} correos)...`);
+                    for (let j = 0; j < chunk.length; j++) {
+                        yield this.sendCampaignLog(chunk[j], campaign);
+                        if (j < chunk.length - 1) {
+                            yield delay(2000); // 2 segundos entre cada correo del lote
                         }
-                        else {
-                            throw new Error("SMTP Refused / Internal Error");
-                        }
+                    }
+                    if (i + BATCH_SIZE < logs.length) {
+                        console.log(`[ENGINE] 🛑 Lote terminado. Descansando 3 minutos por seguridad anti-spam...`);
+                        yield delay(180000); // 3 minutos
+                    }
+                }
+            }
+            yield data_1.Campaign.update(id, { status: data_1.CampaignStatus.COMPLETED });
+            console.log(`[ENGINE] 🏁 Campaña ${id} terminada.`);
+        });
+    }
+    sendCampaignLog(log, campaign) {
+        return __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            try {
+                const attr = log.dynamicAttributes || {};
+                const subject = this.replaceTags(campaign.subject || "No Subject", attr);
+                const content = this.replaceTags(campaign.content, attr);
+                if (((_a = log.user) === null || _a === void 0 ? void 0 : _a.email) && log.user.email.includes('@')) {
+                    console.log(`[ENGINE] 📧 Enviando a: ${log.user.email}...`);
+                    const result = yield this.emailService.sendEmail({
+                        to: log.user.email,
+                        subject,
+                        htmlBody: content
+                    });
+                    if (result) {
+                        log.status = data_1.LogStatus.SENT;
+                        yield data_1.Campaign.getRepository().increment({ id: campaign.id }, 'sentCount', 1);
+                        console.log(`[ENGINE] ✅ Éxito: ${log.user.email}`);
                     }
                     else {
-                        throw new Error("Invalid Email Address");
+                        throw new Error("SMTP Refused / Internal Error");
                     }
                 }
-                catch (e) {
-                    console.error(`[ENGINE] ❌ Fallo en ${log.targetContact}: ${e.message}`);
-                    log.status = data_1.LogStatus.FAILED;
-                    log.errorMessage = e.message || "Email error";
-                    yield data_1.Campaign.getRepository().increment({ id: campaign.id }, 'failedCount', 1);
+                else {
+                    throw new Error("Invalid Email Address");
                 }
-                log.attemptedAt = new Date();
-                yield log.save();
             }
-            campaign.status = data_1.CampaignStatus.COMPLETED;
-            yield campaign.save();
-            console.log(`[ENGINE] 🏁 Campaña ${id} terminada.`);
+            catch (e) {
+                console.error(`[ENGINE] ❌ Fallo en ${log.targetContact}: ${e.message}`);
+                log.status = data_1.LogStatus.FAILED;
+                log.errorMessage = e.message || "Email error";
+                yield data_1.Campaign.getRepository().increment({ id: campaign.id }, 'failedCount', 1);
+            }
+            log.attemptedAt = new Date();
+            yield log.save();
         });
     }
 }

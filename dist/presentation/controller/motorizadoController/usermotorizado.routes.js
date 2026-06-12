@@ -30,6 +30,7 @@ class UserMotorizadoRoutes {
         });
         router.get("/me", middlewares_1.AuthMotorizadoMiddleware.protect, motorizadoController.getMotorizadoMe);
         router.post("/me/change-password", middlewares_1.AuthMotorizadoMiddleware.protect, motorizadoController.cambiarPasswordSelf);
+        router.patch("/:id/profile-picture", middlewares_1.AuthMotorizadoMiddleware.protect, upload.single("file"), motorizadoController.updateProfilePicture);
         // 🔄 Gestión de Pedidos (Admin)
         router.patch("/orders/:pedidoId/status", motorizadoController.changeOrderStatus);
         // Billetera & Finanzas (Globales primero para evitar interferencia con :id)

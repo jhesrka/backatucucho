@@ -282,20 +282,6 @@ class RechargeRequestController {
                 return this.handleError(error, res);
             }
         });
-        // 8. Eliminar solicitudes de recarga viejas (más de 2 días como prueba)
-        this.deleteOldRechargeRequests = (_req, res) => __awaiter(this, void 0, void 0, function* () {
-            try {
-                const result = yield this.rechargeService.deleteOldRechargeRequests();
-                return res.status(200).json({
-                    success: true,
-                    message: result.message,
-                    deleted: result.deleted,
-                });
-            }
-            catch (error) {
-                return this.handleError(error, res);
-            }
-        });
         // 9 REVERSAR RECARGA
         this.reverseRecharge = (req, res) => __awaiter(this, void 0, void 0, function* () {
             const { id } = req.params;
@@ -303,17 +289,6 @@ class RechargeRequestController {
             const adminUser = req.body.sessionAdmin || req.body.sessionUser;
             try {
                 const result = yield this.rechargeService.reverseRecharge(id, adminUser);
-                return res.status(200).json(result);
-            }
-            catch (error) {
-                return this.handleError(error, res);
-            }
-        });
-        // 10 Configurar Purga
-        this.configurePurge = (req, res) => __awaiter(this, void 0, void 0, function* () {
-            const { pin, days } = req.body;
-            try {
-                const result = yield this.rechargeService.configurePurge(pin, days);
                 return res.status(200).json(result);
             }
             catch (error) {

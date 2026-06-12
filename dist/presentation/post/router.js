@@ -25,10 +25,19 @@ class PostRoutes {
         router.get("/paginate", auth_middleware_1.AuthMiddleware.protect, postController.findAllPostPaginated);
         router.get("/search", auth_middleware_1.AuthMiddleware.protect, postController.searchPost);
         // ===================================
+        // 📅 SCHEDULED POSTS ROUTES
+        // ===================================
+        router.get("/scheduled/user", auth_middleware_1.AuthMiddleware.protect, postController.getScheduledPostsByUser);
+        router.delete("/scheduled/:id", auth_middleware_1.AuthMiddleware.protect, postController.cancelScheduledPost);
+        router.patch("/scheduled/:id", auth_middleware_1.AuthMiddleware.protect, postController.updateScheduledPost);
+        // ===================================
         // 🛡️ NEW ADMIN DASHBOARD ROUTES
         // ===================================
         router.get("/admin/list", middlewares_1.AuthAdminMiddleware.protect, postController.getAdminPosts);
         router.get("/admin/stats", middlewares_1.AuthAdminMiddleware.protect, postController.getAdminStats);
+        router.get("/admin/unified-summary", middlewares_1.AuthAdminMiddleware.protect, postController.getUnifiedSummary);
+        router.get("/admin/purge-preview", middlewares_1.AuthAdminMiddleware.protect, postController.previewPurgeAdmin);
+        router.post("/admin/purge-deleted", middlewares_1.AuthAdminMiddleware.protect, postController.purgeOldPosts);
         // Totales de posts pagados activos
         router.get("/paid/active/count", middlewares_1.AuthAdminMiddleware.protect, postController.countActivePaidPosts);
         router.get("/paid/active/count/last24h", middlewares_1.AuthAdminMiddleware.protect, postController.countActivePaidPostsLast24h);
@@ -37,7 +46,7 @@ class PostRoutes {
         router.get("/admin/search-by-id/:id", middlewares_1.AuthAdminMiddleware.protect, postController.getPostByIdAdmin);
         // NUEVO: Admin - Get All Posts of User
         router.get("/admin/user/:id/posts", middlewares_1.AuthAdminMiddleware.protect, postController.getPostsByUserAdmin);
-        router.get("/:id", auth_middleware_1.AuthMiddleware.protect, postController.findOnePost);
+        router.get("/:id", auth_middleware_1.AuthMiddleware.optional, postController.findOnePost);
         router.post("/plan", auth_middleware_1.AuthMiddleware.protect, (0, config_1.uploadMultipleFile)("imgs", 5), postController.createPostPlan);
         // Bloquear post (ADMIN)
         router.post("/admin/:id/block", middlewares_1.AuthAdminMiddleware.protect, postController.blockPostAdmin);

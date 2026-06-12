@@ -353,12 +353,23 @@ export class WalletService {
         const totalUserSubs = parseFloat(subsData.userTotal || "0");
         const totalBusinessSubs = parseFloat(subsData.businessTotal || "0");
 
+        // 4. Suscripciones de Servicios (Día Seleccionado)
+        const serviceSubsQuery = await Transaction.createQueryBuilder("t")
+            .select("SUM(t.amount)", "total")
+            .where("t.created_at >= :start AND t.created_at <= :end", { start, end })
+            .andWhere("t.reason = :reason", { reason: TransactionReason.SERVICE_SUBSCRIPTION })
+            .andWhere("t.type = 'debit'")
+            .andWhere("t.status = 'APPROVED'")
+            .getRawOne();
+        const totalServiceSubs = parseFloat(serviceSubsQuery.total || "0");
+
         return {
             totalBalance,
             dailyStats: {
                 stories: totalStories,
                 userSubscriptions: totalUserSubs,
-                businessSubscriptions: totalBusinessSubs
+                businessSubscriptions: totalBusinessSubs,
+                servicesSubscriptions: totalServiceSubs
             }
         };
     }
@@ -408,9 +419,10 @@ export class WalletService {
 
         const expensesByType = expensesDetails.reduce((acc, t) => {
             if (t.reason === TransactionReason.SUBSCRIPTION) acc.subscriptions += Number(t.amount);
+            else if (t.reason === TransactionReason.SERVICE_SUBSCRIPTION) acc.services += Number(t.amount);
             else acc.stories += Number(t.amount);
             return acc;
-        }, { stories: 0, subscriptions: 0 });
+        }, { stories: 0, subscriptions: 0, services: 0 });
 
 
         return {

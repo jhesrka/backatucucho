@@ -1,4 +1,13 @@
 "use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -124,6 +133,24 @@ class UserRoutes {
         router.get("/me", auth_middleware_1.AuthMiddleware.protect, userController.getLoggedUserInfo);
         router.post("/logout", auth_middleware_1.AuthMiddleware.protect, userController.logout);
         router.patch("/complete-profile", auth_middleware_1.AuthMiddleware.protect, userController.completeProfile);
+        // TEST ENDPOINT TO DEBUG DB
+        router.get("/test/insert-log", (req, res) => __awaiter(this, void 0, void 0, function* () {
+            try {
+                const user = yield require("../../../data/postgres/models/user.model").User.findOne({ where: {} });
+                if (!user)
+                    return res.json({ error: "No users found" });
+                const log = new (require("../../../data/postgres/models/ModerationLog").ModerationLog)();
+                log.adminId = user.id;
+                log.user = user;
+                log.action = "TEST_DB";
+                log.comment = "Test comment";
+                yield log.save();
+                res.json({ success: true, log });
+            }
+            catch (e) {
+                res.status(500).json({ error: e.message, stack: e.stack });
+            }
+        }));
         //USUARIO
         //PUBLICO
         router.post("/login", userController.login);
@@ -157,12 +184,14 @@ class UserRoutes {
         router.delete("/:id", userController.deleteUser);
         router.patch("/:id", auth_middleware_1.AuthMiddleware.protect, (0, config_1.uploadSingleFile)("photoperfil"), userController.updateUser);
         router.get("/admin/metrics/active", middlewares_1.AuthAdminMiddleware.protect, userController.countActiveUsers);
+        router.get("/admin/metrics/status-counts", middlewares_1.AuthAdminMiddleware.protect, userController.countUsersByStatus);
         router.delete("/admin/purge/:id", middlewares_1.AuthAdminMiddleware.protect, userController.purgeUser);
         router.get("/admin/metrics/registered/last24h", middlewares_1.AuthAdminMiddleware.protect, userController.countUsersRegisteredLast24h);
         // NUEVO: Gestión Avanzada de Usuarios (Admin)
         router.patch("/admin/manage/:id", middlewares_1.AuthAdminMiddleware.protect, userController.updateUserAdminAction);
         router.post("/admin/force-logout/:id", middlewares_1.AuthAdminMiddleware.protect, userController.forceLogoutAdminAction);
         router.post("/admin/reset-password-email/:id", middlewares_1.AuthAdminMiddleware.protect, userController.sendPasswordResetAdminAction);
+        router.post("/admin/resend-activation-email/:id", middlewares_1.AuthAdminMiddleware.protect, userController.resendActivationAdminAction);
         router.delete("/admin/purge-hard/:id", middlewares_1.AuthAdminMiddleware.protect, userController.purgeUserAdminAction);
         return router;
     }

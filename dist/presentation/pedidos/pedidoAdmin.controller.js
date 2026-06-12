@@ -1,8 +1,19 @@
 "use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PedidoAdminController = void 0;
 const domain_1 = require("../../domain");
 const data_1 = require("../../data");
+const pedidoUsuario_service_1 = require("../services/pedidosServices/pedidoUsuario.service");
+const data_2 = require("../../data");
 class PedidoAdminController {
     constructor(pedidoAdminService) {
         this.pedidoAdminService = pedidoAdminService;
@@ -56,6 +67,7 @@ class PedidoAdminController {
                         ganancia_motorizado: p.ganancia_motorizado,
                         comision_app_domicilio: p.comision_app_domicilio,
                         metodoPago: p.metodoPago,
+                        comprobantePagoUrl: p.comprobantePagoUrl,
                         direccionEntrega: p.direccionTexto,
                         referencia: null, // No hay campo de referencia en el modelo actual
                         createdAt: p.createdAt,
@@ -83,14 +95,18 @@ class PedidoAdminController {
                             statusNegocio: p.negocio.statusNegocio,
                             modeloMonetizacion: p.negocio.modeloMonetizacion,
                         },
-                        productos: p.productos.map((prod) => ({
-                            id: prod.id,
-                            nombre: prod.producto.nombre,
-                            cantidad: prod.cantidad,
-                            precio_unitario: prod.precio_venta,
-                            precio_venta: prod.precio_venta,
-                            subtotal: prod.subtotal,
-                        })),
+                        productos: p.productos.map((prod) => {
+                            var _a;
+                            return ({
+                                id: prod.id,
+                                nombre: ((_a = prod.producto) === null || _a === void 0 ? void 0 : _a.nombre) || prod.producto_nombre,
+                                cantidad: prod.cantidad,
+                                precio_unitario: prod.precio_venta,
+                                precio_venta: prod.precio_venta,
+                                precio_app: prod.precio_app,
+                                subtotal: prod.subtotal,
+                            });
+                        }),
                     }));
                     return res.status(200).json({ total, pedidos: safePedidos });
                 })
@@ -132,32 +148,70 @@ class PedidoAdminController {
         };
         // ======================== 4. Asignar motorizado ========================
         this.asignarMotorizado = (req, res) => {
+            var _a;
             const { pedidoId, motorizadoId } = req.body;
+            const adminId = (_a = req.body.sessionAdmin) === null || _a === void 0 ? void 0 : _a.id;
             if (!pedidoId || !motorizadoId) {
                 return res
                     .status(400)
                     .json({ message: "Faltan parámetros: pedidoId o motorizadoId" });
             }
             this.pedidoAdminService
-                .asignarMotorizado({ pedidoId, motorizadoId })
+                .asignarMotorizado({ pedidoId, motorizadoId }, adminId)
                 .then((pedido) => res.status(200).json(pedido))
+                .catch((error) => this.handleError(error, res));
+        };
+        // ======================== 4.5. Entregar pedido (EMERGENCIA ADMIN) ========================
+        this.entregarPedidoEmergencia = (req, res) => {
+            var _a;
+            const { pedidoId } = req.body;
+            const adminId = (_a = req.body.sessionAdmin) === null || _a === void 0 ? void 0 : _a.id;
+            if (!pedidoId) {
+                return res.status(400).json({ message: "Falta el parámetro: pedidoId" });
+            }
+            this.pedidoAdminService
+                .entregarPedidoEmergencia(pedidoId, adminId)
+                .then((pedido) => res.status(200).json(pedido))
+                .catch((error) => this.handleError(error, res));
+        };
+        // ======================== 8. Centro Operativo en Vivo ========================
+        this.getLiveControlData = (req, res) => {
+            this.pedidoAdminService
+                .getLiveControlData()
+                .then((data) => res.status(200).json(data))
+                .catch((error) => this.handleError(error, res));
+        };
+        this.liberarMotorizado = (req, res) => {
+            var _a;
+            const { motorizadoId, comment } = req.body;
+            const adminId = (_a = req.body.sessionAdmin) === null || _a === void 0 ? void 0 : _a.id;
+            if (!motorizadoId) {
+                return res.status(400).json({ message: "Falta motorizadoId" });
+            }
+            this.pedidoAdminService
+                .liberarMotorizado(motorizadoId, adminId, comment || "Acción manual desde Centro Operativo")
+                .then((resp) => res.status(200).json(resp))
                 .catch((error) => this.handleError(error, res));
         };
         // ======================== 5. Eliminar pedidos antiguos ========================
         this.eliminarPedidosAntiguos = (req, res) => {
+            const { masterPin } = req.body;
             this.pedidoAdminService
-                .purgeOldOrders()
+                .purgeOldOrders(masterPin)
                 .then(({ deletedCount }) => res.status(200).json({ message: `Purga completada. Pedidos eliminados: ${deletedCount}` }))
                 .catch((error) => this.handleError(error, res));
         };
         // ======================== 7. Configurar días de retención ========================
         this.configureRetentionDays = (req, res) => {
-            const { days } = req.body;
+            const { days, masterPin } = req.body;
             if (!days || isNaN(days)) {
                 return res.status(400).json({ message: "Debe proporcionar un número válido de días" });
             }
+            if (!masterPin) {
+                return res.status(400).json({ message: "Falta el PIN Maestro" });
+            }
             this.pedidoAdminService
-                .updateRetentionDays(Number(days))
+                .updateRetentionDays(Number(days), masterPin)
                 .then((settings) => res.status(200).json(settings))
                 .catch((error) => this.handleError(error, res));
         };
@@ -188,6 +242,30 @@ class PedidoAdminController {
             })
                 .then((pedido) => res.status(200).json(pedido))
                 .catch((error) => this.handleError(error, res));
+        };
+        // ======================== 7. Estadísticas Admin ========================
+        this.getStatsAdmin = (req, res) => __awaiter(this, void 0, void 0, function* () {
+            try {
+                const stats = yield data_2.Pedido.createQueryBuilder("pedido")
+                    .select("estado")
+                    .addSelect("COUNT(*)", "count")
+                    .groupBy("estado")
+                    .getRawMany();
+                const totalPedidos = yield data_2.Pedido.count();
+                return res.status(200).json({
+                    total: totalPedidos,
+                    byStatus: stats
+                });
+            }
+            catch (error) {
+                this.handleError(error, res);
+            }
+        });
+        // ======================== 8. Limpieza Manual ========================
+        this.manualCleanup = (req, res) => {
+            pedidoUsuario_service_1.PedidoUsuarioService.manualCleanup()
+                .then(result => res.json(result))
+                .catch(error => this.handleError(error, res));
         };
     }
 }

@@ -13,17 +13,24 @@ class PedidoAdminRoutes {
         const controller = new pedidoAdmin_controller_1.PedidoAdminController(service);
         // 1. Obtener pedidos con filtros (GET /)
         router.get("/", auth_admin_middleware_1.AuthAdminMiddleware.protect, controller.obtenerPedidosAdmin);
-        // 2. Obtener pedido por ID (GET /:id)
-        router.get("/:id", auth_admin_middleware_1.AuthAdminMiddleware.protect, controller.obtenerPedidoById);
         // 3. Cambiar estado de pedido (PATCH /estado)
         router.patch("/estado", auth_admin_middleware_1.AuthAdminMiddleware.protect, controller.cambiarEstadoPedido);
         // 4. Asignar motorizado (PATCH /asignar-motorizado)
         router.patch("/asignar-motorizado", auth_admin_middleware_1.AuthAdminMiddleware.protect, controller.asignarMotorizado);
+        // 4.5. Entregar pedido (EMERGENCIA ADMIN) (PATCH /entrega-emergencia)
+        router.patch("/entrega-emergencia", auth_admin_middleware_1.AuthAdminMiddleware.protect, controller.entregarPedidoEmergencia);
         // 5. Eliminar pedidos antiguos (DELETE /antiguos)
         router.delete("/antiguos", auth_admin_middleware_1.AuthAdminMiddleware.protect, controller.eliminarPedidosAntiguos);
         // ✅ Nueva ruta: Configurar retención de pedidos
         router.put("/config/retention", auth_admin_middleware_1.AuthAdminMiddleware.protect, controller.configureRetentionDays);
+        // 🚀 CENTRO OPERATIVO EN VIVO 
+        router.get("/live/control", auth_admin_middleware_1.AuthAdminMiddleware.protect, controller.getLiveControlData);
+        router.patch("/motorizado/liberar", auth_admin_middleware_1.AuthAdminMiddleware.protect, controller.liberarMotorizado);
         router.patch("/motorizado/estado", auth_motorizado_middleware_1.AuthMotorizadoMiddleware.protect, controller.cambiarEstadoPorMotorizado);
+        // 2. Obtener pedido por ID (GET /:id) - Movido al final para evitar colisión
+        router.get("/:id", auth_admin_middleware_1.AuthAdminMiddleware.protect, controller.obtenerPedidoById);
+        router.get('/stats', controller.getStatsAdmin);
+        router.post('/cleanup', controller.manualCleanup); // 🧹 Limpieza manual de expirados
         return router;
     }
 }

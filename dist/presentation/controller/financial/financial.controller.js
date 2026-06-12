@@ -130,6 +130,30 @@ class FinancialController {
                 this.handleError(error, res);
             }
         });
+        this.getUnifiedTransactions = (req, res) => __awaiter(this, void 0, void 0, function* () {
+            try {
+                const { date, type, status } = req.query;
+                if (!date)
+                    throw domain_1.CustomError.badRequest("Date required");
+                const types = typeof type === 'string' ? type.split(',') : (Array.isArray(type) ? type : undefined);
+                const statuses = typeof status === 'string' ? status.split(',') : (Array.isArray(status) ? status : undefined);
+                const result = yield this.financialService.getUnifiedTransactions(date_utils_1.DateUtils.parseLocalDate(date), types, statuses);
+                res.json(result);
+            }
+            catch (error) {
+                this.handleError(error, res);
+            }
+        });
+        this.getComprobantesAuditoria = (req, res) => __awaiter(this, void 0, void 0, function* () {
+            try {
+                const { query, startDate, endDate, amount, type, page, limit } = req.query;
+                const result = yield this.financialService.getComprobantesAuditoria(query, startDate, endDate, amount ? Number(amount) : undefined, type, page ? Number(page) : 1, limit ? Number(limit) : 20);
+                res.json(result);
+            }
+            catch (error) {
+                this.handleError(error, res);
+            }
+        });
         // DAILY CLOSING //
         this.uploadBankStatement = (req, res) => __awaiter(this, void 0, void 0, function* () {
             try {

@@ -77,20 +77,14 @@ __decorate([
     __metadata("design:type", String)
 ], Useradmin.prototype, "whatsapp", void 0);
 __decorate([
-    (0, typeorm_1.Column)("varchar", {
-        nullable: true,
-    }),
-    __metadata("design:type", String)
-], Useradmin.prototype, "securityPin", void 0);
-__decorate([
     (0, typeorm_1.CreateDateColumn)({
-        type: "timestamp",
+        type: "timestamptz",
     }),
     __metadata("design:type", Date)
 ], Useradmin.prototype, "created_at", void 0);
 __decorate([
     (0, typeorm_1.UpdateDateColumn)({
-        type: "timestamp",
+        type: "timestamptz",
         onUpdate: "CURRENT_TIMESTAMP",
     }),
     __metadata("design:type", Date)

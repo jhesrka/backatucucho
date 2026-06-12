@@ -19,6 +19,8 @@ class ProductoAdminRoutes {
         productoControllerAdmin.updateProductoAdmin);
         // NUEVO: Admin Change Status
         router.put("/status/:id", middlewares_1.AuthAdminMiddleware.protect, productoControllerAdmin.changeStatusProductoAdmin);
+        // NUEVO: Admin Bulk Create
+        router.post("/bulk/:negocioId", middlewares_1.AuthAdminMiddleware.protect, productoControllerAdmin.bulkCreateProductos);
         // NUEVO: Admin Purge Definitive
         router.delete("/purge/:id", middlewares_1.AuthAdminMiddleware.protect, productoControllerAdmin.deleteProductoAdmin);
         return router;

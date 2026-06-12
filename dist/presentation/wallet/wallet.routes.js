@@ -15,13 +15,15 @@ class WalletRoutes {
         const emailService = new email_service_1.EmailService(config_1.envs.MAILER_SERVICE, config_1.envs.MAILER_EMAIL, config_1.envs.MAILER_SECRET_KEY, config_1.envs.SEND_EMAIL);
         const userService = new user_service_1.UserService(emailService);
         const walletService = new wallet_service_1.WalletService(userService);
-        const walletController = new wallet_controller_1.WalletController(walletService);
+        const walletController = new wallet_controller_1.UserWalletController(walletService);
         //USUARIO
         router.post("/", auth_middleware_1.AuthMiddleware.protect, walletController.createWallet);
         router.get("/:userId", auth_middleware_1.AuthMiddleware.protect, walletController.getWalletByUserId);
         router.get("/:userId/transactions", auth_middleware_1.AuthMiddleware.protect, walletController.getUserTransactions);
         // SOLICITUD DE RETIRO
         router.post("/:userId/withdraw", auth_middleware_1.AuthMiddleware.protect, walletController.requestWithdrawal);
+        router.post("/:userId/payphone-recharge", auth_middleware_1.AuthMiddleware.protect, walletController.initializePayphoneRecharge);
+        router.get("/payphone-verify/:rechargeId", auth_middleware_1.AuthMiddleware.protect, walletController.verifyPayphoneRecharge);
         //ADMINISTRADOR
         // Todas las wallets
         router.get("/", middlewares_1.AuthAdminMiddleware.protect, walletController.getAllWallets);
@@ -37,6 +39,9 @@ class WalletRoutes {
         router.patch("/admin/:userId/block", middlewares_1.AuthAdminMiddleware.protect, walletController.blockWallet);
         // ✅ Activar wallet
         router.patch("/admin/:userId/activate", middlewares_1.AuthAdminMiddleware.protect, walletController.activateWallet);
+        // ✅ NUEVO: Recarga en efectivo desde Admin
+        router.get("/admin/user-search/:email", middlewares_1.AuthAdminMiddleware.protect, walletController.findUserForRecharge);
+        router.post("/admin/cash-recharge", middlewares_1.AuthAdminMiddleware.protect, walletController.adminCashRecharge);
         return router;
     }
 }

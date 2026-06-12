@@ -5,6 +5,7 @@ const express_1 = require("express");
 const pedidoMoto_controller_1 = require("./pedidoMoto.controller");
 const pedidoMoto_service_1 = require("../services/pedidosServices/pedidoMoto.service");
 const middlewares_1 = require("../../middlewares");
+const config_1 = require("../../config");
 class PedidoMotoRoutes {
     static get routes() {
         const router = (0, express_1.Router)();
@@ -39,6 +40,10 @@ class PedidoMotoRoutes {
         // ===================== TABLERO OPERATIVO =====================
         router.get("/tablero-operativo", middlewares_1.AuthMotorizadoMiddleware.protect, pedidoMotoController.obtenerTableroOperativo);
         router.post("/aceptar-espera", middlewares_1.AuthMotorizadoMiddleware.protect, pedidoMotoController.aceptarPedidoEnEspera);
+        // ===================== FLUJO DE CANCELACIÓN ESPECIAL =====================
+        router.post("/cancelar-ausencia", middlewares_1.AuthMotorizadoMiddleware.protect, pedidoMotoController.cancelarPedidoPorAusencia);
+        router.post("/confirmar-retorno", middlewares_1.AuthMotorizadoMiddleware.protect, pedidoMotoController.confirmarRetornoLocal);
+        router.post("/upload-evidence", middlewares_1.AuthMotorizadoMiddleware.protect, (0, config_1.uploadSingleFile)("file"), pedidoMotoController.uploadEvidence);
         return router;
     }
 }

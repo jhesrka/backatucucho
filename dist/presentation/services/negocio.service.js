@@ -47,6 +47,7 @@ const data_1 = require("../../data");
 const domain_1 = require("../../domain");
 const config_1 = require("../../config");
 const upload_files_cloud_adapter_1 = require("../../config/upload-files-cloud-adapter");
+const socket_1 = require("../../config/socket");
 const DEFAULT_IMG_KEY = "ImgStore/imagenrota.jpg";
 function shuffleArray(array) {
     const arr = [...array];
@@ -60,7 +61,7 @@ class NegocioService {
     // ========================= CREATE =========================
     createNegocio(dto, img) {
         return __awaiter(this, void 0, void 0, function* () {
-            var _a;
+            var _a, _b, _c;
             const categoria = yield data_1.CategoriaNegocio.findOneBy({ id: dto.categoriaId });
             if (!categoria)
                 throw domain_1.CustomError.notFound("Categoría no encontrada");
@@ -105,23 +106,39 @@ class NegocioService {
                 });
             }
             // Eliminamos la linea "const modelo = dto.modeloMonetizacion;" porque ya definimos 'modelo' arriba.
+            let subcategoria = null;
+            if (dto.subcategoriaId) {
+                subcategoria = yield data_1.SubcategoriaNegocio.findOneBy({
+                    id: dto.subcategoriaId,
+                    categoria: { id: categoria.id }
+                });
+                if (!subcategoria)
+                    throw domain_1.CustomError.notFound("Subcategoría no encontrada o no pertenece a la categoría");
+            }
             // ⬇️ ⬇️ GUARDAMOS lat/long (y opcional direccionTexto si creas la columna)
-            const negocio = data_1.Negocio.create({
-                nombre: dto.nombre.trim(),
-                descripcion: dto.descripcion.trim(),
-                categoria,
-                usuario,
-                imagenNegocio: key,
-                modeloMonetizacion: modelo,
-                latitud: dto.latitud,
-                longitud: dto.longitud,
-                direccionTexto: (_a = dto.direccionTexto) !== null && _a !== void 0 ? _a : null,
-                banco: dto.banco,
-                tipoCuenta: dto.tipoCuenta,
-                numeroCuenta: dto.numeroCuenta,
-                titularCuenta: dto.titularCuenta,
-                statusNegocio: data_1.StatusNegocio.PENDIENTE, // 🔒 Regla 2: SIEMPRE inicia en pendiente
-            });
+            const negocio = new data_1.Negocio();
+            negocio.nombre = dto.nombre.trim();
+            negocio.descripcion = dto.descripcion.trim();
+            negocio.categoria = categoria;
+            negocio.subcategoria = subcategoria;
+            negocio.usuario = usuario;
+            negocio.imagenNegocio = key;
+            negocio.modeloMonetizacion = modelo;
+            negocio.latitud = dto.latitud;
+            negocio.longitud = dto.longitud;
+            negocio.direccionTexto = (_a = dto.direccionTexto) !== null && _a !== void 0 ? _a : null;
+            negocio.banco = dto.banco;
+            negocio.tipoCuenta = dto.tipoCuenta;
+            negocio.numeroCuenta = dto.numeroCuenta;
+            negocio.titularCuenta = dto.titularCuenta;
+            negocio.identificacionCuenta = dto.identificacionCuenta;
+            negocio.correoCuenta = dto.correoCuenta;
+            negocio.tiempoPreparacionMin = dto.tiempoPreparacionMin;
+            negocio.tiempoPreparacionMax = dto.tiempoPreparacionMax;
+            negocio.permiteProductosProgramados = dto.permiteProductosProgramados;
+            negocio.tiempoProgramadoMin = (_b = dto.tiempoProgramadoMin) !== null && _b !== void 0 ? _b : null;
+            negocio.tiempoProgramadoMax = (_c = dto.tiempoProgramadoMax) !== null && _c !== void 0 ? _c : null;
+            negocio.statusNegocio = data_1.StatusNegocio.PENDIENTE;
             try {
                 const saved = yield negocio.save();
                 const imagenUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
@@ -143,6 +160,16 @@ class NegocioService {
                     tipoCuenta: saved.tipoCuenta,
                     numeroCuenta: saved.numeroCuenta,
                     titularCuenta: saved.titularCuenta,
+                    identificacionCuenta: saved.identificacionCuenta,
+                    correoCuenta: saved.correoCuenta,
+                    tiempoPreparacionMin: saved.tiempoPreparacionMin,
+                    tiempoPreparacionMax: saved.tiempoPreparacionMax,
+                    permiteProductosProgramados: saved.permiteProductosProgramados,
+                    tiempoProgramadoMin: saved.tiempoProgramadoMin,
+                    tiempoProgramadoMax: saved.tiempoProgramadoMax,
+                    puedePublicarProductos: saved.puedePublicarProductos,
+                    limitePublicacionesSuscripcion: saved.limitePublicacionesSuscripcion,
+                    publicacionesRestantes: saved.publicacionesRestantes,
                     imagenUrl,
                     categoria: {
                         id: categoria.id,
@@ -154,7 +181,7 @@ class NegocioService {
                     usuario: { id: usuario.id },
                 };
             }
-            catch (_b) {
+            catch (_d) {
                 throw domain_1.CustomError.internalServer("No se pudo crear el negocio");
             }
         });
@@ -170,20 +197,25 @@ class NegocioService {
             // 1. Obtenemos los negocios activos de la categoría con QueryBuilder
             const negocios = yield data_1.Negocio.createQueryBuilder("negocio")
                 .leftJoinAndSelect("negocio.categoria", "categoria")
+                .leftJoinAndSelect("negocio.subcategoria", "subcategoria")
                 .where("negocio.categoriaId = :categoriaId", { categoriaId })
                 .andWhere("negocio.statusNegocio = :status", { status: data_1.StatusNegocio.ACTIVO })
                 .andWhere("negocio.estadoNegocio = :estado", { estado: data_1.EstadoNegocio.ABIERTO })
-                .orderBy("RANDOM()") // Orden aleatorio nativo (mucho más rápido)
+                // FILTRO AL VUELO: No mostrar si la suscripción ya venció
+                .andWhere("(negocio.fechaFinSuscripcion IS NULL OR negocio.fechaFinSuscripcion > :now)", { now: new Date() })
+                .orderBy("subcategoria.orden", "ASC")
+                .addOrderBy("subcategoria.created_at", "ASC")
+                .addOrderBy("negocio.orden", "ASC")
+                .addOrderBy("RANDOM()")
                 .getMany();
             const negociosConUrl = yield Promise.all(negocios.map((negocio) => __awaiter(this, void 0, void 0, function* () {
                 let imagenUrl = null;
                 if (negocio.imagenNegocio) {
                     try {
-                        // OPTIMIZACIÓN: Usar tamaño CARD para el catálogo (ahorro de ~80% de ancho de banda)
                         imagenUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
                             bucketName: config_1.envs.AWS_BUCKET_NAME,
                             key: negocio.imagenNegocio,
-                        }, 'card'); // Usamos versión optimizada
+                        }, 'card');
                     }
                     catch (error) {
                         console.error(`Error obteniendo imagen para negocio ${negocio.id}:`, error);
@@ -201,9 +233,20 @@ class NegocioService {
                         nombre: negocio.categoria.nombre,
                         statusCategoria: negocio.categoria.statusCategoria,
                     },
+                    subcategoria: negocio.subcategoria ? {
+                        id: negocio.subcategoria.id,
+                        nombre: negocio.subcategoria.nombre,
+                        orden: negocio.subcategoria.orden,
+                    } : null,
+                    orden: negocio.orden, // ✅ PRIORIDAD DEL NEGOCIO
                     imagenUrl,
                     ratingPromedio: Number(negocio.ratingPromedio) || 0,
                     totalResenas: Number(negocio.totalResenas) || 0,
+                    tiempoPreparacionMin: negocio.tiempoPreparacionMin,
+                    tiempoPreparacionMax: negocio.tiempoPreparacionMax,
+                    permiteProductosProgramados: negocio.permiteProductosProgramados,
+                    tiempoProgramadoMin: negocio.tiempoProgramadoMin,
+                    tiempoProgramadoMax: negocio.tiempoProgramadoMax,
                 };
             })));
             return negociosConUrl;
@@ -214,12 +257,25 @@ class NegocioService {
             const negocio = yield data_1.Negocio.findOneBy({ id: negocioId });
             if (!negocio)
                 throw domain_1.CustomError.notFound("Negocio no encontrado");
+            if (negocio.statusNegocio === data_1.StatusNegocio.NO_PAGADO && negocio.estadoNegocio === data_1.EstadoNegocio.CERRADO) {
+                throw domain_1.CustomError.badRequest("No puedes abrir el negocio porque tienes una suscripción pendiente de pago. Recarga tu wallet para reactivarlo.");
+            }
             // Cambiar el estado
             negocio.estadoNegocio =
                 negocio.estadoNegocio === data_1.EstadoNegocio.ABIERTO
                     ? data_1.EstadoNegocio.CERRADO
                     : data_1.EstadoNegocio.ABIERTO;
             yield negocio.save();
+            // 📡 Notificar por WebSockets
+            const io = (0, socket_1.getIO)();
+            const statusData = {
+                businessId: negocio.id,
+                newStatus: negocio.estadoNegocio, // 'ABIERTO' | 'CERRADO'
+            };
+            // Emitir globalmente (para las listas de categorías)
+            io.emit("business_status_changed", statusData);
+            // Emitir específicamente a los que están dentro del negocio
+            io.to(negocio.id).emit("business_status_changed", statusData);
             return {
                 message: `El negocio ahora está ${negocio.estadoNegocio.toLowerCase()}`,
                 id: negocio.id,
@@ -296,8 +352,14 @@ class NegocioService {
                             photoperfil: userProfileUrl,
                         },
                         imagenUrl,
+                        orden: negocio.orden, // ✅ PRIORIDAD
                         ratingPromedio: Number(negocio.ratingPromedio) || 0,
                         totalResenas: Number(negocio.totalResenas) || 0,
+                        tiempoPreparacionMin: negocio.tiempoPreparacionMin,
+                        tiempoPreparacionMax: negocio.tiempoPreparacionMax,
+                        permiteProductosProgramados: negocio.permiteProductosProgramados,
+                        tiempoProgramadoMin: negocio.tiempoProgramadoMin,
+                        tiempoProgramadoMax: negocio.tiempoProgramadoMax,
                     };
                 })));
                 return negociosConUrl;
@@ -314,6 +376,7 @@ class NegocioService {
             }
             const negocios = yield data_1.Negocio.createQueryBuilder("negocio")
                 .leftJoinAndSelect("negocio.categoria", "categoria")
+                .leftJoinAndSelect("negocio.subcategoria", "subcategoria")
                 .loadRelationCountAndMap("negocio.productosCount", "negocio.productos")
                 .where("negocio.usuarioId = :userId", { userId })
                 .orderBy("negocio.created_at", "DESC")
@@ -344,9 +407,24 @@ class NegocioService {
                     tipoCuenta: negocio.tipoCuenta,
                     numeroCuenta: negocio.numeroCuenta,
                     titularCuenta: negocio.titularCuenta,
+                    identificacionCuenta: negocio.identificacionCuenta,
+                    correoCuenta: negocio.correoCuenta,
+                    tiempoPreparacionMin: negocio.tiempoPreparacionMin,
+                    tiempoPreparacionMax: negocio.tiempoPreparacionMax,
+                    permiteProductosProgramados: negocio.permiteProductosProgramados,
+                    tiempoProgramadoMin: negocio.tiempoProgramadoMin,
+                    tiempoProgramadoMax: negocio.tiempoProgramadoMax,
+                    puedePublicarProductos: negocio.puedePublicarProductos,
+                    limitePublicacionesSuscripcion: negocio.limitePublicacionesSuscripcion,
+                    publicacionesRestantes: negocio.publicacionesRestantes,
                     productosCount: negocio.productosCount || 0,
                     ratingPromedio: Number(negocio.ratingPromedio) || 0,
                     totalResenas: Number(negocio.totalResenas) || 0,
+                    valorSuscripcion: Number(negocio.valorSuscripcion) || 0,
+                    fechaInicioSuscripcion: negocio.fechaInicioSuscripcion,
+                    fechaFinSuscripcion: negocio.fechaFinSuscripcion,
+                    pago_tarjeta_habilitado_admin: negocio.pago_tarjeta_habilitado_admin,
+                    orden: negocio.orden, // ✅ PRIORIDAD
                     imagenUrl,
                     categoria: {
                         id: negocio.categoria.id,
@@ -354,6 +432,10 @@ class NegocioService {
                         statusCategoria: negocio.categoria.statusCategoria,
                         restriccionModeloMonetizacion: negocio.categoria.restriccionModeloMonetizacion,
                     },
+                    subcategoria: negocio.subcategoria ? {
+                        id: negocio.subcategoria.id,
+                        nombre: negocio.subcategoria.nombre
+                    } : null,
                 };
             })));
             return negociosConImagen;
@@ -365,7 +447,7 @@ class NegocioService {
         return __awaiter(this, void 0, void 0, function* () {
             const negocio = yield data_1.Negocio.findOne({
                 where: { id },
-                relations: ["categoria"],
+                relations: ["categoria", "subcategoria"],
             });
             if (!negocio)
                 throw domain_1.CustomError.notFound("Negocio no encontrado");
@@ -438,6 +520,40 @@ class NegocioService {
                 negocio.numeroCuenta = data.numeroCuenta.trim();
             if (data.titularCuenta)
                 negocio.titularCuenta = data.titularCuenta.trim();
+            if (data.identificacionCuenta)
+                negocio.identificacionCuenta = data.identificacionCuenta.trim();
+            if (data.correoCuenta)
+                negocio.correoCuenta = data.correoCuenta.trim();
+            // 🛡️ RESTRICCIÓN: No permitir cambiar tiempos si hay pedidos activos (CRÍTICOS)
+            // Solo bloqueamos si el valor enviado es REALMENTE diferente al actual
+            const isChangingPrepTimes = (data.tiempoPreparacionMin !== undefined && data.tiempoPreparacionMin !== negocio.tiempoPreparacionMin) ||
+                (data.tiempoPreparacionMax !== undefined && data.tiempoPreparacionMax !== negocio.tiempoPreparacionMax) ||
+                (data.permiteProductosProgramados !== undefined && data.permiteProductosProgramados !== negocio.permiteProductosProgramados) ||
+                (data.tiempoProgramadoMin !== undefined && data.tiempoProgramadoMin !== negocio.tiempoProgramadoMin) ||
+                (data.tiempoProgramadoMax !== undefined && data.tiempoProgramadoMax !== negocio.tiempoProgramadoMax);
+            if (isChangingPrepTimes) {
+                const { Pedido, EstadoPedido } = yield Promise.resolve().then(() => __importStar(require("../../data")));
+                const { Not, In } = yield Promise.resolve().then(() => __importStar(require("typeorm")));
+                const activeOrdersCount = yield Pedido.count({
+                    where: {
+                        negocio: { id: id },
+                        estado: Not(In([EstadoPedido.ENTREGADO, EstadoPedido.CANCELADO]))
+                    }
+                });
+                if (activeOrdersCount > 0) {
+                    throw domain_1.CustomError.badRequest(`No puedes cambiar los tiempos de preparación o configuración de pedidos programados mientras tengas ${activeOrdersCount} pedido(s) activo(s) en curso. Finaliza tus pedidos actuales primero.`);
+                }
+            }
+            if (data.tiempoPreparacionMin !== undefined)
+                negocio.tiempoPreparacionMin = data.tiempoPreparacionMin;
+            if (data.tiempoPreparacionMax !== undefined)
+                negocio.tiempoPreparacionMax = data.tiempoPreparacionMax;
+            if (data.permiteProductosProgramados !== undefined)
+                negocio.permiteProductosProgramados = data.permiteProductosProgramados;
+            if (data.tiempoProgramadoMin !== undefined)
+                negocio.tiempoProgramadoMin = data.tiempoProgramadoMin;
+            if (data.tiempoProgramadoMax !== undefined)
+                negocio.tiempoProgramadoMax = data.tiempoProgramadoMax;
             if (img) {
                 const validMimeTypes = [
                     "image/jpeg",
@@ -481,6 +597,16 @@ class NegocioService {
                 tipoCuenta: saved.tipoCuenta,
                 numeroCuenta: saved.numeroCuenta,
                 titularCuenta: saved.titularCuenta,
+                identificacionCuenta: saved.identificacionCuenta,
+                correoCuenta: saved.correoCuenta,
+                tiempoPreparacionMin: saved.tiempoPreparacionMin,
+                tiempoPreparacionMax: saved.tiempoPreparacionMax,
+                permiteProductosProgramados: saved.permiteProductosProgramados,
+                tiempoProgramadoMin: saved.tiempoProgramadoMin,
+                tiempoProgramadoMax: saved.tiempoProgramadoMax,
+                puedePublicarProductos: saved.puedePublicarProductos,
+                limitePublicacionesSuscripcion: saved.limitePublicacionesSuscripcion,
+                publicacionesRestantes: saved.publicacionesRestantes,
                 categoria: {
                     id: saved.categoria.id,
                     nombre: saved.categoria.nombre,
@@ -488,6 +614,10 @@ class NegocioService {
                     restriccionModeloMonetizacion: saved.categoria.restriccionModeloMonetizacion,
                     soloComision: saved.categoria.soloComision,
                 },
+                subcategoria: saved.subcategoria ? {
+                    id: saved.subcategoria.id,
+                    nombre: saved.subcategoria.nombre
+                } : null,
                 imagenUrl,
             };
         });
@@ -537,6 +667,12 @@ class NegocioService {
                 throw domain_1.CustomError.notFound("Negocio no encontrado");
             negocio.statusNegocio = status;
             yield negocio.save();
+            // 📡 Notificar por WebSockets (Cambio de estatus administrativo)
+            (0, socket_1.getIO)().emit("business_status_changed", {
+                businessId: negocio.id,
+                newStatus: negocio.estadoNegocio, // ABIERTO/CERRADO
+                statusNegocio: negocio.statusNegocio, // ACTIVO/PENDIENTE/SUSPENDIDO
+            });
             return { message: `Estado cambiado a ${status}`, status: negocio.statusNegocio };
         });
     }

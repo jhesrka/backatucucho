@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CategoriaNegocio = exports.RestriccionModeloMonetizacion = exports.StatusCategoria = void 0;
 const typeorm_1 = require("typeorm");
 const Negocio_1 = require("./Negocio");
+const SubcategoriaNegocio_1 = require("./SubcategoriaNegocio");
 var StatusCategoria;
 (function (StatusCategoria) {
     StatusCategoria["ACTIVO"] = "ACTIVO";
@@ -75,17 +76,25 @@ __decorate([
     __metadata("design:type", Number)
 ], CategoriaNegocio.prototype, "orden", void 0);
 __decorate([
-    (0, typeorm_1.CreateDateColumn)({ type: "timestamp" }),
+    (0, typeorm_1.Column)({ type: "jsonb", nullable: true, default: null }),
+    __metadata("design:type", Object)
+], CategoriaNegocio.prototype, "cover", void 0);
+__decorate([
+    (0, typeorm_1.CreateDateColumn)({ type: "timestamptz" }),
     __metadata("design:type", Date)
 ], CategoriaNegocio.prototype, "created_at", void 0);
 __decorate([
-    (0, typeorm_1.UpdateDateColumn)({ type: "timestamp" }),
+    (0, typeorm_1.UpdateDateColumn)({ type: "timestamptz" }),
     __metadata("design:type", Date)
 ], CategoriaNegocio.prototype, "updated_at", void 0);
 __decorate([
     (0, typeorm_1.OneToMany)(() => Negocio_1.Negocio, (negocio) => negocio.categoria),
     __metadata("design:type", Array)
 ], CategoriaNegocio.prototype, "negocios", void 0);
+__decorate([
+    (0, typeorm_1.OneToMany)(() => SubcategoriaNegocio_1.SubcategoriaNegocio, (sub) => sub.categoria),
+    __metadata("design:type", Array)
+], CategoriaNegocio.prototype, "subcategorias", void 0);
 exports.CategoriaNegocio = CategoriaNegocio = __decorate([
     (0, typeorm_1.Entity)()
 ], CategoriaNegocio);

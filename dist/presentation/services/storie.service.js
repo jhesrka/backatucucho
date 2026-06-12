@@ -21,13 +21,15 @@ const uuid_1 = require("uuid");
 const content_moderation_1 = require("../../config/content-moderation");
 const date_utils_1 = require("../../utils/date-utils");
 class StorieService {
-    constructor(userService, walletService, priceService) {
+    constructor(userService, walletService, priceService, globalSettingsService) {
         this.userService = userService;
         this.walletService = walletService;
         this.priceService = priceService;
+        this.globalSettingsService = globalSettingsService;
     }
     createStorie(storieData, file) {
         return __awaiter(this, void 0, void 0, function* () {
+            var _a;
             if (!file) {
                 throw domain_1.CustomError.badRequest("La imagen es obligatoria para crear una historia");
             }
@@ -37,7 +39,16 @@ class StorieService {
             const config = yield this.priceService.getCurrentPriceSettings();
             const costo = this.priceService.calcularPrecio(storieData.dias, config.basePrice, config.extraDayPrice);
             // Validar y descontar de wallet
-            yield this.walletService.subtractFromWallet(user.id, costo, "Pago por publicación de historia", "STORIE");
+            try {
+                yield this.walletService.subtractFromWallet(user.id, costo, "Pago por publicación de historia", "STORIE");
+            }
+            catch (error) {
+                if (error instanceof domain_1.CustomError &&
+                    error.message.toLowerCase().includes("saldo suficiente")) {
+                    throw domain_1.CustomError.badRequest("No tienes saldo suficiente para publicar esta historia");
+                }
+                throw error;
+            }
             // Subir la imagen
             let key;
             let url;
@@ -53,7 +64,7 @@ class StorieService {
                     key,
                 }));
             }
-            catch (_a) {
+            catch (_b) {
                 throw domain_1.CustomError.internalServer("Error subiendo la imagen de la historia");
             }
             // Validar contenido (Moderación automática)
@@ -74,9 +85,25 @@ class StorieService {
             storie.total_pagado = costo;
             try {
                 const savedStorie = yield storie.save();
-                // Solo en respuesta: mostrar URL pública
-                savedStorie.imgstorie = url;
-                // Emitir evento de socket
+                // Resolver URLs firmadas para la respuesta inmediata
+                const [signedImgStorie, signedPhotoPerfil] = yield Promise.all([
+                    upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
+                        bucketName: config_1.envs.AWS_BUCKET_NAME,
+                        key: savedStorie.imgstorie,
+                    }),
+                    ((_a = savedStorie.user) === null || _a === void 0 ? void 0 : _a.photoperfil)
+                        ? upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
+                            bucketName: config_1.envs.AWS_BUCKET_NAME,
+                            key: savedStorie.user.photoperfil,
+                        })
+                        : null
+                ]);
+                // Asignar URLs firmadas al objeto de respuesta (sin afectar la DB)
+                savedStorie.imgstorie = signedImgStorie;
+                if (savedStorie.user) {
+                    savedStorie.user.photoperfil = signedPhotoPerfil || savedStorie.user.photoperfil;
+                }
+                // Emitir evento de socket corregido con URLs utilizables
                 (0, socket_1.getIO)().emit("storieChanged", savedStorie);
                 return savedStorie;
             }
@@ -107,8 +134,10 @@ class StorieService {
                         },
                     },
                     order: { createdAt: "DESC" },
+                    take: 50, // 🚀 Límite para evitar saturación de firmas de AWS
                 });
-                // 2️⃣ Convertir imágenes a URLs públicas
+                // 2️⃣ Convertir imágenes a URLs públicas con cache de usuario para optimizar firmas
+                const userPicCache = new Map();
                 const storiesWithUrls = yield Promise.all(stories.map((story) => __awaiter(this, void 0, void 0, function* () {
                     var _a;
                     try {
@@ -118,12 +147,20 @@ class StorieService {
                                 key: story.imgstorie,
                             })
                             : null;
-                        const photoperfilUrl = ((_a = story.user) === null || _a === void 0 ? void 0 : _a.photoperfil)
-                            ? yield upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
-                                bucketName: config_1.envs.AWS_BUCKET_NAME,
-                                key: story.user.photoperfil,
-                            })
-                            : null;
+                        // Optimizar: No volver a firmar la foto de perfil si el usuario se repite en la lista
+                        let photoperfilUrl = null;
+                        if ((_a = story.user) === null || _a === void 0 ? void 0 : _a.photoperfil) {
+                            if (userPicCache.has(story.user.id)) {
+                                photoperfilUrl = userPicCache.get(story.user.id);
+                            }
+                            else {
+                                photoperfilUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
+                                    bucketName: config_1.envs.AWS_BUCKET_NAME,
+                                    key: story.user.photoperfil,
+                                });
+                                userPicCache.set(story.user.id, photoperfilUrl);
+                            }
+                        }
                         return Object.assign(Object.assign({}, story), { imgstorie: imgstorieUrl, user: Object.assign(Object.assign({}, story.user), { photoperfil: photoperfilUrl }) });
                     }
                     catch (error) {
@@ -614,13 +651,13 @@ class StorieService {
                 if (userId)
                     where.user = { id: userId };
                 // Date Range (Creation)
-                if (startDate && endDate) {
+                if (startDate && startDate !== "" && endDate && endDate !== "") {
                     const { start, end } = date_utils_1.DateUtils.getDayRange(startDate);
                     where.createdAt = (0, typeorm_1.Between)(start, end);
                 }
-                else if (startDate) {
-                    const start = new Date(startDate);
-                    where.createdAt = (0, typeorm_1.MoreThan)(start);
+                else if (startDate && startDate !== "") {
+                    const { start, end } = date_utils_1.DateUtils.getDayRange(startDate);
+                    where.createdAt = (0, typeorm_1.Between)(start, end);
                 }
                 // Type (Paid/Free)
                 if (type === 'PAGADO') {
@@ -663,8 +700,58 @@ class StorieService {
             }
         });
     }
-    purgeOldDeletedStories() {
+    autoPurgeOldStories() {
         return __awaiter(this, arguments, void 0, function* (days = 30) {
+            try {
+                const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+                const stories = yield data_1.Storie.find({
+                    where: [
+                        {
+                            statusStorie: data_1.StatusStorie.DELETED,
+                            deletedAt: (0, typeorm_1.LessThan)(cutoff),
+                        },
+                        {
+                            statusStorie: data_1.StatusStorie.FLAGGED,
+                            createdAt: (0, typeorm_1.LessThan)(cutoff),
+                        }
+                    ],
+                    withDeleted: true
+                });
+                if (stories.length === 0)
+                    return 0;
+                let deletedCount = 0;
+                for (const story of stories) {
+                    try {
+                        if (story.imgstorie) {
+                            yield upload_files_cloud_adapter_1.UploadFilesCloud.deleteFile({
+                                bucketName: config_1.envs.AWS_BUCKET_NAME,
+                                key: story.imgstorie,
+                            }).catch(() => { });
+                        }
+                        yield data_1.Storie.remove(story);
+                        deletedCount++;
+                    }
+                    catch (err) {
+                        console.error(`[AUTO_PURGE] Error purging story ${story.id}`, err);
+                    }
+                }
+                if (deletedCount > 0) {
+                    (0, socket_1.getIO)().emit("storiesPurged", { count: deletedCount });
+                }
+                return deletedCount;
+            }
+            catch (error) {
+                console.error("[AUTO_PURGE] Error in auto purge stories:", error);
+                return 0;
+            }
+        });
+    }
+    purgeOldDeletedStories(adminId_1, pin_1) {
+        return __awaiter(this, arguments, void 0, function* (adminId, pin, days = 30) {
+            // 1. Validar PIN
+            const isPinValid = yield this.globalSettingsService.validateMasterPin(pin);
+            if (!isPinValid)
+                throw domain_1.CustomError.badRequest("El PIN Maestro ingresado es incorrecto.");
             try {
                 const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
                 // 1. Find candidates (Status DELETED + deletedAt < cutoff) OR (Status BANNED + createdAt < cutoff)
@@ -701,10 +788,14 @@ class StorieService {
                         console.error(`Error purging story ${story.id}`, err);
                     }
                 }
+                // 2. Auditoría
+                console.log(`[PURGE_STORIES] Admin ${adminId} executed mass purge. Deleted: ${deletedCount}`);
                 (0, socket_1.getIO)().emit("storiesPurged", { count: deletedCount });
                 return { deletedCount };
             }
             catch (error) {
+                if (error instanceof domain_1.CustomError)
+                    throw error;
                 throw domain_1.CustomError.internalServer(`Error en purga de historias (+${days} días)`);
             }
         });

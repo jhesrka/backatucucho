@@ -36,6 +36,18 @@ __decorate([
     __metadata("design:type", Object)
 ], RechargeRequest.prototype, "amount", void 0);
 __decorate([
+    (0, typeorm_1.Column)("decimal", { precision: 10, scale: 2, default: 0.00 }),
+    __metadata("design:type", Number)
+], RechargeRequest.prototype, "baseAmount", void 0);
+__decorate([
+    (0, typeorm_1.Column)("decimal", { precision: 10, scale: 2, default: 0.00 }),
+    __metadata("design:type", Number)
+], RechargeRequest.prototype, "feeAmount", void 0);
+__decorate([
+    (0, typeorm_1.Column)("decimal", { precision: 5, scale: 2, default: 0.00 }),
+    __metadata("design:type", Number)
+], RechargeRequest.prototype, "appliedPercentage", void 0);
+__decorate([
     (0, typeorm_1.Column)("varchar", {
         nullable: true,
     }),
@@ -73,6 +85,14 @@ __decorate([
     }),
     __metadata("design:type", String)
 ], RechargeRequest.prototype, "status", void 0);
+__decorate([
+    (0, typeorm_1.Column)("varchar", { default: "TRANSF" }),
+    __metadata("design:type", String)
+], RechargeRequest.prototype, "payment_method", void 0);
+__decorate([
+    (0, typeorm_1.Column)("varchar", { nullable: true }),
+    __metadata("design:type", String)
+], RechargeRequest.prototype, "external_transaction_id", void 0);
 __decorate([
     (0, typeorm_1.Column)({
         nullable: true,

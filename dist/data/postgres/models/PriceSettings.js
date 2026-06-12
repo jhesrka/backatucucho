@@ -36,11 +36,27 @@ __decorate([
     __metadata("design:type", Number)
 ], PriceSettings.prototype, "appPercentage", void 0);
 __decorate([
-    (0, typeorm_1.CreateDateColumn)({ type: 'timestamp' }),
+    (0, typeorm_1.Column)('int', { default: 30 }),
+    __metadata("design:type", Number)
+], PriceSettings.prototype, "storyPurgeDays", void 0);
+__decorate([
+    (0, typeorm_1.Column)('boolean', { default: false }),
+    __metadata("design:type", Boolean)
+], PriceSettings.prototype, "storyAutoPurge", void 0);
+__decorate([
+    (0, typeorm_1.Column)('int', { default: 7 }),
+    __metadata("design:type", Number)
+], PriceSettings.prototype, "rankingEvaluationPeriodDays", void 0);
+__decorate([
+    (0, typeorm_1.Column)('timestamptz', { nullable: true }),
+    __metadata("design:type", Object)
+], PriceSettings.prototype, "lastRankingUpdate", void 0);
+__decorate([
+    (0, typeorm_1.CreateDateColumn)({ type: "timestamptz" }),
     __metadata("design:type", Date)
 ], PriceSettings.prototype, "createdAt", void 0);
 __decorate([
-    (0, typeorm_1.UpdateDateColumn)({ type: 'timestamp' }),
+    (0, typeorm_1.UpdateDateColumn)({ type: "timestamptz" }),
     __metadata("design:type", Date)
 ], PriceSettings.prototype, "updatedAt", void 0);
 exports.PriceSettings = PriceSettings = __decorate([

@@ -21,11 +21,11 @@ class PostController {
             }
             console.error("Unhandled error:", error);
             return res.status(500).json({ message: "Something went very wrong" });
-        };
+        }; // Forcing reload
         //revisado y aprobado
         this.createPostPlan = (req, res) => {
             var _a;
-            const { title, subtitle, content, isPaid, showWhatsApp, showLikes } = req.body;
+            const { title, subtitle, content, isPaid, showWhatsApp, showLikes, productoId, precioProducto, videoUrl } = req.body;
             const userId = ((_a = req.body.sessionUser) === null || _a === void 0 ? void 0 : _a.id) || req.body.userId;
             if (!userId || !this.isValidUUID(userId)) {
                 return res.status(400).json({ message: "ID de usuario inválido o no proporcionado" });
@@ -43,9 +43,17 @@ class PostController {
                 isPaid: isPaidBool,
                 showWhatsApp: showWhatsAppBool,
                 showLikes: showLikesBool,
+                scheduledAt: req.body.scheduledAt,
+                productoId,
+                precioProducto,
+                videoUrl,
             }, req.files)
                 .then((data) => res.status(201).json(data))
-                .catch((error) => this.handleError(error, res));
+                .catch((error) => {
+                if (error.statusCode === 400)
+                    console.log("400 Error:", error.message);
+                this.handleError(error, res);
+            });
         };
         this.findAllPostPaginated = (req, res) => {
             var _a;
@@ -290,11 +298,76 @@ class PostController {
                 endDate: req.query.endDate
             };
             const page = Number(req.query.page) || 1;
-            const limit = Number(req.query.limit) || 20;
+            const limit = Number(req.query.limit) || 15; // Set to match frontend itemsPerPage
             this.postService.getAdminPosts(filters, page, limit)
                 .then(data => res.status(200).json(data))
                 .catch(error => this.handleError(error, res));
         };
+        this.getUnifiedSummary = (_req, res) => {
+            this.postService.getUnifiedSummary()
+                .then(data => res.status(200).json(data))
+                .catch(error => this.handleError(error, res));
+        };
+        this.purgeOldPosts = (req, res) => {
+            var _a;
+            const { pin, type } = req.body;
+            const adminId = (_a = req.body.sessionUser) === null || _a === void 0 ? void 0 : _a.id;
+            if (!pin)
+                return res.status(400).json({ message: "El PIN Maestro es obligatorio para esta acción." });
+            this.postService.purgeOldPosts(adminId, pin, type || 'ALL')
+                .then(data => res.status(200).json(data))
+                .catch(error => this.handleError(error, res));
+        };
+        this.previewPurgeAdmin = (req, res) => {
+            const { type } = req.query;
+            this.postService.getPurgePreview(type || 'ALL')
+                .then(data => res.status(200).json(Object.assign({ success: true }, data)))
+                .catch(error => this.handleError(error, res));
+        };
+        // ==========================================
+        // 📅 SCHEDULED POSTS
+        // ==========================================
+        this.getScheduledPostsByUser = (req, res) => __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            try {
+                const userId = (_a = req.body.sessionUser) === null || _a === void 0 ? void 0 : _a.id;
+                if (!userId)
+                    return res.status(401).json({ message: "No autenticado" });
+                const data = yield this.postService.getScheduledPostsByUser(userId);
+                res.status(200).json({ success: true, posts: data });
+            }
+            catch (error) {
+                this.handleError(error, res);
+            }
+        });
+        this.cancelScheduledPost = (req, res) => __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            try {
+                const { id } = req.params;
+                const userId = (_a = req.body.sessionUser) === null || _a === void 0 ? void 0 : _a.id;
+                if (!userId)
+                    return res.status(401).json({ message: "No autenticado" });
+                const result = yield this.postService.cancelScheduledPost(id, userId);
+                res.status(200).json(Object.assign({ success: true }, result));
+            }
+            catch (error) {
+                this.handleError(error, res);
+            }
+        });
+        this.updateScheduledPost = (req, res) => __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            try {
+                const { id } = req.params;
+                const userId = (_a = req.body.sessionUser) === null || _a === void 0 ? void 0 : _a.id;
+                if (!userId)
+                    return res.status(401).json({ message: "No autenticado" });
+                const post = yield this.postService.updateScheduledPost(id, userId, req.body);
+                res.status(200).json({ success: true, post });
+            }
+            catch (error) {
+                this.handleError(error, res);
+            }
+        });
     }
     isValidUUID(uuid) {
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

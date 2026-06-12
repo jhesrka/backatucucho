@@ -2,8 +2,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CreateProductoDTO = void 0;
 const config_1 = require("../../../config");
+const data_1 = require("../../../data");
 class CreateProductoDTO {
-    constructor(nombre, descripcion, precio_venta, precio_app, negocioId, modeloMonetizacion, tipoId) {
+    constructor(nombre, descripcion, precio_venta, precio_app, negocioId, modeloMonetizacion, tipoId, tipoProducto = data_1.TipoProductoEnum.NORMAL) {
         this.nombre = nombre;
         this.descripcion = descripcion;
         this.precio_venta = precio_venta;
@@ -11,9 +12,10 @@ class CreateProductoDTO {
         this.negocioId = negocioId;
         this.modeloMonetizacion = modeloMonetizacion;
         this.tipoId = tipoId;
+        this.tipoProducto = tipoProducto;
     }
     static create(obj) {
-        const { nombre, descripcion, precio_venta, precio_app, negocioId, modeloMonetizacion, tipoId, } = obj;
+        const { nombre, descripcion, precio_venta, precio_app, negocioId, modeloMonetizacion, tipoId, tipoProducto } = obj;
         if (!nombre || typeof nombre !== "string" || nombre.trim().length < 3) {
             return ["El nombre del producto debe tener al menos 3 caracteres"];
         }
@@ -43,9 +45,12 @@ class CreateProductoDTO {
         if (!tipoId || typeof tipoId !== "string" || !config_1.regularExp.uuid.test(tipoId)) {
             return ["Debes seleccionar un tipo válido"];
         }
+        if (tipoProducto && !Object.values(data_1.TipoProductoEnum).includes(tipoProducto)) {
+            return ["Tipo de producto inválido"];
+        }
         return [
             undefined,
-            new CreateProductoDTO(nombre.trim(), descripcion.trim(), Number(precio_venta), modeloMonetizacion === "COMISION_SUSCRIPCION" ? Number(precio_app) : Number(precio_venta), negocioId, modeloMonetizacion, tipoId.trim()),
+            new CreateProductoDTO(nombre.trim(), descripcion.trim(), Number(precio_venta), modeloMonetizacion === "COMISION_SUSCRIPCION" ? Number(precio_app) : Number(precio_venta), negocioId, modeloMonetizacion, tipoId.trim(), tipoProducto || data_1.TipoProductoEnum.NORMAL),
         ];
     }
 }

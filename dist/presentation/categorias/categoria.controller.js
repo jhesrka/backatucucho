@@ -17,17 +17,21 @@ class CategoriaController {
         };
         // Crear categoría
         this.createCategoria = (req, res) => {
+            var _a, _b;
             const [error, dto] = CreateCategoriaDTO_1.CreateCategoriaDTO.create(req.body);
             if (error)
                 return res.status(422).json({ message: error });
-            if (!req.file) {
+            const files = req.files;
+            const iconFile = (_a = files === null || files === void 0 ? void 0 : files.imagen) === null || _a === void 0 ? void 0 : _a[0];
+            const coverFile = (_b = files === null || files === void 0 ? void 0 : files.coverImage) === null || _b === void 0 ? void 0 : _b[0];
+            if (!iconFile) {
                 return res.status(422).json({ message: "La imagen de la categoría es obligatoria" });
             }
             const { masterPin } = req.body;
             if (!masterPin)
                 return res.status(400).json({ message: "Master PIN es requerido" });
             this.categoriaService
-                .createCategoria(dto, req.file, masterPin)
+                .createCategoria(dto, iconFile, masterPin, coverFile)
                 .then((categoria) => res.status(201).json(categoria))
                 .catch((error) => this.handleError(error, res));
         };
@@ -55,15 +59,19 @@ class CategoriaController {
         };
         // Actualizar categoría
         this.updateCategoria = (req, res) => {
+            var _a, _b;
             const id = req.params.id;
             const [error, dto] = UpdateCategoriaDTO_1.UpdateCategoriaDTO.create(req.body);
             if (error)
                 return res.status(422).json({ message: error });
+            const files = req.files;
+            const iconFile = (_a = files === null || files === void 0 ? void 0 : files.imagen) === null || _a === void 0 ? void 0 : _a[0];
+            const coverFile = (_b = files === null || files === void 0 ? void 0 : files.coverImage) === null || _b === void 0 ? void 0 : _b[0];
             const { masterPin } = req.body;
             if (!masterPin)
                 return res.status(400).json({ message: "Master PIN es requerido" });
             this.categoriaService
-                .updateCategoria(id, dto, req.file, masterPin)
+                .updateCategoria(id, dto, iconFile, masterPin, coverFile)
                 .then((categoria) => res.status(200).json(categoria))
                 .catch((error) => this.handleError(error, res));
         };
