@@ -59,6 +59,9 @@ export class Servicio extends BaseEntity {
   @Column({ type: "boolean", default: true })
   isVisible: boolean;
 
+  @Column({ type: "text", nullable: true })
+  motivoRechazo: string | null;
+
   @CreateDateColumn({ type: "timestamptz" })
   createdAt: Date;
 

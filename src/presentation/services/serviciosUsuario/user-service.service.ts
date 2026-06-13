@@ -250,6 +250,7 @@ export class UserServiceService {
       // Reembolso en transacción
       await Servicio.getRepository().manager.transaction(async (manager: any) => {
         servicio.statusServicio = StatusServicio.RECHAZADO;
+        servicio.motivoRechazo = motivo;
         await manager.save(servicio);
 
         const wallet = servicio.user.wallet;
@@ -457,15 +458,26 @@ export class UserServiceService {
         }
       }
 
-      // PASO 2: Buscar servicios EXPIRADOS cuya fechaFinSuscripcion sea menor a (now - 24 horas)
+      // PASO 2: Buscar servicios EXPIRADOS, RECHAZADOS o BLOQUEADOS que hayan pasado 24 horas
       const twentyFourHoursAgo = new Date();
       twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
 
       const toDelete = await Servicio.find({
-        where: { statusServicio: StatusServicio.EXPIRADO }
+        where: [
+          { statusServicio: StatusServicio.EXPIRADO },
+          { statusServicio: StatusServicio.RECHAZADO },
+          { statusServicio: StatusServicio.BLOQUEADO }
+        ]
       });
 
-      const reallyExpired = toDelete.filter(s => s.fechaFinSuscripcion && s.fechaFinSuscripcion < twentyFourHoursAgo);
+      const reallyExpired = toDelete.filter(s => {
+        if (s.statusServicio === StatusServicio.EXPIRADO) {
+          return s.fechaFinSuscripcion && s.fechaFinSuscripcion < twentyFourHoursAgo;
+        } else {
+          // Para RECHAZADO y BLOQUEADO usamos updatedAt
+          return s.updatedAt && s.updatedAt < twentyFourHoursAgo;
+        }
+      });
 
       for (const servicio of reallyExpired) {
         try {
@@ -481,7 +493,7 @@ export class UserServiceService {
 
           // Eliminar de base de datos
           await servicio.remove();
-          console.log(`[CRON SERVICIOS] Servicio ${servicio.id} eliminado permanentemente (pasaron 24h vencido).`);
+          console.log(`[CRON SERVICIOS] Servicio ${servicio.id} eliminado permanentemente (estado: ${servicio.statusServicio}, pasaron 24h).`);
         } catch (err) {
           console.error(`[CRON SERVICIOS] Error eliminando servicio ${servicio.id}`, err);
         }
@@ -543,7 +555,7 @@ export class UserServiceService {
     }
   }
 
-  async changeServiceStatusAdmin(id: string, newStatus: StatusServicio, isVisible?: boolean) {
+  async changeServiceStatusAdmin(id: string, newStatus: StatusServicio, isVisible?: boolean, motivoRechazo?: string) {
     try {
       const servicio = await Servicio.findOne({ where: { id } });
       if (!servicio) throw CustomError.notFound("Servicio no encontrado");
@@ -551,6 +563,9 @@ export class UserServiceService {
       servicio.statusServicio = newStatus;
       if (isVisible !== undefined) {
         servicio.isVisible = isVisible;
+      }
+      if (motivoRechazo !== undefined) {
+        servicio.motivoRechazo = newStatus === StatusServicio.RECHAZADO ? motivoRechazo : null;
       }
 
       await servicio.save();
@@ -742,6 +757,25 @@ export class UserServiceService {
           }
         } catch(e) {
           console.error("Error resolving imagenServicio url", e);
+        }
+      }
+
+      if (servicio.videoUrl) {
+        try {
+          let key = servicio.videoUrl;
+          if (key.startsWith('http')) {
+            if (isS3Url(key)) {
+              key = extractS3Key(key);
+              const url = await UploadFilesCloud.getFile({ bucketName: envs.AWS_BUCKET_NAME, key });
+              (servicio as any).videoUrl = url;
+            }
+            // Si es un http normal (YouTube, TikTok), lo dejamos tal cual
+          } else {
+            const url = await UploadFilesCloud.getFile({ bucketName: envs.AWS_BUCKET_NAME, key });
+            (servicio as any).videoUrl = url;
+          }
+        } catch(e) {
+          console.error("Error resolving videoUrl", e);
         }
       }
     }

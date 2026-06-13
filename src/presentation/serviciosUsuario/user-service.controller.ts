@@ -115,8 +115,8 @@ export class UserServiceController {
 
   changeServiceStatusAdmin = (req: Request, res: Response) => {
     const { id } = req.params;
-    const { newStatus, isVisible } = req.body;
-    this.userServiceService.changeServiceStatusAdmin(id, newStatus, isVisible)
+    const { newStatus, isVisible, motivoRechazo } = req.body;
+    this.userServiceService.changeServiceStatusAdmin(id, newStatus, isVisible, motivoRechazo)
       .then((service) => res.json(service))
       .catch((error) => res.status(error.statusCode || 500).json({ error: error.message }));
   }

@@ -109,6 +109,32 @@ export class FinancialService {
                 total = countSubBiz;
                 break;
 
+            case 'servicios':
+                const [serviciosTx, countServicios] = await Transaction.findAndCount({
+                    where: {
+                        reason: TransactionReason.SERVICE_SUBSCRIPTION,
+                        created_at: Between(start, end)
+                    },
+                    relations: ["wallet", "wallet.user"],
+                    order: { created_at: "DESC" },
+                    take: limit,
+                    skip: skip
+                });
+
+                data = serviciosTx.map(t => {
+                    return {
+                        id: t.id,
+                        email: t.wallet?.user?.email || 'N/A',
+                        amount: Math.abs(Number(t.amount)),
+                        date: t.created_at,
+                        previousBalance: Number(t.previousBalance || 0),
+                        resultingBalance: Number(t.resultingBalance || 0),
+                        concept: t.observation || 'Publicación de Servicio'
+                    };
+                });
+                total = countServicios;
+                break;
+
             case 'historias':
                 const [storiesTx, countStories] = await Transaction.findAndCount({
                     where: {
@@ -364,6 +390,14 @@ export class FinancialService {
             .getRawOne();
         const totalStories = Math.abs(Number(storiesIncome.total || 0));
 
+        // C.5 Publicaciones de Servicios
+        const serviciosIncome = await Transaction.createQueryBuilder("t")
+            .select("SUM(t.amount)", "total")
+            .where("t.reason = :reason", { reason: TransactionReason.SERVICE_SUBSCRIPTION })
+            .andWhere("t.created_at BETWEEN :start AND :end", { start: start, end: end })
+            .getRawOne();
+        const totalServicios = Math.abs(Number(serviciosIncome.total || 0));
+
         // D. Orders (Commissions)
         // We look at ENTREGADO and CANCELADO orders in the period
         const orders = await Pedido.find({
@@ -434,7 +468,7 @@ export class FinancialService {
             }
         }
 
-        const totalIngresosApp = totalSubsUser + totalSubsBiz + totalStories + totalComisionProductos + totalComisionDomicilios;
+        const totalIngresosApp = totalSubsUser + totalSubsBiz + totalStories + totalServicios + totalComisionProductos + totalComisionDomicilios;
 
 
         // 3. PASIVOS (DEUDAS) - HISTORICAL VS LIVE LOGIC
@@ -477,12 +511,13 @@ export class FinancialService {
             },
             appRevenue: {
                 total: totalIngresosApp + totalRecargasManuales,
-                directos: totalSubsUser + totalSubsBiz + totalStories,
+                directos: totalSubsUser + totalSubsBiz + totalStories + totalServicios,
                 comisiones: totalComisionProductos + totalComisionDomicilios,
                 breakdown: {
                     suscripciones: totalSubsUser,
                     suscripcionesNegocios: totalSubsBiz,
                     historias: totalStories,
+                    servicios: totalServicios,
                     comisionProductos: totalComisionProductos,
                     comisionDomicilio: totalComisionDomicilios,
                     recargasManuales: totalRecargasManuales
