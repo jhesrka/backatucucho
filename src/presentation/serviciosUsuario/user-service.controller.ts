@@ -85,8 +85,62 @@ export class UserServiceController {
 
   getPublicServicesByCategory = (req: Request, res: Response) => {
     const { categoriaId } = req.params;
-    this.userServiceService.getPublicServicesByCategory(categoriaId)
+    const { subcategoriaId, page = "1", limit = "10" } = req.query;
+    this.userServiceService.getPublicServicesByCategory(
+      categoriaId, 
+      subcategoriaId as string | undefined, 
+      parseInt(page as string), 
+      parseInt(limit as string)
+    )
       .then((services) => res.json(services))
       .catch((error) => res.status(error.statusCode || 500).json({ error: error.message }));
   };
+
+  // ==================================
+  // ADMIN GLOBAL MANAGEMENT
+  // ==================================
+
+  getAllServicesAdmin = (req: Request, res: Response) => {
+    const { page = "1", limit = "10", search = "", status = "", categoriaId = "" } = req.query;
+    this.userServiceService.getAllServicesAdmin(
+      parseInt(page as string),
+      parseInt(limit as string),
+      search as string,
+      status as string,
+      categoriaId as string
+    )
+      .then((services) => res.json(services))
+      .catch((error) => res.status(error.statusCode || 500).json({ error: error.message }));
+  }
+
+  changeServiceStatusAdmin = (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { newStatus, isVisible } = req.body;
+    this.userServiceService.changeServiceStatusAdmin(id, newStatus, isVisible)
+      .then((service) => res.json(service))
+      .catch((error) => res.status(error.statusCode || 500).json({ error: error.message }));
+  }
+
+  extendServiceDaysAdmin = (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { daysToAdd } = req.body;
+    this.userServiceService.extendServiceDaysAdmin(id, parseInt(daysToAdd))
+      .then((service) => res.json(service))
+      .catch((error) => res.status(error.statusCode || 500).json({ error: error.message }));
+  }
+
+  editServiceAdmin = (req: Request, res: Response) => {
+    const { id } = req.params;
+    const data = req.body;
+    this.userServiceService.editServiceAdmin(id, data)
+      .then((service) => res.json(service))
+      .catch((error) => res.status(error.statusCode || 500).json({ error: error.message }));
+  }
+
+  deleteServiceAdmin = (req: Request, res: Response) => {
+    const { id } = req.params;
+    this.userServiceService.deleteServiceAdmin(id)
+      .then(() => res.json({ message: "Servicio eliminado exitosamente" }))
+      .catch((error) => res.status(error.statusCode || 500).json({ error: error.message }));
+  }
 }

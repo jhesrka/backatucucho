@@ -3,7 +3,7 @@ import { UploadFilesCloud } from "../../../config/upload-files-cloud-adapter";
 import { envs } from "../../../config";
 import { Servicio, StatusServicio, CategoriaServicio, SubcategoriaServicio } from "../../../data/postgres/models/index";
 import { User, Wallet, Transaction, TransactionReason, TransactionOrigin, GlobalSettings } from "../../../data/postgres/models/index";
-import { DataSource, Not } from "typeorm";
+import { DataSource, Not, MoreThan } from "typeorm";
 
 export class UserServiceService {
   constructor() {}
@@ -93,9 +93,10 @@ export class UserServiceService {
     try {
       const servicios = await Servicio.find({
         where: { user: { id: userId } },
-        relations: ["categoria", "subcategoria"],
+        relations: ["categoria", "subcategoria", "user"],
         order: { createdAt: "DESC" }
       });
+      await this.resolveOptimizedImages(servicios);
       return servicios;
     } catch (error: any) {
       console.error("Error original getMyServices:", error);
@@ -202,19 +203,7 @@ export class UserServiceService {
         order: { createdAt: "ASC" }
       });
 
-      for (const servicio of servicios) {
-        if (servicio.user && servicio.user.photoperfil) {
-          try {
-            const photoUrl = await UploadFilesCloud.getFile({
-              bucketName: envs.AWS_BUCKET_NAME,
-              key: servicio.user.photoperfil
-            });
-            servicio.user.photoperfil = photoUrl;
-          } catch (e) {
-            console.error("Error signing photoperfil url in getAllPendingServices", e);
-          }
-        }
-      }
+      await this.resolveOptimizedImages(servicios);
 
       return servicios;
     } catch (error) {
@@ -506,42 +495,255 @@ export class UserServiceService {
   }
 
   // ==================================
+  // ADMIN GLOBAL MANAGEMENT
+  // ==================================
+
+  async getAllServicesAdmin(page: number = 1, limit: number = 10, search: string = "", status: string = "", categoriaId: string = "") {
+    try {
+      const query = Servicio.createQueryBuilder("servicio")
+        .leftJoinAndSelect("servicio.user", "user")
+        .leftJoinAndSelect("servicio.categoria", "categoria")
+        .leftJoinAndSelect("servicio.subcategoria", "subcategoria");
+
+      if (status) {
+        query.andWhere("servicio.statusServicio = :status", { status });
+      }
+
+      if (categoriaId) {
+        query.andWhere("categoria.id = :categoriaId", { categoriaId });
+      }
+
+      if (search) {
+        query.andWhere(
+          "(LOWER(user.nombre) LIKE LOWER(:search) OR LOWER(user.email) LIKE LOWER(:search) OR LOWER(servicio.descripcion) LIKE LOWER(:search))",
+          { search: `%${search}%` }
+        );
+      }
+
+      const skip = (page - 1) * limit;
+
+      const [servicios, total] = await query
+        .orderBy("servicio.createdAt", "DESC")
+        .skip(skip)
+        .take(limit)
+        .getManyAndCount();
+
+      await this.resolveOptimizedImages(servicios);
+
+      return {
+        servicios,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      };
+    } catch (error) {
+      if (error instanceof CustomError) throw error;
+      throw CustomError.internalServer("Error al obtener todos los servicios");
+    }
+  }
+
+  async changeServiceStatusAdmin(id: string, newStatus: StatusServicio, isVisible?: boolean) {
+    try {
+      const servicio = await Servicio.findOne({ where: { id } });
+      if (!servicio) throw CustomError.notFound("Servicio no encontrado");
+
+      servicio.statusServicio = newStatus;
+      if (isVisible !== undefined) {
+        servicio.isVisible = isVisible;
+      }
+
+      await servicio.save();
+      return servicio;
+    } catch (error) {
+      if (error instanceof CustomError) throw error;
+      throw CustomError.internalServer("Error al cambiar el estado del servicio");
+    }
+  }
+
+  async extendServiceDaysAdmin(id: string, daysToAdd: number) {
+    try {
+      const servicio = await Servicio.findOne({ where: { id } });
+      if (!servicio) throw CustomError.notFound("Servicio no encontrado");
+
+      if (servicio.fechaFinSuscripcion) {
+        const nuevaFecha = new Date(servicio.fechaFinSuscripcion);
+        nuevaFecha.setDate(nuevaFecha.getDate() + daysToAdd);
+        servicio.fechaFinSuscripcion = nuevaFecha;
+      } else {
+        // If it doesn't have an end date, we add from today
+        const nuevaFecha = new Date();
+        nuevaFecha.setDate(nuevaFecha.getDate() + daysToAdd);
+        servicio.fechaInicioSuscripcion = new Date();
+        servicio.fechaFinSuscripcion = nuevaFecha;
+        servicio.statusServicio = StatusServicio.APROBADO; // ensure approved
+      }
+
+      await servicio.save();
+      return servicio;
+    } catch (error) {
+      if (error instanceof CustomError) throw error;
+      throw CustomError.internalServer("Error al extender los días del servicio");
+    }
+  }
+
+  async editServiceAdmin(id: string, data: any) {
+    try {
+      const servicio = await Servicio.findOne({ where: { id } });
+      if (!servicio) throw CustomError.notFound("Servicio no encontrado");
+
+      if (data.descripcion !== undefined) servicio.descripcion = data.descripcion;
+      // Admin could potentially clear videoUrl or imagenServicio if reported
+      if (data.removeImagen) {
+         // delete from s3
+         if (servicio.imagenServicio) {
+           const fileKey = servicio.imagenServicio.split('/').pop();
+           if (fileKey) await UploadFilesCloud.deleteFile({ bucketName: envs.AWS_BUCKET_NAME, key: fileKey }).catch(e => console.error(e));
+         }
+         servicio.imagenServicio = "";
+      }
+      if (data.removeVideo) {
+         if (servicio.videoUrl) {
+           const fileKey = servicio.videoUrl.split('/').pop();
+           if (fileKey) await UploadFilesCloud.deleteFile({ bucketName: envs.AWS_BUCKET_NAME, key: fileKey }).catch(e => console.error(e));
+         }
+         servicio.videoUrl = "";
+      }
+
+      await servicio.save();
+      return servicio;
+    } catch (error) {
+      if (error instanceof CustomError) throw error;
+      throw CustomError.internalServer("Error al editar el servicio por moderador");
+    }
+  }
+
+  async deleteServiceAdmin(id: string) {
+    try {
+      const servicio = await Servicio.findOne({ where: { id } });
+      if (!servicio) throw CustomError.notFound("Servicio no encontrado");
+
+      // Eliminar archivo de S3 si existe
+      if (servicio.imagenServicio) {
+        const fileKey = servicio.imagenServicio.split('/').pop();
+        if (fileKey) await UploadFilesCloud.deleteFile({ bucketName: envs.AWS_BUCKET_NAME, key: fileKey }).catch(e => console.error("Error borrando imagen de S3", e));
+      }
+      if (servicio.videoUrl) {
+        const fileKey = servicio.videoUrl.split('/').pop();
+        if (fileKey) await UploadFilesCloud.deleteFile({ bucketName: envs.AWS_BUCKET_NAME, key: fileKey }).catch(e => console.error("Error borrando video de S3", e));
+      }
+
+      await servicio.remove();
+      return { message: "Servicio eliminado correctamente por Admin" };
+    } catch (error) {
+      if (error instanceof CustomError) throw error;
+      throw CustomError.internalServer("Error al eliminar servicio por Admin");
+    }
+  }
+
+  // ==================================
   // PUBLIC METHODS
   // ==================================
 
-  async getPublicServicesByCategory(categoriaId: string) {
+  async getPublicServicesByCategory(categoriaId: string, subcategoriaId?: string, page: number = 1, limit: number = 10) {
     try {
       const now = new Date();
-      const servicios = await Servicio.find({
-        where: {
-          categoria: { id: categoriaId },
-          statusServicio: StatusServicio.APROBADO,
-          isVisible: true,
-          // Debería usarse un builder para filtrar fechaFinSuscripcion > now
-        },
-        relations: ["subcategoria", "user"],
-      });
+      
+      const whereClause: any = {
+        categoria: { id: categoriaId },
+        statusServicio: StatusServicio.APROBADO,
+        isVisible: true,
+        fechaFinSuscripcion: MoreThan(now)
+      };
 
-      // Filtro manual temporal
-      const validos = servicios.filter(s => s.fechaFinSuscripcion && s.fechaFinSuscripcion > now);
-
-      for (const servicio of validos) {
-        if (servicio.user && servicio.user.photoperfil) {
-          try {
-            const photoUrl = await UploadFilesCloud.getFile({
-              bucketName: envs.AWS_BUCKET_NAME,
-              key: servicio.user.photoperfil
-            });
-            servicio.user.photoperfil = photoUrl;
-          } catch (e) {
-            console.error("Error signing photoperfil url in getPublicServicesByCategory", e);
-          }
-        }
+      if (subcategoriaId) {
+        whereClause.subcategoria = { id: subcategoriaId };
       }
 
-      return validos;
+      const skip = (page - 1) * limit;
+
+      const [servicios, total] = await Servicio.findAndCount({
+        where: whereClause,
+        relations: ["subcategoria", "user"],
+        order: { createdAt: "DESC" }, // Or whatever order is preferred
+        skip,
+        take: limit
+      });
+
+      await this.resolveOptimizedImages(servicios);
+
+      return {
+        data: servicios,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      };
     } catch (error) {
-      throw CustomError.internalServer("Error al obtener servicios públicos");
+      throw CustomError.internalServer("Error al obtener servicios públicos paginados");
+    }
+  }
+
+  private async resolveOptimizedImages(servicios: Servicio[]) {
+    const isS3Url = (urlStr: string) => urlStr.includes('amazonaws.com');
+    
+    const extractS3Key = (urlStr: string) => {
+      try {
+        const url = new URL(urlStr);
+        let path = url.pathname.startsWith('/') ? url.pathname.substring(1) : url.pathname;
+        // Si el path empieza con el nombre del bucket (estilo path: s3.amazonaws.com/bucket/key)
+        if (path.startsWith(envs.AWS_BUCKET_NAME + '/')) {
+          path = path.substring(envs.AWS_BUCKET_NAME.length + 1);
+        }
+        // Limpiar parámetros si se filtró por error
+        return decodeURIComponent(path);
+      } catch (e) {
+        return urlStr; // Si no es una URL válida, asumimos que ya es un key
+      }
+    };
+
+    for (const servicio of servicios) {
+      if (servicio.user && servicio.user.photoperfil) {
+        try {
+          let key = servicio.user.photoperfil;
+          if (key.startsWith('http')) {
+            if (isS3Url(key)) {
+              key = extractS3Key(key);
+              const urls = await UploadFilesCloud.getOptimizedUrls({ bucketName: envs.AWS_BUCKET_NAME, key });
+              (servicio.user as any).photoperfil = urls;
+            } else {
+              // Si es un avatar de Google, etc., se queda igual
+              (servicio.user as any).photoperfil = { original: key, card: key, thumb: key };
+            }
+          } else {
+            // Es un key directo
+            const urls = await UploadFilesCloud.getOptimizedUrls({ bucketName: envs.AWS_BUCKET_NAME, key });
+            (servicio.user as any).photoperfil = urls;
+          }
+        } catch (e) {
+          console.error("Error resolving photoperfil url", e);
+        }
+      }
+      
+      if (servicio.imagenServicio) {
+        try {
+          let key = servicio.imagenServicio;
+          if (key.startsWith('http')) {
+            if (isS3Url(key)) {
+              key = extractS3Key(key);
+              const urls = await UploadFilesCloud.getOptimizedUrls({ bucketName: envs.AWS_BUCKET_NAME, key });
+              (servicio as any).imagenServicio = urls;
+            } else {
+              (servicio as any).imagenServicio = { original: key, card: key, thumb: key };
+            }
+          } else {
+            const urls = await UploadFilesCloud.getOptimizedUrls({ bucketName: envs.AWS_BUCKET_NAME, key });
+            (servicio as any).imagenServicio = urls;
+          }
+        } catch(e) {
+          console.error("Error resolving imagenServicio url", e);
+        }
+      }
     }
   }
 }

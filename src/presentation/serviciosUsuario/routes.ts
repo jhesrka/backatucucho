@@ -21,6 +21,7 @@ export class ServiciosUsuarioRoutes {
     // RUTAS PÚBLICAS
     // ===================================
     router.get("/categorias/public", categoryCtrl.getPublicCategories);
+    router.get("/categoria/:categoriaId/subcategorias/public", categoryCtrl.getPublicSubcategoriesByCategory);
     router.get("/categoria/:categoriaId/public", userCtrl.getPublicServicesByCategory);
 
     // Ruta para creación de servicios (usuarios que publican)
@@ -44,6 +45,13 @@ export class ServiciosUsuarioRoutes {
     router.get("/admin/pendientes", AuthAdminMiddleware.protect, AuthAdminMiddleware.restrictTo(UserRoleAdmin.ADMIN), userCtrl.getAllPendingServices);
     router.put("/admin/aprobar/:id", AuthAdminMiddleware.protect, AuthAdminMiddleware.restrictTo(UserRoleAdmin.ADMIN), userCtrl.approveService);
     router.put("/admin/rechazar/:id", AuthAdminMiddleware.protect, AuthAdminMiddleware.restrictTo(UserRoleAdmin.ADMIN), userCtrl.rejectService);
+
+    // Nuevas rutas de gestión global
+    router.get("/admin/todos", AuthAdminMiddleware.protect, AuthAdminMiddleware.restrictTo(UserRoleAdmin.ADMIN), userCtrl.getAllServicesAdmin);
+    router.put("/admin/todos/:id/status", AuthAdminMiddleware.protect, AuthAdminMiddleware.restrictTo(UserRoleAdmin.ADMIN), userCtrl.changeServiceStatusAdmin);
+    router.put("/admin/todos/:id/extend", AuthAdminMiddleware.protect, AuthAdminMiddleware.restrictTo(UserRoleAdmin.ADMIN), userCtrl.extendServiceDaysAdmin);
+    router.put("/admin/todos/:id/edit", AuthAdminMiddleware.protect, AuthAdminMiddleware.restrictTo(UserRoleAdmin.ADMIN), userCtrl.editServiceAdmin);
+    router.delete("/admin/todos/:id", AuthAdminMiddleware.protect, AuthAdminMiddleware.restrictTo(UserRoleAdmin.ADMIN), userCtrl.deleteServiceAdmin);
 
     // ===================================
     // RUTAS USUARIO

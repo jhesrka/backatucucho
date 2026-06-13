@@ -9,6 +9,7 @@ export enum StatusServicio {
   RECHAZADO = "RECHAZADO",
   EXPIRADO = "EXPIRADO",
   NO_PAGADO = "NO_PAGADO",
+  BLOQUEADO = "BLOQUEADO",
 }
 
 @Entity("servicio")

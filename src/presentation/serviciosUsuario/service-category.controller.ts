@@ -10,6 +10,13 @@ export class ServiceCategoryController {
       .catch((error) => res.status(error.statusCode || 500).json({ error: error.message }));
   };
 
+  getPublicSubcategoriesByCategory = (req: Request, res: Response) => {
+    const { categoriaId } = req.params;
+    this.serviceCategoryService.getPublicSubcategoriesByCategory(categoriaId)
+      .then((subcategories) => res.json(subcategories))
+      .catch((error) => res.status(error.statusCode || 500).json({ error: error.message }));
+  };
+
   getActiveCategoriesForCreation = (req: Request, res: Response) => {
     this.serviceCategoryService.getActiveCategoriesForCreation()
       .then((categories) => res.json(categories))

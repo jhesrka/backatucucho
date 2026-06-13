@@ -31,6 +31,28 @@ export class ServiceCategoryService {
     }
   }
 
+  async getPublicSubcategoriesByCategory(categoryId: string) {
+    try {
+      const now = new Date();
+
+      // Buscar subcategorías que tengan servicios aprobados y vigentes
+      const subcategorias = await SubcategoriaServicio.createQueryBuilder("subcat")
+        .innerJoin("servicio", "srv", "srv.subcategoriaId = subcat.id")
+        .where("subcat.categoriaId = :categoryId", { categoryId })
+        .andWhere("subcat.estado = :status", { status: Status.ACTIVE })
+        .andWhere("srv.statusServicio = :srvStatus", { srvStatus: StatusServicio.APROBADO })
+        .andWhere("srv.fechaFinSuscripcion > :now", { now })
+        .select(["subcat.id", "subcat.nombre", "subcat.icono"])
+        .distinct(true)
+        .orderBy("subcat.nombre", "ASC")
+        .getMany();
+
+      return subcategorias;
+    } catch (error) {
+      throw CustomError.internalServer("Error al obtener subcategorías públicas de servicios");
+    }
+  }
+
   async getActiveCategoriesForCreation() {
     try {
       const categorias = await CategoriaServicio.find({

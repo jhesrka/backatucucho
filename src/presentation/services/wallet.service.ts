@@ -187,6 +187,17 @@ export class WalletService {
     });
 
     const transactionsSigned = await Promise.all(transactions.map(async (tx) => {
+      // INICIO: Enriquecer dinámicamente si es de servicio
+      if (tx.reason === TransactionReason.SERVICE_SUBSCRIPTION && tx.reference) {
+        const { Servicio } = await import("../../data/postgres/models/Servicio");
+        const servicio = await Servicio.findOne({ where: { id: tx.reference } });
+        if (servicio) {
+          const shortId = servicio.id.split('-')[0].toUpperCase();
+          tx.observation = `Pago por publicación de servicio (${servicio.statusServicio} - ID: ${shortId})`;
+        }
+      }
+      // FIN
+
       if (tx.receipt_image && !tx.receipt_image.startsWith('http')) {
         try {
           const signedUrl = await UploadFilesCloud.getFile({

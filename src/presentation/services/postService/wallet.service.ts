@@ -1,6 +1,6 @@
 import { Wallet, WalletStatus, GlobalSettings, Storie, FinancialClosing, RechargeRequest, StatusRecarga, Subscription } from "../../../data";
 import { Transaction, TransactionType, TransactionOrigin, TransactionReason } from "../../../data/postgres/models/transactionType.model";
-import { Between } from "typeorm";
+import { Between, In } from "typeorm";
 import { CustomError } from "../../../domain";
 import { encriptAdapter, UploadFilesCloud, envs } from "../../../config";
 
@@ -74,6 +74,28 @@ export class WalletService {
         }
 
         const [transactions, total] = await query.getManyAndCount();
+
+        // INICIO: Enriquecimiento dinámico de la observación
+        const { Servicio } = await import("../../../data/postgres/models/Servicio");
+        
+        const serviceIds = transactions
+            .filter(t => t.reason === TransactionReason.SERVICE_SUBSCRIPTION && t.reference)
+            .map(t => t.reference);
+
+        if (serviceIds.length > 0) {
+            const servicios = await Servicio.find({ where: { id: In(serviceIds) } });
+            
+            transactions.forEach(t => {
+                if (t.reason === TransactionReason.SERVICE_SUBSCRIPTION && t.reference) {
+                    const servicio = servicios.find(s => s.id === t.reference);
+                    if (servicio) {
+                        const shortId = servicio.id.split('-')[0].toUpperCase();
+                        t.observation = `Pago por publicación de servicio (${servicio.statusServicio} - ID: ${shortId})`;
+                    }
+                }
+            });
+        }
+        // FIN
 
         const totalPages = Math.ceil(total / limit);
 
