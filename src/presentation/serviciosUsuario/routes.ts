@@ -52,6 +52,9 @@ export class ServiciosUsuarioRoutes {
     router.get("/user/mis-servicios", AuthMiddleware.protect, userCtrl.getMyServices);
     router.put("/user/mis-servicios/:id", AuthMiddleware.protect, userCtrl.updatePendingService);
     router.put("/user/mis-servicios/:id/toggle-autorenovacion", AuthMiddleware.protect, userCtrl.toggleAutoRenewal);
+    router.put("/user/mis-servicios/:id/toggle-visibility", AuthMiddleware.protect, userCtrl.toggleVisibility);
+    router.put("/user/mis-servicios/:id/renovar", AuthMiddleware.protect, userCtrl.renewService);
+    router.delete("/user/mis-servicios/:id", AuthMiddleware.protect, userCtrl.deleteService);
 
     return router;
   }

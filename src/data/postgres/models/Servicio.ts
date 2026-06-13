@@ -55,6 +55,9 @@ export class Servicio extends BaseEntity {
   @Column({ type: "boolean", default: true })
   autorenovacion: boolean;
 
+  @Column({ type: "boolean", default: true })
+  isVisible: boolean;
+
   @CreateDateColumn({ type: "timestamptz" })
   createdAt: Date;
 

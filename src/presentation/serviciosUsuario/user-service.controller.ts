@@ -27,6 +27,22 @@ export class UserServiceController {
       .catch((error) => res.status(error.statusCode || 500).json({ error: error.message }));
   };
 
+  toggleVisibility = (req: Request, res: Response) => {
+    const userId = req.body.sessionUser.id;
+    const { id } = req.params;
+    this.userServiceService.toggleVisibility(userId, id)
+      .then((service) => res.json(service))
+      .catch((error) => res.status(error.statusCode || 500).json({ error: error.message }));
+  };
+
+  renewService = (req: Request, res: Response) => {
+    const userId = req.body.sessionUser.id;
+    const { id } = req.params;
+    this.userServiceService.renewService(userId, id)
+      .then((service) => res.json(service))
+      .catch((error) => res.status(error.statusCode || 500).json({ error: error.message }));
+  };
+
   updatePendingService = (req: Request, res: Response) => {
     const userId = req.body.sessionUser.id;
     const { id } = req.params;
@@ -56,6 +72,14 @@ export class UserServiceController {
     const { motivo } = req.body;
     this.userServiceService.rejectService(adminId, id, motivo)
       .then((service) => res.json(service))
+      .catch((error) => res.status(error.statusCode || 500).json({ error: error.message }));
+  };
+
+  deleteService = (req: Request, res: Response) => {
+    const userId = req.body.sessionUser?.id || req.body.user?.id;
+    const { id } = req.params;
+    this.userServiceService.deleteService(userId, id)
+      .then((result) => res.json(result))
       .catch((error) => res.status(error.statusCode || 500).json({ error: error.message }));
   };
 

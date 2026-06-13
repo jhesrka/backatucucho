@@ -176,6 +176,10 @@ export class UserServiceService {
         servicio.videoUrl = data.videoUrl || null;
       }
 
+      if (data.autorenovacion !== undefined) {
+        servicio.autorenovacion = data.autorenovacion;
+      }
+
       await servicio.save();
       return servicio;
 
@@ -197,6 +201,21 @@ export class UserServiceService {
         relations: ["user", "categoria", "subcategoria"],
         order: { createdAt: "ASC" }
       });
+
+      for (const servicio of servicios) {
+        if (servicio.user && servicio.user.photoperfil) {
+          try {
+            const photoUrl = await UploadFilesCloud.getFile({
+              bucketName: envs.AWS_BUCKET_NAME,
+              key: servicio.user.photoperfil
+            });
+            servicio.user.photoperfil = photoUrl;
+          } catch (e) {
+            console.error("Error signing photoperfil url in getAllPendingServices", e);
+          }
+        }
+      }
+
       return servicios;
     } catch (error) {
       throw CustomError.internalServer("Error al obtener servicios pendientes");
@@ -275,6 +294,217 @@ export class UserServiceService {
     }
   }
 
+  async toggleVisibility(userId: string, servicioId: string) {
+    try {
+      const servicio = await Servicio.findOne({ where: { id: servicioId, user: { id: userId } } });
+      if (!servicio) throw CustomError.notFound("Servicio no encontrado");
+
+      if (servicio.statusServicio !== StatusServicio.APROBADO) {
+        throw CustomError.badRequest("Solo puedes ocultar o mostrar servicios aprobados");
+      }
+
+      servicio.isVisible = !servicio.isVisible;
+      await servicio.save();
+
+      return servicio;
+    } catch (error) {
+      if (error instanceof CustomError) throw error;
+      throw CustomError.internalServer("Error al cambiar visibilidad");
+    }
+  }
+  async deleteService(userId: string, servicioId: string) {
+    try {
+      const servicio = await Servicio.findOne({ where: { id: servicioId, user: { id: userId } } });
+      if (!servicio) throw CustomError.notFound("Servicio no encontrado");
+
+      // Eliminar archivo de S3 si existe
+      if (servicio.imagenServicio) {
+        const fileKey = servicio.imagenServicio.split('/').pop();
+        if (fileKey) await UploadFilesCloud.deleteFile({ bucketName: envs.AWS_BUCKET_NAME, key: fileKey }).catch(e => console.error("Error borrando imagen de S3", e));
+      }
+      if (servicio.videoUrl) {
+        const fileKey = servicio.videoUrl.split('/').pop();
+        if (fileKey) await UploadFilesCloud.deleteFile({ bucketName: envs.AWS_BUCKET_NAME, key: fileKey }).catch(e => console.error("Error borrando video de S3", e));
+      }
+
+      await servicio.remove();
+      return { message: "Servicio eliminado correctamente" };
+    } catch (error) {
+      if (error instanceof CustomError) throw error;
+      throw CustomError.internalServer("Error al eliminar servicio");
+    }
+  }
+
+  async renewService(userId: string, servicioId: string) {
+    try {
+      const user = await User.findOne({ where: { id: userId }, relations: ["wallet"] });
+      if (!user) throw CustomError.notFound("Usuario no encontrado");
+
+      const servicio = await Servicio.findOne({ where: { id: servicioId, user: { id: userId } } });
+      if (!servicio) throw CustomError.notFound("Servicio no encontrado");
+
+      if (servicio.statusServicio !== StatusServicio.EXPIRADO) {
+        throw CustomError.badRequest("Solo puedes renovar servicios que estén expirados");
+      }
+
+      const settings = await GlobalSettings.findOne({ where: {} });
+      if (!settings) throw CustomError.internalServer("Configuración global no encontrada");
+
+      const price = Number(settings.servicePublicationPrice);
+      const wallet = user.wallet;
+      
+      if (!wallet || Number(wallet.balance) < price) {
+        throw CustomError.badRequest("Saldo insuficiente en la billetera para renovar este servicio");
+      }
+
+      const renewedServicio = await Servicio.getRepository().manager.transaction(async (manager: any) => {
+        const previousBalance = Number(wallet.balance);
+        const newBalance = previousBalance - price;
+
+        wallet.balance = newBalance;
+        await manager.save(wallet);
+
+        servicio.statusServicio = StatusServicio.APROBADO;
+        
+        // Si estaba expirado, los nuevos 30 días cuentan desde AHORA (momento de la renovación)
+        servicio.fechaInicioSuscripcion = new Date();
+        const fechaFin = new Date();
+        fechaFin.setDate(fechaFin.getDate() + 30);
+        servicio.fechaFinSuscripcion = fechaFin;
+        servicio.isVisible = true; // Por defecto vuelve a ser visible
+
+        await manager.save(servicio);
+
+        const transaction = new Transaction();
+        transaction.wallet = wallet;
+        transaction.amount = price;
+        transaction.type = "debit";
+        transaction.reason = TransactionReason.SERVICE_SUBSCRIPTION;
+        transaction.origin = TransactionOrigin.USER;
+        transaction.status = "APPROVED";
+        transaction.previousBalance = previousBalance;
+        transaction.resultingBalance = newBalance;
+        transaction.reference = servicio.id;
+        transaction.observation = "Pago por renovación de servicio vencido";
+        
+        await manager.save(transaction);
+
+        return servicio;
+      });
+
+      return renewedServicio;
+    } catch (error) {
+      if (error instanceof CustomError) throw error;
+      throw CustomError.internalServer(error instanceof Error ? error.message : "Error al renovar el servicio");
+    }
+  }
+
+  async processServiceExpirations() {
+    try {
+      const now = new Date();
+      const settings = await GlobalSettings.findOne({ where: {} });
+      const price = Number(settings?.servicePublicationPrice || 0);
+
+      // PASO 1: Buscar servicios APROBADOS que ya pasaron su fecha de fin
+      const expiredServices = await Servicio.find({
+        where: { statusServicio: StatusServicio.APROBADO }
+      });
+
+      const toExpire = expiredServices.filter(s => s.fechaFinSuscripcion && s.fechaFinSuscripcion < now);
+
+      for (const servicio of toExpire) {
+        let renewed = false;
+
+        if (servicio.autorenovacion) {
+          // Intentar cobro
+          const userWithWallet = await User.findOne({ where: { id: servicio.user?.id }, relations: ["wallet"] });
+          if (userWithWallet && userWithWallet.wallet && Number(userWithWallet.wallet.balance) >= price) {
+            try {
+              await Servicio.getRepository().manager.transaction(async (manager: any) => {
+                const wallet = userWithWallet.wallet;
+                const previousBalance = Number(wallet.balance);
+                const newBalance = previousBalance - price;
+
+                wallet.balance = newBalance;
+                await manager.save(wallet);
+
+                // Extender 30 días desde la fecha de fin anterior (para no perder días si el cron se retrasa)
+                const newEndDate = new Date(servicio.fechaFinSuscripcion);
+                newEndDate.setDate(newEndDate.getDate() + 30);
+                servicio.fechaFinSuscripcion = newEndDate;
+
+                await manager.save(servicio);
+
+                const transaction = new Transaction();
+                transaction.wallet = wallet;
+                transaction.amount = price;
+                transaction.type = "debit";
+                transaction.reason = TransactionReason.SERVICE_SUBSCRIPTION;
+                transaction.origin = TransactionOrigin.SYSTEM; // Automático
+                transaction.status = "APPROVED";
+                transaction.previousBalance = previousBalance;
+                transaction.resultingBalance = newBalance;
+                transaction.reference = servicio.id;
+                transaction.observation = "Cobro automático por auto-renovación de servicio";
+                
+                await manager.save(transaction);
+              });
+              renewed = true;
+              console.log(`[CRON SERVICIOS] Auto-renovación exitosa para servicio ${servicio.id}`);
+            } catch (err) {
+              console.error(`[CRON SERVICIOS] Fallo auto-renovación servicio ${servicio.id}`, err);
+            }
+          }
+        }
+
+        if (!renewed) {
+          // No se renovó, pasar a estado EXPIRADO
+          // Sobrescribimos fechaFinSuscripcion a AHORA exacto para contar las 24 horas desde este momento de forma más estricta (opcional)
+          // Pero si lo dejamos como estaba, el vencimiento cuenta desde que debió expirar.
+          // Dejémoslo intacto, así las 24 horas empiezan desde `fechaFinSuscripcion`
+          servicio.statusServicio = StatusServicio.EXPIRADO;
+          await servicio.save();
+          console.log(`[CRON SERVICIOS] Servicio ${servicio.id} ha pasado a estado EXPIRADO.`);
+        }
+      }
+
+      // PASO 2: Buscar servicios EXPIRADOS cuya fechaFinSuscripcion sea menor a (now - 24 horas)
+      const twentyFourHoursAgo = new Date();
+      twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+
+      const toDelete = await Servicio.find({
+        where: { statusServicio: StatusServicio.EXPIRADO }
+      });
+
+      const reallyExpired = toDelete.filter(s => s.fechaFinSuscripcion && s.fechaFinSuscripcion < twentyFourHoursAgo);
+
+      for (const servicio of reallyExpired) {
+        try {
+          // Eliminar archivo de S3 si existe
+          if (servicio.imagenServicio) {
+            const fileKey = servicio.imagenServicio.split('/').pop();
+            if (fileKey) await UploadFilesCloud.deleteFile({ bucketName: envs.AWS_BUCKET_NAME, key: fileKey }).catch(e => console.error("Error borrando imagen de S3", e));
+          }
+          if (servicio.videoUrl) {
+            const fileKey = servicio.videoUrl.split('/').pop();
+            if (fileKey) await UploadFilesCloud.deleteFile({ bucketName: envs.AWS_BUCKET_NAME, key: fileKey }).catch(e => console.error("Error borrando video de S3", e));
+          }
+
+          // Eliminar de base de datos
+          await servicio.remove();
+          console.log(`[CRON SERVICIOS] Servicio ${servicio.id} eliminado permanentemente (pasaron 24h vencido).`);
+        } catch (err) {
+          console.error(`[CRON SERVICIOS] Error eliminando servicio ${servicio.id}`, err);
+        }
+      }
+
+      return { processed: true };
+    } catch (error) {
+      console.error("[CRON SERVICIOS] Error procesando vencimientos:", error);
+      throw error;
+    }
+  }
+
   // ==================================
   // PUBLIC METHODS
   // ==================================
@@ -286,6 +516,7 @@ export class UserServiceService {
         where: {
           categoria: { id: categoriaId },
           statusServicio: StatusServicio.APROBADO,
+          isVisible: true,
           // Debería usarse un builder para filtrar fechaFinSuscripcion > now
         },
         relations: ["subcategoria", "user"],
@@ -293,6 +524,20 @@ export class UserServiceService {
 
       // Filtro manual temporal
       const validos = servicios.filter(s => s.fechaFinSuscripcion && s.fechaFinSuscripcion > now);
+
+      for (const servicio of validos) {
+        if (servicio.user && servicio.user.photoperfil) {
+          try {
+            const photoUrl = await UploadFilesCloud.getFile({
+              bucketName: envs.AWS_BUCKET_NAME,
+              key: servicio.user.photoperfil
+            });
+            servicio.user.photoperfil = photoUrl;
+          } catch (e) {
+            console.error("Error signing photoperfil url in getPublicServicesByCategory", e);
+          }
+        }
+      }
 
       return validos;
     } catch (error) {
