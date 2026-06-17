@@ -48,4 +48,17 @@ export class TipoProductoController {
       .then((result) => res.status(200).json(result))
       .catch((error) => this.handleError(error, res));
   };
+
+  // ======================== REORDER ========================
+  reordenarTipos = (req: Request, res: Response) => {
+    const { negocioId, ordenes } = req.body as { negocioId?: string, ordenes?: { id: string, orden: number }[] };
+
+    if (!negocioId) return res.status(400).json({ message: "Falta el ID del negocio" });
+    if (!ordenes || !Array.isArray(ordenes)) return res.status(400).json({ message: "El formato de ordenes es inválido" });
+
+    this.tipoProductoService
+      .reordenarTipos(negocioId, ordenes)
+      .then((result) => res.status(200).json(result))
+      .catch((error) => this.handleError(error, res));
+  };
 }

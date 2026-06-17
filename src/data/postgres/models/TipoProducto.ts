@@ -19,6 +19,10 @@ export class TipoProducto extends BaseEntity {
   @Column({ type: "varchar", length: 50 })
   nombre: string;
 
+  // 👇 Orden de visualización
+  @Column({ type: "int", default: 0 })
+  orden: number;
+
   // 👇 Cada tipo pertenece a un negocio
   @ManyToOne(() => Negocio, (negocio) => negocio.tipos, {
     onDelete: "CASCADE",

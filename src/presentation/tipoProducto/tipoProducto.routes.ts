@@ -34,6 +34,13 @@ export class TipoProductoRoutes {
       tipoProductoController.deleteTipoProducto
     );
 
+    // Reordenar categorías (usuario autenticado)
+    router.put(
+      "/reordenar",
+      AuthMiddleware.protect,
+      tipoProductoController.reordenarTipos
+    );
+
     return router;
   }
 }

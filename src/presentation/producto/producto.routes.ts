@@ -61,6 +61,13 @@ export class ProductoRoutes {
       productoController.deleteProducto
     );
 
+    // Reordenar productos
+    router.put(
+      "/reordenar",
+      AuthMiddleware.protect,
+      productoController.reordenarProductos
+    );
+
     return router;
   }
 }

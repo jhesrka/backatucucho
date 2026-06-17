@@ -541,7 +541,7 @@ export class FinancialService {
         };
     }
 
-    async getUnifiedTransactions(date: Date, types?: string[], statuses?: string[]) {
+    async getUnifiedTransactions(date: Date, types?: string[], statuses?: string[], page: number = 1, limit: number = 100) {
         const { start, end } = DateUtils.getDayRange(date);
 
         // 1. Fetch Manual Transactions (The Ledger)
@@ -687,9 +687,23 @@ export class FinancialService {
         }));
 
         // Combine and Sort
-        return [...formattedRequests, ...formattedManual].sort((a, b) =>
+        const combined = [...formattedRequests, ...formattedManual].sort((a, b) =>
             new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         );
+
+        // Paginate
+        const skip = (page - 1) * limit;
+        const paginated = combined.slice(skip, skip + limit);
+
+        return {
+            data: paginated,
+            pagination: {
+                page,
+                limit,
+                total: combined.length,
+                totalPages: Math.ceil(combined.length / limit)
+            }
+        };
     }
 
     // ===================================

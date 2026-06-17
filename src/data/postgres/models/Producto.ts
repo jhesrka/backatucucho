@@ -45,8 +45,17 @@ export class Producto extends BaseEntity {
   @Column({ type: "varchar", nullable: true })
   imagen: string;
 
-  @Column({ type: "boolean", default: true })
+  @Column({
+    type: "boolean",
+    default: true,
+  })
   disponible: boolean;
+
+  @Column({
+    type: "int",
+    default: 9999,
+  })
+  orden: number;
 
   @Column({
     type: "enum",

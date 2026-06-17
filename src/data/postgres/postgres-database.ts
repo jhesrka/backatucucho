@@ -495,6 +495,21 @@ export class PostgresDatabase {
         await this.datasource.query(`ALTER TABLE "servicio" ADD COLUMN IF NOT EXISTS "isVisible" BOOLEAN DEFAULT true;`);
       });
 
+      await runMigrationStep("Step 40: Add orden to tipo_producto", async () => {
+        await this.datasource.query(`
+          ALTER TABLE "tipo_producto" 
+          ADD COLUMN IF NOT EXISTS "orden" integer NOT NULL DEFAULT 9999;
+        `);
+      });
+
+      await runMigrationStep("Step 41: Add orden to producto", async () => {
+        // Add 'orden' column to 'producto' if it doesn't exist
+        await this.datasource.query(`
+          ALTER TABLE "producto" 
+          ADD COLUMN IF NOT EXISTS "orden" integer NOT NULL DEFAULT 9999;
+        `);
+      });
+
       // 2. Inicializar Meritocracia
       const meritocracy = new MeritocracyService();
       await meritocracy.ensureDefaultTiers();

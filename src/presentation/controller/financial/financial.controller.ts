@@ -138,7 +138,7 @@ export class FinancialController {
 
     getUnifiedTransactions = async (req: Request, res: Response) => {
         try {
-            const { date, type, status } = req.query;
+            const { date, type, status, page, limit } = req.query;
             if (!date) throw CustomError.badRequest("Date required");
 
             const types = typeof type === 'string' ? type.split(',') : (Array.isArray(type) ? type as string[] : undefined);
@@ -147,7 +147,9 @@ export class FinancialController {
             const result = await this.financialService.getUnifiedTransactions(
                 DateUtils.parseLocalDate(date as string),
                 types,
-                statuses
+                statuses,
+                page ? Number(page) : 1,
+                limit ? Number(limit) : 100
             );
             res.json(result);
         } catch (error) {
@@ -218,3 +220,4 @@ export class FinancialController {
     };
 } 
 
+// EOF

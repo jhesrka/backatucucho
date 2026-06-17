@@ -114,6 +114,21 @@ export class ProductoController {
       .catch((error) => this.handleError(error, res));
   };
 
+  // ======================== REORDENAR ========================
+  reordenarProductos = (req: Request, res: Response) => {
+    const { negocioId, ordenes } = req.body;
+    const { sessionUser } = req.body; // Viene del AuthMiddleware
+
+    if (!negocioId || !Array.isArray(ordenes)) {
+      return res.status(400).json({ message: "Se requiere negocioId y un array de ordenes" });
+    }
+
+    (this.productoService as any)
+      .reordenarProductos(negocioId, ordenes, sessionUser.id)
+      .then((result: any) => res.status(200).json(result))
+      .catch((error: any) => this.handleError(error, res));
+  };
+
   checkAvailability = (req: Request, res: Response) => {
     const { ids } = req.body;
     if (!Array.isArray(ids)) {

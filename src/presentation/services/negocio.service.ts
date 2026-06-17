@@ -121,7 +121,7 @@ export class NegocioService {
     try {
       const saved = await negocio.save();
 
-      const imagenUrl = await UploadFilesCloud.getFile({
+      const imagenUrl = await UploadFilesCloud.getOptimizedUrls({
         bucketName: envs.AWS_BUCKET_NAME,
         key: saved.imagenNegocio,
       });
@@ -191,14 +191,14 @@ export class NegocioService {
 
     const negociosConUrl = await Promise.all(
       negocios.map(async (negocio) => {
-        let imagenUrl: string | null = null;
+        let imagenUrl: any = null;
 
         if (negocio.imagenNegocio) {
           try {
-            imagenUrl = await UploadFilesCloud.getFile({
+            imagenUrl = await UploadFilesCloud.getOptimizedUrls({
               bucketName: envs.AWS_BUCKET_NAME,
               key: negocio.imagenNegocio,
-            }, 'card' as any); 
+            }); 
           } catch (error) {
             console.error(`Error obteniendo imagen para negocio ${negocio.id}:`, error);
           }
@@ -302,12 +302,12 @@ export class NegocioService {
     try {
       const negociosConUrl = await Promise.all(
         negocios.map(async (negocio) => {
-          let imagenUrl: string | null = null;
+          let imagenUrl: any = null;
           let userProfileUrl: string | null = null;
 
           if (negocio.imagenNegocio) {
             try {
-              imagenUrl = await UploadFilesCloud.getFile({
+              imagenUrl = await UploadFilesCloud.getOptimizedUrls({
                 bucketName: envs.AWS_BUCKET_NAME,
                 key: negocio.imagenNegocio,
               });
@@ -387,7 +387,7 @@ export class NegocioService {
         let imagenUrl = null;
 
         try {
-          imagenUrl = await UploadFilesCloud.getFile({
+          imagenUrl = await UploadFilesCloud.getOptimizedUrls({
             bucketName: envs.AWS_BUCKET_NAME,
             key: negocio.imagenNegocio,
           });
@@ -605,7 +605,7 @@ export class NegocioService {
 
     const saved = await negocio.save();
 
-    const imagenUrl = await UploadFilesCloud.getFile({
+    const imagenUrl = await UploadFilesCloud.getOptimizedUrls({
       bucketName: envs.AWS_BUCKET_NAME,
       key: saved.imagenNegocio,
     });

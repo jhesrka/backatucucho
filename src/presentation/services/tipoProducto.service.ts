@@ -39,11 +39,41 @@ export class TipoProductoService {
 
     const tipos = await TipoProducto.find({
       where: { negocio: { id: negocioId } },
-      order: { nombre: "ASC" },
+      order: { orden: "ASC", nombre: "ASC" },
       relations: ["negocio"],
     });
 
     return tipos;
+  }
+
+  // ========================= REORDER =========================
+  async reordenarTipos(negocioId: string, ordenes: { id: string, orden: number }[]) {
+    if (!negocioId) throw CustomError.badRequest("Falta el ID del negocio");
+    if (!Array.isArray(ordenes)) throw CustomError.badRequest("Formato de ordenes inválido");
+
+    // Validar que todos los tipos pertenezcan al negocio
+    const ids = ordenes.map(o => o.id);
+    const tiposEnDb = await TipoProducto.find({
+      where: { negocio: { id: negocioId } }
+    });
+
+    const tiposMap = new Map(tiposEnDb.map(t => [t.id, t]));
+
+    for (const item of ordenes) {
+      const tipo = tiposMap.get(item.id);
+      if (!tipo) {
+        throw CustomError.badRequest(`TipoProducto ${item.id} no encontrado o no pertenece al negocio`);
+      }
+      tipo.orden = item.orden;
+    }
+
+    try {
+      await TipoProducto.save(tiposEnDb);
+      return { message: "Categorías reordenadas exitosamente" };
+    } catch (err) {
+      console.error(err);
+      throw CustomError.internalServer("Error al reordenar las categorías");
+    }
   }
 
   // ========================= DELETE =========================

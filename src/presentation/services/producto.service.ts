@@ -92,6 +92,7 @@ export class ProductoService {
         tipo: {
           id: tipo.id,
           nombre: tipo.nombre,
+          orden: tipo.orden,
         },
         tipoProducto: saved.tipoProducto,
       };
@@ -194,6 +195,7 @@ export class ProductoService {
         ? {
           id: producto.tipo.id,
           nombre: producto.tipo.nombre,
+          orden: producto.tipo.orden,
         }
         : null,
       tipoProducto: producto.tipoProducto,
@@ -222,7 +224,7 @@ export class ProductoService {
 
     return await Promise.all(
       productos.map(async (p) => {
-        const imageUrl = await UploadFilesCloud.getFile({
+        const imageUrl = await UploadFilesCloud.getOptimizedUrls({
           bucketName: envs.AWS_BUCKET_NAME,
           key: p.imagen,
         });
@@ -236,12 +238,14 @@ export class ProductoService {
           comision_producto: p.comision_producto,
           imagen: imageUrl,
           disponible: p.disponible,
+          orden: p.orden,
           created_at: p.created_at,
           statusProducto: p.statusProducto,
           tipo: p.tipo
             ? {
               id: p.tipo.id,
               nombre: p.tipo.nombre,
+              orden: p.tipo.orden,
             }
             : null,
           tipoProducto: p.tipoProducto,
@@ -276,7 +280,7 @@ export class ProductoService {
 
     const productosFormateados = await Promise.all(
       productos.map(async (p) => {
-        const imageUrl = await UploadFilesCloud.getFile({
+        const imageUrl = await UploadFilesCloud.getOptimizedUrls({
           bucketName: envs.AWS_BUCKET_NAME,
           key: p.imagen,
         });
@@ -290,12 +294,14 @@ export class ProductoService {
           comision_producto: p.comision_producto,
           imagen: imageUrl,
           disponible: p.disponible,
+          orden: p.orden,
           created_at: p.created_at,
           statusProducto: p.statusProducto,
           tipo: p.tipo
             ? {
               id: p.tipo.id,
               nombre: p.tipo.nombre,
+              orden: p.tipo.orden,
             }
             : null,
           tipoProducto: p.tipoProducto,
@@ -426,6 +432,29 @@ export class ProductoService {
     }));
   }
 
+  // ========================= REORDENAR =========================
+  async reordenarProductos(negocioId: string, ordenes: { id: string; orden: number }[], authenticatedUserId: string) {
+    const negocio = await Negocio.findOne({
+      where: { id: negocioId },
+      relations: ["usuario"]
+    });
+
+    if (!negocio) throw CustomError.notFound("Negocio no encontrado");
+    if (negocio.usuario.id !== authenticatedUserId) {
+      throw CustomError.forbiden("No tienes permisos para reordenar productos de este negocio");
+    }
+
+    // Actualizar orden de cada producto masivamente o uno por uno
+    for (const item of ordenes) {
+      await Producto.update(
+        { id: item.id, negocio: { id: negocioId } },
+        { orden: item.orden }
+      );
+    }
+
+    return { message: "Productos reordenados correctamente" };
+  }
+
   // ========================= SOCKET UPDATE HELPER =========================
   private async emitProductUpdate(producto: Producto) {
     let formattedProduct = null;
@@ -453,6 +482,7 @@ export class ProductoService {
           ? {
             id: producto.tipo.id,
             nombre: producto.tipo.nombre,
+            orden: producto.tipo.orden,
           }
           : null,
         tipoProducto: producto.tipoProducto,
