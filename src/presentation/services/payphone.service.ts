@@ -106,9 +106,14 @@ export class PayphoneService {
 
     static async getTransactionByClientTxId(clientTxId: string, token: string) {
         try {
-            console.log(`🚀 [Payphone] GET TRANSACTION BY CLIENT TX ID: ${clientTxId}`);
-            // Note: Token should be cleaned
-            const { data } = await axios.get(`https://pay.payphonetodoesposible.com/api/button/V2/Get?clientTransactionId=${clientTxId}`, {
+            console.log(`🚀 [Payphone] GET TRANSACTION BY CLIENT TX ID (Fallback via Confirm): ${clientTxId}`);
+            // The old V2/Get endpoint was removed by Payphone. 
+            // To query a transaction by clientTxId, we use the Confirm endpoint.
+            const payload = { 
+                id: 0, 
+                clientTxId: clientTxId 
+            };
+            const { data } = await axios.post(`${this.API_URL}/button/V2/Confirm`, payload, {
                 headers: {
                     Authorization: `Bearer ${token.trim()}`,
                     "Content-Type": "application/json",
