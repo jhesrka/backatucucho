@@ -510,6 +510,71 @@ export class PedidoUsuarioService {
         const ahora = new Date();
         const horaEcuador = ahora.toLocaleTimeString('en-US', { hour12: false, timeZone: 'America/Guayaquil' });
         
+        // --- INICIO: VERIFICADOR AUTOMÁTICO DE PAYPHONE (POLLING) ---
+        try {
+           const { WalletService } = await import("../wallet.service");
+           const { UserService } = await import("../usuario/user.service");
+           const { EmailService } = await import("../email.service");
+           const { envs } = await import("../../../config/env");
+           const { GlobalSettings, RechargeRequest, StatusRecarga } = await import("../../../data");
+           
+           // 1. RECONCILIACIÓN DE PEDIDOS (TARJETA)
+           const pedidosPendientes = await Pedido.find({
+              where: { estado: EstadoPedido.PENDIENTE_PAGO, metodoPago: 'TARJETA' as any },
+              relations: ["negocio"]
+           });
+           
+           for (const pedidoPendiente of pedidosPendientes) {
+              try {
+                  if (pedidoPendiente.negocio?.payphone_token) {
+                     const txInfo = await PayphoneService.getTransactionByClientTxId(pedidoPendiente.id, pedidoPendiente.negocio.payphone_token);
+                     if (txInfo && (txInfo.transactionStatus === "Approved" || txInfo.status === "Approved")) {
+                         console.log(`[Auto-Reconcile] 🔄 Pedido ${pedidoPendiente.id} rescatado y pagado en PayPhone.`);
+                         const pedidoService = new PedidoUsuarioService();
+                         await pedidoService.confirmarPago(txInfo.transactionId || txInfo.transactionIdBase, pedidoPendiente.id);
+                     }
+                  }
+              } catch (e) {
+                  console.error(`[Auto-Reconcile] Error verificando pedido ${pedidoPendiente.id}:`, e);
+              }
+           }
+
+           // 2. RECONCILIACIÓN DE RECARGAS DE BILLETERA (TARJETA)
+           const recargasPendientes = await RechargeRequest.find({
+              where: { status: StatusRecarga.PENDIENTE, payment_method: 'CARD' as any }
+           });
+           
+           if (recargasPendientes.length > 0) {
+               const settings = await GlobalSettings.findOne({ where: {} });
+               if (settings?.payphoneToken) {
+                   const emailService = new EmailService(envs.MAILER_SERVICE, envs.MAILER_EMAIL, envs.MAILER_SECRET_KEY, envs.SEND_EMAIL);
+                   const userService = new UserService(emailService);
+                   const walletService = new WalletService(userService);
+
+                   for (const recargaPend of recargasPendientes) {
+                      try {
+                          const shortIdForSearch = recargaPend.id.replace(/-/g, '').slice(0, 20);
+                          let txInfo = await PayphoneService.getTransactionByClientTxId(shortIdForSearch, settings.payphoneToken);
+                          
+                          if (!txInfo) {
+                             txInfo = await PayphoneService.getTransactionByClientTxId(recargaPend.id, settings.payphoneToken);
+                          }
+                          
+                          if (txInfo && (txInfo.transactionStatus === "Approved" || txInfo.status === "Approved")) {
+                              console.log(`[Auto-Reconcile] 🔄 Recarga ${recargaPend.id} rescatada y cobrada en PayPhone.`);
+                              await walletService.confirmPayphoneRecharge(recargaPend.id, txInfo.transactionId || txInfo.transactionIdBase);
+                          }
+                      } catch (e) {
+                          console.error(`[Auto-Reconcile] Error verificando recarga ${recargaPend.id}:`, e);
+                      }
+                   }
+               }
+           }
+        } catch (e) {
+           console.error("[Auto-Reconcile] Error general en el verificador de PayPhone:", e);
+        }
+        // --- FIN: VERIFICADOR AUTOMÁTICO DE PAYPHONE (POLLING) ---
+
         // 1. Limpieza rápida de PENDIENTE_PAGO (6 minutos)
         await Pedido.getRepository().query(`UPDATE pedido SET estado = 'CANCELADO', "motivoCancelacion" = 'Pago no registrado en el tiempo límite.' WHERE estado = 'PENDIENTE_PAGO' AND "createdAt" < NOW() - INTERVAL '6 minutes'`);
 
