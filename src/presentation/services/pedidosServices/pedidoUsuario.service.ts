@@ -565,7 +565,8 @@ export class PedidoUsuarioService {
                               await walletService.confirmPayphoneRecharge(recargaPend.id, txInfo.transactionId || txInfo.transactionIdBase);
                           } else if (!txInfo) {
                               const ahora = new Date();
-                              const antiguedadMinutos = (ahora.getTime() - recargaPend.transaction_date.getTime()) / 60000;
+                              const fechaBase = recargaPend.transaction_date || recargaPend.created_at || ahora;
+                              const antiguedadMinutos = (ahora.getTime() - fechaBase.getTime()) / 60000;
                               if (antiguedadMinutos > 6) {
                                   console.log(`[Auto-Reconcile] ⚠️ Recarga ${recargaPend.id} expirada/reversada en PayPhone. Rechazando...`);
                                   recargaPend.status = StatusRecarga.RECHAZADO;
