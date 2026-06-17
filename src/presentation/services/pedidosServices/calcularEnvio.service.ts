@@ -26,7 +26,8 @@ export class CalcularEnvioService {
   static async getActiveSettingsOrThrow() {
     const settings = await DeliverySettings.findOne({ where: { isActive: true } });
     if (!settings) {
-      throw new Error("No hay configuración global de delivery activa. Configúrala en el admin.");
+      const { CustomError } = await import("../../../domain");
+      throw CustomError.badRequest("No hay configuración global de delivery activa. Configúrala en el admin.");
     }
     return settings;
   }
@@ -52,7 +53,8 @@ export class CalcularEnvioService {
     const { negocio, latCliente, lngCliente } = params;
 
     if (negocio.latitud == null || negocio.longitud == null) {
-      throw new Error("El negocio no tiene coordenadas configuradas.");
+      const { CustomError } = await import("../../../domain");
+      throw CustomError.badRequest("El negocio no tiene coordenadas configuradas.");
     }
 
     const settings = await this.getActiveSettingsOrThrow();
