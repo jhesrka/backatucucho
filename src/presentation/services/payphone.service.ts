@@ -84,7 +84,7 @@ export class PayphoneService {
         try {
             const payload = { 
                 id: Number(id), 
-                clientTransactionId 
+                clientTxId: clientTransactionId 
             };
             console.log("🚀 [Payphone] CONFIRMING:", JSON.stringify(payload, null, 2));
 
