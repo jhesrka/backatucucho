@@ -333,6 +333,7 @@ export class ProductoService {
         ratingPromedio: Number(negocio.ratingPromedio) || 0,
         totalResenas: Number(negocio.totalResenas) || 0,
         pago_tarjeta_habilitado_admin: negocio.pago_tarjeta_habilitado_admin,
+        pago_tarjeta_activo_negocio: negocio.pago_tarjeta_activo_negocio,
         porcentaje_recargo_tarjeta: Number(negocio.porcentaje_recargo_tarjeta) || 0,
         tiempoPreparacionMin: negocio.tiempoPreparacionMin,
         tiempoPreparacionMax: negocio.tiempoPreparacionMax,
