@@ -185,10 +185,16 @@ export class PedidoUsuarioService {
     
     let payphone = null;
     if (metodoPago === "TARJETA") {
+      const amountInCents = Math.round(pedido.total * 100);
       payphone = {
         token: negocio.payphone_token, storeId: negocio.payphone_store_id,
         clientTransactionId: `${guardado.id}--${Math.random().toString(36).substring(7)}`,
-        amount: Math.round(pedido.total * 100), currency: "USD"
+        amount: amountInCents,
+        amountWithoutTax: amountInCents,
+        amountWithTax: 0,
+        tax: 0,
+        reference: `Pedido #${guardado.id.split('-')[0]}`,
+        currency: "USD"
       };
     }
 
