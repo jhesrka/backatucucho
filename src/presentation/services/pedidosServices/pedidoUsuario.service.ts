@@ -230,7 +230,7 @@ export class PedidoUsuarioService {
       .leftJoin("pedido.cliente", "cliente")
       .leftJoin("pedido.motorizado", "motorizado")
       .select([
-        "pedido.id", "pedido.estado", "pedido.total", "pedido.costoEnvio", "pedido.createdAt", "pedido.fecha_aceptado",
+        "pedido.id", "pedido.estado", "pedido.estadoPago", "pedido.referenciaPago", "pedido.total", "pedido.costoEnvio", "pedido.createdAt", "pedido.fecha_aceptado",
         "pedido.tiempoPreparacionElegido", "pedido.latCliente", "pedido.lngCliente", "pedido.metodoPago", "pedido.comprobantePagoUrl",
         "pedido.delivery_code", "pedido.arrival_time", "pedido.pickup_code", "pedido.motivoCancelacion", "pedido.ratingNegocio", "pedido.ratingMotorizado",
         "pedido.isPeakHourSurchargeApplied", "pedido.peakHourSurchargeAmount", "pedido.peakHourSurchargeMoto", "pedido.peakHourSurchargeApp", "pedido.notaGeneral",
@@ -287,6 +287,7 @@ export class PedidoUsuarioService {
         },
         isProgrammed: p.productos?.some(pp => pp.producto?.tipoProducto === 'PROGRAMADO') || false,
         metodoPago: p.metodoPago, comprobantePagoUrl: resolvedComprobante,
+        estadoPago: p.estadoPago, referenciaPago: p.referenciaPago,
         delivery_code: p.delivery_code, arrival_time: p.arrival_time,
         pickup_code: p.pickup_code,
         motivoCancelacion: p.motivoCancelacion,
