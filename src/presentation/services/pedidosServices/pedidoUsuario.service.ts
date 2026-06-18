@@ -78,6 +78,13 @@ export class PedidoUsuarioService {
         notaGeneral: pedido.notaGeneral
       });
 
+      getIO().to(pedido.cliente.id).emit("pedido_actualizado", {
+        id: pedido.id,
+        estado: pedido.estado,
+        estadoPago: pedido.estadoPago,
+        referenciaPago: pedido.referenciaPago
+      });
+
       // 🔔 Notificación Push al Dueño de Negocio
       if (pedido.negocio.usuario) {
         await notificationService.sendPushNotification(
