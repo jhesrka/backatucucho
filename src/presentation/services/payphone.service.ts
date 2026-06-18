@@ -99,7 +99,12 @@ export class PayphoneService {
             return data; // Approved, Denied, etc.
         } catch (error: any) {
             const errorDetail = error?.response?.data || error.message;
-            console.error("❌ [Payphone] CONFIRMATION ERROR:", errorDetail);
+            console.error("❌ [Payphone] CONFIRMATION ERROR - Full Details:");
+            console.error(JSON.stringify({
+                status: error?.response?.status,
+                data: errorDetail,
+                message: error.message
+            }, null, 2));
             throw error;
         }
     }

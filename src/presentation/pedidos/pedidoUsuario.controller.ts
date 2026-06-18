@@ -188,7 +188,13 @@ export class PedidoUsuarioController {
 
         const result = await this.pedidoUsuarioService.confirmarPago(id, clientTransactionId);
         return res.status(200).json(result);
-    } catch (error) {
+    } catch (error: any) {
+        console.error("❌ [PedidoUsuarioController - confirmarPago] DETALLES DE ERROR:");
+        console.error(JSON.stringify({
+            message: error.message,
+            stack: error.stack,
+            payphoneResponse: error?.response?.data
+        }, null, 2));
         return this.handleError(error, res);
     }
   };

@@ -103,8 +103,13 @@ export class PayphoneWebhookController {
             console.error(`❌ [Payphone Webhook] ID ${clientTransactionId} no reconocido como pedido ni recarga`);
             return res.status(200).json({ message: "Transacción no procesada pero evento recibido" }); // Must answer 200 OK so Payphone doesn't reverse
 
-        } catch (error) {
-            console.error("❌ [Payphone Webhook Error]:", error);
+        } catch (error: any) {
+            console.error("❌ [Payphone Webhook Error] DETALLES COMPLETOS:");
+            console.error(JSON.stringify({
+                message: error.message,
+                stack: error.stack,
+                payphoneResponse: error?.response?.data
+            }, null, 2));
             return res.status(500).json({ message: "Internal server error" });
         }
     };
