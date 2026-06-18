@@ -563,16 +563,6 @@ export class PedidoUsuarioService {
                           if (txInfo && (txInfo.transactionStatus === "Approved" || txInfo.status === "Approved")) {
                               console.log(`[Auto-Reconcile] 🔄 Recarga ${recargaPend.id} rescatada y cobrada en PayPhone.`);
                               await walletService.confirmPayphoneRecharge(recargaPend.id, txInfo.transactionId || txInfo.transactionIdBase);
-                          } else if (!txInfo) {
-                              const ahora = new Date();
-                              const fechaBase = recargaPend.transaction_date || recargaPend.created_at || ahora;
-                              const antiguedadMinutos = (ahora.getTime() - fechaBase.getTime()) / 60000;
-                              if (antiguedadMinutos > 6) {
-                                  console.log(`[Auto-Reconcile] ⚠️ Recarga ${recargaPend.id} expirada/reversada en PayPhone. Rechazando...`);
-                                  recargaPend.status = StatusRecarga.RECHAZADO;
-                                  recargaPend.admin_comment = "Expirado/Reversado automáticamente tras 6 minutos sin cobro.";
-                                  await recargaPend.save();
-                              }
                           }
                       } catch (e) {
                           console.error(`[Auto-Reconcile] Error verificando recarga ${recargaPend.id}:`, e);
