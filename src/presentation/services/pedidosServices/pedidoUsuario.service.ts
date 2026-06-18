@@ -186,9 +186,14 @@ export class PedidoUsuarioService {
     let payphone = null;
     if (metodoPago === "TARJETA") {
       const amountInCents = Math.round(pedido.total * 100);
+      const generatedClientTxId = `${guardado.id}--${Math.random().toString(36).substring(7)}`;
+      
+      guardado.referenciaPago = generatedClientTxId;
+      await guardado.save();
+
       payphone = {
         token: negocio.payphone_token, storeId: negocio.payphone_store_id,
-        clientTransactionId: `${guardado.id}--${Math.random().toString(36).substring(7)}`,
+        clientTransactionId: generatedClientTxId,
         amount: amountInCents,
         amountWithoutTax: amountInCents,
         amountWithTax: 0,
@@ -532,12 +537,13 @@ export class PedidoUsuarioService {
            
            for (const pedidoPendiente of pedidosPendientes) {
               try {
-                  if (pedidoPendiente.negocio?.payphone_token) {
-                     const txInfo = await PayphoneService.getTransactionByClientTxId(pedidoPendiente.id, pedidoPendiente.negocio.payphone_token);
+                   if (pedidoPendiente.negocio?.payphone_token) {
+                     const clientTxIdForSearch = pedidoPendiente.referenciaPago || pedidoPendiente.id;
+                     const txInfo = await PayphoneService.getTransactionByClientTxId(clientTxIdForSearch, pedidoPendiente.negocio.payphone_token);
                      if (txInfo && (txInfo.transactionStatus === "Approved" || txInfo.status === "Approved")) {
                          console.log(`[Auto-Reconcile] 🔄 Pedido ${pedidoPendiente.id} rescatado y pagado en PayPhone.`);
                          const pedidoService = new PedidoUsuarioService();
-                         await pedidoService.confirmarPago(txInfo.transactionId || txInfo.transactionIdBase, pedidoPendiente.id);
+                         await pedidoService.confirmarPago(txInfo.transactionId || txInfo.transactionIdBase, clientTxIdForSearch);
                      }
                   }
               } catch (e) {
