@@ -62,6 +62,12 @@ export class NotificationService {
 
       const message: admin.messaging.MulticastMessage = {
         notification: { title, body },
+        webpush: {
+          notification: {
+            icon: '/logo_resized_192x192.png',
+            badge: '/logo_resized_192x192.png'
+          }
+        },
         data: {
           ...data,
           url: data.url || '/', // Para deep linking en la PWA
