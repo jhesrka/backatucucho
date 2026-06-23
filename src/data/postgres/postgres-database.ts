@@ -510,6 +510,13 @@ export class PostgresDatabase {
         `);
       });
 
+      await runMigrationStep("Step 42: Add shortAppName to global_settings", async () => {
+        await this.datasource.query(`
+          ALTER TABLE "global_settings" 
+          ADD COLUMN IF NOT EXISTS "shortAppName" varchar(20) DEFAULT NULL;
+        `);
+      });
+
       // 2. Inicializar Meritocracia
       const meritocracy = new MeritocracyService();
       await meritocracy.ensureDefaultTiers();

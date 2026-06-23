@@ -8,6 +8,9 @@ export class GlobalSettings extends BaseEntity {
     @Column("varchar", { length: 50, default: "Shop " })
     appName: string;
 
+    @Column("varchar", { length: 20, default: "Shop" })
+    shortAppName: string;
+
     @Column("varchar", { length: 1024, nullable: true })
     appLogoUrl: string;
 
