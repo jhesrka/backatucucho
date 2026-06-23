@@ -64,8 +64,8 @@ export class NotificationService {
         notification: { title, body },
         webpush: {
           notification: {
-            icon: '/logo_resized_192x192.png',
-            badge: '/logo_resized_192x192.png'
+            icon: `${envs.WEBSERVICE_URL_FRONT}/logo_resized_192x192.png`,
+            badge: `${envs.WEBSERVICE_URL_FRONT}/badge_blanco.png`
           }
         },
         data: {
