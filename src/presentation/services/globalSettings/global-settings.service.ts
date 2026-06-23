@@ -94,8 +94,8 @@ export class GlobalSettingsService {
         let termsChanged = false;
 
         if (data.supportWhatsapp) settings.supportWhatsapp = data.supportWhatsapp;
-        if (data.appName !== undefined && data.appName.trim() !== "") settings.appName = data.appName;
-        if (data.shortAppName !== undefined && data.shortAppName.trim() !== "") settings.shortAppName = data.shortAppName;
+        if (typeof data.appName === 'string' && data.appName.trim() !== "") settings.appName = data.appName;
+        if (typeof data.shortAppName === 'string') settings.shortAppName = data.shortAppName.trim();
 
         // Explicitly update text fields if provided
         if (data.termsAndConditions) {
