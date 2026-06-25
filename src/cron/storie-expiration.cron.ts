@@ -1,3 +1,4 @@
+import { withRedisLock } from "../utils/cron-lock";
 import cron from "node-cron";
 import { StorieService } from "../presentation/services/storie.service";
 import { UserService } from "../presentation/services/usuario/user.service";
@@ -12,6 +13,7 @@ export const startStorieExpirationCron = () => {
     // 1. Verificación de Expiración (Cada 5 minutos)
     // Cambia el estado a EXPIRED pero no borra físicamente de inmediato
     cron.schedule("*/5 * * * *", async () => {
+        await withRedisLock("storie-expiration", 55, async () => {
         try {
             const storieService = createStorieService();
             const count = await storieService.processExpiredStories();
@@ -21,11 +23,13 @@ export const startStorieExpirationCron = () => {
         } catch (error) {
             console.error("[CRON] Error en verificación de expiración:", error);
         }
+            });
     }, { timezone: "America/Guayaquil" });
 
     // 2. Purga Automática Definitiva (Todos los días a las 4:00 AM)
     // Borra físicamente historias DELETED/FLAGGED antiguas de la DB y S3
     cron.schedule("0 4 * * *", async () => {
+        await withRedisLock("storie-expiration", 55, async () => {
         console.log("[CRON] Iniciando Purga Automática Programada (04:00 AM)...");
         try {
             const priceService = new PriceService();
@@ -41,6 +45,7 @@ export const startStorieExpirationCron = () => {
         } catch (error) {
             console.error("[CRON] Error en purga automática de las 04:00 AM:", error);
         }
+            });
     }, { timezone: "America/Guayaquil" });
 };
 

@@ -1,3 +1,4 @@
+import { withRedisLock } from "../utils/cron-lock";
 import cron from "node-cron";
 import { PostService } from "../presentation/services/post.service";
 import { UserService } from "../presentation/services/usuario/user.service";
@@ -26,11 +27,13 @@ export const startPostSchedulerCron = () => {
 
     // Ejecutar cada minuto
     cron.schedule("* * * * *", async () => {
+        await withRedisLock("post-scheduler", 55, async () => {
         try {
             // console.log("⏳ Buscando publicaciones programadas...");
             await postService.processScheduledPosts();
         } catch (error) {
             console.error("❌ ERROR EN CRON POST SCHEDULER:", error);
         }
+            });
     }, { timezone: "America/Guayaquil" });
 };

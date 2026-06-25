@@ -2,7 +2,7 @@ import dns from "dns";
 dns.setDefaultResultOrder("ipv4first");
 process.env.TZ = "UTC"; // Forzar Node.js a operar siempre en Hora Universal (UTC)
 import "reflect-metadata"; // esto si bien instalamos depues siempre debe ir primero
-import { envs } from "./config";
+import { envs, redisClient } from "./config";
 import { PostgresDatabase } from "./data";
 import { AppRoutes } from "./presentation/routes";
 import { Server } from "./presentation/server";
@@ -27,6 +27,8 @@ import { getIO } from "./config/socket";
 import { PedidoUsuarioService } from "./presentation/services/pedidosServices/pedidoUsuario.service";
 
 async function main() {
+
+
   const postgres = new PostgresDatabase({
     username: envs.DB_USERNAME,
     password: envs.DB_PASSWORD,

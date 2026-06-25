@@ -1,3 +1,4 @@
+import { withRedisLock } from "../utils/cron-lock";
 import cron from "node-cron";
 import { MeritocracyService } from "../presentation/services/pedidosServices/meritocracy.service";
 
@@ -6,6 +7,7 @@ export const startMeritocracyCron = () => {
 
     // Ejecutar una vez al día a las 00:00:05 para comprobar si toca cierre
     cron.schedule("5 0 * * *", async () => {
+        await withRedisLock("meritocracy", 55, async () => {
         try {
             console.log("⏳ [CRON] Comprobando cierre de ciclo de Meritocracia...");
             
@@ -22,5 +24,6 @@ export const startMeritocracyCron = () => {
         } catch (error) {
             console.error("❌ ERROR EN CRON MERITOCRACIA:", error);
         }
+            });
     }, { timezone: "America/Guayaquil" });
 };

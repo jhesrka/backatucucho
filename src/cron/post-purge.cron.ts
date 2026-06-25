@@ -1,3 +1,4 @@
+import { withRedisLock } from "../utils/cron-lock";
 import cron from "node-cron";
 import { PostService } from "../presentation/services/post.service";
 import { UserService } from "../presentation/services/usuario/user.service";
@@ -13,6 +14,7 @@ import { SubscriptionService, FreePostTrackerService, GlobalSettingsService } fr
 export const startPostPurgeCron = () => {
     // Ejecutar todos los días a las 4:00 AM
     cron.schedule("0 4 * * *", async () => {
+        await withRedisLock("post-purge", 55, async () => {
         console.log("[CRON] Iniciando purga automática de posts eliminados...");
         try {
             const emailService = new EmailService(
@@ -42,6 +44,7 @@ export const startPostPurgeCron = () => {
         } catch (error) {
             console.error("[CRON] Error durante la purga automática de posts:", error);
         }
+            });
     }, { timezone: "America/Guayaquil" });
 
     console.log("[CRON] Sistema de purga automática de posts inicializado (4 AM daily)");

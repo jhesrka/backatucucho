@@ -1,3 +1,4 @@
+import { withRedisLock } from "../utils/cron-lock";
 import cron from "node-cron";
 import { CleanupService } from "../presentation/services/cleanup.service";
 
@@ -9,6 +10,7 @@ import { CleanupService } from "../presentation/services/cleanup.service";
 export const startSubscriptionCleanupCron = () => {
     // Ejecutar todos los días a las 2:30 AM
     cron.schedule("30 2 * * *", async () => {
+        await withRedisLock("subscription-cleanup", 55, async () => {
         console.log("[CRON] Iniciando limpieza de suscripciones inactivas > 60 días...");
         try {
             const cleanupService = new CleanupService();
@@ -23,6 +25,7 @@ export const startSubscriptionCleanupCron = () => {
         } catch (error) {
             console.error("[CRON] Error durante la limpieza de suscripciones:", error);
         }
+            });
     }, { timezone: "America/Guayaquil" });
 
     console.log("[CRON] Sistema de limpieza automática de suscripciones inicializado (2:30 AM daily)");

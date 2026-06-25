@@ -1,3 +1,4 @@
+import { withRedisLock } from "../utils/cron-lock";
 import cron from "node-cron";
 import { SubscriptionService as BusinessSubscriptionService } from "../presentation/services/subscription.service";
 import { SubscriptionService as UserSubscriptionService } from "../presentation/services/postService/subscription.service";
@@ -5,6 +6,7 @@ import { SubscriptionService as UserSubscriptionService } from "../presentation/
 export const startSubscriptionCron = () => {
     // Ejecutar todos los días a las 2:00 AM
     cron.schedule("0 2 * * *", async () => {
+        await withRedisLock("subscription", 55, async () => {
         console.log("➡️ [CRON] INICIANDO PROCESAMIENTO DE SUSCRIPCIONES:", new Date().toLocaleString());
 
         const businessService = new BusinessSubscriptionService();
@@ -22,6 +24,7 @@ export const startSubscriptionCron = () => {
         } catch (error) {
             console.error("❌ [CRON] ERROR CRÍTICO EN SUBSCRIPTION CRON:", error);
         }
+            });
     }, { timezone: "America/Guayaquil" });
 
     console.log("[CRON] Sistema de renovación automática (Negocios y Usuarios) inicializado (2:00 AM daily)");

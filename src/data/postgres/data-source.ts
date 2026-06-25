@@ -47,7 +47,7 @@ export const AppDataSource = new DataSource({
     synchronize: false, // SIEMPRE FALSE EN MIGRACIONES
     logging: false,
     extra: {
-        max: 5,
+        max: 100,
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 30000,
         keepalives: true,

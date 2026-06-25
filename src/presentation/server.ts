@@ -4,15 +4,13 @@ import cors from "cors";
 import http from "http";
 import { Server as SocketIOServer } from "socket.io";
 import { setIO, initRedisAdapter } from "../config/socket";
-import { envs } from "../config";
+import { envs, redisClient } from "../config";
 import fs from "fs"; // Importa el módulo fs
 import path from "path"; // Importa el módulo path
 import helmet from "helmet";
 import hpp from "hpp";
 import { UserMotorizado } from "../data";
 
-// Caché en memoria para la última ubicación conocida de cada pedido
-const trackingMemoria = new Map<string, any>();
 
 interface Options {
   port: number;
@@ -114,11 +112,15 @@ export class Server {
       });
 
       // --- TRACKING TIEMPO REAL MOTORIZADOS ---
-      socket.on("join_pedido_room", (pedidoId: string) => {
+      socket.on("join_pedido_room", async (pedidoId: string) => {
         socket.join(`pedido_${pedidoId}`);
-        // Si hay una última ubicación guardada en memoria, enviarla inmediatamente al cliente
-        if (trackingMemoria.has(pedidoId)) {
-          socket.emit("ubicacion_actualizada", trackingMemoria.get(pedidoId));
+        try {
+          const cachedLocation = redisClient ? await redisClient.get(`tracking_${pedidoId}`) : null;
+          if (cachedLocation) {
+            socket.emit("ubicacion_actualizada", JSON.parse(cachedLocation));
+          }
+        } catch (err) {
+          console.error("Error reading redis tracking cache", err);
         }
       });
 
@@ -128,9 +130,12 @@ export class Server {
         // por si el cliente cierra y abre la tarjeta rápido.
       });
 
-      socket.on("ubicacion_motorizado", (data: { pedidoId: string; lat: number; lng: number; accuracy: number; timestamp: number }) => {
-        // Guardar la última ubicación conocida
-        trackingMemoria.set(data.pedidoId, data);
+      socket.on("ubicacion_motorizado", async (data: { pedidoId: string; lat: number; lng: number; accuracy: number; timestamp: number }) => {
+        try {
+          if (redisClient) await redisClient.setex(`tracking_${data.pedidoId}`, 3600, JSON.stringify(data));
+        } catch (err) {
+          console.error("Error writing redis tracking cache", err);
+        }
         // Retransmitir la ubicación a la sala
         socket.to(`pedido_${data.pedidoId}`).emit("ubicacion_actualizada", data);
       });

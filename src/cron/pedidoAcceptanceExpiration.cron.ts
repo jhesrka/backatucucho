@@ -1,3 +1,4 @@
+import { withRedisLock } from "../utils/cron-lock";
 import cron from "node-cron";
 import { PedidoExpirationService } from "../presentation/services/pedidosServices/pedidoExpiration.service";
 
@@ -6,6 +7,7 @@ export const startPedidoExpirationCron = () => {
 
   // Ejecutar cada minuto
   cron.schedule("*/1 * * * *", async () => {
+        await withRedisLock("pedidoAcceptanceExpiration", 55, async () => {
     if (isRunning) return;
 
     isRunning = true;
@@ -16,5 +18,6 @@ export const startPedidoExpirationCron = () => {
     } finally {
       isRunning = false;
     }
-  }, { timezone: "America/Guayaquil" });
+          });
+    }, { timezone: "America/Guayaquil" });
 };

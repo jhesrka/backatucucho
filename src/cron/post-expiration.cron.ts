@@ -1,3 +1,4 @@
+import { withRedisLock } from "../utils/cron-lock";
 import cron from "node-cron";
 import { PostService } from "../presentation/services/post.service";
 import { UserService } from "../presentation/services/usuario/user.service";
@@ -8,6 +9,7 @@ import { SubscriptionService, FreePostTrackerService, GlobalSettingsService } fr
 export const startPostExpirationCron = () => {
     // Ejecutar cada hora
     cron.schedule("0 * * * *", async () => {
+        await withRedisLock("post-expiration", 55, async () => {
         console.log("[CRON] Verificando expiración de posts gratuitos...");
         try {
             const emailService = new EmailService(
@@ -35,5 +37,6 @@ export const startPostExpirationCron = () => {
         } catch (error) {
             console.error("[CRON] Error en expiración de posts:", error);
         }
+            });
     }, { timezone: "America/Guayaquil" });
 };

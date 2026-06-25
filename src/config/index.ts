@@ -7,3 +7,4 @@ export * from "./jwt.adapteradmin";
 export * from "./jwt.adaptermotorizado";
 export * from "./upload-files.adapter";
 export * from "./upload-files-cloud-adapter";
+export * from "./redis";

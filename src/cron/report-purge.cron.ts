@@ -1,3 +1,4 @@
+import { withRedisLock } from "../utils/cron-lock";
 
 import cron from "node-cron";
 import { AdminReportService } from "../presentation/services/report/admin-report.service";
@@ -6,6 +7,7 @@ import { GlobalSettingsService } from "../presentation/services/globalSettings/g
 export const startReportPurgeCron = () => {
     // Run every day at 04:00 AM
     cron.schedule("0 4 * * *", async () => {
+        await withRedisLock("report-purge", 55, async () => {
         console.log("🔄 Starting daily report purge cron job...");
         try {
             const globalSettingsService = new GlobalSettingsService();
@@ -24,5 +26,6 @@ export const startReportPurgeCron = () => {
         } catch (error) {
             console.error("❌ Error in report purge cron job:", error);
         }
+            });
     }, { timezone: "America/Guayaquil" });
 };

@@ -1,3 +1,4 @@
+import { withRedisLock } from "../utils/cron-lock";
 import cron from "node-cron";
 import { PedidoAdminService } from "../presentation/services/pedidosServices/pedidoAdmin.service";
 
@@ -9,6 +10,7 @@ import { PedidoAdminService } from "../presentation/services/pedidosServices/ped
 export const startOrderPurgeCron = () => {
     // Ejecutar todos los días a las 3:00 AM
     cron.schedule("0 3 * * *", async () => {
+        await withRedisLock("pedidoPurge", 55, async () => {
         console.log("[CRON] Iniciando purga automática de pedidos...");
         try {
             const service = new PedidoAdminService();
@@ -17,6 +19,7 @@ export const startOrderPurgeCron = () => {
         } catch (error) {
             console.error("[CRON] Error durante la purga de pedidos:", error);
         }
+            });
     }, { timezone: "America/Guayaquil" });
 
     console.log("[CRON] Sistema de purga automática de pedidos inicializado (3 AM daily)");
