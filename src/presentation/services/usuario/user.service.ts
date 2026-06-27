@@ -37,6 +37,7 @@ import { getIO } from "../../../config/socket"; // Para emitir eventos a través
 import { encriptAdapter, envs, JwtAdapter } from "../../../config";
 import { generateUUID } from "../../../config/uuid.adapter";
 import { EmailService } from "../email.service";
+import { NotificationService } from "../NotificationService";
 import { UploadFilesCloud } from "../../../config/upload-files-cloud-adapter";
 import { Parser } from "json2csv";
 import { FreePostTrackerService } from "../postService/free-post-tracker.service";
@@ -189,8 +190,7 @@ export class UserService {
     }
 
     // 2️⃣ CONTROL DE SESIÓN ÚNICA
-    // 2️⃣ CONTROL DE SESIÓN ÚNICA
-    // Simplemente notificamos si ya estaba logueado, pero PERMITIMOS el login (invalidando el anterior por sobrescritura de sessionId)
+    // Simplemente notificamos si ya estaba logueado, pero PERMITIMOS el login (invalidando el anterior por sobrescritura de sessionId/tokenVersion)
     if (user.isLoggedIn) {
       const notification = new AdminNotification();
       notification.message = `Nuevo inicio de sesión desde ${currentIp} para ${user.email}. Sesión anterior invalidada.`;
@@ -199,6 +199,21 @@ export class UserService {
       notification.ip = currentIp;
       notification.country = country;
       await notification.save();
+
+      // Enviar notificación Push a los dispositivos antiguos
+      const notificationService = new NotificationService();
+      await notificationService.sendPushNotification(
+        user.id,
+        "🚨 Alerta de Seguridad",
+        "Se ha detectado un nuevo inicio de sesión en tu cuenta desde otro dispositivo. Si no fuiste tú, cambia tu contraseña inmediatamente.",
+        { type: "security_logout" }
+      );
+
+      // Emitir evento por WebSockets para cerrar sesión en tiempo real
+      getIO().emit("forceLogout", { 
+        userId: user.id, 
+        message: "Sesión iniciada en otro dispositivo." 
+      });
     }
 
     user.tokenVersion += 1;

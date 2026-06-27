@@ -1,4 +1,5 @@
 import { encriptAdapter, envs, JwtAdapterAdmin } from "../../../config";
+import { getIO } from "../../../config/socket";
 import { Statusadmin, Useradmin, GlobalSettings } from "../../../data";
 import * as geoip from 'geoip-lite';
 import {
@@ -149,6 +150,11 @@ export class UseradminService {
       htmlBody: htmlEmail
     }).catch(err => console.error("Error enviando alerta de login admin:", err));
 
+    // Emitir evento por WebSockets para cerrar sesión en tiempo real de cualquier otra instancia web
+    getIO().emit("forceLogout", { 
+      userId: useradmin.id, 
+      message: "Sesión iniciada en otro dispositivo." 
+    });
 
     useradmin.tokenVersion += 1;
     await useradmin.save();

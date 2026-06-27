@@ -23,6 +23,7 @@ import { JwtAdapterMotorizado, encriptAdapter, envs } from "../../../config";
 import { UploadFilesCloud } from "../../../config/upload-files-cloud-adapter";
 import { generateUUID } from "../../../config/uuid.adapter";
 import { getIO } from "../../../config/socket";
+import { NotificationService } from "../NotificationService";
 import { PedidoMotoService } from "../pedidosServices/pedidoMoto.service";
 import { MeritocracyService } from "../pedidosServices/meritocracy.service";
 import { In, Between, Brackets, Not } from "typeorm";
@@ -219,17 +220,36 @@ export class UserMotorizadoService {
       throw CustomError.unAuthorized("Cédula o contraseña incorrectas");
     }
 
+    // Multi-device login security: Emit push notification and force logout to old devices
+    const notificationService = new NotificationService();
+    await notificationService.sendPushNotification(
+      usermotorizado.id,
+      "🚨 Alerta de Seguridad",
+      "Se ha detectado un nuevo inicio de sesión en tu cuenta desde otro dispositivo. Si no fuiste tú, cambia tu contraseña inmediatamente.",
+      { type: "security_logout" }
+    );
+
+    getIO().emit("forceLogout", { 
+      userId: usermotorizado.id, 
+      message: "Sesión iniciada en otro dispositivo." 
+    });
+
+    usermotorizado.tokenVersion += 1;
+    await usermotorizado.save();
+
     const tokenmotorizado = await JwtAdapterMotorizado.generateTokenMotorizado(
       {
         id: usermotorizado.id,
-        role: "MOTORIZADO"
+        role: "MOTORIZADO",
+        tokenVersion: usermotorizado.tokenVersion
       },
       envs.JWT_EXPIRE_IN
     );
     const refreshToken = await JwtAdapterMotorizado.generateTokenMotorizado(
       {
         id: usermotorizado.id,
-        role: "MOTORIZADO"
+        role: "MOTORIZADO",
+        tokenVersion: usermotorizado.tokenVersion
       },
       envs.JWT_REFRESH_EXPIRE_IN
     );
