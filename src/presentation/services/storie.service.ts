@@ -1,5 +1,9 @@
 import { addDays } from "date-fns";
-import { StatusStorie, Storie } from "../../data";
+import {
+  Storie,
+  StatusStorie,
+  Status
+} from "../../data";
 import { CreateStorieDTO } from "../../domain/dtos/stories/CreateStorie.dto";
 import { envs } from "../../config";
 import { UploadFilesCloud } from "../../config/upload-files-cloud-adapter";
@@ -146,6 +150,7 @@ export class StorieService {
         where: {
           statusStorie: StatusStorie.PUBLISHED,
           expires_at: MoreThan(now),
+          user: { status: Status.ACTIVE }
         },
         relations: ["user"],
         select: {

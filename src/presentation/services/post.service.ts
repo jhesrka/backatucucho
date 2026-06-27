@@ -32,7 +32,7 @@ export class PostService {
 
       // 1. Consulta base con condiciones de expiración
       const query = Post.createQueryBuilder("post")
-        .leftJoinAndSelect("post.user", "user")
+        .innerJoinAndSelect("post.user", "user", "user.status = :userStatus", { userStatus: UserStatus.ACTIVE })
         .where("post.statusPost = :status", { status: StatusPost.PUBLISHED })
         .andWhere(
           "(post.isPaid = true OR (post.expiresAt IS NULL OR post.expiresAt > :now))",

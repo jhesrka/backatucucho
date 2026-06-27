@@ -15,7 +15,11 @@ import {
   User,
   UserRole,
   Wallet,
-  ModerationLog
+  ModerationLog,
+  Pedido,
+  EstadoPedido,
+  Negocio,
+  PushToken
 } from "../../../data"; // Modelo de usuario
 import {
   CreateUserDTO,
@@ -892,7 +896,8 @@ export class UserService {
   // Obtener un usuario por ID
   async findOneUser(userId: string) {
     const result = await User.findOne({
-      where: { id: userId, status: Status.ACTIVE },
+      where: { id: userId },
+      withDeleted: true,
     });
     if (!result) throw CustomError.notFound("Usuario no encontrado");
     return result;
@@ -1104,6 +1109,7 @@ export class UserService {
       const user = await User.findOne({
         where: { id: userId },
         relations: ["posts", "stories", "negocios", "negocios.productos"],
+        withDeleted: true,
       });
 
       if (!user) throw CustomError.notFound("Usuario no encontrado");
@@ -1449,6 +1455,59 @@ export class UserService {
     if (wallet && Number(wallet.balance) !== 0) {
       throw CustomError.badRequest("No puedes eliminar tu cuenta porque tienes fondos o saldos pendientes en tu billetera. Por favor ponte en contacto con soporte.");
     }
+
+    // 1. Bloqueo Financiero: Validar pedidos activos como COMPRADOR
+    const activeBuyerOrders = await Pedido.count({
+      where: [
+        { cliente: { id }, estado: EstadoPedido.PENDIENTE },
+        { cliente: { id }, estado: EstadoPedido.ACEPTADO },
+        { cliente: { id }, estado: EstadoPedido.PREPARANDO },
+        { cliente: { id }, estado: EstadoPedido.PREPARANDO_ASIGNADO },
+        { cliente: { id }, estado: EstadoPedido.PREPARANDO_NO_ASIGNADO },
+        { cliente: { id }, estado: EstadoPedido.EN_CAMINO },
+        { cliente: { id }, estado: EstadoPedido.PENDIENTE_PAGO },
+        { cliente: { id }, estado: EstadoPedido.RETORNO_PENDIENTE }
+      ]
+    });
+
+    if (activeBuyerOrders > 0) {
+      throw CustomError.badRequest("No puedes eliminar tu cuenta porque tienes pedidos en curso como cliente. Debes recibirlos o cancelarlos primero.");
+    }
+
+    // 2. Bloqueo Financiero: Validar pedidos activos como VENDEDOR (Dueño de negocio)
+    const negociosPropios = await Negocio.find({ where: { usuario: { id } } });
+    if (negociosPropios.length > 0) {
+      const negocioIds = negociosPropios.map(n => n.id);
+      
+      // Buscar si algún negocio tiene pedidos activos (que no sean ENTREGADO, CANCELADO, DEVUELTO_A_LOCAL)
+      let hasActiveSellerOrders = false;
+      for (const negocioId of negocioIds) {
+        const activeOrders = await Pedido.count({
+          where: [
+            { negocio: { id: negocioId }, estado: EstadoPedido.PENDIENTE },
+            { negocio: { id: negocioId }, estado: EstadoPedido.ACEPTADO },
+            { negocio: { id: negocioId }, estado: EstadoPedido.PREPARANDO },
+            { negocio: { id: negocioId }, estado: EstadoPedido.PREPARANDO_ASIGNADO },
+            { negocio: { id: negocioId }, estado: EstadoPedido.PREPARANDO_NO_ASIGNADO },
+            { negocio: { id: negocioId }, estado: EstadoPedido.EN_CAMINO },
+            { negocio: { id: negocioId }, estado: EstadoPedido.PENDIENTE_PAGO },
+            { negocio: { id: negocioId }, estado: EstadoPedido.RETORNO_PENDIENTE }
+          ]
+        });
+
+        if (activeOrders > 0) {
+          hasActiveSellerOrders = true;
+          break;
+        }
+      }
+
+      if (hasActiveSellerOrders) {
+        throw CustomError.badRequest("No puedes eliminar tu cuenta porque tienes negocios con pedidos pendientes de despachar. Atiéndelos o cancélalos primero.");
+      }
+    }
+
+    // 3. Fase 2: Borrar PushTokens para dejar de notificarle
+    await PushToken.delete({ user: { id } });
 
     user.status = Status.DELETED; // Cambiar a estado DELETE
     user.deletedAt = new Date(); // Marcar fecha de eliminación

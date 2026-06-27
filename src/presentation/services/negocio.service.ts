@@ -5,6 +5,7 @@ import {
   Negocio,
   StatusNegocio,
   User,
+  Status,
   SubcategoriaNegocio,
 } from "../../data";
 import { CustomError } from "../../domain";
@@ -178,6 +179,7 @@ export class NegocioService {
     const negocios = await Negocio.createQueryBuilder("negocio")
       .leftJoinAndSelect("negocio.categoria", "categoria")
       .leftJoinAndSelect("negocio.subcategoria", "subcategoria")
+      .innerJoin("negocio.usuario", "usuario", "usuario.status = :userStatus", { userStatus: Status.ACTIVE })
       .where("negocio.categoriaId = :categoriaId", { categoriaId })
       .andWhere("negocio.statusNegocio = :status", { status: StatusNegocio.ACTIVO })
       .andWhere("negocio.estadoNegocio = :estado", { estado: EstadoNegocio.ABIERTO })
@@ -292,6 +294,9 @@ export class NegocioService {
         statusNegocio: status,
       };
     }
+
+    // Para asegurar que los dueños de negocios eliminados NO aparezcan
+    whereCondition.usuario = { status: Status.ACTIVE };
 
     const negocios = await Negocio.find({
       where: whereCondition,
