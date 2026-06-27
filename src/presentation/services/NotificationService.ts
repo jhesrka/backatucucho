@@ -62,7 +62,22 @@ export class NotificationService {
 
       const message: admin.messaging.MulticastMessage = {
         notification: { title, body },
+        android: {
+          priority: 'high',
+          notification: { sound: 'default' }
+        },
+        apns: {
+          payload: {
+            aps: {
+              contentAvailable: true,
+              sound: 'default'
+            }
+          }
+        },
         webpush: {
+          headers: {
+            Urgency: 'high'
+          },
           notification: {
             icon: `${envs.WEBSERVICE_URL_FRONT}/logo_resized_192x192.png`,
             badge: `${envs.WEBSERVICE_URL_FRONT}/badge_96x96.png`
