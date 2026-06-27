@@ -132,12 +132,12 @@ class FinancialController {
         });
         this.getUnifiedTransactions = (req, res) => __awaiter(this, void 0, void 0, function* () {
             try {
-                const { date, type, status } = req.query;
+                const { date, type, status, page, limit } = req.query;
                 if (!date)
                     throw domain_1.CustomError.badRequest("Date required");
                 const types = typeof type === 'string' ? type.split(',') : (Array.isArray(type) ? type : undefined);
                 const statuses = typeof status === 'string' ? status.split(',') : (Array.isArray(status) ? status : undefined);
-                const result = yield this.financialService.getUnifiedTransactions(date_utils_1.DateUtils.parseLocalDate(date), types, statuses);
+                const result = yield this.financialService.getUnifiedTransactions(date_utils_1.DateUtils.parseLocalDate(date), types, statuses, page ? Number(page) : 1, limit ? Number(limit) : 100);
                 res.json(result);
             }
             catch (error) {
@@ -200,3 +200,4 @@ class FinancialController {
     }
 }
 exports.FinancialController = FinancialController;
+// EOF

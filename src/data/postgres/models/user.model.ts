@@ -113,6 +113,9 @@ export class User extends BaseEntity {
   resetTokenVersion: number;
 
   @Column("int", { default: 0 })
+  tokenVersion!: number;
+
+  @Column("int", { default: 0 })
   warnings_count: number;
 
   @Column("int", { default: 0 })

@@ -74,8 +74,8 @@ class UseradminService {
             // 2. Crear el admin
             const adminCreated = yield this.createUseradmin(useradminData);
             // 3. Generar tokens (Auto Login)
-            const tokenadmin = yield config_1.JwtAdapterAdmin.generateTokenAdmin({ id: adminCreated.id, role: adminCreated.rol }, config_1.envs.JWT_EXPIRE_IN);
-            const refreshToken = yield config_1.JwtAdapterAdmin.generateTokenAdmin({ id: adminCreated.id, role: adminCreated.rol }, config_1.envs.JWT_REFRESH_EXPIRE_IN);
+            const tokenadmin = yield config_1.JwtAdapterAdmin.generateTokenAdmin({ id: adminCreated.id, role: adminCreated.rol, tokenVersion: 0 }, config_1.envs.JWT_EXPIRE_IN);
+            const refreshToken = yield config_1.JwtAdapterAdmin.generateTokenAdmin({ id: adminCreated.id, role: adminCreated.rol, tokenVersion: 0 }, config_1.envs.JWT_REFRESH_EXPIRE_IN);
             return {
                 message: "Instalación completada con éxito.",
                 tokenadmin,
@@ -168,14 +168,18 @@ class UseradminService {
                 subject: "Atucucho Shop - Nuevo inicio de sesión (Admin)",
                 htmlBody: htmlEmail
             }).catch(err => console.error("Error enviando alerta de login admin:", err));
+            useradmin.tokenVersion += 1;
+            yield useradmin.save();
             //generar un jwt
             const tokenadmin = yield config_1.JwtAdapterAdmin.generateTokenAdmin({
                 id: useradmin.id,
-                role: "ADMIN"
+                role: "ADMIN",
+                tokenVersion: useradmin.tokenVersion
             }, config_1.envs.JWT_EXPIRE_IN);
             const refreshToken = yield config_1.JwtAdapterAdmin.generateTokenAdmin({
                 id: useradmin.id,
-                role: "ADMIN"
+                role: "ADMIN",
+                tokenVersion: useradmin.tokenVersion
             }, config_1.envs.JWT_REFRESH_EXPIRE_IN);
             if (!tokenadmin || !refreshToken)
                 throw domain_1.CustomError.internalServer("Error generando Jwt");
@@ -265,6 +269,7 @@ class UseradminService {
             // Actualizar contraseña y aumentar versión
             user.password = config_1.encriptAdapter.hash(dto.newPassword);
             user.resetTokenVersion += 1;
+            user.tokenVersion += 1; // Invalidate current sessions
             yield user.save();
             return { message: "Contraseña actualizada correctamente" };
         });

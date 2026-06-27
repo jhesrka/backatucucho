@@ -86,6 +86,9 @@ export class Useradmin extends BaseEntity {
   @Column("int", { default: 0 })
   resetTokenVersion: number;
 
+  @Column("int", { default: 0 })
+  tokenVersion!: number;
+
   @BeforeInsert()
   encryptedPassword() {
     this.password = encriptAdapter.hash(this.password);

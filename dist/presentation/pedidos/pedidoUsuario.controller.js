@@ -202,6 +202,7 @@ class PedidoUsuarioController {
                 .catch((error) => this.handleError(error, res));
         };
         this.confirmarPago = (req, res) => __awaiter(this, void 0, void 0, function* () {
+            var _a;
             try {
                 const { id, clientTransactionId } = req.body;
                 if (!id || !clientTransactionId) {
@@ -211,6 +212,12 @@ class PedidoUsuarioController {
                 return res.status(200).json(result);
             }
             catch (error) {
+                console.error("❌ [PedidoUsuarioController - confirmarPago] DETALLES DE ERROR:");
+                console.error(JSON.stringify({
+                    message: error.message,
+                    stack: error.stack,
+                    payphoneResponse: (_a = error === null || error === void 0 ? void 0 : error.response) === null || _a === void 0 ? void 0 : _a.data
+                }, null, 2));
                 return this.handleError(error, res);
             }
         });

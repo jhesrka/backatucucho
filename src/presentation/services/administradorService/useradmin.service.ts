@@ -46,8 +46,8 @@ export class UseradminService {
     const adminCreated = await this.createUseradmin(useradminData);
 
     // 3. Generar tokens (Auto Login)
-    const tokenadmin = await JwtAdapterAdmin.generateTokenAdmin({ id: adminCreated.id, role: adminCreated.rol }, envs.JWT_EXPIRE_IN);
-    const refreshToken = await JwtAdapterAdmin.generateTokenAdmin({ id: adminCreated.id, role: adminCreated.rol }, envs.JWT_REFRESH_EXPIRE_IN);
+    const tokenadmin = await JwtAdapterAdmin.generateTokenAdmin({ id: adminCreated.id, role: adminCreated.rol, tokenVersion: 0 }, envs.JWT_EXPIRE_IN);
+    const refreshToken = await JwtAdapterAdmin.generateTokenAdmin({ id: adminCreated.id, role: adminCreated.rol, tokenVersion: 0 }, envs.JWT_REFRESH_EXPIRE_IN);
 
     return {
       message: "Instalación completada con éxito.",
@@ -150,18 +150,23 @@ export class UseradminService {
     }).catch(err => console.error("Error enviando alerta de login admin:", err));
 
 
+    useradmin.tokenVersion += 1;
+    await useradmin.save();
+
     //generar un jwt
     const tokenadmin = await JwtAdapterAdmin.generateTokenAdmin(
       {
         id: useradmin.id,
-        role: "ADMIN"
+        role: "ADMIN",
+        tokenVersion: useradmin.tokenVersion
       },
       envs.JWT_EXPIRE_IN
     );
     const refreshToken = await JwtAdapterAdmin.generateTokenAdmin(
       {
         id: useradmin.id,
-        role: "ADMIN"
+        role: "ADMIN",
+        tokenVersion: useradmin.tokenVersion
       },
       envs.JWT_REFRESH_EXPIRE_IN
     );
@@ -270,6 +275,7 @@ export class UseradminService {
     // Actualizar contraseña y aumentar versión
     user.password = encriptAdapter.hash(dto.newPassword);
     user.resetTokenVersion += 1;
+    user.tokenVersion += 1; // Invalidate current sessions
 
     await user.save();
 

@@ -23,3 +23,4 @@ __exportStar(require("./jwt.adapteradmin"), exports);
 __exportStar(require("./jwt.adaptermotorizado"), exports);
 __exportStar(require("./upload-files.adapter"), exports);
 __exportStar(require("./upload-files-cloud-adapter"), exports);
+__exportStar(require("./redis"), exports);

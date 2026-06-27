@@ -97,6 +97,12 @@ class PedidoUsuarioService {
                     createdAt: pedido.createdAt,
                     notaGeneral: pedido.notaGeneral
                 });
+                (0, socket_1.getIO)().to(pedido.cliente.id).emit("pedido_actualizado", {
+                    id: pedido.id,
+                    estado: pedido.estado,
+                    estadoPago: pedido.estadoPago,
+                    referenciaPago: pedido.referenciaPago
+                });
                 // 🔔 Notificación Push al Dueño de Negocio
                 if (pedido.negocio.usuario) {
                     yield notificationService.sendPushNotification(pedido.negocio.usuario.id, "¡Nuevo Pedido Recibido!", `Has recibido un nuevo pedido (#${pedido.id.split('-')[0]}) por $${pedido.total}`, { url: `/business/dashboard/${pedido.negocio.id}/orders/pending` });
@@ -190,10 +196,19 @@ class PedidoUsuarioService {
             const guardado = yield pedido.save();
             let payphone = null;
             if (metodoPago === "TARJETA") {
+                const amountInCents = Math.round(pedido.total * 100);
+                const generatedClientTxId = `${guardado.id}--${Math.random().toString(36).substring(7)}`;
+                guardado.referenciaPago = generatedClientTxId;
+                yield guardado.save();
                 payphone = {
                     token: negocio.payphone_token, storeId: negocio.payphone_store_id,
-                    clientTransactionId: `${guardado.id}--${Math.random().toString(36).substring(7)}`,
-                    amount: Math.round(pedido.total * 100), currency: "USD"
+                    clientTransactionId: generatedClientTxId,
+                    amount: amountInCents,
+                    amountWithoutTax: amountInCents,
+                    amountWithTax: 0,
+                    tax: 0,
+                    reference: `Pedido #${guardado.id.split('-')[0]}`,
+                    currency: "USD"
                 };
             }
             if (metodoPago !== "TARJETA") {
@@ -216,7 +231,7 @@ class PedidoUsuarioService {
                 .leftJoin("pedido.cliente", "cliente")
                 .leftJoin("pedido.motorizado", "motorizado")
                 .select([
-                "pedido.id", "pedido.estado", "pedido.total", "pedido.costoEnvio", "pedido.createdAt", "pedido.fecha_aceptado",
+                "pedido.id", "pedido.estado", "pedido.estadoPago", "pedido.referenciaPago", "pedido.total", "pedido.costoEnvio", "pedido.createdAt", "pedido.fecha_aceptado",
                 "pedido.tiempoPreparacionElegido", "pedido.latCliente", "pedido.lngCliente", "pedido.metodoPago", "pedido.comprobantePagoUrl",
                 "pedido.delivery_code", "pedido.arrival_time", "pedido.pickup_code", "pedido.motivoCancelacion", "pedido.ratingNegocio", "pedido.ratingMotorizado",
                 "pedido.isPeakHourSurchargeApplied", "pedido.peakHourSurchargeAmount", "pedido.peakHourSurchargeMoto", "pedido.peakHourSurchargeApp", "pedido.notaGeneral",
@@ -266,6 +281,7 @@ class PedidoUsuarioService {
                     },
                     isProgrammed: ((_d = p.productos) === null || _d === void 0 ? void 0 : _d.some(pp => { var _a; return ((_a = pp.producto) === null || _a === void 0 ? void 0 : _a.tipoProducto) === 'PROGRAMADO'; })) || false,
                     metodoPago: p.metodoPago, comprobantePagoUrl: resolvedComprobante,
+                    estadoPago: p.estadoPago, referenciaPago: p.referenciaPago,
                     delivery_code: p.delivery_code, arrival_time: p.arrival_time,
                     pickup_code: p.pickup_code,
                     motivoCancelacion: p.motivoCancelacion,
@@ -475,10 +491,71 @@ class PedidoUsuarioService {
         console.log("🕒 [Mantenimiento] Iniciando vigilante de pedidos...");
         // Tarea 1: Auto-cancelación de pedidos (Cada 1 minuto)
         setInterval(() => __awaiter(this, void 0, void 0, function* () {
-            var _a, _b;
+            var _a, _b, _c;
             try {
                 const ahora = new Date();
                 const horaEcuador = ahora.toLocaleTimeString('en-US', { hour12: false, timeZone: 'America/Guayaquil' });
+                // --- INICIO: VERIFICADOR AUTOMÁTICO DE PAYPHONE (POLLING) ---
+                try {
+                    const { WalletService } = yield Promise.resolve().then(() => __importStar(require("../wallet.service")));
+                    const { UserService } = yield Promise.resolve().then(() => __importStar(require("../usuario/user.service")));
+                    const { EmailService } = yield Promise.resolve().then(() => __importStar(require("../email.service")));
+                    const { envs } = yield Promise.resolve().then(() => __importStar(require("../../../config/env")));
+                    const { GlobalSettings, RechargeRequest, StatusRecarga } = yield Promise.resolve().then(() => __importStar(require("../../../data")));
+                    // 1. RECONCILIACIÓN DE PEDIDOS (TARJETA)
+                    const pedidosPendientes = yield data_1.Pedido.find({
+                        where: { estado: data_1.EstadoPedido.PENDIENTE_PAGO, metodoPago: 'TARJETA' },
+                        relations: ["negocio"]
+                    });
+                    for (const pedidoPendiente of pedidosPendientes) {
+                        try {
+                            if ((_a = pedidoPendiente.negocio) === null || _a === void 0 ? void 0 : _a.payphone_token) {
+                                const clientTxIdForSearch = pedidoPendiente.referenciaPago || pedidoPendiente.id;
+                                const txInfo = yield payphone_service_1.PayphoneService.getTransactionByClientTxId(clientTxIdForSearch, pedidoPendiente.negocio.payphone_token);
+                                if (txInfo && (txInfo.transactionStatus === "Approved" || txInfo.status === "Approved")) {
+                                    console.log(`[Auto-Reconcile] 🔄 Pedido ${pedidoPendiente.id} rescatado y pagado en PayPhone.`);
+                                    const pedidoService = new PedidoUsuarioService();
+                                    yield pedidoService.confirmarPago(txInfo.transactionId || txInfo.transactionIdBase, clientTxIdForSearch);
+                                }
+                            }
+                        }
+                        catch (e) {
+                            console.error(`[Auto-Reconcile] Error verificando pedido ${pedidoPendiente.id}:`, e);
+                        }
+                    }
+                    // 2. RECONCILIACIÓN DE RECARGAS DE BILLETERA (TARJETA)
+                    const recargasPendientes = yield RechargeRequest.find({
+                        where: { status: StatusRecarga.PENDIENTE, payment_method: 'CARD' }
+                    });
+                    if (recargasPendientes.length > 0) {
+                        const settings = yield GlobalSettings.findOne({ where: {} });
+                        if (settings === null || settings === void 0 ? void 0 : settings.payphoneToken) {
+                            const emailService = new EmailService(envs.MAILER_SERVICE, envs.MAILER_EMAIL, envs.MAILER_SECRET_KEY, envs.SEND_EMAIL);
+                            const userService = new UserService(emailService);
+                            const walletService = new WalletService(userService);
+                            for (const recargaPend of recargasPendientes) {
+                                try {
+                                    const shortIdForSearch = recargaPend.id.replace(/-/g, '').slice(0, 20);
+                                    let txInfo = yield payphone_service_1.PayphoneService.getTransactionByClientTxId(shortIdForSearch, settings.payphoneToken);
+                                    if (!txInfo) {
+                                        txInfo = yield payphone_service_1.PayphoneService.getTransactionByClientTxId(recargaPend.id, settings.payphoneToken);
+                                    }
+                                    if (txInfo && (txInfo.transactionStatus === "Approved" || txInfo.status === "Approved")) {
+                                        console.log(`[Auto-Reconcile] 🔄 Recarga ${recargaPend.id} rescatada y cobrada en PayPhone.`);
+                                        yield walletService.confirmPayphoneRecharge(recargaPend.id, txInfo.transactionId || txInfo.transactionIdBase);
+                                    }
+                                }
+                                catch (e) {
+                                    console.error(`[Auto-Reconcile] Error verificando recarga ${recargaPend.id}:`, e);
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (e) {
+                    console.error("[Auto-Reconcile] Error general en el verificador de PayPhone:", e);
+                }
+                // --- FIN: VERIFICADOR AUTOMÁTICO DE PAYPHONE (POLLING) ---
                 // 1. Limpieza rápida de PENDIENTE_PAGO (6 minutos)
                 yield data_1.Pedido.getRepository().query(`UPDATE pedido SET estado = 'CANCELADO', "motivoCancelacion" = 'Pago no registrado en el tiempo límite.' WHERE estado = 'PENDIENTE_PAGO' AND "createdAt" < NOW() - INTERVAL '6 minutes'`);
                 const { GlobalSettings } = require("../../../data");
@@ -520,7 +597,7 @@ class PedidoUsuarioService {
                         yield pedido.save();
                         io.emit("pedido_actualizado", { id: pedido.id, estado: pedido.estado });
                         io.emit("admin_live_update", { type: 'ORDER_UPDATED', pedidoId: pedido.id });
-                        if ((_b = (_a = pedido.negocio) === null || _a === void 0 ? void 0 : _a.usuario) === null || _b === void 0 ? void 0 : _b.id) {
+                        if ((_c = (_b = pedido.negocio) === null || _b === void 0 ? void 0 : _b.usuario) === null || _c === void 0 ? void 0 : _c.id) {
                             yield notificationService.sendPushNotification(pedido.negocio.usuario.id, "🚨 Pedido Auto-Cancelado", `El pedido #${pedido.id.substring(0, 8)} fue cancelado por demora excesiva.`, { url: `/business/dashboard/${pedido.negocio.id}/orders/history` });
                         }
                     }

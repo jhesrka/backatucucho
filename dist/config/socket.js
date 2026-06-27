@@ -11,7 +11,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.initRedisAdapter = exports.getIO = exports.setIO = void 0;
 const redis_adapter_1 = require("@socket.io/redis-adapter");
-const redis_1 = require("redis");
 let io;
 const setIO = (ioInstance) => {
     io = ioInstance;
@@ -24,26 +23,18 @@ const getIO = () => {
     return io;
 };
 exports.getIO = getIO;
+const redis_1 = require("./redis");
 /**
  * Conecta el adaptador Redis a Socket.IO para sincronizar eventos
  * entre múltiples instancias del servidor (escalado horizontal).
- *
- * Si REDIS_URL no está definida, se omite silenciosamente y Socket.IO
- * funciona en modo single-instance (local / desarrollo).
  */
 const initRedisAdapter = (redisUrl) => __awaiter(void 0, void 0, void 0, function* () {
-    if (!redisUrl) {
-        console.log("⚠️  [Redis] REDIS_URL no configurada. Socket.IO en modo single-instance.");
+    if (!redisUrl || !redis_1.redisPublisher || !redis_1.redisSubscriber) {
+        console.log("⚠️  [Redis] REDIS_URL no configurada o clientes inactivos. Socket.IO en modo single-instance.");
         return;
     }
     try {
-        const pubClient = (0, redis_1.createClient)({ url: redisUrl });
-        const subClient = pubClient.duplicate();
-        // Capturar errores de conexión sin tirar el proceso
-        pubClient.on("error", (err) => console.error("❌ [Redis] pubClient error:", err.message));
-        subClient.on("error", (err) => console.error("❌ [Redis] subClient error:", err.message));
-        yield Promise.all([pubClient.connect(), subClient.connect()]);
-        io.adapter((0, redis_adapter_1.createAdapter)(pubClient, subClient));
+        io.adapter((0, redis_adapter_1.createAdapter)(redis_1.redisPublisher, redis_1.redisSubscriber));
         console.log("✅ [Redis] Adaptador Socket.IO conectado —", redisUrl.replace(/:\/\/.*@/, "://***@"));
     }
     catch (err) {

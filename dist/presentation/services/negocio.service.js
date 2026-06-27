@@ -141,7 +141,7 @@ class NegocioService {
             negocio.statusNegocio = data_1.StatusNegocio.PENDIENTE;
             try {
                 const saved = yield negocio.save();
-                const imagenUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
+                const imagenUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
                     bucketName: config_1.envs.AWS_BUCKET_NAME,
                     key: saved.imagenNegocio,
                 });
@@ -212,10 +212,10 @@ class NegocioService {
                 let imagenUrl = null;
                 if (negocio.imagenNegocio) {
                     try {
-                        imagenUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
+                        imagenUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
                             bucketName: config_1.envs.AWS_BUCKET_NAME,
                             key: negocio.imagenNegocio,
-                        }, 'card');
+                        });
                     }
                     catch (error) {
                         console.error(`Error obteniendo imagen para negocio ${negocio.id}:`, error);
@@ -313,7 +313,7 @@ class NegocioService {
                     let userProfileUrl = null;
                     if (negocio.imagenNegocio) {
                         try {
-                            imagenUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
+                            imagenUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
                                 bucketName: config_1.envs.AWS_BUCKET_NAME,
                                 key: negocio.imagenNegocio,
                             });
@@ -384,7 +384,7 @@ class NegocioService {
             const negociosConImagen = yield Promise.all(negocios.map((negocio) => __awaiter(this, void 0, void 0, function* () {
                 let imagenUrl = null;
                 try {
-                    imagenUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
+                    imagenUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
                         bucketName: config_1.envs.AWS_BUCKET_NAME,
                         key: negocio.imagenNegocio,
                     });
@@ -578,7 +578,7 @@ class NegocioService {
                 });
             }
             const saved = yield negocio.save();
-            const imagenUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
+            const imagenUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
                 bucketName: config_1.envs.AWS_BUCKET_NAME,
                 key: saved.imagenNegocio,
             });

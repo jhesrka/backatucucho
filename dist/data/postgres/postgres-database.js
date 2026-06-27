@@ -449,6 +449,34 @@ class PostgresDatabase {
                     yield this.datasource.query(`ALTER TABLE "servicio" ALTER COLUMN "imagenServicio" TYPE TEXT;`);
                     yield this.datasource.query(`ALTER TABLE "servicio" ALTER COLUMN "videoUrl" TYPE TEXT;`);
                 }));
+                yield runMigrationStep("Step 37: Add icono to categoria_servicio", () => __awaiter(this, void 0, void 0, function* () {
+                    yield this.datasource.query(`ALTER TABLE "categoria_servicio" ADD COLUMN IF NOT EXISTS "icono" VARCHAR(50);`);
+                }));
+                yield runMigrationStep("Step 38: Add icono to subcategoria_servicio", () => __awaiter(this, void 0, void 0, function* () {
+                    yield this.datasource.query(`ALTER TABLE "subcategoria_servicio" ADD COLUMN IF NOT EXISTS "icono" VARCHAR(50);`);
+                }));
+                yield runMigrationStep("Step 39: Add isVisible to servicio", () => __awaiter(this, void 0, void 0, function* () {
+                    yield this.datasource.query(`ALTER TABLE "servicio" ADD COLUMN IF NOT EXISTS "isVisible" BOOLEAN DEFAULT true;`);
+                }));
+                yield runMigrationStep("Step 40: Add orden to tipo_producto", () => __awaiter(this, void 0, void 0, function* () {
+                    yield this.datasource.query(`
+          ALTER TABLE "tipo_producto" 
+          ADD COLUMN IF NOT EXISTS "orden" integer NOT NULL DEFAULT 9999;
+        `);
+                }));
+                yield runMigrationStep("Step 41: Add orden to producto", () => __awaiter(this, void 0, void 0, function* () {
+                    // Add 'orden' column to 'producto' if it doesn't exist
+                    yield this.datasource.query(`
+          ALTER TABLE "producto" 
+          ADD COLUMN IF NOT EXISTS "orden" integer NOT NULL DEFAULT 9999;
+        `);
+                }));
+                yield runMigrationStep("Step 42: Add shortAppName to global_settings", () => __awaiter(this, void 0, void 0, function* () {
+                    yield this.datasource.query(`
+          ALTER TABLE "global_settings" 
+          ADD COLUMN IF NOT EXISTS "shortAppName" varchar(20) DEFAULT NULL;
+        `);
+                }));
                 // 2. Inicializar Meritocracia
                 const meritocracy = new meritocracy_service_1.MeritocracyService();
                 yield meritocracy.ensureDefaultTiers();

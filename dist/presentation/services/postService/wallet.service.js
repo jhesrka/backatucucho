@@ -45,6 +45,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WalletService = void 0;
 const data_1 = require("../../../data");
 const transactionType_model_1 = require("../../../data/postgres/models/transactionType.model");
+const typeorm_1 = require("typeorm");
 const domain_1 = require("../../../domain");
 const config_1 = require("../../../config");
 class WalletService {
@@ -103,6 +104,24 @@ class WalletService {
                 }
             }
             const [transactions, total] = yield query.getManyAndCount();
+            // INICIO: Enriquecimiento dinámico de la observación
+            const { Servicio } = yield Promise.resolve().then(() => __importStar(require("../../../data/postgres/models/Servicio")));
+            const serviceIds = transactions
+                .filter(t => t.reason === transactionType_model_1.TransactionReason.SERVICE_SUBSCRIPTION && t.reference)
+                .map(t => t.reference);
+            if (serviceIds.length > 0) {
+                const servicios = yield Servicio.find({ where: { id: (0, typeorm_1.In)(serviceIds) } });
+                transactions.forEach(t => {
+                    if (t.reason === transactionType_model_1.TransactionReason.SERVICE_SUBSCRIPTION && t.reference) {
+                        const servicio = servicios.find(s => s.id === t.reference);
+                        if (servicio) {
+                            const shortId = servicio.id.split('-')[0].toUpperCase();
+                            t.observation = `Pago por publicación de servicio (${servicio.statusServicio} - ID: ${shortId})`;
+                        }
+                    }
+                });
+            }
+            // FIN
             const totalPages = Math.ceil(total / limit);
             return {
                 transactions,

@@ -18,6 +18,8 @@ class TipoProductoRoutes {
         router.get("/negocio/:negocioId", auth_middleware_1.AuthMiddleware.protect, tipoProductoController.getTiposByNegocio);
         // Eliminar tipo producto por id (usuario autenticado, podría restringirse a admin)
         router.delete("/:id", auth_middleware_1.AuthMiddleware.protect, tipoProductoController.deleteTipoProducto);
+        // Reordenar categorías (usuario autenticado)
+        router.put("/reordenar", auth_middleware_1.AuthMiddleware.protect, tipoProductoController.reordenarTipos);
         return router;
     }
 }

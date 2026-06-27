@@ -75,6 +75,9 @@ export class ServiceCategoryController {
   };
 
   seedCategories = (req: Request, res: Response) => {
+    if (process.env.NODE_ENV !== 'development') {
+        return res.status(403).json({ message: "Este endpoint solo está disponible en entorno de desarrollo." });
+    }
     this.serviceCategoryService.seedCategories()
       .then((result) => res.json(result))
       .catch((error) => res.status(error.statusCode || 500).json({ error: error.message }));

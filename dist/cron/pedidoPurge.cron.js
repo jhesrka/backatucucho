@@ -13,6 +13,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.startOrderPurgeCron = void 0;
+const cron_lock_1 = require("../utils/cron-lock");
 const node_cron_1 = __importDefault(require("node-cron"));
 const pedidoAdmin_service_1 = require("../presentation/services/pedidosServices/pedidoAdmin.service");
 /**
@@ -23,15 +24,17 @@ const pedidoAdmin_service_1 = require("../presentation/services/pedidosServices/
 const startOrderPurgeCron = () => {
     // Ejecutar todos los días a las 3:00 AM
     node_cron_1.default.schedule("0 3 * * *", () => __awaiter(void 0, void 0, void 0, function* () {
-        console.log("[CRON] Iniciando purga automática de pedidos...");
-        try {
-            const service = new pedidoAdmin_service_1.PedidoAdminService();
-            const { deletedCount } = yield service.purgeOldOrders();
-            console.log(`[CRON] Purga completada. Pedidos eliminados: ${deletedCount}`);
-        }
-        catch (error) {
-            console.error("[CRON] Error durante la purga de pedidos:", error);
-        }
+        yield (0, cron_lock_1.withRedisLock)("pedidoPurge", 55, () => __awaiter(void 0, void 0, void 0, function* () {
+            console.log("[CRON] Iniciando purga automática de pedidos...");
+            try {
+                const service = new pedidoAdmin_service_1.PedidoAdminService();
+                const { deletedCount } = yield service.purgeOldOrders();
+                console.log(`[CRON] Purga completada. Pedidos eliminados: ${deletedCount}`);
+            }
+            catch (error) {
+                console.error("[CRON] Error durante la purga de pedidos:", error);
+            }
+        }));
     }), { timezone: "America/Guayaquil" });
     console.log("[CRON] Sistema de purga automática de pedidos inicializado (3 AM daily)");
 };

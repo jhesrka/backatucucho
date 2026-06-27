@@ -26,6 +26,10 @@ __decorate([
     __metadata("design:type", String)
 ], TipoProducto.prototype, "nombre", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: "int", default: 0 }),
+    __metadata("design:type", Number)
+], TipoProducto.prototype, "orden", void 0);
+__decorate([
     (0, typeorm_1.ManyToOne)(() => Negocio_1.Negocio, (negocio) => negocio.tipos, {
         onDelete: "CASCADE",
         nullable: false,

@@ -117,21 +117,7 @@ export class UserRoutes {
     // // );
 
     // // //Enviar notificación a usuario
-    // // router.post(
-    // //   "/notify/:id",
-    // //   AuthMiddleware.protect,
-    // //   AuthMiddleware.restrictTo(UserRole.ADMIN),
-    // //   userController.sendNotificationToUser
-    // // );
 
-    // // router.get("/:id", userController.findOneUser);
-    // // router.delete("/:id", userController.deleteUser);
-    // // router.patch(
-    // //   "/:id",
-    // //   AuthMiddleware.protect,
-    // //   uploadSingleFile("photoperfil"),
-    // //   userController.updateUser
-    // // );
 
     router.get("/profile", AuthMiddleware.protect, userController.getProfile);
     router.patch(
@@ -151,6 +137,9 @@ export class UserRoutes {
 
     // TEST ENDPOINT TO DEBUG DB
     router.get("/test/insert-log", async (req, res) => {
+        if (process.env.NODE_ENV !== 'development') {
+            return res.status(403).json({ message: "Este endpoint solo está disponible en entorno de desarrollo." });
+        }
         try {
             const user = await require("../../../data/postgres/models/user.model").User.findOne({where:{}});
             if (!user) return res.json({error: "No users found"});
@@ -244,7 +233,7 @@ export class UserRoutes {
     );
 
     router.get("/:id", userController.findOneUser);
-    router.delete("/:id", userController.deleteUser);
+    router.delete("/:id", AuthMiddleware.protect, userController.deleteUser);
     router.patch(
       "/:id",
       AuthMiddleware.protect,

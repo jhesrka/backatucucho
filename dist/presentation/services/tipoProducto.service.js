@@ -49,10 +49,40 @@ class TipoProductoService {
                 throw domain_1.CustomError.badRequest("Falta el ID del negocio");
             const tipos = yield data_1.TipoProducto.find({
                 where: { negocio: { id: negocioId } },
-                order: { nombre: "ASC" },
+                order: { orden: "ASC", nombre: "ASC" },
                 relations: ["negocio"],
             });
             return tipos;
+        });
+    }
+    // ========================= REORDER =========================
+    reordenarTipos(negocioId, ordenes) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (!negocioId)
+                throw domain_1.CustomError.badRequest("Falta el ID del negocio");
+            if (!Array.isArray(ordenes))
+                throw domain_1.CustomError.badRequest("Formato de ordenes inválido");
+            // Validar que todos los tipos pertenezcan al negocio
+            const ids = ordenes.map(o => o.id);
+            const tiposEnDb = yield data_1.TipoProducto.find({
+                where: { negocio: { id: negocioId } }
+            });
+            const tiposMap = new Map(tiposEnDb.map(t => [t.id, t]));
+            for (const item of ordenes) {
+                const tipo = tiposMap.get(item.id);
+                if (!tipo) {
+                    throw domain_1.CustomError.badRequest(`TipoProducto ${item.id} no encontrado o no pertenece al negocio`);
+                }
+                tipo.orden = item.orden;
+            }
+            try {
+                yield data_1.TipoProducto.save(tiposEnDb);
+                return { message: "Categorías reordenadas exitosamente" };
+            }
+            catch (err) {
+                console.error(err);
+                throw domain_1.CustomError.internalServer("Error al reordenar las categorías");
+            }
         });
     }
     // ========================= DELETE =========================

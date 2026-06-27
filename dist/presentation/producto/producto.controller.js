@@ -95,6 +95,18 @@ class ProductoController {
                 .then((result) => res.status(200).json(result))
                 .catch((error) => this.handleError(error, res));
         };
+        // ======================== REORDENAR ========================
+        this.reordenarProductos = (req, res) => {
+            const { negocioId, ordenes } = req.body;
+            const { sessionUser } = req.body; // Viene del AuthMiddleware
+            if (!negocioId || !Array.isArray(ordenes)) {
+                return res.status(400).json({ message: "Se requiere negocioId y un array de ordenes" });
+            }
+            this.productoService
+                .reordenarProductos(negocioId, ordenes, sessionUser.id)
+                .then((result) => res.status(200).json(result))
+                .catch((error) => this.handleError(error, res));
+        };
         this.checkAvailability = (req, res) => {
             const { ids } = req.body;
             if (!Array.isArray(ids)) {

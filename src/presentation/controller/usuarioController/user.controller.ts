@@ -113,7 +113,8 @@ export class UserController {
       const updatedUser = await this.userService.updateUser(
         id,
         updateUserDto!,
-        req.file
+        req.file,
+        req.body.sessionUser
       );
       return res.status(200).json(updatedUser);
     } catch (error) {
@@ -142,7 +143,7 @@ export class UserController {
   deleteUser = (req: Request, res: Response) => {
     const { id } = req.params;
     this.userService
-      .deleteUser(id)
+      .deleteUser(id, req.body.sessionUser)
       .then(() => res.status(204).json(null))
       .catch((error) => this.handleError(error, res));
   };

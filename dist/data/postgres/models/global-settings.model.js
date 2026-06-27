@@ -23,6 +23,10 @@ __decorate([
     __metadata("design:type", String)
 ], GlobalSettings.prototype, "appName", void 0);
 __decorate([
+    (0, typeorm_1.Column)("varchar", { length: 20, default: "Shop" }),
+    __metadata("design:type", String)
+], GlobalSettings.prototype, "shortAppName", void 0);
+__decorate([
     (0, typeorm_1.Column)("varchar", { length: 1024, nullable: true }),
     __metadata("design:type", String)
 ], GlobalSettings.prototype, "appLogoUrl", void 0);

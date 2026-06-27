@@ -239,9 +239,10 @@ class UserService {
                 notification.country = country;
                 yield notification.save();
             }
+            user.tokenVersion += 1;
             //generar un jwt
-            const token = yield config_1.JwtAdapter.generateToken({ id: user.id, role: "USER" }, config_1.envs.JWT_EXPIRE_IN);
-            const refreshToken = yield config_1.JwtAdapter.generateToken({ id: user.id, role: "USER" }, config_1.envs.JWT_REFRESH_EXPIRE_IN);
+            const token = yield config_1.JwtAdapter.generateToken({ id: user.id, role: "USER", tokenVersion: user.tokenVersion }, config_1.envs.JWT_EXPIRE_IN);
+            const refreshToken = yield config_1.JwtAdapter.generateToken({ id: user.id, role: "USER", tokenVersion: user.tokenVersion }, config_1.envs.JWT_REFRESH_EXPIRE_IN);
             if (!token || !refreshToken)
                 throw domain_1.CustomError.internalServer("Error generando Jwt");
             // Actualizar estado de sesión
@@ -249,7 +250,7 @@ class UserService {
             user.lastLoginIP = currentIp;
             user.lastLoginCountry = country;
             user.lastLoginDate = new Date();
-            user.currentSessionId = token; // O un ID único de sesión
+            user.lastLoginDate = new Date();
             yield user.save();
             // enviar la data
             if (user.photoperfil) {
@@ -285,7 +286,7 @@ class UserService {
             if (!user)
                 throw domain_1.CustomError.notFound("Usuario no encontrado");
             user.isLoggedIn = false;
-            user.currentSessionId = null;
+            user.tokenVersion += 1;
             yield user.save();
             return { message: "Sesión cerrada correctamente" };
         });
@@ -341,7 +342,7 @@ class UserService {
                 user.whatsapp = null;
                 // Init Session
                 user.isLoggedIn = true;
-                user.currentSessionId = "init";
+                user.isLoggedIn = true;
                 user.lastLoginIP = ip;
                 user.lastLoginCountry = country;
                 user.lastLoginDate = new Date();
@@ -393,13 +394,12 @@ class UserService {
                 user.lastLoginDate = new Date();
                 yield user.save();
             }
+            user.tokenVersion += 1;
             // Generar JWT y retornar
-            const jwt = yield config_1.JwtAdapter.generateToken({ id: user.id, role: "USER" }, config_1.envs.JWT_EXPIRE_IN);
-            const refreshToken = yield config_1.JwtAdapter.generateToken({ id: user.id, role: "USER" }, config_1.envs.JWT_REFRESH_EXPIRE_IN);
+            const jwt = yield config_1.JwtAdapter.generateToken({ id: user.id, role: "USER", tokenVersion: user.tokenVersion }, config_1.envs.JWT_EXPIRE_IN);
+            const refreshToken = yield config_1.JwtAdapter.generateToken({ id: user.id, role: "USER", tokenVersion: user.tokenVersion }, config_1.envs.JWT_REFRESH_EXPIRE_IN);
             if (!jwt || !refreshToken)
                 throw domain_1.CustomError.internalServer("Error generando Jwt");
-            // Update session ID with real token
-            user.currentSessionId = jwt;
             yield user.save();
             const isProfileComplete = !!(user.whatsapp && user.password && user.acceptedTermsVersion && user.acceptedPrivacyVersion);
             return {
@@ -513,12 +513,12 @@ class UserService {
                 throw domain_1.CustomError.badRequest("La contraseña actual es incorrecta");
             // Hash nueva
             user.password = config_1.encriptAdapter.hash(dto.newPassword);
+            user.tokenVersion += 1;
             // Invalidar sesiones anteriores y generar nueva para ESTA sesión
-            const token = yield config_1.JwtAdapter.generateToken({ id: user.id, role: "USER" }, config_1.envs.JWT_EXPIRE_IN);
-            const refreshToken = yield config_1.JwtAdapter.generateToken({ id: user.id, role: "USER" }, config_1.envs.JWT_REFRESH_EXPIRE_IN);
+            const token = yield config_1.JwtAdapter.generateToken({ id: user.id, role: "USER", tokenVersion: user.tokenVersion }, config_1.envs.JWT_EXPIRE_IN);
+            const refreshToken = yield config_1.JwtAdapter.generateToken({ id: user.id, role: "USER", tokenVersion: user.tokenVersion }, config_1.envs.JWT_REFRESH_EXPIRE_IN);
             if (!token || !refreshToken)
                 throw domain_1.CustomError.internalServer("Error generando tokens");
-            user.currentSessionId = token;
             yield user.save();
             return {
                 message: "Contraseña actualizada. Sesiones en otros dispositivos cerradas.",
@@ -1075,7 +1075,6 @@ class UserService {
                     deletedAt: user.deletedAt,
                     // Session data
                     isLoggedIn: user.isLoggedIn,
-                    currentSessionId: user.currentSessionId,
                     lastLoginIP: user.lastLoginIP,
                     lastLoginDate: user.lastLoginDate,
                     postCounts,
@@ -1492,7 +1491,7 @@ class UserService {
             if (!user)
                 throw domain_1.CustomError.notFound("Usuario no encontrado");
             user.isLoggedIn = false;
-            user.currentSessionId = null;
+            user.tokenVersion += 1;
             user.resetTokenVersion = (user.resetTokenVersion || 0) + 1; // Invalidate tokens
             yield user.save();
             return { message: "Sesión cerrada forzosamente." };
@@ -1503,6 +1502,8 @@ class UserService {
             const user = yield data_1.User.findOneBy({ id });
             if (!user)
                 throw domain_1.CustomError.notFound("Usuario no encontrado");
+            user.tokenVersion += 1;
+            yield user.save();
             // Generate secure token (simulated here using JWT or simply a random string stored in DB or specialized table)
             // For this implementation, strictly following the request which asks to send a link.
             // We will reuse the standard JWT generation or a specific reset token.

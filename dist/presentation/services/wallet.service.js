@@ -214,6 +214,16 @@ class WalletService {
                 relations: ["admin"]
             });
             const transactionsSigned = yield Promise.all(transactions.map((tx) => __awaiter(this, void 0, void 0, function* () {
+                // INICIO: Enriquecer dinámicamente si es de servicio
+                if (tx.reason === data_1.TransactionReason.SERVICE_SUBSCRIPTION && tx.reference) {
+                    const { Servicio } = yield Promise.resolve().then(() => __importStar(require("../../data/postgres/models/Servicio")));
+                    const servicio = yield Servicio.findOne({ where: { id: tx.reference } });
+                    if (servicio) {
+                        const shortId = servicio.id.split('-')[0].toUpperCase();
+                        tx.observation = `Pago por publicación de servicio (${servicio.statusServicio} - ID: ${shortId})`;
+                    }
+                }
+                // FIN
                 if (tx.receipt_image && !tx.receipt_image.startsWith('http')) {
                     try {
                         const signedUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({

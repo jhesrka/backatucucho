@@ -85,6 +85,7 @@ class ProductoService {
                     tipo: {
                         id: tipo.id,
                         nombre: tipo.nombre,
+                        orden: tipo.orden,
                     },
                     tipoProducto: saved.tipoProducto,
                 };
@@ -172,6 +173,7 @@ class ProductoService {
                     ? {
                         id: producto.tipo.id,
                         nombre: producto.tipo.nombre,
+                        orden: producto.tipo.orden,
                     }
                     : null,
                 tipoProducto: producto.tipoProducto,
@@ -197,7 +199,7 @@ class ProductoService {
                 order: { created_at: "DESC" },
             });
             return yield Promise.all(productos.map((p) => __awaiter(this, void 0, void 0, function* () {
-                const imageUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
+                const imageUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
                     bucketName: config_1.envs.AWS_BUCKET_NAME,
                     key: p.imagen,
                 });
@@ -210,12 +212,14 @@ class ProductoService {
                     comision_producto: p.comision_producto,
                     imagen: imageUrl,
                     disponible: p.disponible,
+                    orden: p.orden,
                     created_at: p.created_at,
                     statusProducto: p.statusProducto,
                     tipo: p.tipo
                         ? {
                             id: p.tipo.id,
                             nombre: p.tipo.nombre,
+                            orden: p.tipo.orden,
                         }
                         : null,
                     tipoProducto: p.tipoProducto,
@@ -245,7 +249,7 @@ class ProductoService {
                 order: { created_at: "DESC" },
             });
             const productosFormateados = yield Promise.all(productos.map((p) => __awaiter(this, void 0, void 0, function* () {
-                const imageUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
+                const imageUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
                     bucketName: config_1.envs.AWS_BUCKET_NAME,
                     key: p.imagen,
                 });
@@ -258,12 +262,14 @@ class ProductoService {
                     comision_producto: p.comision_producto,
                     imagen: imageUrl,
                     disponible: p.disponible,
+                    orden: p.orden,
                     created_at: p.created_at,
                     statusProducto: p.statusProducto,
                     tipo: p.tipo
                         ? {
                             id: p.tipo.id,
                             nombre: p.tipo.nombre,
+                            orden: p.tipo.orden,
                         }
                         : null,
                     tipoProducto: p.tipoProducto,
@@ -292,6 +298,7 @@ class ProductoService {
                     ratingPromedio: Number(negocio.ratingPromedio) || 0,
                     totalResenas: Number(negocio.totalResenas) || 0,
                     pago_tarjeta_habilitado_admin: negocio.pago_tarjeta_habilitado_admin,
+                    pago_tarjeta_activo_negocio: negocio.pago_tarjeta_activo_negocio,
                     porcentaje_recargo_tarjeta: Number(negocio.porcentaje_recargo_tarjeta) || 0,
                     tiempoPreparacionMin: negocio.tiempoPreparacionMin,
                     tiempoPreparacionMax: negocio.tiempoPreparacionMax,
@@ -383,6 +390,25 @@ class ProductoService {
             }));
         });
     }
+    // ========================= REORDENAR =========================
+    reordenarProductos(negocioId, ordenes, authenticatedUserId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const negocio = yield data_1.Negocio.findOne({
+                where: { id: negocioId },
+                relations: ["usuario"]
+            });
+            if (!negocio)
+                throw domain_1.CustomError.notFound("Negocio no encontrado");
+            if (negocio.usuario.id !== authenticatedUserId) {
+                throw domain_1.CustomError.forbiden("No tienes permisos para reordenar productos de este negocio");
+            }
+            // Actualizar orden de cada producto masivamente o uno por uno
+            for (const item of ordenes) {
+                yield data_1.Producto.update({ id: item.id, negocio: { id: negocioId } }, { orden: item.orden });
+            }
+            return { message: "Productos reordenados correctamente" };
+        });
+    }
     // ========================= SOCKET UPDATE HELPER =========================
     emitProductUpdate(producto) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -409,6 +435,7 @@ class ProductoService {
                         ? {
                             id: producto.tipo.id,
                             nombre: producto.tipo.nombre,
+                            orden: producto.tipo.orden,
                         }
                         : null,
                     tipoProducto: producto.tipoProducto,

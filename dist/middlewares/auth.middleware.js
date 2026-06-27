@@ -27,7 +27,7 @@ class AuthMiddleware {
             const token = authorization.split(" ").at(1) || "";
             try {
                 const payload = (yield config_1.JwtAdapter.validateToken(token));
-                if (!payload) {
+                if (!(payload === null || payload === void 0 ? void 0 : payload.id)) {
                     return res.status(401).json({
                         message: "Token expirado. Por favor inicia sesión nuevamente.",
                     });
@@ -42,13 +42,13 @@ class AuthMiddleware {
                     return res
                         .status(401)
                         .json({ message: "Usuario no válido o inactivo" });
-                // Validar sesión única (backend restriction)
-                // Validar sesión única (backend restriction)
-                // if (user.currentSessionId && user.currentSessionId !== token) {
-                //   return res.status(401).json({
-                //     message: "Tu sesión fue cerrada porque iniciaste sesión en otro dispositivo",
-                //   });
-                // }
+                // Validar tokenVersion para sesión única
+                if (payload.tokenVersion !== undefined &&
+                    payload.tokenVersion !== user.tokenVersion) {
+                    return res.status(401).json({
+                        message: "Sesión inválida o expirada. Por favor inicia sesión nuevamente.",
+                    });
+                }
                 req.body.sessionUser = user;
                 next();
             }

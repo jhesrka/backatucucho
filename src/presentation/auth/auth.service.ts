@@ -46,22 +46,28 @@ export class AuthService {
         if (!user) throw CustomError.notFound("User not found");
         if (!isActive) throw CustomError.unAuthorized("User is inactive or blocked");
 
+        // Validar tokenVersion para asegurar que el refresh token pertenece a la sesión actual
+        if (payload.tokenVersion !== undefined && payload.tokenVersion !== user.tokenVersion) {
+            throw CustomError.unAuthorized("Invalid session. Please login again.");
+        }
+
+        user.tokenVersion += 1;
+        await user.save();
+
         // 3. Generar nuevos tokens (Rotación de Refresh Token)
         const newAccessToken = await JwtAdapter.generateToken(
-            { id: user.id, role },
+            { id: user.id, role, tokenVersion: user.tokenVersion },
             envs.JWT_EXPIRE_IN
         );
 
         const newRefreshToken = await JwtAdapter.generateToken(
-            { id: user.id, role },
+            { id: user.id, role, tokenVersion: user.tokenVersion },
             envs.JWT_REFRESH_EXPIRE_IN
         );
 
         if (!newAccessToken || !newRefreshToken) throw CustomError.internalServer("Error allocating tokens");
 
-        // Actualizar sesión válida en DB para que el middleware acepte el nuevo token
-        user.currentSessionId = newAccessToken as string;
-        await user.save();
+        // Sesión gestionada a través de tokenVersion (ya incrementado y guardado arriba)
 
         // 4. Retornar
         return {

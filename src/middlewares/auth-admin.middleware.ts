@@ -15,8 +15,8 @@ export class AuthAdminMiddleware {
     try {
       const payload = (await JwtAdapterAdmin.validateTokenAdmin(
         tokenadmin
-      )) as { id: string };
-      if (!payload) return res.status(401).json({ message: "Invalid Token" });
+      )) as { id: string; tokenVersion?: number };
+      if (!payload?.id) return res.status(401).json({ message: "Invalid Token" });
 
       const useradmin = await Useradmin.findOne({
         where: { id: payload.id, status: Statusadmin.ACTIVE },
@@ -24,6 +24,13 @@ export class AuthAdminMiddleware {
 
       if (!useradmin)
         return res.status(401).json({ message: "Admin no autorizado" });
+
+      if (
+        payload.tokenVersion !== undefined &&
+        payload.tokenVersion !== useradmin.tokenVersion
+      ) {
+        return res.status(401).json({ message: "Sesión inválida o expirada." });
+      }
 
       (req as any).sessionAdmin = useradmin;
       (req as any).admin = useradmin;

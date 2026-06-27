@@ -53,9 +53,19 @@ __decorate([
     __metadata("design:type", String)
 ], Producto.prototype, "imagen", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: "boolean", default: true }),
+    (0, typeorm_1.Column)({
+        type: "boolean",
+        default: true,
+    }),
     __metadata("design:type", Boolean)
 ], Producto.prototype, "disponible", void 0);
+__decorate([
+    (0, typeorm_1.Column)({
+        type: "int",
+        default: 9999,
+    }),
+    __metadata("design:type", Number)
+], Producto.prototype, "orden", void 0);
 __decorate([
     (0, typeorm_1.Column)({
         type: "enum",

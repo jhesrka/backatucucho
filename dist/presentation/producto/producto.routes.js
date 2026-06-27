@@ -24,6 +24,8 @@ class ProductoRoutes {
         router.patch("/:id", auth_middleware_1.AuthMiddleware.protect, (0, config_1.uploadSingleFile)("imagen"), productoController.updateProducto);
         // Eliminar producto (sólo admin o dueño del negocio)
         router.delete("/:id", auth_middleware_1.AuthMiddleware.protect, productoController.deleteProducto);
+        // Reordenar productos
+        router.put("/reordenar", auth_middleware_1.AuthMiddleware.protect, productoController.reordenarProductos);
         return router;
     }
 }

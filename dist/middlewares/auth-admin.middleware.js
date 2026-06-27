@@ -23,13 +23,17 @@ class AuthAdminMiddleware {
             const tokenadmin = authorization.split(" ").at(1) || "";
             try {
                 const payload = (yield jwt_adapteradmin_1.JwtAdapterAdmin.validateTokenAdmin(tokenadmin));
-                if (!payload)
+                if (!(payload === null || payload === void 0 ? void 0 : payload.id))
                     return res.status(401).json({ message: "Invalid Token" });
                 const useradmin = yield data_1.Useradmin.findOne({
                     where: { id: payload.id, status: data_1.Statusadmin.ACTIVE },
                 });
                 if (!useradmin)
                     return res.status(401).json({ message: "Admin no autorizado" });
+                if (payload.tokenVersion !== undefined &&
+                    payload.tokenVersion !== useradmin.tokenVersion) {
+                    return res.status(401).json({ message: "Sesión inválida o expirada." });
+                }
                 req.sessionAdmin = useradmin;
                 req.admin = useradmin;
                 req.user = useradmin;

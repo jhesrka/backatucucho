@@ -25,8 +25,6 @@ const path_1 = __importDefault(require("path")); // Importa el módulo path
 const helmet_1 = __importDefault(require("helmet"));
 const hpp_1 = __importDefault(require("hpp"));
 const data_1 = require("../data");
-// Caché en memoria para la última ubicación conocida de cada pedido
-const trackingMemoria = new Map();
 class Server {
     constructor(options) {
         this.app = (0, express_1.default)();
@@ -108,24 +106,34 @@ class Server {
                     socket.join(userId);
                 });
                 // --- TRACKING TIEMPO REAL MOTORIZADOS ---
-                socket.on("join_pedido_room", (pedidoId) => {
+                socket.on("join_pedido_room", (pedidoId) => __awaiter(this, void 0, void 0, function* () {
                     socket.join(`pedido_${pedidoId}`);
-                    // Si hay una última ubicación guardada en memoria, enviarla inmediatamente al cliente
-                    if (trackingMemoria.has(pedidoId)) {
-                        socket.emit("ubicacion_actualizada", trackingMemoria.get(pedidoId));
+                    try {
+                        const cachedLocation = config_1.redisClient ? yield config_1.redisClient.get(`tracking_${pedidoId}`) : null;
+                        if (cachedLocation) {
+                            socket.emit("ubicacion_actualizada", JSON.parse(cachedLocation));
+                        }
                     }
-                });
+                    catch (err) {
+                        console.error("Error reading redis tracking cache", err);
+                    }
+                }));
                 socket.on("leave_pedido_room", (pedidoId) => {
                     socket.leave(`pedido_${pedidoId}`);
                     // Opcional: Podríamos borrar de trackingMemoria aquí, pero mejor mantenerla 
                     // por si el cliente cierra y abre la tarjeta rápido.
                 });
-                socket.on("ubicacion_motorizado", (data) => {
-                    // Guardar la última ubicación conocida
-                    trackingMemoria.set(data.pedidoId, data);
+                socket.on("ubicacion_motorizado", (data) => __awaiter(this, void 0, void 0, function* () {
+                    try {
+                        if (config_1.redisClient)
+                            yield config_1.redisClient.setex(`tracking_${data.pedidoId}`, 3600, JSON.stringify(data));
+                    }
+                    catch (err) {
+                        console.error("Error writing redis tracking cache", err);
+                    }
                     // Retransmitir la ubicación a la sala
                     socket.to(`pedido_${data.pedidoId}`).emit("ubicacion_actualizada", data);
-                });
+                }));
                 socket.on("pedir_ubicacion_forzada", (pedidoId) => {
                     // Enviar un ping silencioso a los motorizados en esta sala para que envíen sus coordenadas
                     socket.to(`pedido_${pedidoId}`).emit("forzar_gps");

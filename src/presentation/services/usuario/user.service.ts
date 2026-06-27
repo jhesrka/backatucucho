@@ -201,13 +201,15 @@ export class UserService {
       await notification.save();
     }
 
+    user.tokenVersion += 1;
+
     //generar un jwt
     const token = await JwtAdapter.generateToken(
-      { id: user.id, role: "USER" },
+      { id: user.id, role: "USER", tokenVersion: user.tokenVersion },
       envs.JWT_EXPIRE_IN
     );
     const refreshToken = await JwtAdapter.generateToken(
-      { id: user.id, role: "USER" },
+      { id: user.id, role: "USER", tokenVersion: user.tokenVersion },
       envs.JWT_REFRESH_EXPIRE_IN
     );
 
@@ -218,7 +220,7 @@ export class UserService {
     user.lastLoginIP = currentIp;
     user.lastLoginCountry = country;
     user.lastLoginDate = new Date();
-    user.currentSessionId = token as string; // O un ID único de sesión
+    user.lastLoginDate = new Date();
     await user.save();
 
     // enviar la data
@@ -255,7 +257,7 @@ export class UserService {
     if (!user) throw CustomError.notFound("Usuario no encontrado");
 
     user.isLoggedIn = false;
-    user.currentSessionId = null!;
+    user.tokenVersion += 1;
     await user.save();
 
     return { message: "Sesión cerrada correctamente" };
@@ -318,7 +320,7 @@ export class UserService {
 
       // Init Session
       user.isLoggedIn = true;
-      user.currentSessionId = "init";
+      user.isLoggedIn = true;
       user.lastLoginIP = ip;
       user.lastLoginCountry = country;
       user.lastLoginDate = new Date();
@@ -377,14 +379,14 @@ export class UserService {
       await user.save();
     }
 
+    user.tokenVersion += 1;
+
     // Generar JWT y retornar
-    const jwt = await JwtAdapter.generateToken({ id: user.id, role: "USER" }, envs.JWT_EXPIRE_IN);
-    const refreshToken = await JwtAdapter.generateToken({ id: user.id, role: "USER" }, envs.JWT_REFRESH_EXPIRE_IN);
+    const jwt = await JwtAdapter.generateToken({ id: user.id, role: "USER", tokenVersion: user.tokenVersion }, envs.JWT_EXPIRE_IN);
+    const refreshToken = await JwtAdapter.generateToken({ id: user.id, role: "USER", tokenVersion: user.tokenVersion }, envs.JWT_REFRESH_EXPIRE_IN);
 
     if (!jwt || !refreshToken) throw CustomError.internalServer("Error generando Jwt");
 
-    // Update session ID with real token
-    user.currentSessionId = jwt as string;
     await user.save();
 
     const isProfileComplete = !!(user.whatsapp && user.password && user.acceptedTermsVersion && user.acceptedPrivacyVersion);
@@ -519,13 +521,13 @@ export class UserService {
     // Hash nueva
     user.password = encriptAdapter.hash(dto.newPassword);
 
+    user.tokenVersion += 1;
     // Invalidar sesiones anteriores y generar nueva para ESTA sesión
-    const token = await JwtAdapter.generateToken({ id: user.id, role: "USER" }, envs.JWT_EXPIRE_IN);
-    const refreshToken = await JwtAdapter.generateToken({ id: user.id, role: "USER" }, envs.JWT_REFRESH_EXPIRE_IN);
+    const token = await JwtAdapter.generateToken({ id: user.id, role: "USER", tokenVersion: user.tokenVersion }, envs.JWT_EXPIRE_IN);
+    const refreshToken = await JwtAdapter.generateToken({ id: user.id, role: "USER", tokenVersion: user.tokenVersion }, envs.JWT_REFRESH_EXPIRE_IN);
 
     if (!token || !refreshToken) throw CustomError.internalServer("Error generando tokens");
 
-    user.currentSessionId = token as string;
     await user.save();
 
     return {
@@ -581,8 +583,12 @@ export class UserService {
   async updateUser(
     id: string,
     userData: UpdateUserDTO,
-    file?: Express.Multer.File
+    file?: Express.Multer.File,
+    sessionUser?: any
   ) {
+    if (sessionUser && sessionUser.id !== id && sessionUser.rol !== 'ADMIN') {
+      throw CustomError.unAuthorized("No tienes permisos para actualizar este perfil");
+    }
     const user = await this.findOneUser(id);
     let photoUrl = "";
 
@@ -1203,7 +1209,6 @@ export class UserService {
 
         // Session data
         isLoggedIn: user.isLoggedIn,
-        currentSessionId: user.currentSessionId,
         lastLoginIP: user.lastLoginIP,
         lastLoginDate: user.lastLoginDate,
         postCounts,
@@ -1417,8 +1422,19 @@ export class UserService {
   }
 
   // Eliminar un usuario (marcar como inactivo)
-  async deleteUser(id: string) {
+  async deleteUser(id: string, sessionUser?: any) {
+    if (sessionUser && sessionUser.id !== id && sessionUser.rol !== 'ADMIN') {
+      throw CustomError.unAuthorized("No tienes permisos para eliminar esta cuenta");
+    }
+
     const user = await this.findOneUser(id);
+
+    // Validar saldo de la billetera
+    const wallet = await Wallet.findOne({ where: { user: { id } } });
+    if (wallet && Number(wallet.balance) !== 0) {
+      throw CustomError.badRequest("No puedes eliminar tu cuenta porque tienes fondos o saldos pendientes en tu billetera. Por favor ponte en contacto con soporte.");
+    }
+
     user.status = Status.DELETED; // Cambiar a estado DELETE
     user.deletedAt = new Date(); // Marcar fecha de eliminación
 
@@ -1636,7 +1652,7 @@ export class UserService {
     if (!user) throw CustomError.notFound("Usuario no encontrado");
 
     user.isLoggedIn = false;
-    user.currentSessionId = null as any;
+    user.tokenVersion += 1;
     user.resetTokenVersion = (user.resetTokenVersion || 0) + 1; // Invalidate tokens
 
     await user.save();
@@ -1646,6 +1662,9 @@ export class UserService {
   async sendPasswordResetAdmin(id: string) {
     const user = await User.findOneBy({ id });
     if (!user) throw CustomError.notFound("Usuario no encontrado");
+
+    user.tokenVersion += 1;
+    await user.save();
 
     // Generate secure token (simulated here using JWT or simply a random string stored in DB or specialized table)
     // For this implementation, strictly following the request which asks to send a link.

@@ -8,7 +8,7 @@ export const startPedidoMotoCron = () => {
   let isRunning = false;
 
     cron.schedule("*/3 * * * * *", async () => {
-        await withRedisLock("pedidoMoto", 55, async () => {
+        await withRedisLock("pedidoMoto", 2, async () => {
             if (isRunning) {
                 console.log("⚠️ Cron de asignación omitido: Ejecución anterior en progreso.");
                 return;

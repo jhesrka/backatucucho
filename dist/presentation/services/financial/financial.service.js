@@ -132,6 +132,31 @@ class FinancialService {
                     });
                     total = countSubBiz;
                     break;
+                case 'servicios':
+                    const [serviciosTx, countServicios] = yield data_1.Transaction.findAndCount({
+                        where: {
+                            reason: data_1.TransactionReason.SERVICE_SUBSCRIPTION,
+                            created_at: (0, typeorm_1.Between)(start, end)
+                        },
+                        relations: ["wallet", "wallet.user"],
+                        order: { created_at: "DESC" },
+                        take: limit,
+                        skip: skip
+                    });
+                    data = serviciosTx.map(t => {
+                        var _a, _b;
+                        return {
+                            id: t.id,
+                            email: ((_b = (_a = t.wallet) === null || _a === void 0 ? void 0 : _a.user) === null || _b === void 0 ? void 0 : _b.email) || 'N/A',
+                            amount: Math.abs(Number(t.amount)),
+                            date: t.created_at,
+                            previousBalance: Number(t.previousBalance || 0),
+                            resultingBalance: Number(t.resultingBalance || 0),
+                            concept: t.observation || 'Publicación de Servicio'
+                        };
+                    });
+                    total = countServicios;
+                    break;
                 case 'historias':
                     const [storiesTx, countStories] = yield data_1.Transaction.findAndCount({
                         where: {
@@ -369,6 +394,13 @@ class FinancialService {
                 .andWhere("t.created_at BETWEEN :start AND :end", { start: start, end: end })
                 .getRawOne();
             const totalStories = Math.abs(Number(storiesIncome.total || 0));
+            // C.5 Publicaciones de Servicios
+            const serviciosIncome = yield data_1.Transaction.createQueryBuilder("t")
+                .select("SUM(t.amount)", "total")
+                .where("t.reason = :reason", { reason: data_1.TransactionReason.SERVICE_SUBSCRIPTION })
+                .andWhere("t.created_at BETWEEN :start AND :end", { start: start, end: end })
+                .getRawOne();
+            const totalServicios = Math.abs(Number(serviciosIncome.total || 0));
             // D. Orders (Commissions)
             // We look at ENTREGADO and CANCELADO orders in the period
             const orders = yield data_1.Pedido.find({
@@ -431,7 +463,7 @@ class FinancialService {
                     }
                 }
             }
-            const totalIngresosApp = totalSubsUser + totalSubsBiz + totalStories + totalComisionProductos + totalComisionDomicilios;
+            const totalIngresosApp = totalSubsUser + totalSubsBiz + totalStories + totalServicios + totalComisionProductos + totalComisionDomicilios;
             // 3. PASIVOS (DEUDAS) - HISTORICAL VS LIVE LOGIC
             let totalSaldoUsuarios = 0;
             let totalPorPagarMotorizados = 0;
@@ -468,12 +500,13 @@ class FinancialService {
                 },
                 appRevenue: {
                     total: totalIngresosApp + totalRecargasManuales,
-                    directos: totalSubsUser + totalSubsBiz + totalStories,
+                    directos: totalSubsUser + totalSubsBiz + totalStories + totalServicios,
                     comisiones: totalComisionProductos + totalComisionDomicilios,
                     breakdown: {
                         suscripciones: totalSubsUser,
                         suscripcionesNegocios: totalSubsBiz,
                         historias: totalStories,
+                        servicios: totalServicios,
                         comisionProductos: totalComisionProductos,
                         comisionDomicilio: totalComisionDomicilios,
                         recargasManuales: totalRecargasManuales
@@ -497,8 +530,8 @@ class FinancialService {
             };
         });
     }
-    getUnifiedTransactions(date, types, statuses) {
-        return __awaiter(this, void 0, void 0, function* () {
+    getUnifiedTransactions(date_1, types_1, statuses_1) {
+        return __awaiter(this, arguments, void 0, function* (date, types, statuses, page = 1, limit = 100) {
             const { start, end } = date_utils_1.DateUtils.getDayRange(date);
             // 1. Fetch Manual Transactions (The Ledger)
             const manualTxQuery = data_1.Transaction.createQueryBuilder("t")
@@ -637,7 +670,19 @@ class FinancialService {
                 };
             })));
             // Combine and Sort
-            return [...formattedRequests, ...formattedManual].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            const combined = [...formattedRequests, ...formattedManual].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            // Paginate
+            const skip = (page - 1) * limit;
+            const paginated = combined.slice(skip, skip + limit);
+            return {
+                data: paginated,
+                pagination: {
+                    page,
+                    limit,
+                    total: combined.length,
+                    totalPages: Math.ceil(combined.length / limit)
+                }
+            };
         });
     }
     // ===================================
