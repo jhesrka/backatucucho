@@ -44,6 +44,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.NegocioService = void 0;
 const data_1 = require("../../data");
+const NotificationService_1 = require("./NotificationService");
 const domain_1 = require("../../domain");
 const config_1 = require("../../config");
 const upload_files_cloud_adapter_1 = require("../../config/upload-files-cloud-adapter");
@@ -145,7 +146,7 @@ class NegocioService {
                     bucketName: config_1.envs.AWS_BUCKET_NAME,
                     key: saved.imagenNegocio,
                 });
-                return {
+                const result = {
                     id: saved.id,
                     nombre: saved.nombre,
                     descripcion: saved.descripcion,
@@ -180,6 +181,18 @@ class NegocioService {
                     },
                     usuario: { id: usuario.id },
                 };
+                // 🔔 Notificación a todos los admins
+                try {
+                    const admins = yield data_1.User.find({ where: { rol: data_1.UserRole.ADMIN } });
+                    const notificationService = new NotificationService_1.NotificationService();
+                    for (const admin of admins) {
+                        yield notificationService.sendPushNotification(admin.id, "🏢 Nuevo Negocio", `Se ha registrado el negocio "${saved.nombre}". Entra al panel para revisarlo.`, { url: "/admin" });
+                    }
+                }
+                catch (error) {
+                    console.error("Error enviando notificaciones push a admins:", error);
+                }
+                return result;
             }
             catch (_d) {
                 throw domain_1.CustomError.internalServer("No se pudo crear el negocio");
@@ -198,6 +211,7 @@ class NegocioService {
             const negocios = yield data_1.Negocio.createQueryBuilder("negocio")
                 .leftJoinAndSelect("negocio.categoria", "categoria")
                 .leftJoinAndSelect("negocio.subcategoria", "subcategoria")
+                .innerJoin("negocio.usuario", "usuario", "usuario.status = :userStatus", { userStatus: data_1.Status.ACTIVE })
                 .where("negocio.categoriaId = :categoriaId", { categoriaId })
                 .andWhere("negocio.statusNegocio = :status", { status: data_1.StatusNegocio.ACTIVO })
                 .andWhere("negocio.estadoNegocio = :estado", { estado: data_1.EstadoNegocio.ABIERTO })
@@ -301,6 +315,8 @@ class NegocioService {
                     statusNegocio: status,
                 };
             }
+            // Para asegurar que los dueños de negocios eliminados NO aparezcan
+            whereCondition.usuario = { status: data_1.Status.ACTIVE };
             const negocios = yield data_1.Negocio.find({
                 where: whereCondition,
                 relations: ["categoria", "usuario"],
@@ -646,6 +662,15 @@ class NegocioService {
             const negocio = yield data_1.Negocio.findOneBy({ id });
             if (!negocio)
                 throw domain_1.CustomError.notFound("Negocio no encontrado");
+            // Validar si tiene pedidos o historial financiero
+            const hasPedidos = yield data_1.Pedido.count({ where: { negocio: { id } } });
+            if (hasPedidos > 0) {
+                throw domain_1.CustomError.badRequest("No se puede eliminar: El negocio tiene historial de pedidos. Por favor, cambie su estado a CERRADO o SUSPENDIDO.");
+            }
+            const hasBalances = yield data_1.BalanceNegocio.count({ where: { negocio: { id } } });
+            if (hasBalances > 0) {
+                throw domain_1.CustomError.badRequest("No se puede eliminar: El negocio tiene historial financiero. Por favor, cambie su estado a CERRADO o SUSPENDIDO.");
+            }
             if (negocio.imagenNegocio && negocio.imagenNegocio !== DEFAULT_IMG_KEY) {
                 yield upload_files_cloud_adapter_1.UploadFilesCloud.deleteFile({
                     bucketName: config_1.envs.AWS_BUCKET_NAME,

@@ -116,8 +116,9 @@ class NegocioAdminController {
         // ========================= DELETE =========================
         this.deleteNegocioAdmin = (req, res) => __awaiter(this, void 0, void 0, function* () {
             const { id } = req.params;
+            const { masterPin } = req.body;
             try {
-                const result = yield this.negocioAdminService.deleteNegocioAdmin(id);
+                const result = yield this.negocioAdminService.deleteNegocioAdmin(id, masterPin);
                 return res.status(200).json(result);
             }
             catch (error) {
@@ -157,8 +158,9 @@ class NegocioAdminController {
         });
         this.purgeNegocioAdmin = (req, res) => __awaiter(this, void 0, void 0, function* () {
             const { id } = req.params;
+            const { masterPin } = req.body;
             try {
-                const result = yield this.negocioAdminService.purgeNegocioAdmin(id);
+                const result = yield this.negocioAdminService.purgeNegocioAdmin(id, masterPin);
                 return res.status(200).json(result);
             }
             catch (error) {

@@ -39,6 +39,7 @@ const routes_4 = require("./notifications/routes");
 const meritocracy_routes_1 = require("./meritocracy/meritocracy.routes");
 const training_routes_1 = require("./training/training.routes");
 const routes_5 = require("./serviciosUsuario/routes");
+const routes_6 = require("./age-verification-questions/routes");
 class AppRoutes {
     //cuando hay metodoos estaticos no necesitams instanciar
     static get routes() {
@@ -102,6 +103,7 @@ class AppRoutes {
         router.use("/api/notifications", routes_4.NotificationRoutes.routes);
         router.use("/api/meritocracy", meritocracy_routes_1.MeritocracyRoutes.routes);
         router.use("/api/training", training_routes_1.TrainingRoutes.routes);
+        router.use("/api/age-verification-questions", routes_6.AgeVerificationQuestionRoutes.routes);
         // 👷‍♂️ NUEVA RUTA: Servicios de Usuario
         router.use("/api/servicios-usuario", routes_5.ServiciosUsuarioRoutes.routes);
         return router;

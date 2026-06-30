@@ -166,6 +166,14 @@ __decorate([
     __metadata("design:type", Boolean)
 ], Pedido.prototype, "isPeakHourSurchargeApplied", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: "boolean", default: false }),
+    __metadata("design:type", Boolean)
+], Pedido.prototype, "requiresAgeVerification", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "jsonb", nullable: true }),
+    __metadata("design:type", Object)
+], Pedido.prototype, "ageVerificationLog", void 0);
+__decorate([
     (0, typeorm_1.Column)("decimal", { precision: 10, scale: 2, default: 0 }),
     __metadata("design:type", Number)
 ], Pedido.prototype, "peakHourSurchargeAmount", void 0);

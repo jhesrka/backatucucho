@@ -125,7 +125,7 @@ __decorate([
     __metadata("design:type", Number)
 ], User.prototype, "resetTokenVersion", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ default: 0 }),
+    (0, typeorm_1.Column)("int", { default: 0 }),
     __metadata("design:type", Number)
 ], User.prototype, "tokenVersion", void 0);
 __decorate([

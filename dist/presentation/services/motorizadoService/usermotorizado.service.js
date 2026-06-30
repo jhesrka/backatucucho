@@ -19,6 +19,7 @@ const config_1 = require("../../../config");
 const upload_files_cloud_adapter_1 = require("../../../config/upload-files-cloud-adapter");
 const uuid_adapter_1 = require("../../../config/uuid.adapter");
 const socket_1 = require("../../../config/socket");
+const NotificationService_1 = require("../NotificationService");
 const pedidoMoto_service_1 = require("../pedidosServices/pedidoMoto.service");
 const meritocracy_service_1 = require("../pedidosServices/meritocracy.service");
 const typeorm_1 = require("typeorm");
@@ -188,13 +189,24 @@ class UserMotorizadoService {
             if (!validPassword) {
                 throw domain_1.CustomError.unAuthorized("Cédula o contraseña incorrectas");
             }
+            // Multi-device login security: Emit push notification and force logout to old devices
+            const notificationService = new NotificationService_1.NotificationService();
+            yield notificationService.sendPushNotification(usermotorizado.id, "🚨 Alerta de Seguridad", "Se ha detectado un nuevo inicio de sesión en tu cuenta desde otro dispositivo. Si no fuiste tú, cambia tu contraseña inmediatamente.", { type: "security_logout" });
+            (0, socket_1.getIO)().emit("forceLogout", {
+                userId: usermotorizado.id,
+                message: "Sesión iniciada en otro dispositivo."
+            });
+            usermotorizado.tokenVersion += 1;
+            yield usermotorizado.save();
             const tokenmotorizado = yield config_1.JwtAdapterMotorizado.generateTokenMotorizado({
                 id: usermotorizado.id,
-                role: "MOTORIZADO"
+                role: "MOTORIZADO",
+                tokenVersion: usermotorizado.tokenVersion
             }, config_1.envs.JWT_EXPIRE_IN);
             const refreshToken = yield config_1.JwtAdapterMotorizado.generateTokenMotorizado({
                 id: usermotorizado.id,
-                role: "MOTORIZADO"
+                role: "MOTORIZADO",
+                tokenVersion: usermotorizado.tokenVersion
             }, config_1.envs.JWT_REFRESH_EXPIRE_IN);
             if (!tokenmotorizado || !refreshToken) {
                 throw domain_1.CustomError.internalServer("Error generando Jwt");

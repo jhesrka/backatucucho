@@ -52,9 +52,11 @@ const MeritocracyCycleLog_1 = require("./models/MeritocracyCycleLog");
 const TrainingVideo_1 = require("./models/TrainingVideo");
 const TrainingCategory_1 = require("./models/TrainingCategory");
 const meritocracy_service_1 = require("../../presentation/services/pedidosServices/meritocracy.service");
+const categoria_service_1 = require("../../presentation/services/categoria.service");
 const CategoriaServicio_1 = require("./models/CategoriaServicio");
 const SubcategoriaServicio_1 = require("./models/SubcategoriaServicio");
 const Servicio_1 = require("./models/Servicio");
+const AgeVerificationQuestion_1 = require("./models/AgeVerificationQuestion");
 class PostgresDatabase {
     constructor(options) {
         this.datasource = new typeorm_1.DataSource({
@@ -107,7 +109,8 @@ class PostgresDatabase {
                 TrainingCategory_1.TrainingCategory,
                 CategoriaServicio_1.CategoriaServicio,
                 SubcategoriaServicio_1.SubcategoriaServicio,
-                Servicio_1.Servicio
+                Servicio_1.Servicio,
+                AgeVerificationQuestion_1.AgeVerificationQuestion
             ],
             synchronize: false, // PRODUCCIÓN: SIEMPRE FALSE. Usar migraciones.
             ssl: {
@@ -480,6 +483,9 @@ class PostgresDatabase {
                 // 2. Inicializar Meritocracia
                 const meritocracy = new meritocracy_service_1.MeritocracyService();
                 yield meritocracy.ensureDefaultTiers();
+                // 3. Inicializar Categorías de Negocio Base (Licorerías y Preguntas)
+                const categoriaService = new categoria_service_1.CategoriaService();
+                yield categoriaService.seedBusinessCategories().catch(e => console.error("Error en seed de categorías:", e));
                 console.log("✅ Safety check completed. All manual migrations are synced.");
             }
             catch (error) {

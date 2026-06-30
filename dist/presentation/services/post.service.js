@@ -52,6 +52,7 @@ const data_1 = require("../../data");
 const domain_1 = require("../../domain");
 const uuid_1 = require("uuid");
 const content_moderation_1 = require("../../config/content-moderation");
+const user_model_1 = require("../../data/postgres/models/user.model");
 const PostReport_1 = require("../../data/postgres/models/PostReport");
 const date_utils_1 = require("../../utils/date-utils");
 class PostService {
@@ -69,7 +70,7 @@ class PostService {
                 const now = new Date();
                 // 1. Consulta base con condiciones de expiración
                 const query = data_1.Post.createQueryBuilder("post")
-                    .leftJoinAndSelect("post.user", "user")
+                    .innerJoinAndSelect("post.user", "user", "user.status = :userStatus", { userStatus: user_model_1.Status.ACTIVE })
                     .where("post.statusPost = :status", { status: data_1.StatusPost.PUBLISHED })
                     .andWhere("(post.isPaid = true OR (post.expiresAt IS NULL OR post.expiresAt > :now))", { now })
                     .orderBy("post.createdAt", "DESC")

@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ProductoService = void 0;
 const typeorm_1 = require("typeorm");
 const data_1 = require("../../data");
+const NotificationService_1 = require("./NotificationService");
 const domain_1 = require("../../domain");
 const upload_files_cloud_adapter_1 = require("../../config/upload-files-cloud-adapter");
 const config_1 = require("../../config");
@@ -72,7 +73,7 @@ class ProductoService {
             });
             try {
                 const saved = yield producto.save();
-                return {
+                const result = {
                     id: saved.id,
                     nombre: saved.nombre,
                     descripcion: saved.descripcion,
@@ -89,6 +90,18 @@ class ProductoService {
                     },
                     tipoProducto: saved.tipoProducto,
                 };
+                // 🔔 Notificación a todos los admins
+                try {
+                    const admins = yield data_1.User.find({ where: { rol: data_1.UserRole.ADMIN } });
+                    const notificationService = new NotificationService_1.NotificationService();
+                    for (const admin of admins) {
+                        yield notificationService.sendPushNotification(admin.id, "🍔 Nuevo Producto", `El negocio "${negocio.nombre}" ha añadido el producto "${saved.nombre}". Entra al panel para revisarlo.`, { url: "/admin/negocios" });
+                    }
+                }
+                catch (error) {
+                    console.error("Error enviando notificaciones push a admins:", error);
+                }
+                return result;
             }
             catch (error) {
                 if (typeof error === "object" && error !== null && "code" in error) {
@@ -231,7 +244,7 @@ class ProductoService {
         return __awaiter(this, void 0, void 0, function* () {
             const negocio = yield data_1.Negocio.findOne({
                 where: { id: negocioId },
-                relations: ["usuario"], // relación con el User
+                relations: ["usuario", "subcategoria"], // relación con el User y subcategoría para verificar restricción de edad
             });
             if (!negocio) {
                 throw domain_1.CustomError.notFound("Negocio no encontrado");
@@ -305,6 +318,7 @@ class ProductoService {
                     permiteProductosProgramados: negocio.permiteProductosProgramados,
                     tiempoProgramadoMin: negocio.tiempoProgramadoMin,
                     tiempoProgramadoMax: negocio.tiempoProgramadoMax,
+                    subcategoria: negocio.subcategoria,
                 },
                 usuario: {
                     id: negocio.usuario.id,

@@ -44,6 +44,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UseradminService = void 0;
 const config_1 = require("../../../config");
+const socket_1 = require("../../../config/socket");
 const data_1 = require("../../../data");
 const geoip = __importStar(require("geoip-lite"));
 const domain_1 = require("../../../domain");
@@ -168,6 +169,11 @@ class UseradminService {
                 subject: "Atucucho Shop - Nuevo inicio de sesión (Admin)",
                 htmlBody: htmlEmail
             }).catch(err => console.error("Error enviando alerta de login admin:", err));
+            // Emitir evento por WebSockets para cerrar sesión en tiempo real de cualquier otra instancia web
+            (0, socket_1.getIO)().emit("forceLogout", {
+                userId: useradmin.id,
+                message: "Sesión iniciada en otro dispositivo."
+            });
             useradmin.tokenVersion += 1;
             yield useradmin.save();
             //generar un jwt

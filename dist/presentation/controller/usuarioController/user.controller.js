@@ -98,7 +98,7 @@ class UserController {
             if (error)
                 return res.status(422).json({ message: error });
             try {
-                const updatedUser = yield this.userService.updateUser(id, updateUserDto, req.file);
+                const updatedUser = yield this.userService.updateUser(id, updateUserDto, req.file, req.body.sessionUser);
                 return res.status(200).json(updatedUser);
             }
             catch (error) {
@@ -123,7 +123,7 @@ class UserController {
         this.deleteUser = (req, res) => {
             const { id } = req.params;
             this.userService
-                .deleteUser(id)
+                .deleteUser(id, req.body.sessionUser)
                 .then(() => res.status(204).json(null))
                 .catch((error) => this.handleError(error, res));
         };

@@ -78,6 +78,8 @@ class PedidoUsuarioService {
             });
             if (!pedido)
                 throw domain_1.CustomError.notFound("Pedido no encontrado");
+            if (pedido.estadoPago === "PAGADO")
+                return { success: true, message: "Pedido ya procesado concurrentemente" };
             if (!pedido.negocio.payphone_token)
                 throw domain_1.CustomError.badRequest("Negocio sin token Payphone");
             const result = yield payphone_service_1.PayphoneService.confirmPayment(id, clientTxId, pedido.negocio.payphone_token);
@@ -86,11 +88,31 @@ class PedidoUsuarioService {
                 result.transactionStatus === "approved" ||
                 result.status === "approved" ||
                 Number(result.statusCode) === 3)) {
+                // 🛡️ Validar monto
+                const amountPaid = Number(result.amount);
+                const expectedAmount = Math.round(pedido.total * 100);
+                if (amountPaid !== expectedAmount) {
+                    console.error(`❌ [Payphone Service] ALERTA DE FRAUDE: Monto pagado (${amountPaid}) no coincide con el total esperado (${expectedAmount}) para el pedido ${pedido.id}`);
+                    throw domain_1.CustomError.badRequest("Monto incorrecto. Operación rechazada por seguridad");
+                }
+                // 🚀 Actualización atómica para evitar carrera de notificaciones
+                const updateResult = yield data_1.Pedido.createQueryBuilder()
+                    .update(data_1.Pedido)
+                    .set({
+                    estado: data_1.EstadoPedido.PENDIENTE,
+                    estadoPago: "PAGADO",
+                    referenciaPago: id.toString()
+                })
+                    .where("id = :id AND estadoPago != 'PAGADO'", { id: pedido.id })
+                    .execute();
+                if (updateResult.affected === 0) {
+                    console.warn(`⚠️ [Payphone Service] Carrera detectada: El pedido ${pedido.id} ya fue procesado.`);
+                    return { success: true, message: "Pedido ya procesado concurrentemente" };
+                }
+                // Actualizar variables locales para que los sockets envíen la data correcta
                 pedido.estado = data_1.EstadoPedido.PENDIENTE;
                 pedido.estadoPago = "PAGADO";
                 pedido.referenciaPago = id.toString();
-                yield pedido.save();
-                yield pedido.save();
                 (0, socket_1.getIO)().to(pedido.negocio.id).emit("nuevo_pedido", {
                     id: pedido.id, estado: pedido.estado, total: pedido.total, productos: pedido.productos,
                     cliente: { id: pedido.cliente.id, name: pedido.cliente.name, surname: pedido.cliente.surname },
@@ -114,9 +136,13 @@ class PedidoUsuarioService {
     }
     crearPedido(dto) {
         return __awaiter(this, void 0, void 0, function* () {
+            var _a;
             const { clienteId, negocioId, productos, ubicacionCliente, metodoPago, comprobantePagoUrl } = dto;
             const cliente = yield data_1.User.findOneBy({ id: clienteId });
-            const negocio = yield data_1.Negocio.findOneBy({ id: negocioId });
+            const negocio = yield data_1.Negocio.findOne({
+                where: { id: negocioId },
+                relations: ["subcategoria"]
+            });
             if (!cliente || !negocio)
                 throw domain_1.CustomError.notFound("No encontrado");
             const config = yield data_1.PriceSettings.findOne({ where: {} });
@@ -181,6 +207,7 @@ class PedidoUsuarioService {
             pedido.metodoPago = metodoPago;
             pedido.comprobantePagoUrl = comprobantePagoUrl || null;
             pedido.productos = items;
+            pedido.requiresAgeVerification = ((_a = negocio.subcategoria) === null || _a === void 0 ? void 0 : _a.isAgeRestricted) || false;
             // ... audit fields
             pedido.ganancia_app_producto = comAppProd;
             pedido.totalNegocio = totalApp;
@@ -235,6 +262,7 @@ class PedidoUsuarioService {
                 "pedido.tiempoPreparacionElegido", "pedido.latCliente", "pedido.lngCliente", "pedido.metodoPago", "pedido.comprobantePagoUrl",
                 "pedido.delivery_code", "pedido.arrival_time", "pedido.pickup_code", "pedido.motivoCancelacion", "pedido.ratingNegocio", "pedido.ratingMotorizado",
                 "pedido.isPeakHourSurchargeApplied", "pedido.peakHourSurchargeAmount", "pedido.peakHourSurchargeMoto", "pedido.peakHourSurchargeApp", "pedido.notaGeneral",
+                "pedido.requiresAgeVerification", "pedido.ageVerificationLog",
                 "negocio.id", "negocio.nombre", "negocio.latitud", "negocio.longitud", "negocio.tiempoPreparacionMax",
                 "productos.id", "productos.cantidad", "productos.subtotal", "productos.precio_venta", "productos.producto_nombre", "productos.producto_imagen",
                 "producto.id", "producto.nombre", "producto.tipoProducto",

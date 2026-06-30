@@ -46,3 +46,4 @@ __exportStar(require("./TrainingCategory"), exports);
 __exportStar(require("./CategoriaServicio"), exports);
 __exportStar(require("./SubcategoriaServicio"), exports);
 __exportStar(require("./Servicio"), exports);
+__exportStar(require("./AgeVerificationQuestion"), exports);

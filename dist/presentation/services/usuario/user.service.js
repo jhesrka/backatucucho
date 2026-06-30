@@ -52,6 +52,7 @@ const geoip = __importStar(require("geoip-lite"));
 const socket_1 = require("../../../config/socket"); // Para emitir eventos a través de socket.io
 const config_1 = require("../../../config");
 const uuid_adapter_1 = require("../../../config/uuid.adapter");
+const NotificationService_1 = require("../NotificationService");
 const upload_files_cloud_adapter_1 = require("../../../config/upload-files-cloud-adapter");
 const json2csv_1 = require("json2csv");
 const free_post_tracker_service_1 = require("../postService/free-post-tracker.service");
@@ -228,8 +229,7 @@ class UserService {
                 yield notification.save();
             }
             // 2️⃣ CONTROL DE SESIÓN ÚNICA
-            // 2️⃣ CONTROL DE SESIÓN ÚNICA
-            // Simplemente notificamos si ya estaba logueado, pero PERMITIMOS el login (invalidando el anterior por sobrescritura de sessionId)
+            // Simplemente notificamos si ya estaba logueado, pero PERMITIMOS el login (invalidando el anterior por sobrescritura de sessionId/tokenVersion)
             if (user.isLoggedIn) {
                 const notification = new AdminNotification_1.AdminNotification();
                 notification.message = `Nuevo inicio de sesión desde ${currentIp} para ${user.email}. Sesión anterior invalidada.`;
@@ -238,6 +238,14 @@ class UserService {
                 notification.ip = currentIp;
                 notification.country = country;
                 yield notification.save();
+                // Enviar notificación Push a los dispositivos antiguos
+                const notificationService = new NotificationService_1.NotificationService();
+                yield notificationService.sendPushNotification(user.id, "🚨 Alerta de Seguridad", "Se ha detectado un nuevo inicio de sesión en tu cuenta desde otro dispositivo. Si no fuiste tú, cambia tu contraseña inmediatamente.", { type: "security_logout" });
+                // Emitir evento por WebSockets para cerrar sesión en tiempo real
+                (0, socket_1.getIO)().emit("forceLogout", {
+                    userId: user.id,
+                    message: "Sesión iniciada en otro dispositivo."
+                });
             }
             user.tokenVersion += 1;
             //generar un jwt
@@ -569,8 +577,11 @@ class UserService {
         });
     }
     // ACTUALIZA EL USUARIO LOGEADO NOMBRE APELLIDO CUMPLEAÑOS
-    updateUser(id, userData, file) {
+    updateUser(id, userData, file, sessionUser) {
         return __awaiter(this, void 0, void 0, function* () {
+            if (sessionUser && sessionUser.id !== id && sessionUser.rol !== 'ADMIN') {
+                throw domain_1.CustomError.unAuthorized("No tienes permisos para actualizar este perfil");
+            }
             const user = yield this.findOneUser(id);
             let photoUrl = "";
             if (userData.name)
@@ -788,7 +799,8 @@ class UserService {
     findOneUser(userId) {
         return __awaiter(this, void 0, void 0, function* () {
             const result = yield data_1.User.findOne({
-                where: { id: userId, status: data_1.Status.ACTIVE },
+                where: { id: userId },
+                withDeleted: true,
             });
             if (!result)
                 throw domain_1.CustomError.notFound("Usuario no encontrado");
@@ -992,6 +1004,7 @@ class UserService {
                 const user = yield data_1.User.findOne({
                     where: { id: userId },
                     relations: ["posts", "stories", "negocios", "negocios.productos"],
+                    withDeleted: true,
                 });
                 if (!user)
                     throw domain_1.CustomError.notFound("Usuario no encontrado");
@@ -1100,7 +1113,10 @@ class UserService {
     // 5. Actualizar usuario desde admin (con foto opcional)
     updateUserFromAdmin(userId, dto, file) {
         return __awaiter(this, void 0, void 0, function* () {
-            const user = yield data_1.User.findOne({ where: { id: userId } });
+            const user = yield data_1.User.findOne({
+                where: { id: userId },
+                withDeleted: true
+            });
             if (!user)
                 throw domain_1.CustomError.notFound("Usuario no encontrado");
             if (dto.name)
@@ -1155,7 +1171,10 @@ class UserService {
             if (!(0, uuid_1.validate)(userId)) {
                 throw domain_1.CustomError.badRequest("ID inválido");
             }
-            const user = yield data_1.User.findOne({ where: { id: userId } });
+            const user = yield data_1.User.findOne({
+                where: { id: userId },
+                withDeleted: true
+            });
             if (!user)
                 throw domain_1.CustomError.notFound("Usuario no encontrado");
             const oldStatus = user.status;
@@ -1279,9 +1298,63 @@ class UserService {
         });
     }
     // Eliminar un usuario (marcar como inactivo)
-    deleteUser(id) {
+    deleteUser(id, sessionUser) {
         return __awaiter(this, void 0, void 0, function* () {
+            if (sessionUser && sessionUser.id !== id && sessionUser.rol !== 'ADMIN') {
+                throw domain_1.CustomError.unAuthorized("No tienes permisos para eliminar esta cuenta");
+            }
             const user = yield this.findOneUser(id);
+            // Validar saldo de la billetera
+            const wallet = yield data_1.Wallet.findOne({ where: { user: { id } } });
+            if (wallet && Number(wallet.balance) !== 0) {
+                throw domain_1.CustomError.badRequest("No puedes eliminar tu cuenta porque tienes fondos o saldos pendientes en tu billetera. Por favor ponte en contacto con soporte.");
+            }
+            // 1. Bloqueo Financiero: Validar pedidos activos como COMPRADOR
+            const activeBuyerOrders = yield data_1.Pedido.count({
+                where: [
+                    { cliente: { id }, estado: data_1.EstadoPedido.PENDIENTE },
+                    { cliente: { id }, estado: data_1.EstadoPedido.ACEPTADO },
+                    { cliente: { id }, estado: data_1.EstadoPedido.PREPARANDO },
+                    { cliente: { id }, estado: data_1.EstadoPedido.PREPARANDO_ASIGNADO },
+                    { cliente: { id }, estado: data_1.EstadoPedido.PREPARANDO_NO_ASIGNADO },
+                    { cliente: { id }, estado: data_1.EstadoPedido.EN_CAMINO },
+                    { cliente: { id }, estado: data_1.EstadoPedido.PENDIENTE_PAGO },
+                    { cliente: { id }, estado: data_1.EstadoPedido.RETORNO_PENDIENTE }
+                ]
+            });
+            if (activeBuyerOrders > 0) {
+                throw domain_1.CustomError.badRequest("No puedes eliminar tu cuenta porque tienes pedidos en curso como cliente. Debes recibirlos o cancelarlos primero.");
+            }
+            // 2. Bloqueo Financiero: Validar pedidos activos como VENDEDOR (Dueño de negocio)
+            const negociosPropios = yield data_1.Negocio.find({ where: { usuario: { id } } });
+            if (negociosPropios.length > 0) {
+                const negocioIds = negociosPropios.map(n => n.id);
+                // Buscar si algún negocio tiene pedidos activos (que no sean ENTREGADO, CANCELADO, DEVUELTO_A_LOCAL)
+                let hasActiveSellerOrders = false;
+                for (const negocioId of negocioIds) {
+                    const activeOrders = yield data_1.Pedido.count({
+                        where: [
+                            { negocio: { id: negocioId }, estado: data_1.EstadoPedido.PENDIENTE },
+                            { negocio: { id: negocioId }, estado: data_1.EstadoPedido.ACEPTADO },
+                            { negocio: { id: negocioId }, estado: data_1.EstadoPedido.PREPARANDO },
+                            { negocio: { id: negocioId }, estado: data_1.EstadoPedido.PREPARANDO_ASIGNADO },
+                            { negocio: { id: negocioId }, estado: data_1.EstadoPedido.PREPARANDO_NO_ASIGNADO },
+                            { negocio: { id: negocioId }, estado: data_1.EstadoPedido.EN_CAMINO },
+                            { negocio: { id: negocioId }, estado: data_1.EstadoPedido.PENDIENTE_PAGO },
+                            { negocio: { id: negocioId }, estado: data_1.EstadoPedido.RETORNO_PENDIENTE }
+                        ]
+                    });
+                    if (activeOrders > 0) {
+                        hasActiveSellerOrders = true;
+                        break;
+                    }
+                }
+                if (hasActiveSellerOrders) {
+                    throw domain_1.CustomError.badRequest("No puedes eliminar tu cuenta porque tienes negocios con pedidos pendientes de despachar. Atiéndelos o cancélalos primero.");
+                }
+            }
+            // 3. Fase 2: Borrar PushTokens para dejar de notificarle
+            yield data_1.PushToken.delete({ user: { id } });
             user.status = data_1.Status.DELETED; // Cambiar a estado DELETE
             user.deletedAt = new Date(); // Marcar fecha de eliminación
             try {
@@ -1431,7 +1504,10 @@ class UserService {
     // ==========================================
     updateUserAdmin(id, data) {
         return __awaiter(this, void 0, void 0, function* () {
-            const user = yield data_1.User.findOneBy({ id });
+            const user = yield data_1.User.findOne({
+                where: { id },
+                withDeleted: true
+            });
             if (!user)
                 throw domain_1.CustomError.notFound("Usuario no encontrado");
             if (data.email)

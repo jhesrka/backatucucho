@@ -42,6 +42,13 @@ class CategoriaController {
                 .then((categorias) => res.status(200).json(categorias))
                 .catch((error) => this.handleError(error, res));
         };
+        // Seed de Categorías de Negocio
+        this.seedBusinessCategories = (_req, res) => {
+            this.categoriaService
+                .seedBusinessCategories()
+                .then((result) => res.status(200).json(result))
+                .catch((error) => this.handleError(error, res));
+        };
         // Obtener todas las categorías (USUARIO PUBLICO) - Filtradas por ACTIVO
         this.getAllCategoriasUser = (_req, res) => {
             this.categoriaService

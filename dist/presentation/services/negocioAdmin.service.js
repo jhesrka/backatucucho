@@ -450,11 +450,30 @@ class NegocioAdminService {
         });
     }
     // ========================= DELETE =========================
-    deleteNegocioAdmin(id) {
+    deleteNegocioAdmin(id, masterPin) {
         return __awaiter(this, void 0, void 0, function* () {
+            if (!masterPin)
+                throw domain_1.CustomError.unAuthorized("PIN maestro es requerido para eliminar un negocio");
+            const settings = yield data_1.GlobalSettings.findOne({ where: {} });
+            if (!settings || !settings.masterPin) {
+                throw domain_1.CustomError.internalServer("PIN maestro no configurado en el sistema");
+            }
+            const isPinValid = bcrypt_adapter_1.encriptAdapter.compare(masterPin, settings.masterPin);
+            if (!isPinValid) {
+                throw domain_1.CustomError.unAuthorized("PIN maestro incorrecto");
+            }
             const negocio = yield data_1.Negocio.findOneBy({ id });
             if (!negocio)
                 throw domain_1.CustomError.notFound("Negocio no encontrado");
+            // Validar si tiene pedidos o historial financiero
+            const hasPedidos = yield data_1.Pedido.count({ where: { negocio: { id } } });
+            if (hasPedidos > 0) {
+                throw domain_1.CustomError.badRequest("No se puede eliminar: El negocio tiene historial de pedidos. Por favor, cambie su estado a CERRADO o SUSPENDIDO.");
+            }
+            const hasBalances = yield data_1.BalanceNegocio.count({ where: { negocio: { id } } });
+            if (hasBalances > 0) {
+                throw domain_1.CustomError.badRequest("No se puede eliminar: El negocio tiene historial financiero. Por favor, cambie su estado a CERRADO o SUSPENDIDO.");
+            }
             if (negocio.imagenNegocio &&
                 negocio.imagenNegocio !== "ImgStore/imagenrota.jpg") {
                 yield upload_files_cloud_adapter_1.UploadFilesCloud.deleteFile({
@@ -567,9 +586,9 @@ class NegocioAdminService {
             return { message: `Estado cambiado a ${status}`, status: negocio.statusNegocio };
         });
     }
-    purgeNegocioAdmin(id) {
+    purgeNegocioAdmin(id, masterPin) {
         return __awaiter(this, void 0, void 0, function* () {
-            return this.deleteNegocioAdmin(id);
+            return this.deleteNegocioAdmin(id, masterPin);
         });
     }
     // ADMIN: Get all businesses for a user (Pagination + Admin View)

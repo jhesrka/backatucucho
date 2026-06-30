@@ -122,6 +122,7 @@ class StorieService {
                     where: {
                         statusStorie: data_1.StatusStorie.PUBLISHED,
                         expires_at: (0, typeorm_1.MoreThan)(now),
+                        user: { status: data_1.Status.ACTIVE }
                     },
                     relations: ["user"],
                     select: {

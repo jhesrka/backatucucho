@@ -113,20 +113,6 @@ class UserRoutes {
         // //   userController.exportUsersToCSV
         // // );
         // // //Enviar notificación a usuario
-        // // router.post(
-        // //   "/notify/:id",
-        // //   AuthMiddleware.protect,
-        // //   AuthMiddleware.restrictTo(UserRole.ADMIN),
-        // //   userController.sendNotificationToUser
-        // // );
-        // // router.get("/:id", userController.findOneUser);
-        // // router.delete("/:id", userController.deleteUser);
-        // // router.patch(
-        // //   "/:id",
-        // //   AuthMiddleware.protect,
-        // //   uploadSingleFile("photoperfil"),
-        // //   userController.updateUser
-        // // );
         router.get("/profile", auth_middleware_1.AuthMiddleware.protect, userController.getProfile);
         router.patch("/block-account/:id", auth_middleware_1.AuthMiddleware.protect, auth_middleware_1.AuthMiddleware.restrictTo(data_1.UserRole.ADMIN), userController.blockAccount);
         router.get("/full-profile", auth_middleware_1.AuthMiddleware.protect, userController.getFullProfile);
@@ -135,6 +121,9 @@ class UserRoutes {
         router.patch("/complete-profile", auth_middleware_1.AuthMiddleware.protect, userController.completeProfile);
         // TEST ENDPOINT TO DEBUG DB
         router.get("/test/insert-log", (req, res) => __awaiter(this, void 0, void 0, function* () {
+            if (process.env.NODE_ENV !== 'development') {
+                return res.status(403).json({ message: "Este endpoint solo está disponible en entorno de desarrollo." });
+            }
             try {
                 const user = yield require("../../../data/postgres/models/user.model").User.findOne({ where: {} });
                 if (!user)
@@ -181,7 +170,7 @@ class UserRoutes {
         router.post("/notify", middlewares_1.AuthAdminMiddleware.protect, userController.sendNotificationToUser);
         router.post("/notify/all", middlewares_1.AuthAdminMiddleware.protect, userController.sendNotificationToAllUsers);
         router.get("/:id", userController.findOneUser);
-        router.delete("/:id", userController.deleteUser);
+        router.delete("/:id", auth_middleware_1.AuthMiddleware.protect, userController.deleteUser);
         router.patch("/:id", auth_middleware_1.AuthMiddleware.protect, (0, config_1.uploadSingleFile)("photoperfil"), userController.updateUser);
         router.get("/admin/metrics/active", middlewares_1.AuthAdminMiddleware.protect, userController.countActiveUsers);
         router.get("/admin/metrics/status-counts", middlewares_1.AuthAdminMiddleware.protect, userController.countUsersByStatus);

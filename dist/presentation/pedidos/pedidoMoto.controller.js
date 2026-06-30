@@ -83,7 +83,7 @@ class PedidoMotoController {
         this.entregarPedido = (req, res) => __awaiter(this, void 0, void 0, function* () {
             var _a;
             try {
-                const { pedidoId, code } = req.body;
+                const { pedidoId, code, ageVerification } = req.body;
                 const motorizadoId = (_a = req.body.sessionMotorizado) === null || _a === void 0 ? void 0 : _a.id;
                 if (!pedidoId)
                     return res.status(400).json({ message: "Falta el pedidoId" });
@@ -91,7 +91,7 @@ class PedidoMotoController {
                     return res.status(400).json({ message: "Falta el codigo de entrega" });
                 if (!motorizadoId)
                     return res.status(401).json({ message: "Motorizado no autenticado" });
-                const pedido = yield pedidoMoto_service_1.PedidoMotoService.entregarPedido(pedidoId, motorizadoId, code);
+                const pedido = yield pedidoMoto_service_1.PedidoMotoService.entregarPedido(pedidoId, motorizadoId, code, ageVerification);
                 return res.status(200).json(pedido);
             }
             catch (error) {

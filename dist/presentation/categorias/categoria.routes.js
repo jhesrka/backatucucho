@@ -7,6 +7,7 @@ const categoria_controller_1 = require("./categoria.controller");
 const auth_middleware_1 = require("../../middlewares/auth.middleware");
 const auth_admin_middleware_1 = require("../../middlewares/auth-admin.middleware");
 const upload_files_adapter_1 = require("../../config/upload-files.adapter");
+const data_1 = require("../../data");
 class CategoriaRoutes {
     static get routes() {
         const router = (0, express_1.Router)();
@@ -20,6 +21,8 @@ class CategoriaRoutes {
         // Eliminar categoría
         router.delete("/:id", auth_admin_middleware_1.AuthAdminMiddleware.protect, categoriaController.deleteCategoria);
         router.get("/", auth_admin_middleware_1.AuthAdminMiddleware.protect, categoriaController.getAllCategorias);
+        // Seed de Categorías de Negocio
+        router.post("/admin/seed", auth_admin_middleware_1.AuthAdminMiddleware.protect, auth_admin_middleware_1.AuthAdminMiddleware.restrictTo(data_1.UserRoleAdmin.ADMIN), categoriaController.seedBusinessCategories);
         // =================== AUTENTICADOS ==================
         // Obtener todas las categorías (Solo las que están en estado ACTIVO)
         router.get("/user", auth_middleware_1.AuthMiddleware.protect, categoriaController.getAllCategoriasUser);

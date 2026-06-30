@@ -4,9 +4,9 @@ import { envs } from "./env";
 export class EncryptionService {
   private static algorithm = "aes-256-cbc";
   
-  // Usamos JWT_SECRET (o una fallback si es muy corto) y generamos un hash SHA-256 exacto de 32 bytes
+  // Usamos JWT_SEED (o una fallback si es muy corto) y generamos un hash SHA-256 exacto de 32 bytes
   private static getKey(): Buffer {
-    const secret = envs.JWT_SECRET || "fallback-secret-for-encryption-atucucho";
+    const secret = envs.JWT_SEED || "fallback-secret-for-encryption-atucucho";
     return crypto.createHash("sha256").update(String(secret)).digest();
   }
 
