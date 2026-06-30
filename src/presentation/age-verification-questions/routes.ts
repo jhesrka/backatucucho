@@ -14,7 +14,7 @@ export class AgeVerificationQuestionRoutes {
 
     // Motorizados and Users might need to read the active questions, but mostly motorizados.
     // Let's expose GET / to authenticated users.
-    router.get("/", AuthMiddleware.protect, controller.getAllQuestions);
+    router.get("/", controller.getAllQuestions);
 
     // Admin CRUD routes
     router.post("/", AuthAdminMiddleware.protect, AuthAdminMiddleware.restrictTo(UserRoleAdmin.ADMIN), controller.createQuestion);
