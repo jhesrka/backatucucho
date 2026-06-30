@@ -133,9 +133,10 @@ export class NegocioAdminController {
   // ========================= DELETE =========================
   deleteNegocioAdmin = async (req: Request, res: Response) => {
     const { id } = req.params;
+    const { masterPin } = req.body;
 
     try {
-      const result = await this.negocioAdminService.deleteNegocioAdmin(id);
+      const result = await this.negocioAdminService.deleteNegocioAdmin(id, masterPin);
       return res.status(200).json(result);
     } catch (error) {
       this.handleError(error, res);
@@ -175,8 +176,9 @@ export class NegocioAdminController {
 
   purgeNegocioAdmin = async (req: Request, res: Response) => {
     const { id } = req.params;
+    const { masterPin } = req.body;
     try {
-      const result = await this.negocioAdminService.purgeNegocioAdmin(id);
+      const result = await this.negocioAdminService.purgeNegocioAdmin(id, masterPin);
       return res.status(200).json(result);
     } catch (error) {
       this.handleError(error, res);

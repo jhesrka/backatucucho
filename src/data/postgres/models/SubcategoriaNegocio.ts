@@ -22,6 +22,9 @@ export class SubcategoriaNegocio extends BaseEntity {
   @Column({ type: "int", default: 0 })
   orden: number;
 
+  @Column({ type: "boolean", default: false })
+  isAgeRestricted: boolean;
+
   @CreateDateColumn({ type: "timestamptz" })
   created_at: Date;
 

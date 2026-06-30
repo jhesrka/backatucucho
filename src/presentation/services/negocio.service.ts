@@ -7,7 +7,11 @@ import {
   User,
   Status,
   SubcategoriaNegocio,
+  Pedido,
+  BalanceNegocio,
+  UserRole,
 } from "../../data";
+import { NotificationService } from "./NotificationService";
 import { CustomError } from "../../domain";
 import { CreateNegocioDTO } from "../../domain/dtos/negocios/CreateNegocioDTO";
 import { envs, regularExp } from "../../config";
@@ -127,7 +131,7 @@ export class NegocioService {
         key: saved.imagenNegocio,
       });
 
-      return {
+      const result = {
         id: saved.id,
         nombre: saved.nombre,
         descripcion: saved.descripcion,
@@ -162,6 +166,24 @@ export class NegocioService {
         },
         usuario: { id: usuario.id },
       };
+
+      // 🔔 Notificación a todos los admins
+      try {
+        const admins = await User.find({ where: { rol: UserRole.ADMIN } });
+        const notificationService = new NotificationService();
+        for (const admin of admins) {
+          await notificationService.sendPushNotification(
+            admin.id,
+            "🏢 Nuevo Negocio",
+            `Se ha registrado el negocio "${saved.nombre}". Entra al panel para revisarlo.`,
+            { url: "/admin" }
+          );
+        }
+      } catch (error) {
+        console.error("Error enviando notificaciones push a admins:", error);
+      }
+
+      return result;
     } catch {
       throw CustomError.internalServer("No se pudo crear el negocio");
     }
@@ -678,6 +700,17 @@ export class NegocioService {
   async deleteNegocio(id: string) {
     const negocio = await Negocio.findOneBy({ id });
     if (!negocio) throw CustomError.notFound("Negocio no encontrado");
+
+    // Validar si tiene pedidos o historial financiero
+    const hasPedidos = await Pedido.count({ where: { negocio: { id } } });
+    if (hasPedidos > 0) {
+      throw CustomError.badRequest("No se puede eliminar: El negocio tiene historial de pedidos. Por favor, cambie su estado a CERRADO o SUSPENDIDO.");
+    }
+
+    const hasBalances = await BalanceNegocio.count({ where: { negocio: { id } } });
+    if (hasBalances > 0) {
+      throw CustomError.badRequest("No se puede eliminar: El negocio tiene historial financiero. Por favor, cambie su estado a CERRADO o SUSPENDIDO.");
+    }
 
     if (negocio.imagenNegocio && negocio.imagenNegocio !== DEFAULT_IMG_KEY) {
       await UploadFilesCloud.deleteFile({

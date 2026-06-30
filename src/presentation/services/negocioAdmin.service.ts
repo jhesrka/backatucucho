@@ -8,6 +8,8 @@ import {
   EstadoNegocio,
   GlobalSettings,
   SubcategoriaNegocio,
+  Pedido,
+  BalanceNegocio,
 } from "../../data";
 import { UploadFilesCloud } from "../../config/upload-files-cloud-adapter";
 import { encriptAdapter } from "../../config/bcrypt.adapter";
@@ -512,10 +514,33 @@ export class NegocioAdminService {
   }
 
   // ========================= DELETE =========================
-  async deleteNegocioAdmin(id: string) {
+  async deleteNegocioAdmin(id: string, masterPin: string) {
+    if (!masterPin) throw CustomError.unAuthorized("PIN maestro es requerido para eliminar un negocio");
+
+    const settings = await GlobalSettings.findOne({ where: {} });
+    if (!settings || !settings.masterPin) {
+      throw CustomError.internalServer("PIN maestro no configurado en el sistema");
+    }
+
+    const isPinValid = encriptAdapter.compare(masterPin, settings.masterPin);
+    if (!isPinValid) {
+      throw CustomError.unAuthorized("PIN maestro incorrecto");
+    }
+
     const negocio = await Negocio.findOneBy({ id });
 
     if (!negocio) throw CustomError.notFound("Negocio no encontrado");
+
+    // Validar si tiene pedidos o historial financiero
+    const hasPedidos = await Pedido.count({ where: { negocio: { id } } });
+    if (hasPedidos > 0) {
+      throw CustomError.badRequest("No se puede eliminar: El negocio tiene historial de pedidos. Por favor, cambie su estado a CERRADO o SUSPENDIDO.");
+    }
+
+    const hasBalances = await BalanceNegocio.count({ where: { negocio: { id } } });
+    if (hasBalances > 0) {
+      throw CustomError.badRequest("No se puede eliminar: El negocio tiene historial financiero. Por favor, cambie su estado a CERRADO o SUSPENDIDO.");
+    }
 
     if (
       negocio.imagenNegocio &&
@@ -653,8 +678,8 @@ export class NegocioAdminService {
     return { message: `Estado cambiado a ${status}`, status: negocio.statusNegocio };
   }
 
-  async purgeNegocioAdmin(id: string) {
-    return this.deleteNegocioAdmin(id);
+  async purgeNegocioAdmin(id: string, masterPin: string) {
+    return this.deleteNegocioAdmin(id, masterPin);
   }
 
 

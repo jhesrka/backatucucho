@@ -5,7 +5,10 @@ import {
   TipoProducto,
   StatusProducto,
   StatusNegocio,
+  User,
+  UserRole,
 } from "../../data";
+import { NotificationService } from "./NotificationService";
 import { CustomError } from "../../domain";
 import { CreateProductoDTO } from "../../domain/dtos/productos/CreateProductoDTO";
 import { UploadFilesCloud } from "../../config/upload-files-cloud-adapter";
@@ -79,7 +82,7 @@ export class ProductoService {
     try {
       const saved = await producto.save();
 
-      return {
+      const result = {
         id: saved.id,
         nombre: saved.nombre,
         descripcion: saved.descripcion,
@@ -96,6 +99,24 @@ export class ProductoService {
         },
         tipoProducto: saved.tipoProducto,
       };
+
+      // 🔔 Notificación a todos los admins
+      try {
+        const admins = await User.find({ where: { rol: UserRole.ADMIN } });
+        const notificationService = new NotificationService();
+        for (const admin of admins) {
+          await notificationService.sendPushNotification(
+            admin.id,
+            "🍔 Nuevo Producto",
+            `El negocio "${negocio.nombre}" ha añadido el producto "${saved.nombre}". Entra al panel para revisarlo.`,
+            { url: "/admin/negocios" }
+          );
+        }
+      } catch (error) {
+        console.error("Error enviando notificaciones push a admins:", error);
+      }
+
+      return result;
     } catch (error) {
       if (typeof error === "object" && error !== null && "code" in error) {
         const pgError = error as { code?: string };
@@ -257,7 +278,7 @@ export class ProductoService {
   async getProductosDisponiblesByNegocio(negocioId: string) {
     const negocio = await Negocio.findOne({
       where: { id: negocioId },
-      relations: ["usuario"], // relación con el User
+      relations: ["usuario", "subcategoria"], // relación con el User y subcategoría para verificar restricción de edad
     });
 
     if (!negocio) {
@@ -340,6 +361,7 @@ export class ProductoService {
         permiteProductosProgramados: negocio.permiteProductosProgramados,
         tiempoProgramadoMin: negocio.tiempoProgramadoMin,
         tiempoProgramadoMax: negocio.tiempoProgramadoMax,
+        subcategoria: negocio.subcategoria,
       },
       usuario: {
         id: negocio.usuario.id,

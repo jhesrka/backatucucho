@@ -3,8 +3,8 @@ import { CategoriaService } from "../services/categoria.service";
 import { CategoriaController } from "./categoria.controller";
 import { AuthMiddleware } from "../../middlewares/auth.middleware";
 import { AuthAdminMiddleware } from "../../middlewares/auth-admin.middleware";
-
 import { uploadFields } from "../../config/upload-files.adapter";
+import { UserRoleAdmin } from "../../data";
 
 export class CategoriaRoutes {
   static get routes(): Router {
@@ -25,6 +25,9 @@ export class CategoriaRoutes {
     router.delete("/:id", AuthAdminMiddleware.protect, categoriaController.deleteCategoria);
 
     router.get("/", AuthAdminMiddleware.protect, categoriaController.getAllCategorias);
+
+    // Seed de Categorías de Negocio
+    router.post("/admin/seed", AuthAdminMiddleware.protect, AuthAdminMiddleware.restrictTo(UserRoleAdmin.ADMIN), categoriaController.seedBusinessCategories);
 
     // =================== AUTENTICADOS ==================
 

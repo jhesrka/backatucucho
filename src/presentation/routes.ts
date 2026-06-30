@@ -44,7 +44,7 @@ import { NotificationRoutes } from "./notifications/routes";
 import { MeritocracyRoutes } from "./meritocracy/meritocracy.routes";
 import { TrainingRoutes } from "./training/training.routes";
 import { ServiciosUsuarioRoutes } from "./serviciosUsuario/routes";
-
+import { AgeVerificationQuestionRoutes } from "./age-verification-questions/routes";
 export class AppRoutes {
   //cuando hay metodoos estaticos no necesitams instanciar
   static get routes(): Router {
@@ -133,6 +133,8 @@ export class AppRoutes {
     router.use("/api/notifications", NotificationRoutes.routes);
     router.use("/api/meritocracy", MeritocracyRoutes.routes);
     router.use("/api/training", TrainingRoutes.routes);
+
+    router.use("/api/age-verification-questions", AgeVerificationQuestionRoutes.routes);
 
     // 👷‍♂️ NUEVA RUTA: Servicios de Usuario
     router.use("/api/servicios-usuario", ServiciosUsuarioRoutes.routes);

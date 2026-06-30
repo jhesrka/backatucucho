@@ -103,7 +103,10 @@ export class PedidoUsuarioService {
   async crearPedido(dto: CreatePedidoDTO) {
     const { clienteId, negocioId, productos, ubicacionCliente, metodoPago, comprobantePagoUrl } = dto;
     const cliente = await User.findOneBy({ id: clienteId });
-    const negocio = await Negocio.findOneBy({ id: negocioId });
+    const negocio = await Negocio.findOne({ 
+      where: { id: negocioId }, 
+      relations: ["subcategoria"] 
+    });
     if (!cliente || !negocio) throw CustomError.notFound("No encontrado");
 
     const config = await PriceSettings.findOne({ where: {} });
@@ -174,6 +177,7 @@ export class PedidoUsuarioService {
     pedido.metodoPago = metodoPago as any;
     pedido.comprobantePagoUrl = comprobantePagoUrl || null;
     pedido.productos = items;
+    pedido.requiresAgeVerification = negocio.subcategoria?.isAgeRestricted || false;
     // ... audit fields
     pedido.ganancia_app_producto = comAppProd;
     pedido.totalNegocio = totalApp;
@@ -241,6 +245,7 @@ export class PedidoUsuarioService {
         "pedido.tiempoPreparacionElegido", "pedido.latCliente", "pedido.lngCliente", "pedido.metodoPago", "pedido.comprobantePagoUrl",
         "pedido.delivery_code", "pedido.arrival_time", "pedido.pickup_code", "pedido.motivoCancelacion", "pedido.ratingNegocio", "pedido.ratingMotorizado",
         "pedido.isPeakHourSurchargeApplied", "pedido.peakHourSurchargeAmount", "pedido.peakHourSurchargeMoto", "pedido.peakHourSurchargeApp", "pedido.notaGeneral",
+        "pedido.requiresAgeVerification", "pedido.ageVerificationLog",
         "negocio.id", "negocio.nombre", "negocio.latitud", "negocio.longitud", "negocio.tiempoPreparacionMax",
         "productos.id", "productos.cantidad", "productos.subtotal", "productos.precio_venta", "productos.producto_nombre", "productos.producto_imagen",
         "producto.id", "producto.nombre", "producto.tipoProducto",

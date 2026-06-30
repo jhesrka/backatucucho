@@ -339,4 +339,76 @@ export class CategoriaService {
       throw CustomError.unAuthorized("Master PIN incorrecto");
     }
   }
+
+  async seedBusinessCategories() {
+    try {
+      const { SubcategoriaNegocio } = require("../../data");
+      const { AgeVerificationQuestion } = require("../../data/postgres/models/AgeVerificationQuestion");
+
+      // 1. Crear Categoría "Comida y Bebidas" si no existe
+      let cat = await CategoriaNegocio.findOne({ where: { nombre: "Comida y Bebidas" } });
+      if (!cat) {
+        const { RestriccionModeloMonetizacion } = require("../../data/postgres/models/CategoriaNegocio");
+        cat = CategoriaNegocio.create({
+          nombre: "Comida y Bebidas",
+          icono: "default-icon.png", // Reemplazar con lógica real de iconos si es necesario
+          restriccionModeloMonetizacion: RestriccionModeloMonetizacion.COMISION_SUSCRIPCION,
+          soloComision: true,
+          orden: 1,
+          modeloBloqueado: true,
+          modeloMonetizacionDefault: RestriccionModeloMonetizacion.COMISION_SUSCRIPCION,
+        });
+        await cat.save();
+      } else if (
+        cat.restriccionModeloMonetizacion !== "COMISION_SUSCRIPCION" || 
+        !cat.modeloBloqueado || 
+        !cat.soloComision
+      ) {
+        cat.restriccionModeloMonetizacion = "COMISION_SUSCRIPCION" as any;
+        cat.modeloMonetizacionDefault = "COMISION_SUSCRIPCION";
+        cat.modeloBloqueado = true;
+        cat.soloComision = true;
+        await cat.save();
+      }
+
+      // 2. Crear Subcategoría "Licorerías"
+      let subcat = await SubcategoriaNegocio.findOne({ where: { nombre: "Licorerías", categoria: { id: cat.id } } });
+      if (!subcat) {
+        subcat = SubcategoriaNegocio.create({
+          nombre: "Licorerías",
+          orden: 1,
+          isAgeRestricted: true,
+          categoria: cat
+        });
+        await subcat.save();
+      } else if (!subcat.isAgeRestricted) {
+        subcat.isAgeRestricted = true;
+        await subcat.save();
+      }
+
+      // 3. Crear Preguntas de Verificación por Defecto
+      const defaultQuestions = [
+        "¿El cliente coincide con la foto de la cédula mostrada?",
+        "¿El cliente tiene más de 18 años según su fecha de nacimiento?",
+        "¿El cliente NO presenta signos evidentes de ebriedad?"
+      ];
+
+      for (let i = 0; i < defaultQuestions.length; i++) {
+        const text = defaultQuestions[i];
+        let q = await AgeVerificationQuestion.findOne({ where: { pregunta: text } });
+        if (!q) {
+          q = new AgeVerificationQuestion();
+          q.pregunta = text;
+          q.activa = true;
+          q.orden = i + 1;
+          await q.save();
+        }
+      }
+
+      return { message: "Seed de categorías de negocio completado con éxito." };
+    } catch (error) {
+      console.error(error);
+      throw CustomError.internalServer("Error al sembrar categorías de negocio");
+    }
+  }
 }

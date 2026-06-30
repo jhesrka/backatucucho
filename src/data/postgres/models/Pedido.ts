@@ -133,6 +133,13 @@ export class Pedido extends BaseEntity {
   @Column({ type: "boolean", default: false })
   isPeakHourSurchargeApplied: boolean;
 
+  // --- VERIFICACIÓN DE EDAD ---
+  @Column({ type: "boolean", default: false })
+  requiresAgeVerification: boolean;
+
+  @Column({ type: "jsonb", nullable: true })
+  ageVerificationLog: any;
+
   @Column("decimal", { precision: 10, scale: 2, default: 0 })
   peakHourSurchargeAmount: number;
 

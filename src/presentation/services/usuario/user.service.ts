@@ -1259,7 +1259,10 @@ export class UserService {
     dto: UpdateUserAdminDTO,
     file?: Express.Multer.File
   ) {
-    const user = await User.findOne({ where: { id: userId } });
+    const user = await User.findOne({ 
+      where: { id: userId },
+      withDeleted: true 
+    });
     if (!user) throw CustomError.notFound("Usuario no encontrado");
 
     if (dto.name) user.name = dto.name.toLowerCase().trim();
@@ -1311,7 +1314,10 @@ export class UserService {
       throw CustomError.badRequest("ID inválido");
     }
 
-    const user = await User.findOne({ where: { id: userId } });
+    const user = await User.findOne({ 
+      where: { id: userId },
+      withDeleted: true 
+    });
     if (!user) throw CustomError.notFound("Usuario no encontrado");
 
     const oldStatus = user.status;
@@ -1667,7 +1673,10 @@ export class UserService {
   // ==========================================
 
   async updateUserAdmin(id: string, data: { email?: string; whatsapp?: string; status?: string; masterPin?: string }) {
-    const user = await User.findOneBy({ id });
+    const user = await User.findOne({ 
+      where: { id },
+      withDeleted: true 
+    });
     if (!user) throw CustomError.notFound("Usuario no encontrado");
 
     if (data.email) user.email = data.email;

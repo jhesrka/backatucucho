@@ -40,10 +40,11 @@ import { MeritocracyCycleLog } from "./models/MeritocracyCycleLog";
 import { TrainingVideo } from "./models/TrainingVideo";
 import { TrainingCategory } from "./models/TrainingCategory";
 import { MeritocracyService } from "../../presentation/services/pedidosServices/meritocracy.service";
+import { CategoriaService } from "../../presentation/services/categoria.service";
 import { CategoriaServicio } from "./models/CategoriaServicio";
 import { SubcategoriaServicio } from "./models/SubcategoriaServicio";
 import { Servicio } from "./models/Servicio";
-
+import { AgeVerificationQuestion } from "./models/AgeVerificationQuestion";
 interface Options {
   host: string;
   port: number;
@@ -106,7 +107,8 @@ export class PostgresDatabase {
         TrainingCategory,
         CategoriaServicio,
         SubcategoriaServicio,
-        Servicio
+        Servicio,
+        AgeVerificationQuestion
       ],
       synchronize: false, // PRODUCCIÓN: SIEMPRE FALSE. Usar migraciones.
       ssl: {
@@ -520,6 +522,10 @@ export class PostgresDatabase {
       // 2. Inicializar Meritocracia
       const meritocracy = new MeritocracyService();
       await meritocracy.ensureDefaultTiers();
+
+      // 3. Inicializar Categorías de Negocio Base (Licorerías y Preguntas)
+      const categoriaService = new CategoriaService();
+      await categoriaService.seedBusinessCategories().catch(e => console.error("Error en seed de categorías:", e));
 
       console.log("✅ Safety check completed. All manual migrations are synced.");
     } catch (error) {
