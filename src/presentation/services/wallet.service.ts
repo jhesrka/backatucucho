@@ -408,6 +408,14 @@ export class WalletService {
             throw CustomError.internalServer("Error técnico: Monto de acreditación inválido");
         }
 
+        // 🛡️ Validar monto cobrado por PayPhone (prevención de fraude/spoofing)
+        const amountPaid = Number(verification.amount);
+        const expectedAmount = Math.round(Number(recharge.amount) * 100);
+        if (amountPaid !== expectedAmount) {
+            console.error(`❌ [Payphone Service] ALERTA DE FRAUDE: Monto pagado en recarga (${amountPaid}) no coincide con el esperado (${expectedAmount}) para ID ${recharge.id}`);
+            throw CustomError.badRequest("Monto incorrecto. Operación rechazada por seguridad");
+        }
+
         // 🚀 ACREDITACIÓN ATÓMICA (Protección contra Race Conditions)
         // 1. Bloquear y marcar la recarga como aprobada de forma atómica. Si alguien más ya lo hizo, affected será 0.
         const updateResult = await RechargeRequest.createQueryBuilder()

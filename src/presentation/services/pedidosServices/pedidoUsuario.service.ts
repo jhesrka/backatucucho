@@ -53,6 +53,7 @@ export class PedidoUsuarioService {
       relations: ["negocio", "cliente", "productos", "productos.producto"]
     });
     if (!pedido) throw CustomError.notFound("Pedido no encontrado");
+    if (pedido.estadoPago === "PAGADO") return { success: true, message: "Pedido ya procesado concurrentemente" };
     if (!pedido.negocio.payphone_token) throw CustomError.badRequest("Negocio sin token Payphone");
 
     const result = await PayphoneService.confirmPayment(id, clientTxId, pedido.negocio.payphone_token);
@@ -64,12 +65,34 @@ export class PedidoUsuarioService {
       result.status === "approved" ||
       Number(result.statusCode) === 3
     )) {
+      // 🛡️ Validar monto
+      const amountPaid = Number(result.amount);
+      const expectedAmount = Math.round(pedido.total * 100);
+      if (amountPaid !== expectedAmount) {
+        console.error(`❌ [Payphone Service] ALERTA DE FRAUDE: Monto pagado (${amountPaid}) no coincide con el total esperado (${expectedAmount}) para el pedido ${pedido.id}`);
+        throw CustomError.badRequest("Monto incorrecto. Operación rechazada por seguridad");
+      }
+
+      // 🚀 Actualización atómica para evitar carrera de notificaciones
+      const updateResult = await Pedido.createQueryBuilder()
+        .update(Pedido)
+        .set({
+          estado: EstadoPedido.PENDIENTE,
+          estadoPago: "PAGADO" as any,
+          referenciaPago: id.toString()
+        })
+        .where("id = :id AND estadoPago != 'PAGADO'", { id: pedido.id })
+        .execute();
+
+      if (updateResult.affected === 0) {
+        console.warn(`⚠️ [Payphone Service] Carrera detectada: El pedido ${pedido.id} ya fue procesado.`);
+        return { success: true, message: "Pedido ya procesado concurrentemente" };
+      }
+
+      // Actualizar variables locales para que los sockets envíen la data correcta
       pedido.estado = EstadoPedido.PENDIENTE;
       pedido.estadoPago = "PAGADO" as any;
       pedido.referenciaPago = id.toString();
-      await pedido.save();
-
-      await pedido.save();
       
       getIO().to(pedido.negocio.id).emit("nuevo_pedido", {
         id: pedido.id, estado: pedido.estado, total: pedido.total, productos: pedido.productos,
