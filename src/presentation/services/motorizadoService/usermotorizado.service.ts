@@ -333,6 +333,14 @@ export class UserMotorizadoService {
       throw CustomError.notFound("Motorizado no encontrado");
     }
 
+    // 📦 Total de pedidos entregados históricamente
+    const totalViajes = await Pedido.count({
+      where: {
+        motorizado: { id },
+        estado: EstadoPedido.ENTREGADO,
+      },
+    });
+
     let photoUrl = "";
     if (motorizado.photoperfil) {
       photoUrl = await UploadFilesCloud.getOptimizedUrls({
@@ -364,6 +372,7 @@ export class UserMotorizadoService {
       createdAt: motorizado.createdAt,
       ratingPromedio: Number(motorizado.ratingPromedio) || 0,
       totalResenas: Number(motorizado.totalResenas) || 0,
+      totalViajes,
       currentTier: motorizado.currentTier,
       performanceLastPeriod: motorizado.performanceLastPeriod,
       isManualCommission: motorizado.isManualCommission,

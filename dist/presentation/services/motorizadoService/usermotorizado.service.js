@@ -273,6 +273,13 @@ class UserMotorizadoService {
             if (!motorizado) {
                 throw domain_1.CustomError.notFound("Motorizado no encontrado");
             }
+            // 📦 Total de pedidos entregados históricamente
+            const totalViajes = yield data_1.Pedido.count({
+                where: {
+                    motorizado: { id },
+                    estado: data_1.EstadoPedido.ENTREGADO,
+                },
+            });
             let photoUrl = "";
             if (motorizado.photoperfil) {
                 photoUrl = (yield upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
@@ -300,6 +307,7 @@ class UserMotorizadoService {
                 createdAt: motorizado.createdAt,
                 ratingPromedio: Number(motorizado.ratingPromedio) || 0,
                 totalResenas: Number(motorizado.totalResenas) || 0,
+                totalViajes,
                 currentTier: motorizado.currentTier,
                 performanceLastPeriod: motorizado.performanceLastPeriod,
                 isManualCommission: motorizado.isManualCommission,
