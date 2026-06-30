@@ -560,7 +560,7 @@ export class PedidoMotoService {
     return pedido;
   }
 
-  static async entregarPedido(pedidoId: string, motorizadoId: string, code: string) {
+  static async entregarPedido(pedidoId: string, motorizadoId: string, code: string, ageVerification?: { cedula: string, preguntasAceptadas: boolean }) {
     const pedido = await this.obtenerPedidoOrFail(pedidoId, ["motorizado", "cliente", "negocio"]);
     const moto = await this.obtenerMotorizadoOrFail(motorizadoId);
 
@@ -570,6 +570,23 @@ export class PedidoMotoService {
 
     if (pedido.delivery_code !== code) {
       throw CustomError.badRequest("El código de entrega es incorrecto");
+    }
+
+    // 🔞 VERIFICACIÓN DE EDAD PARA MOTORIZADO
+    if (pedido.requiresAgeVerification) {
+      if (!ageVerification || !ageVerification.preguntasAceptadas || !ageVerification.cedula) {
+        throw CustomError.badRequest("Este pedido requiere verificación de edad obligatoria. Debes ingresar la cédula del receptor y aceptar las condiciones.");
+      }
+      
+      const { EncryptionService } = require("../../../config/encryption");
+      const encryptedCedula = EncryptionService.encrypt(ageVerification.cedula);
+
+      pedido.ageVerificationLog = {
+        cedula_encriptada: encryptedCedula,
+        preguntas_aceptadas: true,
+        verificadoPorMotorizadoId: motorizadoId,
+        timestamp: new Date().toISOString()
+      };
     }
 
     pedido.estado = EstadoPedido.ENTREGADO;

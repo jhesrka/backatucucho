@@ -70,14 +70,14 @@ export class PedidoMotoController {
   // ======================== Entregar pedido ========================
   entregarPedido = async (req: Request, res: Response) => {
     try {
-      const { pedidoId, code } = req.body;
+      const { pedidoId, code, ageVerification } = req.body;
       const motorizadoId = req.body.sessionMotorizado?.id;
 
       if (!pedidoId) return res.status(400).json({ message: "Falta el pedidoId" });
       if (!code) return res.status(400).json({ message: "Falta el codigo de entrega" });
       if (!motorizadoId) return res.status(401).json({ message: "Motorizado no autenticado" });
 
-      const pedido = await PedidoMotoService.entregarPedido(pedidoId, motorizadoId, code);
+      const pedido = await PedidoMotoService.entregarPedido(pedidoId, motorizadoId, code, ageVerification);
       return res.status(200).json(pedido);
     } catch (error) {
       return this.handleError(error, res);
