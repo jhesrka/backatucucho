@@ -519,6 +519,13 @@ export class PostgresDatabase {
         `);
       });
 
+      await runMigrationStep("Step 43: Add placaVehiculo to user_motorizado", async () => {
+        await this.datasource.query(`
+          ALTER TABLE "user_motorizado" 
+          ADD COLUMN IF NOT EXISTS "placaVehiculo" varchar(20) DEFAULT NULL;
+        `);
+      });
+
       // 2. Inicializar Meritocracia
       const meritocracy = new MeritocracyService();
       await meritocracy.ensureDefaultTiers();

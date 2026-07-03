@@ -62,6 +62,12 @@ export class UserMotorizado extends BaseEntity {
   photoperfil: string | null;
 
   // ==============================
+  // 🚗 VEHÍCULO
+  // ==============================
+  @Column("varchar", { length: 20, nullable: true })
+  placaVehiculo: string | null;
+
+  // ==============================
   // 🏦 DATOS BANCARIOS
   // ==============================
   @Column("varchar", { nullable: true })

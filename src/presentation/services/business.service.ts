@@ -272,6 +272,17 @@ export class BusinessService {
                     }
                 }
 
+                if (order.motorizado && order.motorizado.photoperfil && !order.motorizado.photoperfil.startsWith('http') && !order.motorizado.photoperfil.startsWith('{')) {
+                    try {
+                        order.motorizado.photoperfil = await UploadFilesCloud.getOptimizedUrls({
+                            bucketName: envs.AWS_BUCKET_NAME,
+                            key: order.motorizado.photoperfil
+                        }) as any;
+                    } catch (err) {
+                        console.error(`Error resolving motorizado photo for order ${order.id}:`, err);
+                    }
+                }
+
                 return {
                     ...Object.assign({}, order),
                     fecha_aceptado: order.fecha_aceptado

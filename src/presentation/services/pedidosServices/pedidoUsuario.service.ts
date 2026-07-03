@@ -272,8 +272,8 @@ export class PedidoUsuarioService {
         "negocio.id", "negocio.nombre", "negocio.latitud", "negocio.longitud", "negocio.tiempoPreparacionMax",
         "productos.id", "productos.cantidad", "productos.subtotal", "productos.precio_venta", "productos.producto_nombre", "productos.producto_imagen",
         "producto.id", "producto.nombre", "producto.tipoProducto",
-        "cliente.id", "cliente.name", "cliente.surname", "cliente.whatsapp", "cliente.cancellation_strikes",
-        "motorizado.id", "motorizado.name", "motorizado.surname", "motorizado.whatsapp"
+        "cliente.id", "cliente.name", "cliente.surname", "cliente.whatsapp", "cliente.cancellation_strikes", "cliente.photoperfil",
+        "motorizado.id", "motorizado.name", "motorizado.surname", "motorizado.whatsapp", "motorizado.photoperfil", "motorizado.placaVehiculo"
       ]);
 
     // 🛡️ FILTRO PRINCIPAL: CLIENTE + FECHA (Prioritario)
@@ -338,7 +338,11 @@ export class PedidoUsuarioService {
           id: p.motorizado.id, 
           name: p.motorizado.name, 
           surname: p.motorizado.surname,
-          whatsapp: p.motorizado.whatsapp 
+          whatsapp: p.motorizado.whatsapp,
+          placaVehiculo: p.motorizado.placaVehiculo,
+          photoperfil: p.motorizado.photoperfil 
+            ? await UploadFilesCloud.getOptimizedUrls({ bucketName: envs.AWS_BUCKET_NAME, key: p.motorizado.photoperfil })
+            : null
         } : null,
         ratingNegocio: p.ratingNegocio,
         ratingMotorizado: p.ratingMotorizado,

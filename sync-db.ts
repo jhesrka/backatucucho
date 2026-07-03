@@ -1,0 +1,1 @@
+import { AppDataSource } from './src/data/postgres/postgres-database'; AppDataSource.initialize().then(() => { console.log('Sincronizando...'); return AppDataSource.synchronize(false); }).then(() => { console.log('Sincronizacion completa'); process.exit(0); }).catch((err: any) => { console.error(err); process.exit(1); });

@@ -356,6 +356,7 @@ export class UserMotorizadoService {
       whatsapp: motorizado.whatsapp,
       cedula: motorizado.cedula,
       photoperfil: photoUrl || "",
+      placaVehiculo: motorizado.placaVehiculo || "",
 
       estadoCuenta: motorizado.estadoCuenta,
       estadoTrabajo: motorizado.estadoTrabajo,
@@ -697,6 +698,19 @@ export class UserMotorizadoService {
       }
       throw CustomError.internalServer("Error al actualizar motorizado");
     }
+  }
+
+  async updateVehicle(id: string, placaVehiculo: string) {
+    const motorizado = await UserMotorizado.findOneBy({ id });
+    if (!motorizado) throw CustomError.notFound("Motorizado no encontrado");
+
+    motorizado.placaVehiculo = placaVehiculo;
+    await motorizado.save();
+
+    return { 
+      message: "Vehículo actualizado con éxito",
+      placaVehiculo: motorizado.placaVehiculo
+    };
   }
 
   // Activar / desactivar

@@ -46,6 +46,12 @@ export class UserMotorizadoRoutes {
     );
 
     router.patch(
+      "/me/vehiculo",
+      AuthMotorizadoMiddleware.protect,
+      motorizadoController.updateVehicle
+    );
+
+    router.patch(
       "/:id/profile-picture",
       AuthMotorizadoMiddleware.protect,
       upload.single("file"),
