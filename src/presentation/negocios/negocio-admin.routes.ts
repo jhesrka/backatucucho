@@ -87,6 +87,13 @@ export class NegocioAdminRoutes {
       controller.forceChargeSubscription
     );
 
+    // NUEVO: Admin - Resetear Calificaciones
+    router.post(
+      "/:id/reset-rating",
+      AuthAdminMiddleware.protect,
+      controller.resetRatingAdmin
+    );
+
     return router;
   }
 }

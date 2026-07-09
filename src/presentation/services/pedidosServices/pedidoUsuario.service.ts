@@ -410,6 +410,35 @@ export class PedidoUsuarioService {
     if (ratingMotorizado !== undefined) pedido.ratingMotorizado = ratingMotorizado;
 
     await pedido.save();
+
+    // Actualizar Promedio del Negocio
+    if (ratingNegocio !== undefined && pedido.negocio) {
+      const { avg, count } = await Pedido.createQueryBuilder("pedido")
+        .select("AVG(pedido.ratingNegocio)", "avg")
+        .addSelect("COUNT(pedido.id)", "count")
+        .where("pedido.negocioId = :negocioId", { negocioId: pedido.negocio.id })
+        .andWhere("pedido.ratingNegocio IS NOT NULL")
+        .getRawOne();
+        
+      pedido.negocio.ratingPromedio = Number(avg) || 0;
+      pedido.negocio.totalResenas = Number(count) || 0;
+      await pedido.negocio.save();
+    }
+
+    // Actualizar Promedio del Motorizado (si aplica)
+    if (ratingMotorizado !== undefined && pedido.motorizado) {
+      const { avg, count } = await Pedido.createQueryBuilder("pedido")
+        .select("AVG(pedido.ratingMotorizado)", "avg")
+        .addSelect("COUNT(pedido.id)", "count")
+        .where("pedido.motorizadoId = :motorizadoId", { motorizadoId: pedido.motorizado.id })
+        .andWhere("pedido.ratingMotorizado IS NOT NULL")
+        .getRawOne();
+        
+      pedido.motorizado.ratingPromedio = Number(avg) || 0;
+      pedido.motorizado.totalResenas = Number(count) || 0;
+      await pedido.motorizado.save();
+    }
+
     return { success: true };
   }
 

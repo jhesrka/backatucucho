@@ -770,4 +770,24 @@ export class NegocioAdminService {
       currentPage: page
     };
   }
+
+  // ===================== RESETEAR CALIFICACIONES =====================
+  async resetRatingAdmin(id: string) {
+    const negocio = await Negocio.findOne({ where: { id } });
+    if (!negocio) throw CustomError.notFound("Negocio no encontrado");
+
+    // 1. Limpiar todos los pedidos asociados
+    await Pedido.createQueryBuilder()
+      .update(Pedido)
+      .set({ ratingNegocio: () => "NULL" })
+      .where("negocioId = :id", { id })
+      .execute();
+
+    // 2. Resetear en el Negocio
+    negocio.ratingPromedio = 0;
+    negocio.totalResenas = 0;
+    await negocio.save();
+
+    return { message: "Calificaciones reseteadas exitosamente", negocioId: negocio.id };
+  }
 }

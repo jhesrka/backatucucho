@@ -87,6 +87,13 @@ export class UserMotorizadoRoutes {
     router.delete("/:id/force", AuthAdminMiddleware.protect, motorizadoController.deleteForce);
     router.delete("/:id", motorizadoController.deleteMotorizado);
 
+    // ===================== RESETEAR CALIFICACIONES =====================
+    router.post(
+      "/:id/reset-rating",
+      AuthAdminMiddleware.protect,
+      motorizadoController.resetRatingAdmin
+    );
+
     return router;
   }
 }

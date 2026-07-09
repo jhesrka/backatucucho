@@ -58,7 +58,7 @@ export class CategoriaService {
         key: saved.icono,
       });
 
-      let coverResult = saved.cover;
+      let coverResult = saved.cover ? { ...saved.cover } : undefined;
       if (coverResult?.imageUrl) {
         try {
           coverResult.imageUrl = await UploadFilesCloud.getFile({
@@ -119,7 +119,7 @@ export class CategoriaService {
           console.error(`Error resolving image for category ${cat.id}`, error);
         }
 
-        let coverResult = cat.cover;
+        let coverResult = cat.cover ? { ...cat.cover } : undefined;
         if (coverResult?.imageUrl) {
           try {
             coverResult.imageUrl = await UploadFilesCloud.getFile({
@@ -153,7 +153,7 @@ export class CategoriaService {
       });
     }
 
-    let coverResult = categoria.cover;
+    let coverResult = categoria.cover ? { ...categoria.cover } : undefined;
     if (coverResult?.imageUrl) {
       try {
         coverResult.imageUrl = await UploadFilesCloud.getFile({
@@ -273,7 +273,7 @@ export class CategoriaService {
         });
       }
 
-      let coverResult = saved.cover;
+      let coverResult = saved.cover ? { ...saved.cover } : undefined;
       if (coverResult?.imageUrl) {
         try {
           coverResult.imageUrl = await UploadFilesCloud.getFile({

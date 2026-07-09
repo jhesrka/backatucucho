@@ -1,7 +1,8 @@
 import { Request, Response } from "express";
 import { CustomError } from "../../domain";
 import { NegocioAdminService } from "../services/negocioAdmin.service";
-import { StatusNegocio } from "../../data";
+import { StatusNegocio, GlobalSettings } from "../../data";
+import { encriptAdapter } from "../../config";
 import { CreateNegocioDTO } from "../../domain/dtos/negocios/CreateNegocioDTO";
 import { UpdateNegocioDTO } from "../../domain/dtos/negocios/UpdateNegocioDTO";
 
@@ -217,4 +218,29 @@ export class NegocioAdminController {
       this.handleError(error, res);
     }
   }
+
+  // ===================== RESETEAR CALIFICACIONES =====================
+  resetRatingAdmin = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { masterPin } = req.body;
+
+    if (!masterPin) return res.status(400).json({ message: "El PIN maestro es requerido" });
+
+    try {
+      const cleanPin = String(masterPin).trim();
+      const settings = await GlobalSettings.findOne({ where: {}, order: { updatedAt: "DESC" } });
+
+      if (!settings || !settings.masterPin) {
+        return res.status(400).json({ message: "El sistema no tiene un PIN Maestro configurado." });
+      }
+
+      const isValid = encriptAdapter.compare(cleanPin, settings.masterPin);
+      if (!isValid) return res.status(400).json({ message: "PIN Maestro incorrecto" });
+
+      const result = await this.negocioAdminService.resetRatingAdmin(id);
+      return res.status(200).json(result);
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  };
 }

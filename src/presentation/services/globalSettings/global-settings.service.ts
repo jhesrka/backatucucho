@@ -6,7 +6,7 @@ import { envs } from "../../../config";
 import bcrypt from "bcryptjs";
 
 export class GlobalSettingsService {
-    async getSettings() {
+    private async getRawSettings() {
         let settings = await GlobalSettings.findOne({ where: {} });
         if (!settings) {
             settings = new GlobalSettings();
@@ -48,35 +48,48 @@ export class GlobalSettingsService {
         if (settings.cardRechargeEnabled === null || settings.cardRechargeEnabled === undefined) {
             settings.cardRechargeEnabled = true;
         }
-
-        if (settings.businessCover?.imageUrl) {
-            try {
-                settings.businessCover.imageUrl = await UploadFilesCloud.getFile({
-                    bucketName: envs.AWS_BUCKET_NAME,
-                    key: settings.businessCover.imageUrl,
-                });
-            } catch (e) { console.error(e); }
-        }
-
-        if (settings.appLogoKey) {
-            try {
-                settings.appLogoUrl = await UploadFilesCloud.getFile({
-                    bucketName: envs.AWS_BUCKET_NAME,
-                    key: settings.appLogoKey,
-                });
-            } catch (e) { console.error(e); }
-        }
-
-        if (settings.appFaviconKey) {
-            try {
-                settings.appFaviconUrl = await UploadFilesCloud.getFile({
-                    bucketName: envs.AWS_BUCKET_NAME,
-                    key: settings.appFaviconKey,
-                });
-            } catch (e) { console.error(e); }
-        }
-
         return settings;
+    }
+
+    async getSettings() {
+        const rawSettings = await this.getRawSettings();
+
+        let businessCoverResult = rawSettings.businessCover ? { ...rawSettings.businessCover } : undefined;
+        if (businessCoverResult?.imageUrl) {
+            try {
+                businessCoverResult.imageUrl = await UploadFilesCloud.getFile({
+                    bucketName: envs.AWS_BUCKET_NAME,
+                    key: businessCoverResult.imageUrl,
+                });
+            } catch (e) { console.error(e); }
+        }
+
+        let appLogoUrl = rawSettings.appLogoUrl;
+        if (rawSettings.appLogoKey) {
+            try {
+                appLogoUrl = await UploadFilesCloud.getFile({
+                    bucketName: envs.AWS_BUCKET_NAME,
+                    key: rawSettings.appLogoKey,
+                });
+            } catch (e) { console.error(e); }
+        }
+
+        let appFaviconUrl = rawSettings.appFaviconUrl;
+        if (rawSettings.appFaviconKey) {
+            try {
+                appFaviconUrl = await UploadFilesCloud.getFile({
+                    bucketName: envs.AWS_BUCKET_NAME,
+                    key: rawSettings.appFaviconKey,
+                });
+            } catch (e) { console.error(e); }
+        }
+
+        return {
+            ...rawSettings,
+            businessCover: businessCoverResult,
+            appLogoUrl,
+            appFaviconUrl
+        } as unknown as GlobalSettings;
     }
 
     async updateSettings(data: any, file?: Express.Multer.File) { // Type with DTO later
@@ -88,8 +101,7 @@ export class GlobalSettingsService {
             }
         }
 
-        let settings = await GlobalSettings.findOne({ where: {} });
-        if (!settings) settings = new GlobalSettings();
+        let settings = await this.getRawSettings();
 
         let termsChanged = false;
 
@@ -171,11 +183,9 @@ export class GlobalSettingsService {
                     : coverRaw;
 
                 // 🛡️ DEFINITIVE S3 PRE-SIGNED URL FIX:
-                // If imageUrl is a temporary HTTP pre-signed URL, preserve the existing raw key from the database.
                 if (parsedCover && parsedCover.imageUrl && parsedCover.imageUrl.startsWith('http')) {
-                    const currentSettings = await GlobalSettings.findOne({ where: {} });
-                    if (currentSettings?.businessCover?.imageUrl) {
-                        parsedCover.imageUrl = currentSettings.businessCover.imageUrl;
+                    if (settings.businessCover?.imageUrl) {
+                        parsedCover.imageUrl = settings.businessCover.imageUrl;
                     }
                 }
                 settings.businessCover = parsedCover;
@@ -222,7 +232,7 @@ export class GlobalSettingsService {
     async updateAppLogo(masterPin: string, file?: Express.Multer.File) {
         if (!file) throw CustomError.badRequest("No file provided");
         
-        const settings = await this.getSettings();
+        const settings = await this.getRawSettings();
         
         if (masterPin) {
             if (settings.masterPin) {
@@ -269,7 +279,7 @@ export class GlobalSettingsService {
     async updateAppFavicon(masterPin: string, file?: Express.Multer.File) {
         if (!file) throw CustomError.badRequest("No file provided");
         
-        const settings = await this.getSettings();
+        const settings = await this.getRawSettings();
         
         if (masterPin) {
             if (settings.masterPin) {
@@ -322,7 +332,7 @@ export class GlobalSettingsService {
         paidPurgeInactivityMonths?: number;
         autoPurgeEnabled?: boolean;
     }) {
-        let settings = await this.getSettings();
+        let settings = await this.getRawSettings();
         if (dto.freePostsLimit !== undefined) settings.freePostsLimit = dto.freePostsLimit;
         if (dto.freePostDurationDays !== undefined) settings.freePostDurationDays = dto.freePostDurationDays;
         if (dto.freePostDurationHours !== undefined) settings.freePostDurationHours = dto.freePostDurationHours;
@@ -338,7 +348,7 @@ export class GlobalSettingsService {
         const isMatch = await this.validateMasterPin(masterPin);
         if (!isMatch) throw CustomError.badRequest("PIN Maestro incorrecto");
 
-        const settings = await this.getSettings();
+        const settings = await this.getRawSettings();
         settings.app_status = "CLOSED";
         settings.modo_operacion = "MANUAL";
         await settings.save();
@@ -349,7 +359,7 @@ export class GlobalSettingsService {
         const isMatch = await this.validateMasterPin(masterPin);
         if (!isMatch) throw CustomError.badRequest("PIN Maestro incorrecto");
 
-        const settings = await this.getSettings();
+        const settings = await this.getRawSettings();
         settings.modo_operacion = "AUTO";
         await settings.save();
 
@@ -360,7 +370,7 @@ export class GlobalSettingsService {
     }
 
     async checkAppSchedule() {
-        const settings = await this.getSettings();
+        const settings = await this.getRawSettings();
 
         if (settings.modo_operacion === 'MANUAL') {
             return; // Do nothing
@@ -401,7 +411,7 @@ export class GlobalSettingsService {
     }
 
     async validateMasterPin(pin: string): Promise<boolean> {
-        const settings = await this.getSettings();
+        const settings = await this.getRawSettings();
         if (!settings.masterPin) {
             // Si no hay PIN configurado, por seguridad no permitimos la acción
             throw CustomError.badRequest("PIN Maestro no configurado en el sistema.");

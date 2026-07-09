@@ -1289,4 +1289,24 @@ export class UserMotorizadoService {
       motorizados: motorizadosWithPhoto
     };
   }
+
+  // ===================== RESETEAR CALIFICACIONES =====================
+  async resetRatingAdmin(id: string) {
+    const motorizado = await UserMotorizado.findOne({ where: { id } });
+    if (!motorizado) throw CustomError.notFound("Motorizado no encontrado");
+
+    // 1. Limpiar todos los pedidos asociados
+    await Pedido.createQueryBuilder()
+      .update(Pedido)
+      .set({ ratingMotorizado: () => "NULL" })
+      .where("motorizadoId = :id", { id })
+      .execute();
+
+    // 2. Resetear en el Motorizado
+    motorizado.ratingPromedio = 0;
+    motorizado.totalResenas = 0;
+    await motorizado.save();
+
+    return { message: "Calificaciones reseteadas exitosamente", motorizadoId: motorizado.id };
+  }
 }
