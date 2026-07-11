@@ -13,6 +13,13 @@ export class NegocioRoutes {
     const negocioService = new NegocioService();
     const negocioController = new NegocioController(negocioService);
 
+    // ===================== VERIFICAR =====================
+    router.get(
+      "/check-name",
+      AuthMiddleware.protect,
+      negocioController.checkName
+    );
+
     // ===================== CREAR =====================
     router.post(
       "/",

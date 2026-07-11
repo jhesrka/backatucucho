@@ -14,6 +14,17 @@ export class NegocioController {
     return res.status(500).json({ message: "Something went very wrong" });
   };
 
+  // ======================= VERIFICAR NOMBRE ========================
+  checkName = (req: Request, res: Response) => {
+    const { name } = req.query;
+    if (!name) return res.status(400).json({ message: "Nombre requerido" });
+
+    this.negocioService
+      .checkNameExists(name as string)
+      .then((exists) => res.status(200).json({ exists }))
+      .catch((error) => this.handleError(error, res));
+  };
+
   // ======================= CREATE ========================
   createNegocio = (req: Request, res: Response) => {
     const [error, dto] = CreateNegocioDTO.create(req.body);

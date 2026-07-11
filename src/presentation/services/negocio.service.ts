@@ -30,6 +30,16 @@ function shuffleArray<T>(array: T[]): T[] {
 }
 
 export class NegocioService {
+  // ========================= VERIFICACIÓN =========================
+  async checkNameExists(nombre: string): Promise<boolean> {
+    if (!nombre) return false;
+    const count = await Negocio.createQueryBuilder("negocio")
+      .where("LOWER(negocio.nombre) = LOWER(:nombre)", { nombre: nombre.trim() })
+      .getCount();
+    
+    return count > 0;
+  }
+
   // ========================= CREATE =========================
   async createNegocio(dto: CreateNegocioDTO, img?: Express.Multer.File) {
     const categoria = await CategoriaNegocio.findOneBy({ id: dto.categoriaId });
