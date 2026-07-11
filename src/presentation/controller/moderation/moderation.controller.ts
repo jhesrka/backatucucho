@@ -15,7 +15,7 @@ export class ModerationController {
 
     private handleError = (error: unknown, res: Response) => {
         if (error instanceof CustomError) {
-            return res.status(error.statusCode).json({ error: error.message });
+            return res.status(error.statusCode).json({ error: error.message, message: error.message });
         }
         console.error(error);
         return res.status(500).json({ error: "Internal Server Error" });

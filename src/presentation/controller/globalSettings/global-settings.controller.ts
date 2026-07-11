@@ -18,7 +18,7 @@ export class GlobalSettingsController {
         this.service.updateSettings(req.body, req.file)
             .then(data => res.json(data))
             .catch(error => {
-                if (error instanceof CustomError) return res.status(error.statusCode).json({ error: error.message });
+                if (error instanceof CustomError) return res.status(error.statusCode).json({ error: error.message, message: error.message });
                 console.error("Error updating settings:", error);
                 res.status(500).json({ error: "Internal Server Error" });
             });
@@ -29,7 +29,7 @@ export class GlobalSettingsController {
         this.service.updateAppLogo(masterPin, req.file)
             .then(data => res.json(data))
             .catch(error => {
-                if (error instanceof CustomError) return res.status(error.statusCode).json({ error: error.message });
+                if (error instanceof CustomError) return res.status(error.statusCode).json({ error: error.message, message: error.message });
                 console.error("Error updating logo:", error);
                 res.status(500).json({ error: "Internal Server Error" });
             });
@@ -40,7 +40,7 @@ export class GlobalSettingsController {
         this.service.updateAppFavicon(masterPin, req.file)
             .then(data => res.json(data))
             .catch(error => {
-                if (error instanceof CustomError) return res.status(error.statusCode).json({ error: error.message });
+                if (error instanceof CustomError) return res.status(error.statusCode).json({ error: error.message, message: error.message });
                 console.error("Error updating favicon:", error);
                 res.status(500).json({ error: "Internal Server Error" });
             });
@@ -114,7 +114,7 @@ export class GlobalSettingsController {
         this.service.closeApp(masterPin)
             .then(data => res.json(data))
             .catch(error => {
-                if (error instanceof CustomError) return res.status(error.statusCode).json({ error: error.message });
+                if (error instanceof CustomError) return res.status(error.statusCode).json({ error: error.message, message: error.message });
                 console.error("Error closing app:", error);
                 res.status(500).json({ error: "Internal Server Error" });
             });
@@ -125,7 +125,7 @@ export class GlobalSettingsController {
         this.service.enableAutoMode(masterPin)
             .then(data => res.json(data))
             .catch(error => {
-                if (error instanceof CustomError) return res.status(error.statusCode).json({ error: error.message });
+                if (error instanceof CustomError) return res.status(error.statusCode).json({ error: error.message, message: error.message });
                 console.error("Error enabling auto mode:", error);
                 res.status(500).json({ error: "Internal Server Error" });
             });
