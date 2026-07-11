@@ -2,6 +2,7 @@ import { DeliverySettings } from "../../../data/postgres/models/DeliverySettings
 import { CustomError } from "../../../domain";
 import { GlobalSettings } from "../../../data/postgres/models/global-settings.model";
 import bcrypt from "bcryptjs";
+import { GlobalSettingsService } from "../globalSettings/global-settings.service";
 
 
 export class DeliverySettingsAdminService {
@@ -60,7 +61,6 @@ export class DeliverySettingsAdminService {
   private async verifyMasterPin(pin: string) {
     if (!pin) throw CustomError.unAuthorized("Master PIN requerido");
 
-    const { GlobalSettingsService } = require("../globalSettings/global-settings.service");
     const globalSettingsService = new GlobalSettingsService();
     const isValid = await globalSettingsService.validateMasterPin(pin);
     
