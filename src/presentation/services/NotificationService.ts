@@ -1,5 +1,5 @@
 import * as admin from 'firebase-admin';
-import { PushToken } from '../../data';
+import { PushToken, Status } from '../../data';
 import { envs } from '../../config';
 
 export class NotificationService {
@@ -117,6 +117,98 @@ export class NotificationService {
       }
     } catch (error) {
       console.error('❌ Error crítico enviando notificación push:', error);
+    }
+  }
+
+  async broadcastPushNotificationToAll(title: string, body: string, data: any = {}) {
+    if (!NotificationService.instance) {
+      console.warn('⚠️ Intentando hacer broadcast pero FCM no está inicializado.');
+      return;
+    }
+
+    try {
+      // 1. Obtener los tokens SOLO de los usuarios con estado ACTIVO
+      const tokens = await PushToken.createQueryBuilder("push_token")
+        .leftJoinAndSelect("push_token.user", "user")
+        .where("user.status = :status", { status: Status.ACTIVE })
+        .getMany();
+
+      if (tokens.length === 0) {
+        console.log(`ℹ️ No hay tokens registrados para usuarios activos. Saltando broadcast.`);
+        return;
+      }
+
+      // Remover duplicados (un usuario podría tener el mismo token repetido por errores de frontend)
+      const uniqueTokens = [...new Set(tokens.map(t => t.token))];
+
+      console.log(`📡 Preparando envío masivo a ${uniqueTokens.length} dispositivos...`);
+
+      // 2. Fragmentar en lotes de 500 (límite de Firebase sendEachForMulticast)
+      const chunkSize = 500;
+      let totalSuccess = 0;
+      let totalFailed = 0;
+      const failedTokens: string[] = [];
+
+      for (let i = 0; i < uniqueTokens.length; i += chunkSize) {
+        const chunk = uniqueTokens.slice(i, i + chunkSize);
+        
+        const message: admin.messaging.MulticastMessage = {
+          notification: { title, body },
+          android: {
+            priority: 'high',
+            notification: { sound: 'default' }
+          },
+          apns: {
+            payload: { aps: { contentAvailable: true, sound: 'default' } }
+          },
+          webpush: {
+            headers: { Urgency: 'high' },
+            notification: {
+              icon: `${envs.WEBSERVICE_URL_FRONT}/logo_resized_192x192.png`,
+              badge: `${envs.WEBSERVICE_URL_FRONT}/badge_96x96.png`
+            }
+          },
+          data: {
+            ...data,
+            url: data.url || '/', 
+          },
+          tokens: chunk,
+        };
+
+        const response = await admin.messaging().sendEachForMulticast(message);
+        totalSuccess += response.successCount;
+        totalFailed += response.failureCount;
+
+        // Recolectar tokens fallidos de este lote
+        if (response.failureCount > 0) {
+          response.responses.forEach((resp, idx) => {
+            if (!resp.success) {
+              const code = resp.error?.code;
+              if (code === 'messaging/invalid-registration-token' || code === 'messaging/registration-token-not-registered') {
+                failedTokens.push(chunk[idx]);
+              }
+            }
+          });
+        }
+      }
+
+      console.log(`✅ Broadcast finalizado: ${totalSuccess} exitosos, ${totalFailed} fallidos.`);
+
+      // 3. Limpiar base de datos de tokens inválidos globales
+      if (failedTokens.length > 0) {
+        console.log(`🧹 Limpiando ${failedTokens.length} tokens inválidos globales...`);
+        // TypeORM delete in() falla con arreglos inmensos, fragmentar si es necesario (generalmente no superan mil)
+        for(let j = 0; j < failedTokens.length; j += 500) {
+          const deleteChunk = failedTokens.slice(j, j + 500);
+          await PushToken.createQueryBuilder()
+            .delete()
+            .where("token IN (:...tokens)", { tokens: deleteChunk })
+            .execute();
+        }
+      }
+
+    } catch (error) {
+      console.error('❌ Error crítico en broadcastPushNotificationToAll:', error);
     }
   }
 }
