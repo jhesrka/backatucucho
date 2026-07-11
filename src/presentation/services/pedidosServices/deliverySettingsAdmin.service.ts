@@ -60,12 +60,10 @@ export class DeliverySettingsAdminService {
   private async verifyMasterPin(pin: string) {
     if (!pin) throw CustomError.unAuthorized("Master PIN requerido");
 
-    const settings = await GlobalSettings.findOne({ where: {} });
-    if (!settings || !settings.masterPin) {
-      throw CustomError.internalServer("Error de seguridad: Master PIN no configurado en el sistema");
-    }
-
-    const isValid = await bcrypt.compare(pin, settings.masterPin);
+    const { GlobalSettingsService } = require("../globalSettings/global-settings.service");
+    const globalSettingsService = new GlobalSettingsService();
+    const isValid = await globalSettingsService.validateMasterPin(pin);
+    
     if (!isValid) {
       throw CustomError.unAuthorized("Master PIN incorrecto");
     }
