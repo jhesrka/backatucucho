@@ -65,7 +65,7 @@ export class DeliverySettingsAdminService {
       throw CustomError.internalServer("Error de seguridad: Master PIN no configurado en el sistema");
     }
 
-    const isValid = bcrypt.compareSync(pin, settings.masterPin);
+    const isValid = await bcrypt.compare(pin, settings.masterPin);
     if (!isValid) {
       throw CustomError.unAuthorized("Master PIN incorrecto");
     }
