@@ -94,10 +94,13 @@ export class GlobalSettingsService {
 
     async updateSettings(data: any, file?: Express.Multer.File) { // Type with DTO later
         if (data.masterPin) {
-            const currentSettings = await this.getSettings();
-            if (currentSettings.masterPin) {
-                const isMatch = await bcrypt.compare(data.masterPin, currentSettings.masterPin);
-                if (!isMatch) throw CustomError.badRequest("PIN Maestro incorrecto");
+            const isMatch = await this.validateMasterPin(data.masterPin);
+            if (!isMatch) throw CustomError.badRequest("PIN Maestro incorrecto");
+        } else {
+            // Requiere PIN para cualquier actualización excepto cardRechargeEnabled
+            const keys = Object.keys(data).filter(k => k !== 'cardRechargeEnabled');
+            if (keys.length > 0) {
+                throw CustomError.unAuthorized("PIN Maestro requerido para modificar la configuración");
             }
         }
 
@@ -235,10 +238,8 @@ export class GlobalSettingsService {
         const settings = await this.getRawSettings();
         
         if (masterPin) {
-            if (settings.masterPin) {
-                const isMatch = await bcrypt.compare(masterPin, settings.masterPin);
-                if (!isMatch) throw CustomError.badRequest("PIN Maestro incorrecto");
-            }
+            const isMatch = await this.validateMasterPin(masterPin);
+            if (!isMatch) throw CustomError.badRequest("PIN Maestro incorrecto");
         } else {
             throw CustomError.badRequest("PIN Maestro requerido");
         }
@@ -282,10 +283,8 @@ export class GlobalSettingsService {
         const settings = await this.getRawSettings();
         
         if (masterPin) {
-            if (settings.masterPin) {
-                const isMatch = await bcrypt.compare(masterPin, settings.masterPin);
-                if (!isMatch) throw CustomError.badRequest("PIN Maestro incorrecto");
-            }
+            const isMatch = await this.validateMasterPin(masterPin);
+            if (!isMatch) throw CustomError.badRequest("PIN Maestro incorrecto");
         } else {
             throw CustomError.badRequest("PIN Maestro requerido");
         }
