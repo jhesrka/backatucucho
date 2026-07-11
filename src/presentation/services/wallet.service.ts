@@ -461,6 +461,14 @@ export class WalletService {
         await transaction.save();
         console.log(`✨ [Payphone Service] PROCESO COMPLETADO EXITOSAMENTE`);
 
+        // 🚀 DISPARADOR: Cobro automático al vuelo tras recarga
+        try {
+          const { SubscriptionService } = await import("./subscription.service");
+          new SubscriptionService().autoChargePendingSubscriptions(recharge.user.id).catch(err => 
+            console.error("Error en autoChargePendingSubscriptions:", err)
+          );
+        } catch (e) { console.error("No se pudo cargar SubscriptionService:", e); }
+
         return { success: true, message: "Recarga confirmada y acreditada" };
       } else {
         const errorMsg = verification?.message || "La transacción no fue aprobada por PayPhone";
@@ -551,6 +559,14 @@ export class WalletService {
       transaction.admin = { id: adminId } as any;
       
       await transaction.save();
+
+      // 🚀 DISPARADOR: Cobro automático al vuelo tras recarga
+      try {
+        const { SubscriptionService } = await import("./subscription.service");
+        new SubscriptionService().autoChargePendingSubscriptions(wallet.user.id).catch(err => 
+          console.error("Error en autoChargePendingSubscriptions:", err)
+        );
+      } catch (e) { console.error("No se pudo cargar SubscriptionService:", e); }
 
       return {
         success: true,

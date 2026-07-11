@@ -710,8 +710,17 @@ export class RechargeRequestService {
         const subService = new SubscriptionService();
         await subService.checkAndRecoverSubscription(request.user.id);
       } catch (subError) {
-        console.error("[Recharge-SubRecovery] Error al intentar recuperar suscripción:", subError);
+        console.error("[Recharge-SubRecovery] Error al intentar recuperar suscripción de usuario:", subError);
         // No lanzamos error aquí para no revertir la recarga aprobada
+      }
+
+      // 🚀 DISPARADOR: Cobro automático al vuelo para NEGOCIOS tras recarga
+      try {
+        const { SubscriptionService: BusinessSubService } = require("../subscription.service");
+        const businessSubService = new BusinessSubService();
+        await businessSubService.autoChargePendingSubscriptions(request.user.id);
+      } catch (bizSubError) {
+        console.error("[Recharge-BizRecovery] Error al intentar recuperar suscripción de negocio:", bizSubError);
       }
     } else if (status === StatusRecarga.RECHAZADO) {
       if (linkedTx) {

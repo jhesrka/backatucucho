@@ -4,17 +4,18 @@ import { SubscriptionService as BusinessSubscriptionService } from "../presentat
 import { SubscriptionService as UserSubscriptionService } from "../presentation/services/postService/subscription.service";
 
 export const startSubscriptionCron = () => {
-    // Ejecutar todos los días a las 2:00 AM
-    cron.schedule("0 2 * * *", async () => {
+    // Ejecutar cuatro veces al día: 2 AM, 8 AM, 2 PM, 8 PM
+    cron.schedule("0 2,8,14,20 * * *", async () => {
         await withRedisLock("subscription", 55, async () => {
-        console.log("➡️ [CRON] INICIANDO PROCESAMIENTO DE SUSCRIPCIONES:", new Date().toLocaleString());
+        const currentHour = new Date().getHours();
+        console.log(`➡️ [CRON] INICIANDO PROCESAMIENTO DE SUSCRIPCIONES (Ciclo: ${currentHour}:00):`, new Date().toLocaleString());
 
         const businessService = new BusinessSubscriptionService();
         const userService = new UserSubscriptionService();
 
         try {
             // 1. Procesar suscripciones de Negocios
-            const businessResults = await businessService.processDailySubscriptions();
+            const businessResults = await businessService.processDailySubscriptions(currentHour);
             console.log("✅ [CRON] NEGOCIOS PROCESADOS:", businessResults);
 
             // 2. Procesar suscripciones de Usuarios (BASIC)
@@ -27,5 +28,5 @@ export const startSubscriptionCron = () => {
             });
     }, { timezone: "America/Guayaquil" });
 
-    console.log("[CRON] Sistema de renovación automática (Negocios y Usuarios) inicializado (2:00 AM daily)");
+    console.log("[CRON] Sistema de renovación automática (Negocios y Usuarios) inicializado (4 veces al día)");
 };

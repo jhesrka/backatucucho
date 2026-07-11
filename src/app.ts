@@ -9,6 +9,8 @@ import { Server } from "./presentation/server";
 import "dotenv/config";
 import { startPedidoMotoCron } from "./cron/pedidoMoto.cron";
 import { startSubscriptionCron } from "./cron/subscription.cron";
+import { startSubscriptionGuardianCron } from "./cron/subscription-guardian.cron";
+import { startSubscriptionRemindersCron } from "./cron/subscription-reminders.cron";
 import { startPostExpirationCron } from "./cron/post-expiration.cron";
 import { startOrderPurgeCron } from "./cron/pedidoPurge.cron";
 import { startReportPurgeCron } from "./cron/report-purge.cron";
@@ -48,6 +50,8 @@ async function main() {
     console.log("⏰ Cron jobs habilitados.");
     startPedidoMotoCron();
     startSubscriptionCron();
+    startSubscriptionGuardianCron();
+    startSubscriptionRemindersCron();
     startPostExpirationCron();
     startOrderPurgeCron();
     startReportPurgeCron();
