@@ -179,16 +179,12 @@ export class NegocioService {
 
       // 🔔 Notificación a todos los admins
       try {
-        const admins = await User.find({ where: { rol: UserRole.ADMIN } });
         const notificationService = new NotificationService();
-        for (const admin of admins) {
-          await notificationService.sendPushNotification(
-            admin.id,
-            "🏢 Nuevo Negocio",
-            `Se ha registrado el negocio "${saved.nombre}". Entra al panel para revisarlo.`,
-            { url: "/admin" }
-          );
-        }
+        await notificationService.sendToAdmins(
+          "🏪 Nuevo Negocio Registrado",
+          `El usuario ${usuario.name} ha registrado el negocio "${saved.nombre}". Entra al panel para revisarlo.`,
+          { url: "/admin/negocios" }
+        );
       } catch (error) {
         console.error("Error enviando notificaciones push a admins:", error);
       }

@@ -531,7 +531,7 @@ export class PedidoMotoService {
     }
 
     if (!pedido.pickup_verified) {
-      throw CustomError.badRequest("No puedes marcar en camino sin antes validar el código con el restaurante");
+      throw CustomError.badRequest("No puedes marcar en camino sin antes validar el código con el negocio");
     }
 
     pedido.estado = EstadoPedido.EN_CAMINO;

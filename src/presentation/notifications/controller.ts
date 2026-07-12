@@ -100,4 +100,36 @@ export class NotificationController {
       this.handleError(error, res);
     }
   };
+
+  registerTokenAdmin = async (req: Request, res: Response) => {
+    try {
+      const { token, deviceType } = req.body;
+      const adminId = req.body.sessionAdmin.id; // From AuthAdminMiddleware
+
+      if (!token) throw CustomError.badRequest('Token is required');
+
+      const Useradmin = require('../../data').Useradmin;
+      const admin = await Useradmin.findOneBy({ id: adminId });
+      if (!admin) throw CustomError.notFound('Admin not found');
+
+      let pushToken = await PushToken.findOneBy({ token });
+
+      if (pushToken) {
+        pushToken.admin = admin;
+        pushToken.deviceType = deviceType || pushToken.deviceType;
+        await pushToken.save();
+      } else {
+        pushToken = PushToken.create({
+          token,
+          deviceType,
+          admin
+        });
+        await pushToken.save();
+      }
+
+      res.json({ message: 'Token registered successfully for admin' });
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  };
 }

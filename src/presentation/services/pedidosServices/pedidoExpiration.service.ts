@@ -69,7 +69,7 @@ export class PedidoExpirationService {
                 const io = getIO();
                 for (const pedido of expiredPedidos) {
                     const isPayphone = pedido.estado === "PENDIENTE_PAGO" as any;
-                    const msg = isPayphone ? "Tiempo de pago excedido (5 min)" : "El restaurante nunca aceptó tu pedido";
+                    const msg = isPayphone ? "Tiempo de pago excedido (5 min)" : "El negocio nunca aceptó tu pedido";
                     
                     if (pedido.cliente) {
                         io.to(pedido.cliente.id).emit("pedido_actualizado", {

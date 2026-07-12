@@ -478,10 +478,10 @@ export class NegocioAdminService {
     // 📣 Notificación Masiva a la Comunidad (Solo si pasa de PENDIENTE a ACTIVO)
     if (oldStatus === StatusNegocio.PENDIENTE && saved.statusNegocio === StatusNegocio.ACTIVO) {
       try {
-        const broadcastTitle = "🥳 ¡Nuevo Restaurante en Atucucho!";
+        const broadcastTitle = "🥳 ¡Nuevo Negocio en Atucucho!";
         const broadcastBody = `Conoce a "${saved.nombre}", ya disponible en la app. ¡Pide ahora!`;
         
-        // Redirige al perfil del restaurante en la app
+        // Redirige al perfil del negocio en la app
         await notificationService.broadcastPushNotificationToAll(broadcastTitle, broadcastBody, { url: `/negocio/${saved.id}` });
         console.log(`📣 [Notificación Masiva] Se avisó a la comunidad sobre el nuevo negocio: ${saved.nombre}`);
       } catch (broadcastError) {

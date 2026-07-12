@@ -382,7 +382,7 @@ export class BusinessService {
                 estadoAnterior: EstadoPedido.PENDIENTE,
                 estadoNuevo: EstadoPedido.ACEPTADO,
                 evento: "NEGOCIO_ACEPTO",
-                detalle: "El restaurante aceptó el pedido e inició el cronómetro de preparación"
+                detalle: "El negocio aceptó el pedido e inició el cronómetro de preparación"
             });
         } else if (status === EstadoPedido.PREPARANDO) {
             if (order.estado !== EstadoPedido.ACEPTADO && order.estado !== EstadoPedido.PENDIENTE) {
@@ -397,7 +397,7 @@ export class BusinessService {
                 estadoAnterior: EstadoPedido.ACEPTADO,
                 estadoNuevo: EstadoPedido.PREPARANDO,
                 evento: "NEGOCIO_LISTO",
-                detalle: "El restaurante marcó el pedido como 'Listo para Recoger' (Inicia búsqueda de motorizado)"
+                detalle: "El negocio marcó el pedido como 'Listo para Recoger' (Inicia búsqueda de motorizado)"
             });
         } else if (status === EstadoPedido.CANCELADO) {
             // Regla 4: "Un pedido solo puede ser rechazado en estado PENDIENTE"
@@ -415,7 +415,7 @@ export class BusinessService {
                 estadoAnterior: EstadoPedido.PENDIENTE,
                 estadoNuevo: EstadoPedido.CANCELADO,
                 evento: "NEGOCIO_RECHAZO",
-                detalle: `El restaurante rechazó el pedido. Motivo: ${motivoCancelacion}`
+                detalle: `El negocio rechazó el pedido. Motivo: ${motivoCancelacion}`
             });
         } else {
             throw CustomError.badRequest("Estado no permitido para el negocio");

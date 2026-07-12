@@ -211,4 +211,82 @@ export class NotificationService {
       console.error('❌ Error crítico en broadcastPushNotificationToAll:', error);
     }
   }
+
+  async sendToAdmins(title: string, body: string, data: any = {}) {
+    if (!NotificationService.instance) {
+      console.warn('⚠️ Intentando enviar a admins pero FCM no está inicializado.');
+      return;
+    }
+
+    try {
+      // Obtener tokens donde adminId no sea null
+      const tokens = await PushToken.createQueryBuilder("push_token")
+        .where("push_token.adminId IS NOT NULL")
+        .getMany();
+
+      if (tokens.length === 0) {
+        console.log(`ℹ️ No hay tokens de administradores registrados. Saltando notificación.`);
+        return;
+      }
+
+      const registrationTokens = tokens.map(t => t.token);
+
+      const message: admin.messaging.MulticastMessage = {
+        notification: { title, body },
+        android: {
+          priority: 'high',
+          notification: { sound: 'default' }
+        },
+        apns: {
+          payload: {
+            aps: {
+              contentAvailable: true,
+              sound: 'default'
+            }
+          }
+        },
+        webpush: {
+          headers: {
+            Urgency: 'high'
+          },
+          notification: {
+            icon: `${envs.WEBSERVICE_URL_FRONT}/logo_resized_192x192.png`,
+            badge: `${envs.WEBSERVICE_URL_FRONT}/badge_96x96.png`
+          }
+        },
+        data: {
+          ...data,
+          url: data.url || '/admin', // deep link al dashboard admin
+        },
+        tokens: registrationTokens,
+      };
+
+      console.log(`📡 Enviando notificación push a ${registrationTokens.length} administradores...`);
+      const response = await admin.messaging().sendEachForMulticast(message);
+      console.log(`✅ Resultado del envío a admins: ${response.successCount} exitosos, ${response.failureCount} fallidos.`);
+
+      // Limpiar tokens inválidos
+      if (response.failureCount > 0) {
+        const failedTokens: string[] = [];
+        response.responses.forEach((resp, idx) => {
+          if (!resp.success) {
+            const code = resp.error?.code;
+            if (code === 'messaging/invalid-registration-token' || code === 'messaging/registration-token-not-registered') {
+              failedTokens.push(registrationTokens[idx]);
+            }
+          }
+        });
+
+        if (failedTokens.length > 0) {
+          console.log(`🧹 Limpiando ${failedTokens.length} tokens inválidos de admins...`);
+          await PushToken.createQueryBuilder()
+            .delete()
+            .where("token IN (:...tokens)", { tokens: failedTokens })
+            .execute();
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error crítico enviando notificación push a administradores:', error);
+    }
+  }
 }

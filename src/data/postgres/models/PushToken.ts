@@ -1,6 +1,7 @@
 import { BaseEntity, Column, Entity, ManyToOne, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, JoinColumn } from "typeorm";
 import { User } from "./user.model";
 import { UserMotorizado } from "./UserMotorizado";
+import { Useradmin } from "./useradmin.model";
 
 @Entity()
 export class PushToken extends BaseEntity {
@@ -20,6 +21,10 @@ export class PushToken extends BaseEntity {
   @ManyToOne(() => UserMotorizado, { onDelete: "CASCADE", nullable: true })
   @JoinColumn({ name: "motorizadoId" })
   motorizado: UserMotorizado;
+
+  @ManyToOne(() => Useradmin, { onDelete: "CASCADE", nullable: true })
+  @JoinColumn({ name: "adminId" })
+  admin: Useradmin;
 
   @CreateDateColumn()
   createdAt: Date;
