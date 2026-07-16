@@ -31,3 +31,4 @@ export * from './CategoriaServicio';
 export * from './SubcategoriaServicio';
 export * from './Servicio';
 export * from './AgeVerificationQuestion';
+export * from './PreguntaFormularioCredito';

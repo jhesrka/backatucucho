@@ -887,6 +887,7 @@ export class UserService {
         isProfileComplete: !!(userWithRelations.whatsapp && userWithRelations.password && userWithRelations.acceptedTermsVersion && userWithRelations.acceptedPrivacyVersion),
         googleId: userWithRelations.googleId,
         cancellation_strikes: userWithRelations.cancellation_strikes ?? 0,
+        puedeCrearNegocioCredito: userWithRelations.puedeCrearNegocioCredito,
       };
     } catch (error) {
       throw CustomError.internalServer("Error obteniendo perfil completo");
@@ -1227,7 +1228,7 @@ export class UserService {
         createdAt: user.createdAt,
         updated_at: user.updated_at,
         deletedAt: user.deletedAt,
-
+        puedeCrearNegocioCredito: user.puedeCrearNegocioCredito,
         // Session data
         isLoggedIn: user.isLoggedIn,
         lastLoginIP: user.lastLoginIP,
@@ -1928,5 +1929,20 @@ export class UserService {
     });
 
     return stats;
+  }
+
+  async toggleNegocioCredito(userId: string, puedeCrear: boolean) {
+    const user = await this.findOneUser(userId);
+    user.puedeCrearNegocioCredito = puedeCrear;
+    await user.save();
+    return { 
+      success: true, 
+      message: `Permiso de negocio a crédito ${puedeCrear ? 'activado' : 'desactivado'} para el usuario.`,
+      user: {
+        id: user.id,
+        email: user.email,
+        puedeCrearNegocioCredito: user.puedeCrearNegocioCredito
+      }
+    };
   }
 }

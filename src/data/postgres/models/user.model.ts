@@ -131,6 +131,9 @@ export class User extends BaseEntity {
   @Column("varchar", { nullable: true })
   currentSessionId: string;
 
+  @Column("boolean", { default: false })
+  puedeCrearNegocioCredito: boolean;
+
   @Column("varchar", { nullable: true })
   lastLoginIP: string;
 

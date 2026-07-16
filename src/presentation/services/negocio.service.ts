@@ -48,6 +48,10 @@ export class NegocioService {
     const usuario = await User.findOneBy({ id: dto.userId });
     if (!usuario) throw CustomError.notFound("Usuario no encontrado");
 
+    if (dto.esParaCredito && !usuario.puedeCrearNegocioCredito) {
+      throw CustomError.forbiden("No tienes autorización para registrar negocios a crédito.");
+    }
+
     let modelo = dto.modeloMonetizacion;
 
     if (categoria.modeloBloqueado && categoria.modeloMonetizacionDefault) {
@@ -120,6 +124,7 @@ export class NegocioService {
     negocio.latitud = dto.latitud;
     negocio.longitud = dto.longitud;
     negocio.direccionTexto = dto.direccionTexto ?? null;
+    negocio.esParaCredito = dto.esParaCredito;
     negocio.banco = dto.banco;
     negocio.tipoCuenta = dto.tipoCuenta;
     negocio.numeroCuenta = dto.numeroCuenta;
@@ -375,6 +380,8 @@ export class NegocioService {
               nombre: negocio.categoria.nombre,
               statusCategoria: negocio.categoria.statusCategoria,
             },
+            esParaCredito: negocio.esParaCredito,
+            modeloMonetizacion: negocio.modeloMonetizacion,
             usuario: {
               id: negocio.usuario.id,
               name: negocio.usuario.name,
@@ -437,6 +444,7 @@ export class NegocioService {
           statusNegocio: negocio.statusNegocio,
           created_at: negocio.created_at,
           modeloMonetizacion: negocio.modeloMonetizacion,
+          esParaCredito: negocio.esParaCredito,
           estadoNegocio: negocio.estadoNegocio,
           latitud: negocio.latitud ? Number(negocio.latitud) : null,
           longitud: negocio.longitud ? Number(negocio.longitud) : null,

@@ -25,7 +25,8 @@ export class CreateNegocioDTO {
     public readonly direccionTexto?: string | null,
     public readonly valorSuscripcion: number = 0,
     public readonly diaPago: number = 1,
-    public readonly orden: number = 0
+    public readonly orden: number = 0,
+    public readonly esParaCredito: boolean = false
   ) { }
 
   static create(obj: { [key: string]: any }): [string?, CreateNegocioDTO?] {
@@ -52,69 +53,60 @@ export class CreateNegocioDTO {
       subcategoriaId,
       valorSuscripcion,
       diaPago,
-      orden
+      orden,
+      esParaCredito
     } = obj;
 
     if (!nombre || typeof nombre !== "string" || nombre.trim().length < 3) {
       return ["El nombre del negocio debe tener al menos 3 caracteres"];
     }
 
-    if (!descripcion || typeof descripcion !== "string" || descripcion.trim().length < 10) {
-      return ["La descripción debe tener al menos 10 caracteres"];
-    }
+    if (!esParaCredito) {
+      if (!descripcion || typeof descripcion !== "string" || descripcion.trim().length < 10) {
+        return ["La descripción debe tener al menos 10 caracteres"];
+      }
 
-    if (!categoriaId || typeof categoriaId !== "string" || !regularExp.uuid.test(categoriaId)) {
-      return ["El ID de categoría no es válido"];
-    }
+      // Validar Datos Bancarios
+      if (!banco || typeof banco !== "string" || banco.trim().length < 2) {
+        return ["El nombre del banco es obligatorio"];
+      }
+      if (!tipoCuenta || typeof tipoCuenta !== "string" || tipoCuenta.trim().length < 2) {
+        return ["El tipo de cuenta es obligatorio"];
+      }
+      if (!numeroCuenta || typeof numeroCuenta !== "string" || numeroCuenta.trim().length < 5) {
+        return ["El número de cuenta es obligatorio"];
+      }
+      if (!titularCuenta || typeof titularCuenta !== "string" || titularCuenta.trim().length < 3) {
+        return ["El titular de la cuenta es obligatorio"];
+      }
+      if (!identificacionCuenta || typeof identificacionCuenta !== "string" || identificacionCuenta.trim().length < 5) {
+        return ["La identificación (Cédula/RUC) es obligatoria"];
+      }
+      if (!correoCuenta || typeof correoCuenta !== "string" || correoCuenta.trim().length < 5) {
+        return ["El correo de la cuenta es obligatorio"];
+      }
 
-    if (!userId || typeof userId !== "string" || !regularExp.uuid.test(userId)) {
-      return ["El ID de usuario no es válido"];
-    }
+      // Validar Tiempos de Preparación
+      const tMin = Number(tiempoPreparacionMin);
+      const tMax = Number(tiempoPreparacionMax);
 
-    if (!modeloMonetizacion || !Object.values(ModeloMonetizacion).includes(modeloMonetizacion)) {
-      return ["Debes seleccionar un modelo de monetización válido"];
-    }
+      if (isNaN(tMin) || tMin <= 0) return ["tiempoPreparacionMin debe ser un número positivo"];
+      if (isNaN(tMax) || tMax <= 0) return ["tiempoPreparacionMax debe ser un número positivo"];
+      if (tMin >= tMax) return ["tiempoPreparacionMin debe ser menor que tiempoPreparacionMax"];
 
-    // Validar Datos Bancarios
-    if (!banco || typeof banco !== "string" || banco.trim().length < 2) {
-      return ["El nombre del banco es obligatorio"];
-    }
-    if (!tipoCuenta || typeof tipoCuenta !== "string" || tipoCuenta.trim().length < 2) {
-      return ["El tipo de cuenta es obligatorio"];
-    }
-    if (!numeroCuenta || typeof numeroCuenta !== "string" || numeroCuenta.trim().length < 5) {
-      return ["El número de cuenta es obligatorio"];
-    }
-    if (!titularCuenta || typeof titularCuenta !== "string" || titularCuenta.trim().length < 3) {
-      return ["El titular de la cuenta es obligatorio"];
-    }
-    if (!identificacionCuenta || typeof identificacionCuenta !== "string" || identificacionCuenta.trim().length < 5) {
-      return ["La identificación (Cédula/RUC) es obligatoria"];
-    }
-    if (!correoCuenta || typeof correoCuenta !== "string" || correoCuenta.trim().length < 5) {
-      return ["El correo de la cuenta es obligatorio"];
-    }
+      // Validar Tiempos Programados (si están habilitados)
+      const pEnabled = !!permiteProductosProgramados;
+      let tpMin = undefined;
+      let tpMax = undefined;
 
-    // Validar Tiempos de Preparación
-    const tMin = Number(tiempoPreparacionMin);
-    const tMax = Number(tiempoPreparacionMax);
+      if (pEnabled) {
+        tpMin = Number(tiempoProgramadoMin);
+        tpMax = Number(tiempoProgramadoMax);
 
-    if (isNaN(tMin) || tMin <= 0) return ["tiempoPreparacionMin debe ser un número positivo"];
-    if (isNaN(tMax) || tMax <= 0) return ["tiempoPreparacionMax debe ser un número positivo"];
-    if (tMin >= tMax) return ["tiempoPreparacionMin debe ser menor que tiempoPreparacionMax"];
-
-    // Validar Tiempos Programados (si están habilitados)
-    const pEnabled = !!permiteProductosProgramados;
-    let tpMin = undefined;
-    let tpMax = undefined;
-
-    if (pEnabled) {
-      tpMin = Number(tiempoProgramadoMin);
-      tpMax = Number(tiempoProgramadoMax);
-
-      if (isNaN(tpMin) || tpMin <= 0) return ["tiempoProgramadoMin debe ser un número positivo"];
-      if (isNaN(tpMax) || tpMax <= 0) return ["tiempoProgramadoMax debe ser un número positivo"];
-      if (tpMin >= tpMax) return ["tiempoProgramadoMin debe ser menor que tiempoProgramadoMax"];
+        if (isNaN(tpMin) || tpMin <= 0) return ["tiempoProgramadoMin debe ser un número positivo"];
+        if (isNaN(tpMax) || tpMax <= 0) return ["tiempoProgramadoMax debe ser un número positivo"];
+        if (tpMin >= tpMax) return ["tiempoProgramadoMin debe ser menor que tiempoProgramadoMax"];
+      }
     }
 
     // ✅ Ubicación obligatoria para crear
@@ -162,28 +154,29 @@ export class CreateNegocioDTO {
       undefined,
       new CreateNegocioDTO(
         nombre.trim(),
-        descripcion.trim(),
+        descripcion ? descripcion.trim() : "Negocio a crédito",
         categoriaId,
         userId,
-        modeloMonetizacion,
+        esParaCredito ? ModeloMonetizacion.CREDITO : (modeloMonetizacion || ModeloMonetizacion.SUSCRIPCION),
         lat,
         lng,
-        banco.trim(),
-        tipoCuenta.trim(),
-        numeroCuenta.trim(),
-        titularCuenta.trim(),
-        identificacionCuenta.trim(),
-        correoCuenta.trim(),
-        tMin,
-        tMax,
-        pEnabled,
-        tpMin,
-        tpMax,
+        banco ? banco.trim() : "",
+        tipoCuenta ? tipoCuenta.trim() : "",
+        numeroCuenta ? numeroCuenta.trim() : "",
+        titularCuenta ? titularCuenta.trim() : "",
+        identificacionCuenta ? identificacionCuenta.trim() : "",
+        correoCuenta ? correoCuenta.trim() : "",
+        esParaCredito ? 0 : (Number(tiempoPreparacionMin) || 0),
+        esParaCredito ? 0 : (Number(tiempoPreparacionMax) || 0),
+        esParaCredito ? false : !!permiteProductosProgramados,
+        esParaCredito ? null : (tiempoProgramadoMin ? Number(tiempoProgramadoMin) : null),
+        esParaCredito ? null : (tiempoProgramadoMax ? Number(tiempoProgramadoMax) : null),
         subcategoriaId,
         dirTxt,
         valorSuscripcion !== undefined ? Number(valorSuscripcion) : 0,
         diaPago !== undefined ? Number(diaPago) : 1,
-        orden !== undefined ? Number(orden) : 0
+        orden !== undefined ? Number(orden) : 0,
+        !!esParaCredito
       ),
     ];
   }

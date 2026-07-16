@@ -102,6 +102,10 @@ export class GlobalSettings extends BaseEntity {
     @Column("decimal", { precision: 10, scale: 2, default: 5.00 })
     servicePublicationPrice: number;
 
+    // Credit Form Lead Price
+    @Column("decimal", { precision: 10, scale: 2, default: 0.50 })
+    precioFormularioCredito: number;
+
     @Column("varchar", { length: 20, default: "v1.0" })
     currentTermsVersion: string;
 

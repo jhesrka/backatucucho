@@ -28,6 +28,7 @@ export enum ModeloMonetizacion {
   SUSCRIPCION = "SUSCRIPCION",
   COMISION_SUSCRIPCION = "COMISION_SUSCRIPCION",
   COMISION = "COMISION", // Soporte para datos antiguos
+  CREDITO = "CREDITO", // Para negocios a crédito
 }
 
 export enum EstadoNegocio {
@@ -157,6 +158,9 @@ export class Negocio extends BaseEntity {
   // --- CONFIGURACIÓN DE TIEMPOS (NUEVO) ---
   @Column("int", { default: 15 })
   tiempoPreparacionMin: number;
+
+  @Column({ type: "boolean", default: false })
+  esParaCredito: boolean;
 
   @Column("int", { default: 30 })
   tiempoPreparacionMax: number;

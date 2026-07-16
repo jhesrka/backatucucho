@@ -19,7 +19,8 @@ export enum TransactionReason {
   REFUND = 'REFUND',                         // Reembolso
   STORIE = 'STORIE',                         // Débito por historia
   WITHDRAWAL = 'WITHDRAWAL',                 // Retiro (Solicitud o Ejecución)
-  CASH_RECHARGE = 'CASH_RECHARGE'            // Recarga en efectivo (Administrador)
+  CASH_RECHARGE = 'CASH_RECHARGE',            // Recarga en efectivo (Administrador)
+  LEAD_CREDITO = 'LEAD_CREDITO'              // Débito por generar un prospecto de crédito
 }
 
 @Entity('transactions')

@@ -45,6 +45,7 @@ import { MeritocracyRoutes } from "./meritocracy/meritocracy.routes";
 import { TrainingRoutes } from "./training/training.routes";
 import { ServiciosUsuarioRoutes } from "./serviciosUsuario/routes";
 import { AgeVerificationQuestionRoutes } from "./age-verification-questions/routes";
+import { FormularioCreditoRoutes } from "./formulario-credito/formulario-credito.routes";
 export class AppRoutes {
   //cuando hay metodoos estaticos no necesitams instanciar
   static get routes(): Router {
@@ -138,6 +139,9 @@ export class AppRoutes {
 
     // 👷‍♂️ NUEVA RUTA: Servicios de Usuario
     router.use("/api/servicios-usuario", ServiciosUsuarioRoutes.routes);
+
+    // NUEVA RUTA: Formulario de Crédito
+    router.use("/api/formulario-credito", FormularioCreditoRoutes.routes);
 
     return router;
 

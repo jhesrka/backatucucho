@@ -49,6 +49,9 @@ export class CategoriaNegocio extends BaseEntity {
   @Column({ type: "boolean", default: false })
   modeloBloqueado: boolean;
 
+  @Column({ type: "boolean", default: false })
+  esParaCredito: boolean;
+
   @Column({
     type: "varchar",
     nullable: true,

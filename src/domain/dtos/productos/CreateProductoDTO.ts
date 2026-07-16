@@ -8,9 +8,10 @@ export class CreateProductoDTO {
     public readonly precio_venta: number,
     public readonly precio_app: number | null,
     public readonly negocioId: string,
-    public readonly modeloMonetizacion: "SUSCRIPCION" | "COMISION_SUSCRIPCION",
+    public readonly modeloMonetizacion: "SUSCRIPCION" | "COMISION_SUSCRIPCION" | "CREDITO",
     public readonly tipoId: string,
-    public readonly tipoProducto: TipoProductoEnum = TipoProductoEnum.NORMAL
+    public readonly tipoProducto: TipoProductoEnum = TipoProductoEnum.NORMAL,
+    public readonly esParaCredito: boolean = false
   ) { }
 
   static create(obj: {
@@ -19,9 +20,10 @@ export class CreateProductoDTO {
     precio_venta: number;
     precio_app?: number;
     negocioId: string;
-    modeloMonetizacion: "SUSCRIPCION" | "COMISION_SUSCRIPCION";
+    modeloMonetizacion: "SUSCRIPCION" | "COMISION_SUSCRIPCION" | "CREDITO";
     tipoId?: string; // ya no es opcional en lógica, pero puede venir undefined desde el cliente
     tipoProducto?: TipoProductoEnum;
+    esParaCredito?: boolean | string;
   }): [string?, CreateProductoDTO?] {
     const {
       nombre,
@@ -31,8 +33,11 @@ export class CreateProductoDTO {
       negocioId,
       modeloMonetizacion,
       tipoId,
-      tipoProducto
+      tipoProducto,
+      esParaCredito
     } = obj;
+    
+    const isCredit = modeloMonetizacion === "CREDITO" || esParaCredito === true || esParaCredito === "true";
 
     if (!nombre || typeof nombre !== "string" || nombre.trim().length < 3) {
       return ["El nombre del producto debe tener al menos 3 caracteres"];
@@ -42,19 +47,23 @@ export class CreateProductoDTO {
       return ["La descripción debe tener al menos 5 caracteres"];
     }
 
-    if (isNaN(Number(precio_venta)) || Number(precio_venta) <= 0) {
+    if (!isCredit && (isNaN(Number(precio_venta)) || Number(precio_venta) <= 0)) {
       return ["El precio de venta debe ser un número positivo"];
+    }
+
+    if (isCredit && isNaN(Number(precio_venta))) {
+      return ["El precio de venta debe ser numérico"];
     }
 
     if (!negocioId || typeof negocioId !== "string" || !regularExp.uuid.test(negocioId)) {
       return ["El ID del negocio no es válido"];
     }
 
-    if (!modeloMonetizacion || !["SUSCRIPCION", "COMISION_SUSCRIPCION"].includes(modeloMonetizacion)) {
+    if (!modeloMonetizacion || !["SUSCRIPCION", "COMISION_SUSCRIPCION", "CREDITO"].includes(modeloMonetizacion)) {
       return ["Modelo de monetización inválido"];
     }
 
-    if (modeloMonetizacion === "COMISION_SUSCRIPCION") {
+    if (modeloMonetizacion === "COMISION_SUSCRIPCION" && !isCredit) {
       if (precio_app === undefined || precio_app === null) {
         return ["Debes proporcionar 'precio_app' para negocios con modelo COMISION + SUSCRIPCION"];
       }
@@ -86,7 +95,8 @@ export class CreateProductoDTO {
         negocioId,
         modeloMonetizacion,
         tipoId.trim(),
-        tipoProducto || TipoProductoEnum.NORMAL
+        tipoProducto || TipoProductoEnum.NORMAL,
+        isCredit
       ),
     ];
   }

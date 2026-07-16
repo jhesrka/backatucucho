@@ -295,6 +295,13 @@ export class UserRoutes {
       userController.purgeUserAdminAction
     );
 
+    // Dar permiso de negocio a crédito (Admin)
+    router.patch(
+      "/admin/toggle-negocio-credito/:id",
+      AuthAdminMiddleware.protect,
+      userController.toggleNegocioCredito
+    );
+
     return router;
   }
 }

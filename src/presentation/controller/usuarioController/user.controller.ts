@@ -409,4 +409,15 @@ export class UserController {
     }
   }
 
+  toggleNegocioCredito = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { puedeCrearNegocioCredito } = req.body;
+    try {
+      const result = await this.userService.toggleNegocioCredito(id, puedeCrearNegocioCredito);
+      return res.status(200).json(result);
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  }
+
 }

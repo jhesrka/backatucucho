@@ -11,7 +11,7 @@ export class NegocioController {
       return res.status(error.statusCode).json({ message: error.message });
     }
     console.error("Unhandled error:", error);
-    return res.status(500).json({ message: "Something went very wrong" });
+    return res.status(500).json({ message: error instanceof Error ? error.message : "Something went very wrong" });
   };
 
   // ======================= VERIFICAR NOMBRE ========================
@@ -48,7 +48,7 @@ export class NegocioController {
           return res.status(error.statusCode).json({ message: error.message });
         }
         console.error("Unhandled error:", error);
-        return res.status(500).json({ message: "Something went very wrong" });
+        return res.status(500).json({ message: error instanceof Error ? error.message : "Something went very wrong" });
       });
   };
   // ================== TOGGLE ABIERTO / CERRADO ======================

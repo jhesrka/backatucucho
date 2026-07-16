@@ -17,6 +17,7 @@ export enum WalletMovementType {
     RETIRO_APROBADO = "RETIRO_APROBADO",
     AJUSTE_ADMIN = "AJUSTE_ADMIN",
     DEVOLUCION_RETIRO = "DEVOLUCION_RETIRO",
+    PAGO_LEAD_CREDITO = "PAGO_LEAD_CREDITO",
 }
 
 export enum WalletMovementStatus {

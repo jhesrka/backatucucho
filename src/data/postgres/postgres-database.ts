@@ -45,6 +45,7 @@ import { CategoriaServicio } from "./models/CategoriaServicio";
 import { SubcategoriaServicio } from "./models/SubcategoriaServicio";
 import { Servicio } from "./models/Servicio";
 import { AgeVerificationQuestion } from "./models/AgeVerificationQuestion";
+import { PreguntaFormularioCredito } from "./models/PreguntaFormularioCredito";
 interface Options {
   host: string;
   port: number;
@@ -108,7 +109,8 @@ export class PostgresDatabase {
         CategoriaServicio,
         SubcategoriaServicio,
         Servicio,
-        AgeVerificationQuestion
+        AgeVerificationQuestion,
+        PreguntaFormularioCredito
       ],
       synchronize: false, // PRODUCCIÓN: SIEMPRE FALSE. Usar migraciones.
       ssl: {
@@ -524,6 +526,40 @@ export class PostgresDatabase {
           ALTER TABLE "user_motorizado" 
           ADD COLUMN IF NOT EXISTS "placaVehiculo" varchar(20) DEFAULT NULL;
         `);
+      });
+
+      await runMigrationStep("Step 44: Credit Business Models", async () => {
+        await this.datasource.query(`
+          CREATE TABLE IF NOT EXISTS "pregunta_formulario_credito" (
+            "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+            "pregunta" varchar(255) NOT NULL,
+            "tipoRespuesta" varchar NOT NULL DEFAULT 'TEXTO',
+            "opciones" jsonb,
+            "esRequerida" boolean NOT NULL DEFAULT true,
+            "orden" integer NOT NULL DEFAULT 0,
+            "createdAt" timestamptz NOT NULL DEFAULT now(),
+            "updatedAt" timestamptz NOT NULL DEFAULT now(),
+            "negocioId" uuid REFERENCES "negocio"("id") ON DELETE CASCADE,
+            CONSTRAINT "PK_pregunta_formulario_credito" PRIMARY KEY ("id")
+          );
+        `);
+      });
+
+      await runMigrationStep("Step 45: Global Settings Formulario Credito", async () => {
+        await this.datasource.query(`ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "precioFormularioCredito" DECIMAL(10,2) DEFAULT 0.50;`);
+        await this.datasource.query(`ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "puedeCrearNegocioCredito" BOOLEAN DEFAULT false;`);
+      });
+
+      await runMigrationStep("Step 46: Categoria Negocio Credito", async () => {
+        await this.datasource.query(`ALTER TABLE "categoria_negocio" ADD COLUMN IF NOT EXISTS "esParaCredito" BOOLEAN DEFAULT false;`);
+      });
+
+      await runMigrationStep("Step 47: Modelo Monetizacion Credito", async () => {
+        try {
+          const exists = await this.datasource.query(`SELECT 1 FROM pg_enum WHERE enumlabel = 'CREDITO' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'negocio_modelomonetizacion_enum')`);
+          if (exists.length === 0) await this.datasource.query(`ALTER TYPE "negocio_modelomonetizacion_enum" ADD VALUE 'CREDITO'`);
+        } catch (err) { /* Ignorado si falla */ }
+        await this.datasource.query(`ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "esParaCredito" BOOLEAN DEFAULT false;`);
       });
 
       // 2. Inicializar Meritocracia
