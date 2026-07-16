@@ -93,3 +93,7 @@ main();
 // Trigger reload for push notifications
 
 // Reload for user registration push
+
+// Fix payphone workflow
+
+// Fix db transaction in payphone

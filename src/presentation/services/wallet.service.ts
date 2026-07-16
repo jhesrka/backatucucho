@@ -416,58 +416,83 @@ export class WalletService {
             throw CustomError.badRequest("Monto incorrecto. Operación rechazada por seguridad");
         }
 
-        // 🚀 ACREDITACIÓN ATÓMICA (Protección contra Race Conditions)
-        // 1. Bloquear y marcar la recarga como aprobada de forma atómica. Si alguien más ya lo hizo, affected será 0.
-        const updateResult = await RechargeRequest.createQueryBuilder()
-          .update(RechargeRequest)
-          .set({
-            status: StatusRecarga.APROBADO,
-            external_transaction_id: currentRemoteId!.toString(),
-            resolved_at: new Date()
-          })
-          .where("id = :id AND status = :status", { id: recharge.id, status: StatusRecarga.PENDIENTE })
-          .execute();
+        // 🚀 ACREDITACIÓN ATÓMICA (Protección contra Race Conditions y Falla Parcial)
+        const queryRunner = Wallet.getRepository().manager.connection.createQueryRunner();
+        await queryRunner.connect();
+        await queryRunner.startTransaction();
 
-        if (updateResult.affected === 0) {
-          console.warn(`⚠️ [Payphone Service] Carrera detectada: La recarga ${recharge.id} ya fue procesada.`);
-          return { success: true, message: "Recarga ya procesada concurrentemente" };
+        try {
+          // 1. Bloquear y marcar la recarga como aprobada de forma atómica. Si alguien más ya lo hizo, affected será 0.
+          const updateResult = await queryRunner.manager.createQueryBuilder()
+            .update(RechargeRequest)
+            .set({
+              status: StatusRecarga.APROBADO,
+              external_transaction_id: currentRemoteId!.toString(),
+              resolved_at: new Date()
+            })
+            .where("id = :id AND status = :status", { id: recharge.id, status: StatusRecarga.PENDIENTE })
+            .execute();
+
+          if (updateResult.affected === 0) {
+            await queryRunner.rollbackTransaction();
+            console.warn(`⚠️ [Payphone Service] Carrera detectada: La recarga ${recharge.id} ya fue procesada.`);
+            return { success: true, message: "Recarga ya procesada concurrentemente" };
+          }
+
+          // 2. Si ganamos la carrera, sumar el saldo atómicamente
+          await queryRunner.manager.createQueryBuilder()
+            .update(Wallet)
+            .set({ balance: () => `balance + ${amountToCredit}` })
+            .where("id = :id", { id: wallet.id })
+            .execute();
+
+          // Refrescar el estado de la recarga en memoria para uso futuro si es necesario
+          recharge.status = StatusRecarga.APROBADO;
+          recharge.external_transaction_id = currentRemoteId!.toString();
+
+          // 3. Crear registro de transacción
+          const updatedWallet = await queryRunner.manager.findOne(Wallet, { where: { id: wallet.id } });
+          console.log(`📝 [Payphone Service] Creando registro de transacción...`);
+          
+          const transaction = new Transaction();
+          transaction.wallet = wallet;
+          transaction.amount = amountToCredit;
+          transaction.type = 'credit';
+          transaction.status = 'APPROVED';
+          transaction.reason = TransactionReason.RECHARGE;
+          transaction.origin = TransactionOrigin.USER;
+          transaction.observation = `Recarga aprobada vía PayPhone (Tx: ${currentRemoteId})`;
+          transaction.previousBalance = previousBalance;
+          transaction.resultingBalance = Number(updatedWallet?.balance || previousBalance + amountToCredit);
+          transaction.reference = recharge.id;
+          
+          await queryRunner.manager.save(transaction);
+
+          // Todo bien, aplicamos los cambios
+          await queryRunner.commitTransaction();
+          console.log(`✨ [Payphone Service] PROCESO COMPLETADO EXITOSAMENTE Y COMMITEADO`);
+        } catch (dbError: any) {
+          await queryRunner.rollbackTransaction();
+          console.error(`❌ [Payphone Service] Fallo en la transacción de Base de Datos. Haciendo Rollback...`, dbError);
+          throw CustomError.internalServer("Error crítico procesando el saldo de recarga: " + dbError.message);
+        } finally {
+          await queryRunner.release();
         }
 
-        // 2. Si ganamos la carrera, sumar el saldo atómicamente
-        await Wallet.createQueryBuilder()
-          .update(Wallet)
-          .set({ balance: () => `balance + ${amountToCredit}` })
-          .where("id = :id", { id: wallet.id })
-          .execute();
-
-        // Refrescar el estado de la recarga en memoria para uso futuro si es necesario
-        recharge.status = StatusRecarga.APROBADO;
-        recharge.external_transaction_id = currentRemoteId!.toString();
-
-        // Crear registro de transacción
-        const updatedWallet = await Wallet.findOne({ where: { id: wallet.id } });
-        console.log(`📝 [Payphone Service] Creando registro de transacción...`);
-        const transaction = new Transaction();
-        transaction.wallet = wallet;
-        transaction.amount = amountToCredit;
-        transaction.type = 'credit';
-        transaction.status = 'APPROVED';
-        transaction.reason = TransactionReason.RECHARGE;
-        transaction.origin = TransactionOrigin.USER;
-        transaction.previousBalance = previousBalance;
-        transaction.resultingBalance = Number(updatedWallet?.balance || previousBalance + amountToCredit);
-        transaction.reference = recharge.id;
-        
-        await transaction.save();
-        console.log(`✨ [Payphone Service] PROCESO COMPLETADO EXITOSAMENTE`);
-
-        // 🚀 DISPARADOR: Cobro automático al vuelo tras recarga
+        // 🚀 DISPARADORES: Cobro automático al vuelo tras recarga
         try {
-          const { SubscriptionService } = await import("./subscription.service");
-          new SubscriptionService().autoChargePendingSubscriptions(recharge.user.id).catch(err => 
+          const { SubscriptionService: BusinessSubService } = await import("./subscription.service");
+          new BusinessSubService().autoChargePendingSubscriptions(recharge.user.id).catch(err => 
             console.error("Error en autoChargePendingSubscriptions:", err)
           );
-        } catch (e) { console.error("No se pudo cargar SubscriptionService:", e); }
+        } catch (e) { console.error("No se pudo cargar SubscriptionService de negocios:", e); }
+
+        try {
+          const { SubscriptionService: UserSubService } = await import("./postService/subscription.service");
+          new UserSubService().checkAndRecoverSubscription(recharge.user.id).catch(err => 
+            console.error("Error en checkAndRecoverSubscription:", err)
+          );
+        } catch (e) { console.error("No se pudo cargar SubscriptionService de usuarios:", e); }
 
         return { success: true, message: "Recarga confirmada y acreditada" };
       } else {
