@@ -87,3 +87,5 @@ async function main() {
 }
 
 main();
+
+// Trigger reload

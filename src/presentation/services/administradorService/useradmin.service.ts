@@ -187,6 +187,8 @@ export class UseradminService {
         name: useradmin.name,
         surname: useradmin.surname,
         username: useradmin.username,
+        email: useradmin.email,
+        rol: useradmin.rol,
       },
     };
   }
