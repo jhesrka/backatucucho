@@ -133,6 +133,18 @@ export class UserService {
         console.error("Error en Socket.IO (no bloqueante):", ioErr);
       }
 
+      // 🔔 Notificación Push a los Administradores (Registro Manual)
+      try {
+        const notificationService = new NotificationService();
+        await notificationService.sendToAdmins(
+          "👤 Nuevo Usuario Registrado",
+          `El usuario ${newUser.name} ${newUser.surname} se ha registrado manualmente y está en estado Pendiente.`,
+          { url: "/admin/usuarios" }
+        );
+      } catch (pushError) {
+        console.error("Error enviando notificación push a admins por nuevo usuario manual:", pushError);
+      }
+
       return {
         id: newUser.id,
         name: newUser.name,
@@ -363,6 +375,18 @@ export class UserService {
         await subscription.save();
 
         user = newUser;
+
+        // 🔔 Notificación Push a los Administradores (Registro Google)
+        try {
+          const notificationService = new NotificationService();
+          await notificationService.sendToAdmins(
+            "✅ Nuevo Usuario (Google)",
+            `El usuario ${user.name} ${user.surname} se ha registrado usando Google y ya está Activo.`,
+            { url: "/admin/usuarios" }
+          );
+        } catch (pushError) {
+          console.error("Error enviando notificación push a admins por nuevo usuario google:", pushError);
+        }
       } catch (error) {
         throw CustomError.internalServer("Error creando usuario con Google" + error);
       }

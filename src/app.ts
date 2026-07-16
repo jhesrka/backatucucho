@@ -89,3 +89,7 @@ async function main() {
 main();
 
 // Trigger reload
+
+// Trigger reload for push notifications
+
+// Reload for user registration push

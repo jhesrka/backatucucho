@@ -10,6 +10,7 @@ import { OcrService } from "../ocr/ocr.service"; // Added
 import { Parser } from "json2csv";
 import { Between, LessThan } from "typeorm";
 import { getIO } from "../../../config/socket";
+import { NotificationService } from "../NotificationService";
 
 export class RechargeRequestService {
   private ocrService = new OcrService();
@@ -158,6 +159,18 @@ export class RechargeRequestService {
           receiptImage: (url as any).original
         };
         io.emit("new-recharge-request", socketPayload);
+
+        // 🔔 Notificación Push a los Administradores
+        try {
+          const notificationService = new NotificationService();
+          await notificationService.sendToAdmins(
+            "💸 Nueva Solicitud de Recarga",
+            `El usuario ${user.name} ${user.surname} ha solicitado una recarga de $${recharge.amount}. Entra al panel para revisarla.`,
+            { url: "/admin/recargas" }
+          );
+        } catch (pushError) {
+          console.error("Error enviando notificación push a admins por recarga:", pushError);
+        }
       } catch (error) {
         console.error("Error emitiendo socket recarga", error);
       }
