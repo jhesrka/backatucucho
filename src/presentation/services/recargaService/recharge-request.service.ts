@@ -743,6 +743,26 @@ export class RechargeRequestService {
       }
     }
 
+    // 🚀 NOTIFICACIONES PUSH (Fire-and-forget)
+    try {
+      const notificationService = new NotificationService();
+      if (status === StatusRecarga.APROBADO) {
+        notificationService.sendPushNotification(
+          request.user.id,
+          "¡Recarga Aprobada! 🎉",
+          `Tu recarga por $${Number(request.amount).toFixed(2)} ha sido acreditada a tu billetera con éxito.`
+        );
+      } else if (status === StatusRecarga.RECHAZADO) {
+        notificationService.sendPushNotification(
+          request.user.id,
+          "Actualización de Recarga",
+          `Tu solicitud de recarga por $${Number(request.amount).toFixed(2)} ha sido rechazada. ${request.admin_comment ? "Motivo: " + request.admin_comment : "Revisa el soporte para más detalles."}`
+        );
+      }
+    } catch (pushError) {
+      console.error("[Recharge-Push] Error al enviar notificación de recarga:", pushError);
+    }
+
     return {
       id: request.id,
       amount: Number(request.amount),
