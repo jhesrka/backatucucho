@@ -244,7 +244,8 @@ export class WalletService {
         description: string = "Consumo de servicio",
         reasonStr: string = "ORDER",
         auditSubscription?: { daysBought?: number, prevEndDate?: Date, newEndDate?: Date },
-        receiptImage?: string
+        receiptImage?: string,
+        referenceId?: string
     ): Promise<Transaction> {
         const wallet = await Wallet.findOne({
             where: { user: { id: userId } },
@@ -275,6 +276,7 @@ export class WalletService {
             : TransactionReason.ORDER;
 
         transaction.origin = TransactionOrigin.USER;
+        transaction.reference = referenceId || null;
 
         // Apply audit fields if present
         if (auditSubscription) {
