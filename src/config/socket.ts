@@ -17,6 +17,14 @@ export const getIO = (): SocketIOServer => {
 };
 
 import { redisPublisher, redisSubscriber } from "./redis";
+import { Adapter } from "socket.io-adapter";
+
+// Estado global para saber si Redis está activo para Socket.IO y caché local
+export let isRedisGloballyEnabled = false;
+
+export const setRedisGlobalState = (enabled: boolean) => {
+  isRedisGloballyEnabled = enabled;
+};
 
 /**
  * Conecta el adaptador Redis a Socket.IO para sincronizar eventos
@@ -32,7 +40,21 @@ export const initRedisAdapter = async (redisUrl: string): Promise<void> => {
     io.adapter(createAdapter(redisPublisher, redisSubscriber));
     console.log("✅ [Redis] Adaptador Socket.IO conectado —", redisUrl.replace(/:\/\/.*@/, "://***@"));
   } catch (err: any) {
-    // Si Redis falla, el servidor sigue corriendo en modo single-instance
-    console.error("❌ [Redis] No se pudo conectar al adaptador. Continuando sin Redis:", err.message);
+    console.error("❌ [Redis] Error conectando adaptador. Forzando a Local Memory:", err.message);
+    setRedisGlobalState(false);
+    removeRedisAdapter();
+  }
+};
+
+/**
+ * Restaura el adaptador original en memoria de Socket.IO, apagando la sincronización multi-servidor
+ */
+export const removeRedisAdapter = (): void => {
+  try {
+    // Usar el adapter por defecto en memoria
+    io.adapter(Adapter);
+    console.log("🛑 [Redis] Adaptador Socket.IO desconectado. Servidor operando en modo Single-Instance (Memoria Local).");
+  } catch (err: any) {
+    console.error("❌ [Redis] Error al intentar remover el adaptador:", err.message);
   }
 };

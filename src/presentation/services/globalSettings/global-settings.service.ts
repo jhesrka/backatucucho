@@ -163,7 +163,21 @@ export class GlobalSettingsService {
         }
         if (data.acceptedOrderGraceMinutes !== undefined) settings.acceptedOrderGraceMinutes = Number(data.acceptedOrderGraceMinutes);
         if (data.cleanupSubscriptionContentDays !== undefined) settings.cleanupSubscriptionContentDays = Number(data.cleanupSubscriptionContentDays);
-
+        if (data.useRedisLockForCrons !== undefined) {
+            const newValue = data.useRedisLockForCrons === true || data.useRedisLockForCrons === 'true';
+            if (settings.useRedisLockForCrons !== newValue) {
+                settings.useRedisLockForCrons = newValue;
+                // 🔥 Sincronizar estado global de Redis dinámicamente
+                import("../../../config/socket").then(({ initRedisAdapter, removeRedisAdapter, setRedisGlobalState }) => {
+                    setRedisGlobalState(newValue);
+                    if (newValue && envs.REDIS_URL) {
+                        initRedisAdapter(envs.REDIS_URL);
+                    } else {
+                        removeRedisAdapter();
+                    }
+                }).catch(err => console.error("Error actualizando adaptador de Redis:", err));
+            }
+        }
         // LÍMITES DE MÉTODOS DE PAGO
         if (data.minEfectivo !== undefined) settings.minEfectivo = data.minEfectivo === "" || data.minEfectivo === null ? null : Number(data.minEfectivo);
         if (data.maxEfectivo !== undefined) settings.maxEfectivo = data.maxEfectivo === "" || data.maxEfectivo === null ? null : Number(data.maxEfectivo);

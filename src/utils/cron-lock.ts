@@ -10,7 +10,23 @@ import { redisClient } from "../config/redis";
  */
 export const withRedisLock = async (lockName: string, lockTTLSeconds: number, callback: () => Promise<void>) => {
   if (!redisClient) {
-    // Si no hay redis configurado, corremos el callback normalmente (modo 1 servidor)
+    // Si no hay redis configurado a nivel de conexión, corremos local
+    await callback();
+    return;
+  }
+
+  // Leer configuración global
+  try {
+    const { GlobalSettings } = require("../data");
+    const settings = await GlobalSettings.findOne({ where: {}, order: { updatedAt: 'DESC' } });
+    if (settings && settings.useRedisLockForCrons === false) {
+      // Si el administrador apagó el switch, ejecutamos localmente sin tocar Redis
+      await callback();
+      return;
+    }
+  } catch (error) {
+    console.error("[CronLock] Error al leer GlobalSettings:", error);
+    // Fallback: si hay error, ejecutamos local para no bloquear los procesos críticos
     await callback();
     return;
   }

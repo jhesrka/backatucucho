@@ -44,6 +44,9 @@ export class GlobalSettings extends BaseEntity {
     @Column("boolean", { default: true })
     autoPurgeEnabled: boolean; // Interruptor global para la purga automática
 
+    @Column("boolean", { default: false })
+    useRedisLockForCrons: boolean; // Interruptor global para el uso de Redis en crons multi-servidor
+
     @Column("int", { default: 60 })
     cleanupSubscriptionContentDays: number; // Días para eliminar contenido de suscripciones vencidas
 

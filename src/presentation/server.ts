@@ -51,9 +51,6 @@ export class Server {
     }); // Crear instancia de Socket.IO con configuración de CORS
 
     setIO(this.io); // 🔥 Guardamos la instancia globalmente
-
-    // 🔴 Redis adapter (activo solo si REDIS_URL está en el .env)
-    initRedisAdapter(envs.REDIS_URL);
   }
 
   async start() {
@@ -62,6 +59,24 @@ export class Server {
     if (!fs.existsSync(uploadsPath)) {
       // Verifica si el directorio 'uploads' existe
       fs.mkdirSync(uploadsPath); // Si no existe, lo crea
+    }
+
+    // Inicializar adaptador Redis dinámicamente según configuración
+    const { GlobalSettingsService } = await import("./services/globalSettings/global-settings.service");
+    const globalSettingsService = new GlobalSettingsService();
+    const { setRedisGlobalState, isRedisGloballyEnabled, removeRedisAdapter } = await import("../config/socket");
+    
+    try {
+      const settings = await globalSettingsService.getSettings();
+      setRedisGlobalState(settings.useRedisLockForCrons);
+      
+      if (isRedisGloballyEnabled && envs.REDIS_URL) {
+        await initRedisAdapter(envs.REDIS_URL);
+      } else {
+        removeRedisAdapter();
+      }
+    } catch (e) {
+      console.error("Error al obtener GlobalSettings al arrancar el servidor:", e);
     }
 
     this.app.use(
@@ -89,6 +104,8 @@ export class Server {
     this.app.use("/uploads", express.static(uploadsPath));
     this.app.use("/comprobantes", express.static(path.join(uploadsPath, "comprobantes")));
 
+    const trackingMemoria = new Map<string, string>(); // Fallback en memoria si Redis está apagado
+
     this.io.on("connection", (socket) => {
       socket.on("join_motorizado", async (motorizadoId: string) => {
         socket.join(motorizadoId);
@@ -115,12 +132,19 @@ export class Server {
       socket.on("join_pedido_room", async (pedidoId: string) => {
         socket.join(`pedido_${pedidoId}`);
         try {
-          const cachedLocation = redisClient ? await redisClient.get(`tracking_${pedidoId}`) : null;
+          let cachedLocation = null;
+          const { isRedisGloballyEnabled } = await import("../config/socket");
+          if (isRedisGloballyEnabled && redisClient) {
+            cachedLocation = await redisClient.get(`tracking_${pedidoId}`);
+          } else {
+            cachedLocation = trackingMemoria.get(`tracking_${pedidoId}`);
+          }
+          
           if (cachedLocation) {
             socket.emit("ubicacion_actualizada", JSON.parse(cachedLocation));
           }
         } catch (err) {
-          console.error("Error reading redis tracking cache", err);
+          console.error("Error reading tracking cache", err);
         }
       });
 
@@ -132,9 +156,14 @@ export class Server {
 
       socket.on("ubicacion_motorizado", async (data: { pedidoId: string; lat: number; lng: number; accuracy: number; timestamp: number }) => {
         try {
-          if (redisClient) await redisClient.setex(`tracking_${data.pedidoId}`, 3600, JSON.stringify(data));
+          const { isRedisGloballyEnabled } = await import("../config/socket");
+          if (isRedisGloballyEnabled && redisClient) {
+             await redisClient.setex(`tracking_${data.pedidoId}`, 3600, JSON.stringify(data));
+          } else {
+             trackingMemoria.set(`tracking_${data.pedidoId}`, JSON.stringify(data));
+          }
         } catch (err) {
-          console.error("Error writing redis tracking cache", err);
+          console.error("Error writing tracking cache", err);
         }
         // Retransmitir la ubicación a la sala
         socket.to(`pedido_${data.pedidoId}`).emit("ubicacion_actualizada", data);
