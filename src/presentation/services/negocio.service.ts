@@ -12,6 +12,8 @@ import {
   UserRole,
 } from "../../data";
 import { NotificationService } from "./NotificationService";
+import { Request, Response } from "express";
+// trigger restart
 import { CustomError } from "../../domain";
 import { CreateNegocioDTO } from "../../domain/dtos/negocios/CreateNegocioDTO";
 import { envs, regularExp } from "../../config";
@@ -382,6 +384,7 @@ export class NegocioService {
             },
             esParaCredito: negocio.esParaCredito,
             modeloMonetizacion: negocio.modeloMonetizacion,
+            costoLead: Number(negocio.costoLead),
             usuario: {
               id: negocio.usuario.id,
               name: negocio.usuario.name,
@@ -617,6 +620,7 @@ export class NegocioService {
     if (data.permiteProductosProgramados !== undefined) negocio.permiteProductosProgramados = data.permiteProductosProgramados;
     if (data.tiempoProgramadoMin !== undefined) negocio.tiempoProgramadoMin = data.tiempoProgramadoMin;
     if (data.tiempoProgramadoMax !== undefined) negocio.tiempoProgramadoMax = data.tiempoProgramadoMax;
+    if (data.costoLead !== undefined) negocio.costoLead = Number(data.costoLead);
 
     if (img) {
       const validMimeTypes = [
@@ -658,6 +662,7 @@ export class NegocioService {
       statusNegocio: saved.statusNegocio,
       estadoNegocio: saved.estadoNegocio,
       modeloMonetizacion: saved.modeloMonetizacion,
+      costoLead: saved.costoLead,
       created_at: saved.created_at,
       latitud: saved.latitud ? Number(saved.latitud) : null,
       longitud: saved.longitud ? Number(saved.longitud) : null,

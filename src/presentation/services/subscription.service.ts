@@ -20,6 +20,8 @@ export class SubscriptionService {
             .andWhere("(negocio.fechaFinSuscripcion IS NULL OR negocio.fechaFinSuscripcion <= :today)", { 
                 today 
             })
+            .andWhere("negocio.modeloMonetizacion != 'CREDITO'")
+            .andWhere("negocio.esParaCredito = false")
             .getMany();
 
         const results = {
@@ -65,6 +67,8 @@ export class SubscriptionService {
                 activo: StatusNegocio.ACTIVO,
                 today
             })
+            .andWhere("negocio.modeloMonetizacion != 'CREDITO'")
+            .andWhere("negocio.esParaCredito = false")
             .getMany();
 
         for (const negocio of negocios) {

@@ -75,6 +75,13 @@ export class Server {
       } else {
         removeRedisAdapter();
       }
+
+      // ----------------------------------------------------
+      // Sembrar Categoría Maestra de Crédito si no existe
+      // ----------------------------------------------------
+      const { seedCreditoCategory } = await import("../config/seed");
+      await seedCreditoCategory();
+
     } catch (e) {
       console.error("Error al obtener GlobalSettings al arrancar el servidor:", e);
     }

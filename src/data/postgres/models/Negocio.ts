@@ -162,6 +162,9 @@ export class Negocio extends BaseEntity {
   @Column({ type: "boolean", default: false })
   esParaCredito: boolean;
 
+  @Column("decimal", { precision: 10, scale: 2, default: 0.50 })
+  costoLead: number;
+
   @Column("int", { default: 30 })
   tiempoPreparacionMax: number;
 

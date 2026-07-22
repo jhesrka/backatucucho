@@ -30,7 +30,8 @@ export class UpdateNegocioDTO {
     public readonly tiempoProgramadoMin?: number | null,
     public readonly tiempoProgramadoMax?: number | null,
     public readonly puedePublicarProductos?: boolean,
-    public readonly limitePublicacionesSuscripcion?: number
+    public readonly limitePublicacionesSuscripcion?: number,
+    public readonly costoLead?: number
   ) { }
 
   static create(obj: { [key: string]: any }): [string?, UpdateNegocioDTO?] {
@@ -60,7 +61,8 @@ export class UpdateNegocioDTO {
       tiempoProgramadoMin,
       tiempoProgramadoMax,
       puedePublicarProductos,
-      limitePublicacionesSuscripcion
+      limitePublicacionesSuscripcion,
+      costoLead
     } = obj;
 
     // Validaciones opcionales
@@ -150,6 +152,13 @@ export class UpdateNegocioDTO {
       if (Number(tiempoProgramadoMin) >= Number(tiempoProgramadoMax)) return ["tiempoProgramadoMin debe ser menor que tiempoProgramadoMax"];
     }
 
+    if (costoLead !== undefined) {
+      const val = Number(costoLead);
+      if (isNaN(val) || val < 0) {
+        return ["El costo del lead debe ser un número positivo"];
+      }
+    }
+
     if (limitePublicacionesSuscripcion !== undefined) {
       const limit = Number(limitePublicacionesSuscripcion);
       if (isNaN(limit) || limit < 0) return ["El límite de publicaciones debe ser un número positivo"];
@@ -193,7 +202,8 @@ export class UpdateNegocioDTO {
         tiempoProgramadoMin !== undefined && tiempoProgramadoMin !== null ? Number(tiempoProgramadoMin) : (tiempoProgramadoMin === null ? null : undefined),
         tiempoProgramadoMax !== undefined && tiempoProgramadoMax !== null ? Number(tiempoProgramadoMax) : (tiempoProgramadoMax === null ? null : undefined),
         puedePublicarProductos !== undefined ? !!puedePublicarProductos : undefined,
-        limitePublicacionesSuscripcion !== undefined ? Number(limitePublicacionesSuscripcion) : undefined
+        limitePublicacionesSuscripcion !== undefined ? Number(limitePublicacionesSuscripcion) : undefined,
+        costoLead !== undefined ? Number(costoLead) : undefined
       ),
     ];
   }

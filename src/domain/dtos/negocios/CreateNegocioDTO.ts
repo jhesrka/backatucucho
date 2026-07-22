@@ -26,7 +26,8 @@ export class CreateNegocioDTO {
     public readonly valorSuscripcion: number = 0,
     public readonly diaPago: number = 1,
     public readonly orden: number = 0,
-    public readonly esParaCredito: boolean = false
+    public readonly esParaCredito: boolean = false,
+    public readonly costoLead: number = 0.50
   ) { }
 
   static create(obj: { [key: string]: any }): [string?, CreateNegocioDTO?] {
@@ -176,7 +177,8 @@ export class CreateNegocioDTO {
         valorSuscripcion !== undefined ? Number(valorSuscripcion) : 0,
         diaPago !== undefined ? Number(diaPago) : 1,
         orden !== undefined ? Number(orden) : 0,
-        !!esParaCredito
+        !!esParaCredito,
+        obj.costoLead !== undefined ? Number(obj.costoLead) : 0.50
       ),
     ];
   }

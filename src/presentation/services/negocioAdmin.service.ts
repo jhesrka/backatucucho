@@ -450,6 +450,10 @@ export class NegocioAdminService {
     if (dto.valorSuscripcion !== undefined) {
       negocio.valorSuscripcion = dto.valorSuscripcion;
     }
+    
+    if (dto.costoLead !== undefined) {
+      negocio.costoLead = dto.costoLead;
+    }
 
     const saved = await negocio.save();
 
@@ -495,6 +499,7 @@ export class NegocioAdminService {
       statusNegocio: saved.statusNegocio,
       modeloMonetizacion: saved.modeloMonetizacion,
       valorSuscripcion: saved.valorSuscripcion,
+      costoLead: saved.costoLead,
       diaPago: saved.diaPago,
       categoria: {
         id: saved.categoria.id,
