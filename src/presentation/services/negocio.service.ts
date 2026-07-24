@@ -10,6 +10,7 @@ import {
   Pedido,
   BalanceNegocio,
   UserRole,
+  GlobalSettings,
 } from "../../data";
 import { NotificationService } from "./NotificationService";
 import { Request, Response } from "express";
@@ -209,17 +210,33 @@ export class NegocioService {
     const categoria = await CategoriaNegocio.findOneBy({ id: categoriaId });
     if (!categoria) throw CustomError.notFound("Categoría no encontrada");
 
+    const settings = await GlobalSettings.findOne({ where: {}, order: { updatedAt: "DESC" } });
+    const precioLead = settings?.precioFormularioCredito || 0.50;
+    const balanceMinimoRequerido = precioLead * 3;
+
     // OPTIMIZACIÓN: Delegar el orden aleatorio a PostgreSQL (ORDER BY RANDOM())
     // 1. Obtenemos los negocios activos de la categoría con QueryBuilder
     const negocios = await Negocio.createQueryBuilder("negocio")
       .leftJoinAndSelect("negocio.categoria", "categoria")
       .leftJoinAndSelect("negocio.subcategoria", "subcategoria")
       .innerJoin("negocio.usuario", "usuario", "usuario.status = :userStatus", { userStatus: Status.ACTIVE })
+      .leftJoin("usuario.wallet", "wallet")
       .where("negocio.categoriaId = :categoriaId", { categoriaId })
       .andWhere("negocio.statusNegocio = :status", { status: StatusNegocio.ACTIVO })
       .andWhere("negocio.estadoNegocio = :estado", { estado: EstadoNegocio.ABIERTO })
       // FILTRO AL VUELO: No mostrar si la suscripción ya venció
       .andWhere("(negocio.fechaFinSuscripcion IS NULL OR negocio.fechaFinSuscripcion > :now)", { now: new Date() })
+      // FILTRO CRÉDITO: Ocultar si es a crédito y no tiene fondos para 3 leads
+      .andWhere(`
+        (
+          NOT (
+            negocio.esParaCredito = true 
+            OR negocio.modeloMonetizacion = 'CREDITO' 
+            OR categoria.esParaCredito = true
+          )
+          OR COALESCE(wallet.balance, 0) >= :balanceMinimo
+        )
+      `, { balanceMinimo: balanceMinimoRequerido })
       .orderBy("subcategoria.orden", "ASC")
       .addOrderBy("subcategoria.created_at", "ASC")
       .addOrderBy("negocio.orden", "ASC")
@@ -248,10 +265,13 @@ export class NegocioService {
           statusNegocio: negocio.statusNegocio,
           estadoNegocio: negocio.estadoNegocio,
           created_at: negocio.created_at,
+          esParaCredito: negocio.esParaCredito,
+          modeloMonetizacion: negocio.modeloMonetizacion,
           categoria: {
             id: negocio.categoria.id,
             nombre: negocio.categoria.nombre,
             statusCategoria: negocio.categoria.statusCategoria,
+            esParaCredito: negocio.categoria.esParaCredito,
           },
           subcategoria: negocio.subcategoria ? {
             id: negocio.subcategoria.id,
@@ -411,19 +431,36 @@ export class NegocioService {
     }
   }
 
-  async getNegociosByUsuarioId(userId: string) {
+  async getNegociosByUsuarioId(userId: string, page = 1, limit = 6, search = "") {
     if (!regularExp.uuid.test(userId)) {
       throw CustomError.badRequest("ID de usuario inválido");
     }
 
-    const negocios = await Negocio.createQueryBuilder("negocio")
+    const skip = (page - 1) * limit;
+
+    const qb = Negocio.createQueryBuilder("negocio")
       .leftJoinAndSelect("negocio.categoria", "categoria")
       .leftJoinAndSelect("negocio.subcategoria", "subcategoria")
-
+      .leftJoinAndSelect("negocio.usuario", "usuario")
+      .leftJoinAndSelect("usuario.wallet", "wallet")
       .loadRelationCountAndMap("negocio.productosCount", "negocio.productos")
-      .where("negocio.usuarioId = :userId", { userId })
+      .where("negocio.usuarioId = :userId", { userId });
+
+    const settings = await GlobalSettings.findOne({ where: {}, order: { updatedAt: "DESC" } });
+    const precioLead = settings?.precioFormularioCredito || 0.50;
+    const balanceMinimoRequerido = precioLead * 3;
+
+    if (search.trim()) {
+      qb.andWhere("LOWER(negocio.nombre) LIKE LOWER(:search)", {
+        search: `%${search.trim()}%`,
+      });
+    }
+
+    const [negocios, total] = await qb
       .orderBy("negocio.created_at", "DESC")
-      .getMany();
+      .skip(skip)
+      .take(limit)
+      .getManyAndCount();
 
     const negociosConImagen = await Promise.all(
       negocios.map(async (negocio) => {
@@ -467,6 +504,7 @@ export class NegocioService {
           limitePublicacionesSuscripcion: negocio.limitePublicacionesSuscripcion,
           publicacionesRestantes: negocio.publicacionesRestantes,
           productosCount: (negocio as any).productosCount || 0,
+          hiddenPorCredito: (negocio.esParaCredito || negocio.modeloMonetizacion === 'CREDITO' || negocio.categoria?.esParaCredito) && ((negocio.usuario?.wallet?.balance || 0) < balanceMinimoRequerido),
           ratingPromedio: Number(negocio.ratingPromedio) || 0,
           totalResenas: Number(negocio.totalResenas) || 0,
           valorSuscripcion: Number(negocio.valorSuscripcion) || 0,
@@ -490,7 +528,13 @@ export class NegocioService {
       })
     );
 
-    return negociosConImagen;
+    return {
+      data: negociosConImagen,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   // ========================= UPDATE =========================

@@ -4,6 +4,7 @@ import { Wallet } from "../../data/postgres/models/wallet.model";
 import { Transaction, TransactionReason, TransactionOrigin } from "../../data/postgres/models/transactionType.model";
 import { GlobalSettings } from "../../data/postgres/models/global-settings.model";
 import { DataSource } from "typeorm";
+import { NotificationService } from "./NotificationService";
 
 export class FormularioCreditoService {
   async obtenerPreguntas(negocioId: string) {
@@ -61,7 +62,7 @@ export class FormularioCreditoService {
     }
 
     // 3. Obtener el precio del lead
-    const settings = await GlobalSettings.findOne({ order: { updatedAt: "DESC" } });
+    const settings = await GlobalSettings.findOne({ where: {}, order: { updatedAt: "DESC" } });
     const precioLead = settings?.precioFormularioCredito || 0.50;
 
     if (precioLead > 0 && Number(wallet.balance) < Number(precioLead)) {
@@ -88,6 +89,24 @@ export class FormularioCreditoService {
       transaction.observation = "Cobro por lead de formulario de crédito";
       transaction.reference = negocioId;
       await transaction.save();
+    }
+
+    const balanceMinimoRequerido = precioLead * 3;
+    if (previousBalance >= balanceMinimoRequerido && resultingBalance < balanceMinimoRequerido) {
+      // El saldo acaba de bajar del límite requerido, enviar notificación al dueño
+      const notificationService = new NotificationService();
+      await notificationService.sendPushNotification(
+        dueñoId,
+        "⚠️ Negocio Oculto Temporalmente",
+        `Tu saldo ($${resultingBalance.toFixed(2)}) ha bajado del mínimo para créditos. Tu negocio dejará de mostrarse.`
+      );
+      
+      // Notificar al frontend en tiempo real si el dueño está conectado
+      const { getIO } = require("../../config/socket");
+      getIO().to(dueñoId).emit("negocio_oculto_credito", {
+        negocioId,
+        mensaje: "Tu negocio se ha ocultado por saldo insuficiente para cubrir leads de crédito."
+      });
     }
 
     return { success: true, message: "Lead cobrado exitosamente", nuevoSaldo: resultingBalance };

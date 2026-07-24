@@ -20,6 +20,9 @@ export class BankAccount extends BaseEntity {
     @Column('text', { nullable: true, name: 'qr_image_url' })
     qrImageUrl: string;
 
+    @Column('text', { nullable: true, name: 'logo_url' })
+    logoUrl: string;
+
     @Column('boolean', { default: true, name: 'is_active' })
     isActive: boolean;
 

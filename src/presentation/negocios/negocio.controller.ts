@@ -72,10 +72,13 @@ export class NegocioController {
 
   getNegociosByUserId = (req: Request, res: Response) => {
     const { userId } = req.params;
+    const page   = parseInt(req.query.page  as string)  || 1;
+    const limit  = parseInt(req.query.limit as string)  || 6;
+    const search = (req.query.search as string)          || "";
 
     this.negocioService
-      .getNegociosByUsuarioId(userId)
-      .then((negocios) => res.status(200).json(negocios))
+      .getNegociosByUsuarioId(userId, page, limit, search)
+      .then((result) => res.status(200).json(result))
       .catch((error) => this.handleError(error, res));
   };
 

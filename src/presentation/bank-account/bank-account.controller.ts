@@ -17,7 +17,7 @@ export class BankAccountController {
             // Validar PIN contra GlobalSettings
             await this.userAdminService.validateMasterPin(masterPin);
 
-            const account = await this.bankAccountService.create(data);
+            const account = await this.bankAccountService.create(data, req.file);
             res.json(account);
         } catch (error: any) {
             res.status(error.statusCode || 500).json({ error: error.message });
@@ -41,7 +41,7 @@ export class BankAccountController {
             // Validar PIN contra GlobalSettings
             await this.userAdminService.validateMasterPin(masterPin);
 
-            const account = await this.bankAccountService.update(id, data);
+            const account = await this.bankAccountService.update(id, data, req.file);
             res.json(account);
         } catch (error: any) {
             res.status(error.statusCode || 500).json({ error: error.message });

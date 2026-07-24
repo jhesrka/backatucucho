@@ -25,10 +25,21 @@ export class BankAccountService {
         }
     }
 
-    async create(data: Partial<BankAccount>) {
+    async create(data: Partial<BankAccount>, file?: Express.Multer.File) {
         if (data.qrImageUrl) {
             data.qrImageUrl = this.extractKey(data.qrImageUrl);
         }
+
+        if (file) {
+            const key = await UploadFilesCloud.uploadSingleFile({
+                bucketName: envs.AWS_BUCKET_NAME,
+                key: `BankLogos/${Date.now()}_${file.originalname.replace(/\s/g, "")}`,
+                body: file.buffer,
+                contentType: file.mimetype
+            });
+            data.logoUrl = key;
+        }
+
         const bankAccount = BankAccount.create(data as any);
         return await bankAccount.save();
     }
@@ -40,15 +51,21 @@ export class BankAccountService {
             order: { order: 'ASC', createdAt: 'DESC' }
         });
 
-        // Sign QR URLs
+        // Sign URLs
         return await Promise.all(accounts.map(async (account) => {
             if (account.qrImageUrl) {
-                // Always try to get a fresh signed URL from the key
                 const key = this.extractKey(account.qrImageUrl);
                 account.qrImageUrl = await UploadFilesCloud.getFile({
                     bucketName: envs.AWS_BUCKET_NAME,
                     key: key
                 });
+            }
+            if (account.logoUrl) {
+                const logoUrls = await UploadFilesCloud.getOptimizedUrls({
+                    bucketName: envs.AWS_BUCKET_NAME,
+                    key: account.logoUrl
+                });
+                account.logoUrl = logoUrls.original || account.logoUrl;
             }
             return account;
         }));
@@ -63,15 +80,32 @@ export class BankAccountService {
                 key: key
             });
         }
+        if (account && account.logoUrl) {
+            const logoUrls = await UploadFilesCloud.getOptimizedUrls({
+                bucketName: envs.AWS_BUCKET_NAME,
+                key: account.logoUrl
+            });
+            account.logoUrl = logoUrls.original || account.logoUrl;
+        }
         return account;
     }
 
-    async update(id: string, data: Partial<BankAccount>) {
+    async update(id: string, data: Partial<BankAccount>, file?: Express.Multer.File) {
         const bankAccount = await BankAccount.findOneBy({ id });
         if (!bankAccount) throw new Error('Bank account not found');
 
         if (data.qrImageUrl) {
             data.qrImageUrl = this.extractKey(data.qrImageUrl);
+        }
+
+        if (file) {
+            const key = await UploadFilesCloud.uploadSingleFile({
+                bucketName: envs.AWS_BUCKET_NAME,
+                key: `BankLogos/${Date.now()}_${file.originalname.replace(/\s/g, "")}`,
+                body: file.buffer,
+                contentType: file.mimetype
+            });
+            data.logoUrl = key;
         }
 
         Object.assign(bankAccount, data);
@@ -83,6 +117,13 @@ export class BankAccountService {
                 bucketName: envs.AWS_BUCKET_NAME,
                 key: saved.qrImageUrl
             });
+        }
+        if (saved.logoUrl) {
+            const logoUrls = await UploadFilesCloud.getOptimizedUrls({
+                bucketName: envs.AWS_BUCKET_NAME,
+                key: saved.logoUrl
+            });
+            saved.logoUrl = logoUrls.original || saved.logoUrl;
         }
         return saved;
     }

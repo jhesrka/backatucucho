@@ -7,6 +7,8 @@ import {
   StatusNegocio,
   User,
   UserRole,
+  Wallet,
+  GlobalSettings,
 } from "../../data";
 import { NotificationService } from "./NotificationService";
 import { CustomError } from "../../domain";
@@ -278,7 +280,7 @@ export class ProductoService {
   async getProductosDisponiblesByNegocio(negocioId: string) {
     const negocio = await Negocio.findOne({
       where: { id: negocioId },
-      relations: ["usuario", "subcategoria"], // relación con el User y subcategoría para verificar restricción de edad
+      relations: ["usuario", "subcategoria", "categoria"], // relación con el User y subcategoría para verificar restricción de edad
     });
 
     if (!negocio) {
@@ -287,6 +289,18 @@ export class ProductoService {
 
     if (negocio.statusNegocio !== StatusNegocio.ACTIVO) {
       throw CustomError.badRequest("El negocio no está activo");
+    }
+
+    const esCredito = negocio.esParaCredito || negocio.modeloMonetizacion === 'CREDITO' || negocio.categoria?.esParaCredito;
+    if (esCredito && negocio.usuario) {
+      const wallet = await Wallet.findOne({ where: { user: { id: negocio.usuario.id } } });
+      const settings = await GlobalSettings.findOne({ where: {}, order: { updatedAt: "DESC" } });
+      const precioLead = settings?.precioFormularioCredito || 0.50;
+      const balanceMinimoRequerido = precioLead * 3;
+
+      if (!wallet || Number(wallet.balance) < balanceMinimoRequerido) {
+        throw CustomError.badRequest("El negocio se encuentra cerrado temporalmente.");
+      }
     }
 
     const productos = await Producto.find({
@@ -362,6 +376,9 @@ export class ProductoService {
         tiempoProgramadoMin: negocio.tiempoProgramadoMin,
         tiempoProgramadoMax: negocio.tiempoProgramadoMax,
         subcategoria: negocio.subcategoria,
+        categoria: negocio.categoria,
+        esParaCredito: negocio.esParaCredito,
+        modeloMonetizacion: negocio.modeloMonetizacion,
       },
       usuario: {
         id: negocio.usuario.id,
