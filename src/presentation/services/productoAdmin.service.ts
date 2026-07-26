@@ -80,6 +80,7 @@ export class ProductoServiceAdmin {
           comision_producto: Number(p.precio_venta) - Number(p.precio_app || p.precio_venta),
           disponible: p.disponible,
           statusProducto: p.statusProducto,
+          tipoProducto: p.tipoProducto,
           created_at: p.created_at,
           tipo: p.tipo ? { id: p.tipo.id, nombre: p.tipo.nombre } : null,
           negocio: p.negocio
