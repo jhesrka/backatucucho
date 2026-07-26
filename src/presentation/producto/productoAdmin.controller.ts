@@ -149,4 +149,16 @@ export class ProductoControllerAdmin {
       this.handleError(error, res);
     }
   }
+
+  bulkUpdateTipoProducto = async (req: Request, res: Response) => {
+    const { negocioId } = req.params;
+    const { tipoProducto } = req.body;
+
+    try {
+      const result = await this.productoServiceAdmin.bulkUpdateTipoProducto(negocioId, tipoProducto);
+      return res.status(200).json(result);
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  }
 }

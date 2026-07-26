@@ -45,6 +45,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.NegocioService = void 0;
 const data_1 = require("../../data");
 const NotificationService_1 = require("./NotificationService");
+// trigger restart
 const domain_1 = require("../../domain");
 const config_1 = require("../../config");
 const upload_files_cloud_adapter_1 = require("../../config/upload-files-cloud-adapter");
@@ -59,6 +60,17 @@ function shuffleArray(array) {
     return arr;
 }
 class NegocioService {
+    // ========================= VERIFICACIÓN =========================
+    checkNameExists(nombre) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (!nombre)
+                return false;
+            const count = yield data_1.Negocio.createQueryBuilder("negocio")
+                .where("LOWER(negocio.nombre) = LOWER(:nombre)", { nombre: nombre.trim() })
+                .getCount();
+            return count > 0;
+        });
+    }
     // ========================= CREATE =========================
     createNegocio(dto, img) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -69,6 +81,9 @@ class NegocioService {
             const usuario = yield data_1.User.findOneBy({ id: dto.userId });
             if (!usuario)
                 throw domain_1.CustomError.notFound("Usuario no encontrado");
+            if (dto.esParaCredito && !usuario.puedeCrearNegocioCredito) {
+                throw domain_1.CustomError.forbiden("No tienes autorización para registrar negocios a crédito.");
+            }
             let modelo = dto.modeloMonetizacion;
             if (categoria.modeloBloqueado && categoria.modeloMonetizacionDefault) {
                 modelo = categoria.modeloMonetizacionDefault;
@@ -128,6 +143,7 @@ class NegocioService {
             negocio.latitud = dto.latitud;
             negocio.longitud = dto.longitud;
             negocio.direccionTexto = (_a = dto.direccionTexto) !== null && _a !== void 0 ? _a : null;
+            negocio.esParaCredito = dto.esParaCredito;
             negocio.banco = dto.banco;
             negocio.tipoCuenta = dto.tipoCuenta;
             negocio.numeroCuenta = dto.numeroCuenta;
@@ -183,11 +199,8 @@ class NegocioService {
                 };
                 // 🔔 Notificación a todos los admins
                 try {
-                    const admins = yield data_1.User.find({ where: { rol: data_1.UserRole.ADMIN } });
                     const notificationService = new NotificationService_1.NotificationService();
-                    for (const admin of admins) {
-                        yield notificationService.sendPushNotification(admin.id, "🏢 Nuevo Negocio", `Se ha registrado el negocio "${saved.nombre}". Entra al panel para revisarlo.`, { url: "/admin" });
-                    }
+                    yield notificationService.sendToAdmins("🏪 Nuevo Negocio Registrado", `El usuario ${usuario.name} ha registrado el negocio "${saved.nombre}". Entra al panel para revisarlo.`, { url: "/admin/negocios" });
                 }
                 catch (error) {
                     console.error("Error enviando notificaciones push a admins:", error);
@@ -206,17 +219,32 @@ class NegocioService {
             const categoria = yield data_1.CategoriaNegocio.findOneBy({ id: categoriaId });
             if (!categoria)
                 throw domain_1.CustomError.notFound("Categoría no encontrada");
+            const settings = yield data_1.GlobalSettings.findOne({ where: {}, order: { updatedAt: "DESC" } });
+            const precioLead = (settings === null || settings === void 0 ? void 0 : settings.precioFormularioCredito) || 0.50;
+            const balanceMinimoRequerido = precioLead * 3;
             // OPTIMIZACIÓN: Delegar el orden aleatorio a PostgreSQL (ORDER BY RANDOM())
             // 1. Obtenemos los negocios activos de la categoría con QueryBuilder
             const negocios = yield data_1.Negocio.createQueryBuilder("negocio")
                 .leftJoinAndSelect("negocio.categoria", "categoria")
                 .leftJoinAndSelect("negocio.subcategoria", "subcategoria")
                 .innerJoin("negocio.usuario", "usuario", "usuario.status = :userStatus", { userStatus: data_1.Status.ACTIVE })
+                .leftJoin("usuario.wallet", "wallet")
                 .where("negocio.categoriaId = :categoriaId", { categoriaId })
                 .andWhere("negocio.statusNegocio = :status", { status: data_1.StatusNegocio.ACTIVO })
                 .andWhere("negocio.estadoNegocio = :estado", { estado: data_1.EstadoNegocio.ABIERTO })
                 // FILTRO AL VUELO: No mostrar si la suscripción ya venció
                 .andWhere("(negocio.fechaFinSuscripcion IS NULL OR negocio.fechaFinSuscripcion > :now)", { now: new Date() })
+                // FILTRO CRÉDITO: Ocultar si es a crédito y no tiene fondos para 3 leads
+                .andWhere(`
+        (
+          NOT (
+            negocio.esParaCredito = true 
+            OR negocio.modeloMonetizacion = 'CREDITO' 
+            OR categoria.esParaCredito = true
+          )
+          OR COALESCE(wallet.balance, 0) >= :balanceMinimo
+        )
+      `, { balanceMinimo: balanceMinimoRequerido })
                 .orderBy("subcategoria.orden", "ASC")
                 .addOrderBy("subcategoria.created_at", "ASC")
                 .addOrderBy("negocio.orden", "ASC")
@@ -242,10 +270,13 @@ class NegocioService {
                     statusNegocio: negocio.statusNegocio,
                     estadoNegocio: negocio.estadoNegocio,
                     created_at: negocio.created_at,
+                    esParaCredito: negocio.esParaCredito,
+                    modeloMonetizacion: negocio.modeloMonetizacion,
                     categoria: {
                         id: negocio.categoria.id,
                         nombre: negocio.categoria.nombre,
                         statusCategoria: negocio.categoria.statusCategoria,
+                        esParaCredito: negocio.categoria.esParaCredito,
                     },
                     subcategoria: negocio.subcategoria ? {
                         id: negocio.subcategoria.id,
@@ -360,6 +391,9 @@ class NegocioService {
                             nombre: negocio.categoria.nombre,
                             statusCategoria: negocio.categoria.statusCategoria,
                         },
+                        esParaCredito: negocio.esParaCredito,
+                        modeloMonetizacion: negocio.modeloMonetizacion,
+                        costoLead: Number(negocio.costoLead),
                         usuario: {
                             id: negocio.usuario.id,
                             name: negocio.usuario.name,
@@ -385,19 +419,34 @@ class NegocioService {
             }
         });
     }
-    getNegociosByUsuarioId(userId) {
-        return __awaiter(this, void 0, void 0, function* () {
+    getNegociosByUsuarioId(userId_1) {
+        return __awaiter(this, arguments, void 0, function* (userId, page = 1, limit = 6, search = "") {
             if (!config_1.regularExp.uuid.test(userId)) {
                 throw domain_1.CustomError.badRequest("ID de usuario inválido");
             }
-            const negocios = yield data_1.Negocio.createQueryBuilder("negocio")
+            const skip = (page - 1) * limit;
+            const qb = data_1.Negocio.createQueryBuilder("negocio")
                 .leftJoinAndSelect("negocio.categoria", "categoria")
                 .leftJoinAndSelect("negocio.subcategoria", "subcategoria")
+                .leftJoinAndSelect("negocio.usuario", "usuario")
+                .leftJoinAndSelect("usuario.wallet", "wallet")
                 .loadRelationCountAndMap("negocio.productosCount", "negocio.productos")
-                .where("negocio.usuarioId = :userId", { userId })
+                .where("negocio.usuarioId = :userId", { userId });
+            const settings = yield data_1.GlobalSettings.findOne({ where: {}, order: { updatedAt: "DESC" } });
+            const precioLead = (settings === null || settings === void 0 ? void 0 : settings.precioFormularioCredito) || 0.50;
+            const balanceMinimoRequerido = precioLead * 3;
+            if (search.trim()) {
+                qb.andWhere("LOWER(negocio.nombre) LIKE LOWER(:search)", {
+                    search: `%${search.trim()}%`,
+                });
+            }
+            const [negocios, total] = yield qb
                 .orderBy("negocio.created_at", "DESC")
-                .getMany();
+                .skip(skip)
+                .take(limit)
+                .getManyAndCount();
             const negociosConImagen = yield Promise.all(negocios.map((negocio) => __awaiter(this, void 0, void 0, function* () {
+                var _a, _b, _c;
                 let imagenUrl = null;
                 try {
                     imagenUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
@@ -415,6 +464,7 @@ class NegocioService {
                     statusNegocio: negocio.statusNegocio,
                     created_at: negocio.created_at,
                     modeloMonetizacion: negocio.modeloMonetizacion,
+                    esParaCredito: negocio.esParaCredito,
                     estadoNegocio: negocio.estadoNegocio,
                     latitud: negocio.latitud ? Number(negocio.latitud) : null,
                     longitud: negocio.longitud ? Number(negocio.longitud) : null,
@@ -434,6 +484,7 @@ class NegocioService {
                     limitePublicacionesSuscripcion: negocio.limitePublicacionesSuscripcion,
                     publicacionesRestantes: negocio.publicacionesRestantes,
                     productosCount: negocio.productosCount || 0,
+                    hiddenPorCredito: (negocio.esParaCredito || negocio.modeloMonetizacion === 'CREDITO' || ((_a = negocio.categoria) === null || _a === void 0 ? void 0 : _a.esParaCredito)) && ((((_c = (_b = negocio.usuario) === null || _b === void 0 ? void 0 : _b.wallet) === null || _c === void 0 ? void 0 : _c.balance) || 0) < balanceMinimoRequerido),
                     ratingPromedio: Number(negocio.ratingPromedio) || 0,
                     totalResenas: Number(negocio.totalResenas) || 0,
                     valorSuscripcion: Number(negocio.valorSuscripcion) || 0,
@@ -454,7 +505,13 @@ class NegocioService {
                     } : null,
                 };
             })));
-            return negociosConImagen;
+            return {
+                data: negociosConImagen,
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+            };
         });
     }
     // ========================= UPDATE =========================
@@ -570,6 +627,8 @@ class NegocioService {
                 negocio.tiempoProgramadoMin = data.tiempoProgramadoMin;
             if (data.tiempoProgramadoMax !== undefined)
                 negocio.tiempoProgramadoMax = data.tiempoProgramadoMax;
+            if (data.costoLead !== undefined)
+                negocio.costoLead = Number(data.costoLead);
             if (img) {
                 const validMimeTypes = [
                     "image/jpeg",
@@ -605,6 +664,7 @@ class NegocioService {
                 statusNegocio: saved.statusNegocio,
                 estadoNegocio: saved.estadoNegocio,
                 modeloMonetizacion: saved.modeloMonetizacion,
+                costoLead: saved.costoLead,
                 created_at: saved.created_at,
                 latitud: saved.latitud ? Number(saved.latitud) : null,
                 longitud: saved.longitud ? Number(saved.longitud) : null,

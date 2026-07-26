@@ -71,7 +71,7 @@ class CategoriaService {
                     bucketName: config_1.envs.AWS_BUCKET_NAME,
                     key: saved.icono,
                 });
-                let coverResult = saved.cover;
+                let coverResult = saved.cover ? Object.assign({}, saved.cover) : undefined;
                 if (coverResult === null || coverResult === void 0 ? void 0 : coverResult.imageUrl) {
                     try {
                         coverResult.imageUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
@@ -134,7 +134,7 @@ class CategoriaService {
                 catch (error) {
                     console.error(`Error resolving image for category ${cat.id}`, error);
                 }
-                let coverResult = cat.cover;
+                let coverResult = cat.cover ? Object.assign({}, cat.cover) : undefined;
                 if (coverResult === null || coverResult === void 0 ? void 0 : coverResult.imageUrl) {
                     try {
                         coverResult.imageUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
@@ -163,7 +163,7 @@ class CategoriaService {
                     key: categoria.icono,
                 });
             }
-            let coverResult = categoria.cover;
+            let coverResult = categoria.cover ? Object.assign({}, categoria.cover) : undefined;
             if (coverResult === null || coverResult === void 0 ? void 0 : coverResult.imageUrl) {
                 try {
                     coverResult.imageUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
@@ -284,7 +284,7 @@ class CategoriaService {
                         key: saved.icono,
                     });
                 }
-                let coverResult = saved.cover;
+                let coverResult = saved.cover ? Object.assign({}, saved.cover) : undefined;
                 if (coverResult === null || coverResult === void 0 ? void 0 : coverResult.imageUrl) {
                     try {
                         coverResult.imageUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({

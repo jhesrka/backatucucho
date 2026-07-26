@@ -19,6 +19,7 @@ const ocr_service_1 = require("../ocr/ocr.service"); // Added
 const json2csv_1 = require("json2csv");
 const typeorm_1 = require("typeorm");
 const socket_1 = require("../../../config/socket");
+const NotificationService_1 = require("../NotificationService");
 class RechargeRequestService {
     constructor(userService) {
         this.userService = userService;
@@ -147,6 +148,14 @@ class RechargeRequestService {
                             status: user.status
                         }, receiptImage: url.original });
                     io.emit("new-recharge-request", socketPayload);
+                    // 🔔 Notificación Push a los Administradores
+                    try {
+                        const notificationService = new NotificationService_1.NotificationService();
+                        yield notificationService.sendToAdmins("💸 Nueva Solicitud de Recarga", `El usuario ${user.name} ${user.surname} ha solicitado una recarga de $${recharge.amount}. Entra al panel para revisarla.`, { url: "/admin/recargas" });
+                    }
+                    catch (pushError) {
+                        console.error("Error enviando notificación push a admins por recarga:", pushError);
+                    }
                 }
                 catch (error) {
                     console.error("Error emitiendo socket recarga", error);
@@ -622,8 +631,17 @@ class RechargeRequestService {
                     yield subService.checkAndRecoverSubscription(request.user.id);
                 }
                 catch (subError) {
-                    console.error("[Recharge-SubRecovery] Error al intentar recuperar suscripción:", subError);
+                    console.error("[Recharge-SubRecovery] Error al intentar recuperar suscripción de usuario:", subError);
                     // No lanzamos error aquí para no revertir la recarga aprobada
+                }
+                // 🚀 DISPARADOR: Cobro automático al vuelo para NEGOCIOS tras recarga
+                try {
+                    const { SubscriptionService: BusinessSubService } = require("../subscription.service");
+                    const businessSubService = new BusinessSubService();
+                    yield businessSubService.autoChargePendingSubscriptions(request.user.id);
+                }
+                catch (bizSubError) {
+                    console.error("[Recharge-BizRecovery] Error al intentar recuperar suscripción de negocio:", bizSubError);
                 }
             }
             else if (status === data_1.StatusRecarga.RECHAZADO) {
@@ -632,6 +650,19 @@ class RechargeRequestService {
                     linkedTx.observation = linkedTx.observation + ` (Rechazado: ${adminComment || 'Sin motivo'})`;
                     yield linkedTx.save();
                 }
+            }
+            // 🚀 NOTIFICACIONES PUSH (Fire-and-forget)
+            try {
+                const notificationService = new NotificationService_1.NotificationService();
+                if (status === data_1.StatusRecarga.APROBADO) {
+                    notificationService.sendPushNotification(request.user.id, "¡Recarga Aprobada! 🎉", `Tu recarga por $${Number(request.amount).toFixed(2)} ha sido acreditada a tu billetera con éxito.`);
+                }
+                else if (status === data_1.StatusRecarga.RECHAZADO) {
+                    notificationService.sendPushNotification(request.user.id, "Actualización de Recarga", `Tu solicitud de recarga por $${Number(request.amount).toFixed(2)} ha sido rechazada. ${request.admin_comment ? "Motivo: " + request.admin_comment : "Revisa el soporte para más detalles."}`);
+                }
+            }
+            catch (pushError) {
+                console.error("[Recharge-Push] Error al enviar notificación de recarga:", pushError);
             }
             return {
                 id: request.id,

@@ -18,7 +18,7 @@ class SubscriptionService {
         this.walletService = walletService;
     }
     processDailySubscriptions() {
-        return __awaiter(this, void 0, void 0, function* () {
+        return __awaiter(this, arguments, void 0, function* (currentHour = 2) {
             const today = new Date();
             today.setHours(23, 59, 59, 999); // Al final del día para cubrir todo el rango
             // OPTIMIZACIÓN: Solo traer negocios que necesitan atención
@@ -32,18 +32,23 @@ class SubscriptionService {
                 .andWhere("(negocio.fechaFinSuscripcion IS NULL OR negocio.fechaFinSuscripcion <= :today)", {
                 today
             })
+                .andWhere("negocio.modeloMonetizacion != 'CREDITO'")
+                .andWhere("negocio.esParaCredito = false")
                 .getMany();
             const results = {
-                totalProcessed: negocios.length,
+                totalProcessed: 0,
                 successful: 0,
                 failed: 0,
                 skipped: 0
             };
             for (const negocio of negocios) {
-                if (Number(negocio.valorSuscripcion) <= 0) {
+                // LÓGICA DE FRECUENCIA INTELIGENTE
+                // Si no son las 2 AM y ya superó los 8 intentos (2 días), lo ignoramos hasta el ciclo de las 2 AM.
+                if (currentHour !== 2 && (negocio.intentosCobro || 0) >= 8) {
                     results.skipped++;
                     continue;
                 }
+                results.totalProcessed++;
                 try {
                     // El método chargeSubscription ya tiene su propia lógica de reintentos e intentos de cobro
                     yield this.chargeSubscription(negocio);
@@ -55,6 +60,34 @@ class SubscriptionService {
                 }
             }
             return results;
+        });
+    }
+    autoChargePendingSubscriptions(userId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            console.log(`[Subscription Service] Auto-disparador activado para usuario ${userId}`);
+            const today = new Date();
+            // Buscar negocios NO_PAGADO o ACTIVO pero expirados
+            const negocios = yield data_1.Negocio.createQueryBuilder("negocio")
+                .leftJoinAndSelect("negocio.usuario", "usuario")
+                .where("usuario.id = :userId", { userId })
+                .andWhere("(negocio.statusNegocio = :nopagado OR (negocio.statusNegocio = :activo AND negocio.fechaFinSuscripcion <= :today))", {
+                nopagado: data_1.StatusNegocio.NO_PAGADO,
+                activo: data_1.StatusNegocio.ACTIVO,
+                today
+            })
+                .andWhere("negocio.modeloMonetizacion != 'CREDITO'")
+                .andWhere("negocio.esParaCredito = false")
+                .getMany();
+            for (const negocio of negocios) {
+                try {
+                    console.log(`[Subscription Service] Intentando cobro al vuelo (gatillo) para negocio ${negocio.nombre}...`);
+                    yield this.chargeSubscription(negocio, true);
+                    console.log(`[Subscription Service] Cobro exitoso para ${negocio.nombre}`);
+                }
+                catch (error) {
+                    console.warn(`[Subscription Service] Cobro al vuelo falló para negocio ${negocio.nombre} (saldo insuficiente)`);
+                }
+            }
         });
     }
     chargeSubscription(negocio_1) {
@@ -71,12 +104,14 @@ class SubscriptionService {
             const options = { day: '2-digit', month: 'short', year: 'numeric' };
             const periodDesc = `(${today.toLocaleDateString('es-ES', options)} - ${newEndDate.toLocaleDateString('es-ES', options)})`;
             try {
-                // Intentar descontar de la wallet
-                yield this.walletService.subtractFromWallet(negocio.usuario.id, amount, `Pago de suscripción: ${negocio.nombre} ${periodDesc}`, data_1.TransactionReason.SUBSCRIPTION, {
-                    daysBought: 30,
-                    prevEndDate: prevEndDate || undefined,
-                    newEndDate: newEndDate
-                });
+                // Intentar descontar de la wallet solo si cuesta más de $0.00
+                if (amount > 0) {
+                    yield this.walletService.subtractFromWallet(negocio.usuario.id, amount, `Pago de suscripción: ${negocio.nombre} ${periodDesc}`, data_1.TransactionReason.SUBSCRIPTION, {
+                        daysBought: 30,
+                        prevEndDate: prevEndDate || undefined,
+                        newEndDate: newEndDate
+                    });
+                }
                 negocio.fechaInicioSuscripcion = today;
                 negocio.fechaFinSuscripcion = newEndDate;
                 negocio.fechaUltimoCobro = today;

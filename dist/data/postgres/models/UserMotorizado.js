@@ -73,6 +73,10 @@ __decorate([
     __metadata("design:type", Object)
 ], UserMotorizado.prototype, "photoperfil", void 0);
 __decorate([
+    (0, typeorm_1.Column)("varchar", { length: 20, nullable: true }),
+    __metadata("design:type", Object)
+], UserMotorizado.prototype, "placaVehiculo", void 0);
+__decorate([
     (0, typeorm_1.Column)("varchar", { nullable: true }),
     __metadata("design:type", Object)
 ], UserMotorizado.prototype, "bancoNombre", void 0);

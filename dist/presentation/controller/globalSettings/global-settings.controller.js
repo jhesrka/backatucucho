@@ -18,7 +18,7 @@ class GlobalSettingsController {
                 .then(data => res.json(data))
                 .catch(error => {
                 if (error instanceof domain_1.CustomError)
-                    return res.status(error.statusCode).json({ error: error.message });
+                    return res.status(error.statusCode).json({ error: error.message, message: error.message });
                 console.error("Error updating settings:", error);
                 res.status(500).json({ error: "Internal Server Error" });
             });
@@ -29,7 +29,7 @@ class GlobalSettingsController {
                 .then(data => res.json(data))
                 .catch(error => {
                 if (error instanceof domain_1.CustomError)
-                    return res.status(error.statusCode).json({ error: error.message });
+                    return res.status(error.statusCode).json({ error: error.message, message: error.message });
                 console.error("Error updating logo:", error);
                 res.status(500).json({ error: "Internal Server Error" });
             });
@@ -40,7 +40,7 @@ class GlobalSettingsController {
                 .then(data => res.json(data))
                 .catch(error => {
                 if (error instanceof domain_1.CustomError)
-                    return res.status(error.statusCode).json({ error: error.message });
+                    return res.status(error.statusCode).json({ error: error.message, message: error.message });
                 console.error("Error updating favicon:", error);
                 res.status(500).json({ error: "Internal Server Error" });
             });
@@ -113,7 +113,7 @@ class GlobalSettingsController {
                 .then(data => res.json(data))
                 .catch(error => {
                 if (error instanceof domain_1.CustomError)
-                    return res.status(error.statusCode).json({ error: error.message });
+                    return res.status(error.statusCode).json({ error: error.message, message: error.message });
                 console.error("Error closing app:", error);
                 res.status(500).json({ error: "Internal Server Error" });
             });
@@ -124,7 +124,7 @@ class GlobalSettingsController {
                 .then(data => res.json(data))
                 .catch(error => {
                 if (error instanceof domain_1.CustomError)
-                    return res.status(error.statusCode).json({ error: error.message });
+                    return res.status(error.statusCode).json({ error: error.message, message: error.message });
                 console.error("Error enabling auto mode:", error);
                 res.status(500).json({ error: "Internal Server Error" });
             });

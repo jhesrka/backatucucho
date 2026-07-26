@@ -266,8 +266,8 @@ class PedidoUsuarioService {
                 "negocio.id", "negocio.nombre", "negocio.latitud", "negocio.longitud", "negocio.tiempoPreparacionMax",
                 "productos.id", "productos.cantidad", "productos.subtotal", "productos.precio_venta", "productos.producto_nombre", "productos.producto_imagen",
                 "producto.id", "producto.nombre", "producto.tipoProducto",
-                "cliente.id", "cliente.name", "cliente.surname", "cliente.whatsapp", "cliente.cancellation_strikes",
-                "motorizado.id", "motorizado.name", "motorizado.surname", "motorizado.whatsapp"
+                "cliente.id", "cliente.name", "cliente.surname", "cliente.whatsapp", "cliente.cancellation_strikes", "cliente.photoperfil",
+                "motorizado.id", "motorizado.name", "motorizado.surname", "motorizado.whatsapp", "motorizado.photoperfil", "motorizado.placaVehiculo"
             ]);
             // 🛡️ FILTRO PRINCIPAL: CLIENTE + FECHA (Prioritario)
             query.where("pedido.clienteId = :clienteId", { clienteId });
@@ -325,7 +325,11 @@ class PedidoUsuarioService {
                         id: p.motorizado.id,
                         name: p.motorizado.name,
                         surname: p.motorizado.surname,
-                        whatsapp: p.motorizado.whatsapp
+                        whatsapp: p.motorizado.whatsapp,
+                        placaVehiculo: p.motorizado.placaVehiculo,
+                        photoperfil: p.motorizado.photoperfil
+                            ? yield upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({ bucketName: env_1.envs.AWS_BUCKET_NAME, key: p.motorizado.photoperfil })
+                            : null
                     } : null,
                     ratingNegocio: p.ratingNegocio,
                     ratingMotorizado: p.ratingMotorizado,
@@ -395,6 +399,30 @@ class PedidoUsuarioService {
             if (ratingMotorizado !== undefined)
                 pedido.ratingMotorizado = ratingMotorizado;
             yield pedido.save();
+            // Actualizar Promedio del Negocio
+            if (ratingNegocio !== undefined && pedido.negocio) {
+                const { avg, count } = yield data_1.Pedido.createQueryBuilder("pedido")
+                    .select("AVG(pedido.ratingNegocio)", "avg")
+                    .addSelect("COUNT(pedido.id)", "count")
+                    .where("pedido.negocioId = :negocioId", { negocioId: pedido.negocio.id })
+                    .andWhere("pedido.ratingNegocio IS NOT NULL")
+                    .getRawOne();
+                pedido.negocio.ratingPromedio = Number(avg) || 0;
+                pedido.negocio.totalResenas = Number(count) || 0;
+                yield pedido.negocio.save();
+            }
+            // Actualizar Promedio del Motorizado (si aplica)
+            if (ratingMotorizado !== undefined && pedido.motorizado) {
+                const { avg, count } = yield data_1.Pedido.createQueryBuilder("pedido")
+                    .select("AVG(pedido.ratingMotorizado)", "avg")
+                    .addSelect("COUNT(pedido.id)", "count")
+                    .where("pedido.motorizadoId = :motorizadoId", { motorizadoId: pedido.motorizado.id })
+                    .andWhere("pedido.ratingMotorizado IS NOT NULL")
+                    .getRawOne();
+                pedido.motorizado.ratingPromedio = Number(avg) || 0;
+                pedido.motorizado.totalResenas = Number(count) || 0;
+                yield pedido.motorizado.save();
+            }
             return { success: true };
         });
     }

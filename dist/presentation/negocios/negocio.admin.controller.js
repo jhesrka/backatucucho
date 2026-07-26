@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.NegocioAdminController = void 0;
 const domain_1 = require("../../domain");
 const data_1 = require("../../data");
+const config_1 = require("../../config");
 const CreateNegocioDTO_1 = require("../../domain/dtos/negocios/CreateNegocioDTO");
 const UpdateNegocioDTO_1 = require("../../domain/dtos/negocios/UpdateNegocioDTO");
 const subscription_service_1 = require("../services/subscription.service");
@@ -191,6 +192,28 @@ class NegocioAdminController {
                     message: "Cobro realizado correctamente y período activado",
                     negocio: updatedNegocio
                 });
+            }
+            catch (error) {
+                this.handleError(error, res);
+            }
+        });
+        // ===================== RESETEAR CALIFICACIONES =====================
+        this.resetRatingAdmin = (req, res) => __awaiter(this, void 0, void 0, function* () {
+            const { id } = req.params;
+            const { masterPin } = req.body;
+            if (!masterPin)
+                return res.status(400).json({ message: "El PIN maestro es requerido" });
+            try {
+                const cleanPin = String(masterPin).trim();
+                const settings = yield data_1.GlobalSettings.findOne({ where: {}, order: { updatedAt: "DESC" } });
+                if (!settings || !settings.masterPin) {
+                    return res.status(400).json({ message: "El sistema no tiene un PIN Maestro configurado." });
+                }
+                const isValid = config_1.encriptAdapter.compare(cleanPin, settings.masterPin);
+                if (!isValid)
+                    return res.status(400).json({ message: "PIN Maestro incorrecto" });
+                const result = yield this.negocioAdminService.resetRatingAdmin(id);
+                return res.status(200).json(result);
             }
             catch (error) {
                 this.handleError(error, res);

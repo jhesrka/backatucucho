@@ -71,6 +71,10 @@ __decorate([
     __metadata("design:type", Boolean)
 ], GlobalSettings.prototype, "autoPurgeEnabled", void 0);
 __decorate([
+    (0, typeorm_1.Column)("boolean", { default: false }),
+    __metadata("design:type", Boolean)
+], GlobalSettings.prototype, "useRedisLockForCrons", void 0);
+__decorate([
     (0, typeorm_1.Column)("int", { default: 60 }),
     __metadata("design:type", Number)
 ], GlobalSettings.prototype, "cleanupSubscriptionContentDays", void 0);
@@ -138,6 +142,10 @@ __decorate([
     (0, typeorm_1.Column)("decimal", { precision: 10, scale: 2, default: 5.00 }),
     __metadata("design:type", Number)
 ], GlobalSettings.prototype, "servicePublicationPrice", void 0);
+__decorate([
+    (0, typeorm_1.Column)("decimal", { precision: 10, scale: 2, default: 0.50 }),
+    __metadata("design:type", Number)
+], GlobalSettings.prototype, "precioFormularioCredito", void 0);
 __decorate([
     (0, typeorm_1.Column)("varchar", { length: 20, default: "v1.0" }),
     __metadata("design:type", String)

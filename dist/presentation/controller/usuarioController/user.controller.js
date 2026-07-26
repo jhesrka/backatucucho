@@ -363,6 +363,17 @@ class UserController {
                 this.handleError(error, res);
             }
         });
+        this.toggleNegocioCredito = (req, res) => __awaiter(this, void 0, void 0, function* () {
+            const { id } = req.params;
+            const { puedeCrearNegocioCredito } = req.body;
+            try {
+                const result = yield this.userService.toggleNegocioCredito(id, puedeCrearNegocioCredito);
+                return res.status(200).json(result);
+            }
+            catch (error) {
+                this.handleError(error, res);
+            }
+        });
     }
 }
 exports.UserController = UserController;

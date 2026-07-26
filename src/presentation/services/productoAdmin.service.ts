@@ -1,4 +1,4 @@
-import { Producto, StatusProducto, ProductoPedido, GlobalSettings, Negocio, TipoProducto } from "../../data";
+import { Producto, StatusProducto, ProductoPedido, GlobalSettings, Negocio, TipoProducto, TipoProductoEnum } from "../../data";
 import { UploadFilesCloud } from "../../config/upload-files-cloud-adapter";
 import { envs, encriptAdapter } from "../../config";
 import { ILike } from "typeorm";
@@ -355,6 +355,33 @@ export class ProductoServiceAdmin {
       message: `El inventario de todos los productos ha sido marcado como ${isAvailable ? 'EN STOCK' : 'AGOTADO'}.`,
       updatedCount: result.affected || 0,
       disponible: isAvailable
+    };
+  }
+
+  // ADMIN: Bulk update tipoProducto for all products of a business
+  async bulkUpdateTipoProducto(negocioId: string, tipoProducto: string) {
+    if (!negocioId) throw CustomError.badRequest("El ID del negocio es requerido");
+    if (tipoProducto !== 'NORMAL' && tipoProducto !== 'PROGRAMADO') {
+      throw CustomError.badRequest("El tipoProducto debe ser NORMAL o PROGRAMADO");
+    }
+
+    const tipoEnum = tipoProducto === 'PROGRAMADO' ? TipoProductoEnum.PROGRAMADO : TipoProductoEnum.NORMAL;
+
+    const result = await Producto.update(
+      { negocio: { id: negocioId } },
+      { tipoProducto: tipoEnum }
+    );
+
+    // Notificar por websockets el cambio masivo
+    getIO().emit("bulk_product_tipo_changed", {
+      negocioId,
+      tipoProducto,
+    });
+
+    return {
+      message: `Todos los productos han sido cambiados a tipo de despacho ${tipoProducto}.`,
+      updatedCount: result.affected || 0,
+      tipoProducto
     };
   }
 

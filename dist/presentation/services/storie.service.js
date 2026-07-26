@@ -37,19 +37,21 @@ class StorieService {
             const user = yield this.userService.findOneUser(storieData.userId);
             // Obtener configuración de precios
             const config = yield this.priceService.getCurrentPriceSettings();
+            // 1. Validar contenido (Moderación automática)
+            if ((0, content_moderation_1.containsForbiddenWords)(storieData.description)) {
+                throw domain_1.CustomError.badRequest("Tu contenido contiene texto no permitido. Corrígelo para continuar.");
+            }
+            // 2. Calcular costo
             const costo = this.priceService.calcularPrecio(storieData.dias, config.basePrice, config.extraDayPrice);
-            // Validar y descontar de wallet
-            try {
-                yield this.walletService.subtractFromWallet(user.id, costo, "Pago por publicación de historia", "STORIE");
+            // 3. Pre-validar saldo de billetera (Para fallar rápido sin subir imagen)
+            const wallet = yield data_1.Wallet.findOne({ where: { user: { id: user.id } } });
+            if (!wallet) {
+                throw domain_1.CustomError.notFound("Billetera no encontrada");
             }
-            catch (error) {
-                if (error instanceof domain_1.CustomError &&
-                    error.message.toLowerCase().includes("saldo suficiente")) {
-                    throw domain_1.CustomError.badRequest("No tienes saldo suficiente para publicar esta historia");
-                }
-                throw error;
+            if (Number(wallet.balance) < costo) {
+                throw domain_1.CustomError.badRequest("No tienes saldo suficiente para publicar esta historia");
             }
-            // Subir la imagen
+            // 4. Subir la imagen
             let key;
             let url;
             try {
@@ -67,11 +69,7 @@ class StorieService {
             catch (_b) {
                 throw domain_1.CustomError.internalServer("Error subiendo la imagen de la historia");
             }
-            // Validar contenido (Moderación automática)
-            if ((0, content_moderation_1.containsForbiddenWords)(storieData.description)) {
-                throw domain_1.CustomError.badRequest("Tu contenido contiene texto no permitido. Corrígelo para continuar.");
-            }
-            // Crear la historia
+            // 5. Crear la historia en BD
             const storie = new data_1.Storie();
             storie.description = storieData.description.trim();
             storie.imgstorie = key;
@@ -79,13 +77,33 @@ class StorieService {
             storie.statusStorie = data_1.StatusStorie.PUBLISHED;
             storie.expires_at = (0, date_fns_1.addDays)(new Date(), storieData.dias);
             storie.showWhatsapp = storieData.showWhatsapp;
-            // Guardar snapshot de precios
             storie.val_primer_dia = config.basePrice;
             storie.val_dias_adicionales = config.extraDayPrice;
             storie.total_pagado = costo;
+            let savedStorie;
             try {
-                const savedStorie = yield storie.save();
-                // Resolver URLs firmadas para la respuesta inmediata
+                savedStorie = yield storie.save();
+            }
+            catch (error) {
+                // Si falla el guardado de DB, la imagen queda en S3, 
+                // pero al menos no se le ha cobrado al usuario.
+                throw domain_1.CustomError.internalServer("Error guardando la historia en la base de datos");
+            }
+            // 6. Descuento Seguro en Billetera
+            try {
+                yield this.walletService.subtractFromWallet(user.id, costo, "Pago por publicación de historia", "STORIE", undefined, undefined, savedStorie.id // Pasamos el ID generado como referencia
+                );
+            }
+            catch (error) {
+                // 🔥 ROLLBACK: Si el cobro falla, borramos la historia
+                yield savedStorie.remove();
+                if (error instanceof domain_1.CustomError && error.message.toLowerCase().includes("saldo suficiente")) {
+                    throw domain_1.CustomError.badRequest("No tienes saldo suficiente para publicar esta historia");
+                }
+                throw domain_1.CustomError.internalServer("Error en el pago. La historia no fue publicada.");
+            }
+            // 7. Preparar URLs para respuesta y Socket
+            try {
                 const [signedImgStorie, signedPhotoPerfil] = yield Promise.all([
                     upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
                         bucketName: config_1.envs.AWS_BUCKET_NAME,
@@ -98,17 +116,17 @@ class StorieService {
                         })
                         : null
                 ]);
-                // Asignar URLs firmadas al objeto de respuesta (sin afectar la DB)
                 savedStorie.imgstorie = signedImgStorie;
                 if (savedStorie.user) {
                     savedStorie.user.photoperfil = signedPhotoPerfil || savedStorie.user.photoperfil;
                 }
-                // Emitir evento de socket corregido con URLs utilizables
                 (0, socket_1.getIO)().emit("storieChanged", savedStorie);
                 return savedStorie;
             }
             catch (error) {
-                throw domain_1.CustomError.internalServer("Error creando la historia");
+                // Si falla la firma de URLs, la historia ya existe y fue pagada, no lanzamos error crítico
+                console.error("Error firmando URLs de historia recién creada", error);
+                return savedStorie;
             }
         });
     }

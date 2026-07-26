@@ -31,6 +31,7 @@ var ModeloMonetizacion;
     ModeloMonetizacion["SUSCRIPCION"] = "SUSCRIPCION";
     ModeloMonetizacion["COMISION_SUSCRIPCION"] = "COMISION_SUSCRIPCION";
     ModeloMonetizacion["COMISION"] = "COMISION";
+    ModeloMonetizacion["CREDITO"] = "CREDITO";
 })(ModeloMonetizacion || (exports.ModeloMonetizacion = ModeloMonetizacion = {}));
 var EstadoNegocio;
 (function (EstadoNegocio) {
@@ -188,6 +189,14 @@ __decorate([
     (0, typeorm_1.Column)("int", { default: 15 }),
     __metadata("design:type", Number)
 ], Negocio.prototype, "tiempoPreparacionMin", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: "boolean", default: false }),
+    __metadata("design:type", Boolean)
+], Negocio.prototype, "esParaCredito", void 0);
+__decorate([
+    (0, typeorm_1.Column)("decimal", { precision: 10, scale: 2, default: 0.50 }),
+    __metadata("design:type", Number)
+], Negocio.prototype, "costoLead", void 0);
 __decorate([
     (0, typeorm_1.Column)("int", { default: 30 }),
     __metadata("design:type", Number)

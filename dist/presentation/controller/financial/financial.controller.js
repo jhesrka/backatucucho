@@ -17,7 +17,7 @@ class FinancialController {
         this.financialService = financialService;
         this.handleError = (error, res) => {
             if (error instanceof domain_1.CustomError) {
-                return res.status(error.statusCode).json({ error: error.message });
+                return res.status(error.statusCode).json({ error: error.message, message: error.message });
             }
             console.error(error);
             return res.status(500).json({ error: 'Internal server error' });

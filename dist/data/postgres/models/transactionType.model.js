@@ -29,7 +29,8 @@ var TransactionReason;
     TransactionReason["REFUND"] = "REFUND";
     TransactionReason["STORIE"] = "STORIE";
     TransactionReason["WITHDRAWAL"] = "WITHDRAWAL";
-    TransactionReason["CASH_RECHARGE"] = "CASH_RECHARGE"; // Recarga en efectivo (Administrador)
+    TransactionReason["CASH_RECHARGE"] = "CASH_RECHARGE";
+    TransactionReason["LEAD_CREDITO"] = "LEAD_CREDITO"; // Débito por generar un prospecto de crédito
 })(TransactionReason || (exports.TransactionReason = TransactionReason = {}));
 let Transaction = class Transaction extends typeorm_1.BaseEntity {
 };

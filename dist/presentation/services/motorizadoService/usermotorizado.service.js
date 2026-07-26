@@ -294,6 +294,7 @@ class UserMotorizadoService {
                 whatsapp: motorizado.whatsapp,
                 cedula: motorizado.cedula,
                 photoperfil: photoUrl || "",
+                placaVehiculo: motorizado.placaVehiculo || "",
                 estadoCuenta: motorizado.estadoCuenta,
                 estadoTrabajo: motorizado.estadoTrabajo,
                 quiereTrabajar: motorizado.quiereTrabajar,
@@ -603,6 +604,19 @@ class UserMotorizadoService {
                 }
                 throw domain_1.CustomError.internalServer("Error al actualizar motorizado");
             }
+        });
+    }
+    updateVehicle(id, placaVehiculo) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const motorizado = yield data_1.UserMotorizado.findOneBy({ id });
+            if (!motorizado)
+                throw domain_1.CustomError.notFound("Motorizado no encontrado");
+            motorizado.placaVehiculo = placaVehiculo;
+            yield motorizado.save();
+            return {
+                message: "Vehículo actualizado con éxito",
+                placaVehiculo: motorizado.placaVehiculo
+            };
         });
     }
     // Activar / desactivar
@@ -1111,6 +1125,25 @@ class UserMotorizadoService {
                 totalSaldo,
                 motorizados: motorizadosWithPhoto
             };
+        });
+    }
+    // ===================== RESETEAR CALIFICACIONES =====================
+    resetRatingAdmin(id) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const motorizado = yield data_1.UserMotorizado.findOne({ where: { id } });
+            if (!motorizado)
+                throw domain_1.CustomError.notFound("Motorizado no encontrado");
+            // 1. Limpiar todos los pedidos asociados
+            yield data_1.Pedido.createQueryBuilder()
+                .update(data_1.Pedido)
+                .set({ ratingMotorizado: () => "NULL" })
+                .where("motorizadoId = :id", { id })
+                .execute();
+            // 2. Resetear en el Motorizado
+            motorizado.ratingPromedio = 0;
+            motorizado.totalResenas = 0;
+            yield motorizado.save();
+            return { message: "Calificaciones reseteadas exitosamente", motorizadoId: motorizado.id };
         });
     }
 }

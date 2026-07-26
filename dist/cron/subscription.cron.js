@@ -18,15 +18,16 @@ const node_cron_1 = __importDefault(require("node-cron"));
 const subscription_service_1 = require("../presentation/services/subscription.service");
 const subscription_service_2 = require("../presentation/services/postService/subscription.service");
 const startSubscriptionCron = () => {
-    // Ejecutar todos los días a las 2:00 AM
-    node_cron_1.default.schedule("0 2 * * *", () => __awaiter(void 0, void 0, void 0, function* () {
+    // Ejecutar cuatro veces al día: 2 AM, 8 AM, 2 PM, 8 PM
+    node_cron_1.default.schedule("0 2,8,14,20 * * *", () => __awaiter(void 0, void 0, void 0, function* () {
         yield (0, cron_lock_1.withRedisLock)("subscription", 55, () => __awaiter(void 0, void 0, void 0, function* () {
-            console.log("➡️ [CRON] INICIANDO PROCESAMIENTO DE SUSCRIPCIONES:", new Date().toLocaleString());
+            const currentHour = new Date().getHours();
+            console.log(`➡️ [CRON] INICIANDO PROCESAMIENTO DE SUSCRIPCIONES (Ciclo: ${currentHour}:00):`, new Date().toLocaleString());
             const businessService = new subscription_service_1.SubscriptionService();
             const userService = new subscription_service_2.SubscriptionService();
             try {
                 // 1. Procesar suscripciones de Negocios
-                const businessResults = yield businessService.processDailySubscriptions();
+                const businessResults = yield businessService.processDailySubscriptions(currentHour);
                 console.log("✅ [CRON] NEGOCIOS PROCESADOS:", businessResults);
                 // 2. Procesar suscripciones de Usuarios (BASIC)
                 const userResults = yield userService.processUserAutoRenewals();
@@ -37,6 +38,6 @@ const startSubscriptionCron = () => {
             }
         }));
     }), { timezone: "America/Guayaquil" });
-    console.log("[CRON] Sistema de renovación automática (Negocios y Usuarios) inicializado (2:00 AM daily)");
+    console.log("[CRON] Sistema de renovación automática (Negocios y Usuarios) inicializado (4 veces al día)");
 };
 exports.startSubscriptionCron = startSubscriptionCron;

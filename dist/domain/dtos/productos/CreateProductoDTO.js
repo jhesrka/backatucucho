@@ -4,7 +4,7 @@ exports.CreateProductoDTO = void 0;
 const config_1 = require("../../../config");
 const data_1 = require("../../../data");
 class CreateProductoDTO {
-    constructor(nombre, descripcion, precio_venta, precio_app, negocioId, modeloMonetizacion, tipoId, tipoProducto = data_1.TipoProductoEnum.NORMAL) {
+    constructor(nombre, descripcion, precio_venta, precio_app, negocioId, modeloMonetizacion, tipoId, tipoProducto = data_1.TipoProductoEnum.NORMAL, esParaCredito = false) {
         this.nombre = nombre;
         this.descripcion = descripcion;
         this.precio_venta = precio_venta;
@@ -13,25 +13,30 @@ class CreateProductoDTO {
         this.modeloMonetizacion = modeloMonetizacion;
         this.tipoId = tipoId;
         this.tipoProducto = tipoProducto;
+        this.esParaCredito = esParaCredito;
     }
     static create(obj) {
-        const { nombre, descripcion, precio_venta, precio_app, negocioId, modeloMonetizacion, tipoId, tipoProducto } = obj;
+        const { nombre, descripcion, precio_venta, precio_app, negocioId, modeloMonetizacion, tipoId, tipoProducto, esParaCredito } = obj;
+        const isCredit = modeloMonetizacion === "CREDITO" || esParaCredito === true || esParaCredito === "true";
         if (!nombre || typeof nombre !== "string" || nombre.trim().length < 3) {
             return ["El nombre del producto debe tener al menos 3 caracteres"];
         }
         if (!descripcion || typeof descripcion !== "string" || descripcion.trim().length < 5) {
             return ["La descripción debe tener al menos 5 caracteres"];
         }
-        if (isNaN(Number(precio_venta)) || Number(precio_venta) <= 0) {
+        if (!isCredit && (isNaN(Number(precio_venta)) || Number(precio_venta) <= 0)) {
             return ["El precio de venta debe ser un número positivo"];
+        }
+        if (isCredit && isNaN(Number(precio_venta))) {
+            return ["El precio de venta debe ser numérico"];
         }
         if (!negocioId || typeof negocioId !== "string" || !config_1.regularExp.uuid.test(negocioId)) {
             return ["El ID del negocio no es válido"];
         }
-        if (!modeloMonetizacion || !["SUSCRIPCION", "COMISION_SUSCRIPCION"].includes(modeloMonetizacion)) {
+        if (!modeloMonetizacion || !["SUSCRIPCION", "COMISION_SUSCRIPCION", "CREDITO"].includes(modeloMonetizacion)) {
             return ["Modelo de monetización inválido"];
         }
-        if (modeloMonetizacion === "COMISION_SUSCRIPCION") {
+        if (modeloMonetizacion === "COMISION_SUSCRIPCION" && !isCredit) {
             if (precio_app === undefined || precio_app === null) {
                 return ["Debes proporcionar 'precio_app' para negocios con modelo COMISION + SUSCRIPCION"];
             }
@@ -50,7 +55,7 @@ class CreateProductoDTO {
         }
         return [
             undefined,
-            new CreateProductoDTO(nombre.trim(), descripcion.trim(), Number(precio_venta), modeloMonetizacion === "COMISION_SUSCRIPCION" ? Number(precio_app) : Number(precio_venta), negocioId, modeloMonetizacion, tipoId.trim(), tipoProducto || data_1.TipoProductoEnum.NORMAL),
+            new CreateProductoDTO(nombre.trim(), descripcion.trim(), Number(precio_venta), modeloMonetizacion === "COMISION_SUSCRIPCION" ? Number(precio_app) : Number(precio_venta), negocioId, modeloMonetizacion, tipoId.trim(), tipoProducto || data_1.TipoProductoEnum.NORMAL, isCredit),
         ];
     }
 }

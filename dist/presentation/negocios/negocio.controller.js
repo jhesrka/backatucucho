@@ -11,7 +11,17 @@ class NegocioController {
                 return res.status(error.statusCode).json({ message: error.message });
             }
             console.error("Unhandled error:", error);
-            return res.status(500).json({ message: "Something went very wrong" });
+            return res.status(500).json({ message: error instanceof Error ? error.message : "Something went very wrong" });
+        };
+        // ======================= VERIFICAR NOMBRE ========================
+        this.checkName = (req, res) => {
+            const { name } = req.query;
+            if (!name)
+                return res.status(400).json({ message: "Nombre requerido" });
+            this.negocioService
+                .checkNameExists(name)
+                .then((exists) => res.status(200).json({ exists }))
+                .catch((error) => this.handleError(error, res));
         };
         // ======================= CREATE ========================
         this.createNegocio = (req, res) => {
@@ -34,7 +44,7 @@ class NegocioController {
                     return res.status(error.statusCode).json({ message: error.message });
                 }
                 console.error("Unhandled error:", error);
-                return res.status(500).json({ message: "Something went very wrong" });
+                return res.status(500).json({ message: error instanceof Error ? error.message : "Something went very wrong" });
             });
         };
         // ================== TOGGLE ABIERTO / CERRADO ======================
@@ -54,9 +64,12 @@ class NegocioController {
         };
         this.getNegociosByUserId = (req, res) => {
             const { userId } = req.params;
+            const page = parseInt(req.query.page) || 1;
+            const limit = parseInt(req.query.limit) || 6;
+            const search = req.query.search || "";
             this.negocioService
-                .getNegociosByUsuarioId(userId)
-                .then((negocios) => res.status(200).json(negocios))
+                .getNegociosByUsuarioId(userId, page, limit, search)
+                .then((result) => res.status(200).json(result))
                 .catch((error) => this.handleError(error, res));
         };
         // ======================= UPDATE ========================

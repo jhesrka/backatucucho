@@ -37,6 +37,8 @@ class NegocioAdminRoutes {
         router.get("/user/:id/negocios", auth_admin_middleware_1.AuthAdminMiddleware.protect, controller.getNegociosByUserAdmin);
         // NUEVO: Admin - Forzar cobro de suscripción
         router.post("/:id/force-subscription", auth_admin_middleware_1.AuthAdminMiddleware.protect, controller.forceChargeSubscription);
+        // NUEVO: Admin - Resetear Calificaciones
+        router.post("/:id/reset-rating", auth_admin_middleware_1.AuthAdminMiddleware.protect, controller.resetRatingAdmin);
         return router;
     }
 }

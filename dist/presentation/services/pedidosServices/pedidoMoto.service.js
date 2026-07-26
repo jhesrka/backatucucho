@@ -464,7 +464,7 @@ class PedidoMotoService {
                 throw domain_1.CustomError.badRequest("No autorizado");
             }
             if (!pedido.pickup_verified) {
-                throw domain_1.CustomError.badRequest("No puedes marcar en camino sin antes validar el código con el restaurante");
+                throw domain_1.CustomError.badRequest("No puedes marcar en camino sin antes validar el código con el negocio");
             }
             pedido.estado = data_1.EstadoPedido.EN_CAMINO;
             pedido.delivery_code = Math.floor(1000 + Math.random() * 9000).toString();

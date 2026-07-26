@@ -8,15 +8,11 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DeliverySettingsAdminService = void 0;
 const DeliverySettings_1 = require("../../../data/postgres/models/DeliverySettings");
 const domain_1 = require("../../../domain");
-const global_settings_model_1 = require("../../../data/postgres/models/global-settings.model");
-const bcryptjs_1 = __importDefault(require("bcryptjs"));
+const global_settings_service_1 = require("../globalSettings/global-settings.service");
 class DeliverySettingsAdminService {
     getActive() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -79,11 +75,8 @@ class DeliverySettingsAdminService {
         return __awaiter(this, void 0, void 0, function* () {
             if (!pin)
                 throw domain_1.CustomError.unAuthorized("Master PIN requerido");
-            const settings = yield global_settings_model_1.GlobalSettings.findOne({ where: {} });
-            if (!settings || !settings.masterPin) {
-                throw domain_1.CustomError.internalServer("Error de seguridad: Master PIN no configurado en el sistema");
-            }
-            const isValid = bcryptjs_1.default.compareSync(pin, settings.masterPin);
+            const globalSettingsService = new global_settings_service_1.GlobalSettingsService();
+            const isValid = yield globalSettingsService.validateMasterPin(pin);
             if (!isValid) {
                 throw domain_1.CustomError.unAuthorized("Master PIN incorrecto");
             }

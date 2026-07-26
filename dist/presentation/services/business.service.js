@@ -285,6 +285,17 @@ class BusinessService {
                             console.error(`Error resolving URL for order ${order.id}:`, error);
                         }
                     }
+                    if (order.motorizado && order.motorizado.photoperfil && !order.motorizado.photoperfil.startsWith('http') && !order.motorizado.photoperfil.startsWith('{')) {
+                        try {
+                            order.motorizado.photoperfil = (yield UploadFilesCloud.getOptimizedUrls({
+                                bucketName: envs.AWS_BUCKET_NAME,
+                                key: order.motorizado.photoperfil
+                            }));
+                        }
+                        catch (err) {
+                            console.error(`Error resolving motorizado photo for order ${order.id}:`, err);
+                        }
+                    }
                     return Object.assign(Object.assign({}, Object.assign({}, order)), { fecha_aceptado: order.fecha_aceptado });
                 })));
                 // 💰 Añadir Resumen Financiero DIARIO (Para unificar con Finance)
@@ -372,7 +383,7 @@ class BusinessService {
                     estadoAnterior: EstadoPedido.PENDIENTE,
                     estadoNuevo: EstadoPedido.ACEPTADO,
                     evento: "NEGOCIO_ACEPTO",
-                    detalle: "El restaurante aceptó el pedido e inició el cronómetro de preparación"
+                    detalle: "El negocio aceptó el pedido e inició el cronómetro de preparación"
                 });
             }
             else if (status === EstadoPedido.PREPARANDO) {
@@ -387,7 +398,7 @@ class BusinessService {
                     estadoAnterior: EstadoPedido.ACEPTADO,
                     estadoNuevo: EstadoPedido.PREPARANDO,
                     evento: "NEGOCIO_LISTO",
-                    detalle: "El restaurante marcó el pedido como 'Listo para Recoger' (Inicia búsqueda de motorizado)"
+                    detalle: "El negocio marcó el pedido como 'Listo para Recoger' (Inicia búsqueda de motorizado)"
                 });
             }
             else if (status === EstadoPedido.CANCELADO) {
@@ -406,7 +417,7 @@ class BusinessService {
                     estadoAnterior: EstadoPedido.PENDIENTE,
                     estadoNuevo: EstadoPedido.CANCELADO,
                     evento: "NEGOCIO_RECHAZO",
-                    detalle: `El restaurante rechazó el pedido. Motivo: ${motivoCancelacion}`
+                    detalle: `El negocio rechazó el pedido. Motivo: ${motivoCancelacion}`
                 });
             }
             else {

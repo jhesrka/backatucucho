@@ -18,8 +18,8 @@ const node_cron_1 = __importDefault(require("node-cron"));
 const pedidoMoto_service_1 = require("../presentation/services/pedidosServices/pedidoMoto.service");
 const startPedidoMotoCron = () => {
     let isRunning = false;
-    node_cron_1.default.schedule("*/3 * * * * *", () => __awaiter(void 0, void 0, void 0, function* () {
-        yield (0, cron_lock_1.withRedisLock)("pedidoMoto", 2, () => __awaiter(void 0, void 0, void 0, function* () {
+    node_cron_1.default.schedule("*/15 * * * * *", () => __awaiter(void 0, void 0, void 0, function* () {
+        yield (0, cron_lock_1.withRedisLock)("pedidoMoto", 10, () => __awaiter(void 0, void 0, void 0, function* () {
             if (isRunning) {
                 console.log("⚠️ Cron de asignación omitido: Ejecución anterior en progreso.");
                 return;

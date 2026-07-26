@@ -13,6 +13,8 @@ class NegocioRoutes {
         const router = (0, express_1.Router)();
         const negocioService = new negocio_service_1.NegocioService();
         const negocioController = new negocio_controller_1.NegocioController(negocioService);
+        // ===================== VERIFICAR =====================
+        router.get("/check-name", auth_middleware_1.AuthMiddleware.protect, negocioController.checkName);
         // ===================== CREAR =====================
         router.post("/", auth_middleware_1.AuthMiddleware.protect, (0, config_1.uploadSingleFile)("imagenNegocio"), negocioController.createNegocio);
         router.post("/admin", auth_admin_middleware_1.AuthAdminMiddleware.protect, (0, config_1.uploadSingleFile)("imagenNegocio"), negocioController.createNegocio);

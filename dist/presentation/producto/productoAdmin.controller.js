@@ -124,6 +124,28 @@ class ProductoControllerAdmin {
                 this.handleError(error, res);
             }
         });
+        this.bulkUpdateStock = (req, res) => __awaiter(this, void 0, void 0, function* () {
+            const { negocioId } = req.params;
+            const { disponible } = req.body;
+            try {
+                const result = yield this.productoServiceAdmin.bulkUpdateStock(negocioId, disponible);
+                return res.status(200).json(result);
+            }
+            catch (error) {
+                this.handleError(error, res);
+            }
+        });
+        this.bulkUpdateTipoProducto = (req, res) => __awaiter(this, void 0, void 0, function* () {
+            const { negocioId } = req.params;
+            const { tipoProducto } = req.body;
+            try {
+                const result = yield this.productoServiceAdmin.bulkUpdateTipoProducto(negocioId, tipoProducto);
+                return res.status(200).json(result);
+            }
+            catch (error) {
+                this.handleError(error, res);
+            }
+        });
     }
 }
 exports.ProductoControllerAdmin = ProductoControllerAdmin;

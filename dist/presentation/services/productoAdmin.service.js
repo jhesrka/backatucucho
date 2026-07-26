@@ -287,6 +287,51 @@ class ProductoServiceAdmin {
             };
         });
     }
+    // ADMIN: Bulk update stock for all products of a business
+    bulkUpdateStock(negocioId, disponible) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (!negocioId)
+                throw domain_1.CustomError.badRequest("El ID del negocio es requerido");
+            if (typeof disponible !== 'boolean' && typeof disponible !== 'string') {
+                throw domain_1.CustomError.badRequest("El campo disponible debe ser booleano o string");
+            }
+            const isAvailable = disponible === true || disponible === 'true';
+            // Usamos el builder para actualización masiva optimizada sin cargar todos los objetos a memoria
+            const result = yield data_1.Producto.update({ negocio: { id: negocioId } }, { disponible: isAvailable });
+            // Notificar por websockets el cambio masivo para que los clientes actualicen sus listados (opcional, enviamos evento de negocio)
+            (0, socket_1.getIO)().emit("bulk_product_status_changed", {
+                negocioId,
+                disponible: isAvailable,
+            });
+            return {
+                message: `El inventario de todos los productos ha sido marcado como ${isAvailable ? 'EN STOCK' : 'AGOTADO'}.`,
+                updatedCount: result.affected || 0,
+                disponible: isAvailable
+            };
+        });
+    }
+    // ADMIN: Bulk update tipoProducto for all products of a business
+    bulkUpdateTipoProducto(negocioId, tipoProducto) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (!negocioId)
+                throw domain_1.CustomError.badRequest("El ID del negocio es requerido");
+            if (tipoProducto !== 'NORMAL' && tipoProducto !== 'PROGRAMADO') {
+                throw domain_1.CustomError.badRequest("El tipoProducto debe ser NORMAL o PROGRAMADO");
+            }
+            const tipoEnum = tipoProducto === 'PROGRAMADO' ? data_1.TipoProductoEnum.PROGRAMADO : data_1.TipoProductoEnum.NORMAL;
+            const result = yield data_1.Producto.update({ negocio: { id: negocioId } }, { tipoProducto: tipoEnum });
+            // Notificar por websockets el cambio masivo
+            (0, socket_1.getIO)().emit("bulk_product_tipo_changed", {
+                negocioId,
+                tipoProducto,
+            });
+            return {
+                message: `Todos los productos han sido cambiados a tipo de despacho ${tipoProducto}.`,
+                updatedCount: result.affected || 0,
+                tipoProducto
+            };
+        });
+    }
     // ========================= SOCKET UPDATE HELPER =========================
     emitProductUpdate(producto) {
         return __awaiter(this, void 0, void 0, function* () {

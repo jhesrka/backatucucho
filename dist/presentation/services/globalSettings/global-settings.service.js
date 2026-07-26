@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -20,9 +53,8 @@ const image_optimizer_adapter_1 = require("../../../config/image-optimizer.adapt
 const config_1 = require("../../../config");
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 class GlobalSettingsService {
-    getSettings() {
+    getRawSettings() {
         return __awaiter(this, void 0, void 0, function* () {
-            var _a;
             let settings = yield data_1.GlobalSettings.findOne({ where: {} });
             if (!settings) {
                 settings = new data_1.GlobalSettings();
@@ -63,56 +95,68 @@ class GlobalSettingsService {
             if (settings.cardRechargeEnabled === null || settings.cardRechargeEnabled === undefined) {
                 settings.cardRechargeEnabled = true;
             }
-            if ((_a = settings.businessCover) === null || _a === void 0 ? void 0 : _a.imageUrl) {
-                try {
-                    settings.businessCover.imageUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
-                        bucketName: config_1.envs.AWS_BUCKET_NAME,
-                        key: settings.businessCover.imageUrl,
-                    });
-                }
-                catch (e) {
-                    console.error(e);
-                }
-            }
-            if (settings.appLogoKey) {
-                try {
-                    settings.appLogoUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
-                        bucketName: config_1.envs.AWS_BUCKET_NAME,
-                        key: settings.appLogoKey,
-                    });
-                }
-                catch (e) {
-                    console.error(e);
-                }
-            }
-            if (settings.appFaviconKey) {
-                try {
-                    settings.appFaviconUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
-                        bucketName: config_1.envs.AWS_BUCKET_NAME,
-                        key: settings.appFaviconKey,
-                    });
-                }
-                catch (e) {
-                    console.error(e);
-                }
-            }
             return settings;
+        });
+    }
+    getSettings() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const rawSettings = yield this.getRawSettings();
+            let businessCoverResult = rawSettings.businessCover ? Object.assign({}, rawSettings.businessCover) : undefined;
+            if (businessCoverResult === null || businessCoverResult === void 0 ? void 0 : businessCoverResult.imageUrl) {
+                try {
+                    businessCoverResult.imageUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
+                        bucketName: config_1.envs.AWS_BUCKET_NAME,
+                        key: businessCoverResult.imageUrl,
+                    });
+                }
+                catch (e) {
+                    console.error(e);
+                }
+            }
+            let appLogoUrl = rawSettings.appLogoUrl;
+            if (rawSettings.appLogoKey) {
+                try {
+                    appLogoUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
+                        bucketName: config_1.envs.AWS_BUCKET_NAME,
+                        key: rawSettings.appLogoKey,
+                    });
+                }
+                catch (e) {
+                    console.error(e);
+                }
+            }
+            let appFaviconUrl = rawSettings.appFaviconUrl;
+            if (rawSettings.appFaviconKey) {
+                try {
+                    appFaviconUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
+                        bucketName: config_1.envs.AWS_BUCKET_NAME,
+                        key: rawSettings.appFaviconKey,
+                    });
+                }
+                catch (e) {
+                    console.error(e);
+                }
+            }
+            return Object.assign(Object.assign({}, rawSettings), { businessCover: businessCoverResult, appLogoUrl,
+                appFaviconUrl });
         });
     }
     updateSettings(data, file) {
         return __awaiter(this, void 0, void 0, function* () {
             var _a, _b;
             if (data.masterPin) {
-                const currentSettings = yield this.getSettings();
-                if (currentSettings.masterPin) {
-                    const isMatch = yield bcryptjs_1.default.compare(data.masterPin, currentSettings.masterPin);
-                    if (!isMatch)
-                        throw domain_1.CustomError.badRequest("PIN Maestro incorrecto");
+                const isMatch = yield this.validateMasterPin(data.masterPin);
+                if (!isMatch)
+                    throw domain_1.CustomError.badRequest("PIN Maestro incorrecto");
+            }
+            else {
+                // Requiere PIN para cualquier actualización excepto cardRechargeEnabled
+                const keys = Object.keys(data).filter(k => k !== 'cardRechargeEnabled');
+                if (keys.length > 0) {
+                    throw domain_1.CustomError.unAuthorized("PIN Maestro requerido para modificar la configuración");
                 }
             }
-            let settings = yield data_1.GlobalSettings.findOne({ where: {} });
-            if (!settings)
-                settings = new data_1.GlobalSettings();
+            let settings = yield this.getRawSettings();
             let termsChanged = false;
             if (data.supportWhatsapp)
                 settings.supportWhatsapp = data.supportWhatsapp;
@@ -179,6 +223,22 @@ class GlobalSettingsService {
                 settings.acceptedOrderGraceMinutes = Number(data.acceptedOrderGraceMinutes);
             if (data.cleanupSubscriptionContentDays !== undefined)
                 settings.cleanupSubscriptionContentDays = Number(data.cleanupSubscriptionContentDays);
+            if (data.useRedisLockForCrons !== undefined) {
+                const newValue = data.useRedisLockForCrons === true || data.useRedisLockForCrons === 'true';
+                if (settings.useRedisLockForCrons !== newValue) {
+                    settings.useRedisLockForCrons = newValue;
+                    // 🔥 Sincronizar estado global de Redis dinámicamente
+                    Promise.resolve().then(() => __importStar(require("../../../config/socket"))).then(({ initRedisAdapter, removeRedisAdapter, setRedisGlobalState }) => {
+                        setRedisGlobalState(newValue);
+                        if (newValue && config_1.envs.REDIS_URL) {
+                            initRedisAdapter(config_1.envs.REDIS_URL);
+                        }
+                        else {
+                            removeRedisAdapter();
+                        }
+                    }).catch(err => console.error("Error actualizando adaptador de Redis:", err));
+                }
+            }
             // LÍMITES DE MÉTODOS DE PAGO
             if (data.minEfectivo !== undefined)
                 settings.minEfectivo = data.minEfectivo === "" || data.minEfectivo === null ? null : Number(data.minEfectivo);
@@ -208,11 +268,9 @@ class GlobalSettingsService {
                         ? JSON.parse(coverRaw)
                         : coverRaw;
                     // 🛡️ DEFINITIVE S3 PRE-SIGNED URL FIX:
-                    // If imageUrl is a temporary HTTP pre-signed URL, preserve the existing raw key from the database.
                     if (parsedCover && parsedCover.imageUrl && parsedCover.imageUrl.startsWith('http')) {
-                        const currentSettings = yield data_1.GlobalSettings.findOne({ where: {} });
-                        if ((_a = currentSettings === null || currentSettings === void 0 ? void 0 : currentSettings.businessCover) === null || _a === void 0 ? void 0 : _a.imageUrl) {
-                            parsedCover.imageUrl = currentSettings.businessCover.imageUrl;
+                        if ((_a = settings.businessCover) === null || _a === void 0 ? void 0 : _a.imageUrl) {
+                            parsedCover.imageUrl = settings.businessCover.imageUrl;
                         }
                     }
                     settings.businessCover = parsedCover;
@@ -260,13 +318,11 @@ class GlobalSettingsService {
         return __awaiter(this, void 0, void 0, function* () {
             if (!file)
                 throw domain_1.CustomError.badRequest("No file provided");
-            const settings = yield this.getSettings();
+            const settings = yield this.getRawSettings();
             if (masterPin) {
-                if (settings.masterPin) {
-                    const isMatch = yield bcryptjs_1.default.compare(masterPin, settings.masterPin);
-                    if (!isMatch)
-                        throw domain_1.CustomError.badRequest("PIN Maestro incorrecto");
-                }
+                const isMatch = yield this.validateMasterPin(masterPin);
+                if (!isMatch)
+                    throw domain_1.CustomError.badRequest("PIN Maestro incorrecto");
             }
             else {
                 throw domain_1.CustomError.badRequest("PIN Maestro requerido");
@@ -306,13 +362,11 @@ class GlobalSettingsService {
         return __awaiter(this, void 0, void 0, function* () {
             if (!file)
                 throw domain_1.CustomError.badRequest("No file provided");
-            const settings = yield this.getSettings();
+            const settings = yield this.getRawSettings();
             if (masterPin) {
-                if (settings.masterPin) {
-                    const isMatch = yield bcryptjs_1.default.compare(masterPin, settings.masterPin);
-                    if (!isMatch)
-                        throw domain_1.CustomError.badRequest("PIN Maestro incorrecto");
-                }
+                const isMatch = yield this.validateMasterPin(masterPin);
+                if (!isMatch)
+                    throw domain_1.CustomError.badRequest("PIN Maestro incorrecto");
             }
             else {
                 throw domain_1.CustomError.badRequest("PIN Maestro requerido");
@@ -350,7 +404,7 @@ class GlobalSettingsService {
     }
     updateFreePostSettings(dto) {
         return __awaiter(this, void 0, void 0, function* () {
-            let settings = yield this.getSettings();
+            let settings = yield this.getRawSettings();
             if (dto.freePostsLimit !== undefined)
                 settings.freePostsLimit = dto.freePostsLimit;
             if (dto.freePostDurationDays !== undefined)
@@ -374,7 +428,7 @@ class GlobalSettingsService {
             const isMatch = yield this.validateMasterPin(masterPin);
             if (!isMatch)
                 throw domain_1.CustomError.badRequest("PIN Maestro incorrecto");
-            const settings = yield this.getSettings();
+            const settings = yield this.getRawSettings();
             settings.app_status = "CLOSED";
             settings.modo_operacion = "MANUAL";
             yield settings.save();
@@ -386,7 +440,7 @@ class GlobalSettingsService {
             const isMatch = yield this.validateMasterPin(masterPin);
             if (!isMatch)
                 throw domain_1.CustomError.badRequest("PIN Maestro incorrecto");
-            const settings = yield this.getSettings();
+            const settings = yield this.getRawSettings();
             settings.modo_operacion = "AUTO";
             yield settings.save();
             // 🔥 RECÁLCULO INMEDIATO
@@ -396,7 +450,7 @@ class GlobalSettingsService {
     }
     checkAppSchedule() {
         return __awaiter(this, void 0, void 0, function* () {
-            const settings = yield this.getSettings();
+            const settings = yield this.getRawSettings();
             if (settings.modo_operacion === 'MANUAL') {
                 return; // Do nothing
             }
@@ -431,7 +485,7 @@ class GlobalSettingsService {
     }
     validateMasterPin(pin) {
         return __awaiter(this, void 0, void 0, function* () {
-            const settings = yield this.getSettings();
+            const settings = yield this.getRawSettings();
             if (!settings.masterPin) {
                 // Si no hay PIN configurado, por seguridad no permitimos la acción
                 throw domain_1.CustomError.badRequest("PIN Maestro no configurado en el sistema.");

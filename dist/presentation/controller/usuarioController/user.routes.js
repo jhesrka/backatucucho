@@ -182,6 +182,8 @@ class UserRoutes {
         router.post("/admin/reset-password-email/:id", middlewares_1.AuthAdminMiddleware.protect, userController.sendPasswordResetAdminAction);
         router.post("/admin/resend-activation-email/:id", middlewares_1.AuthAdminMiddleware.protect, userController.resendActivationAdminAction);
         router.delete("/admin/purge-hard/:id", middlewares_1.AuthAdminMiddleware.protect, userController.purgeUserAdminAction);
+        // Dar permiso de negocio a crédito (Admin)
+        router.patch("/admin/toggle-negocio-credito/:id", middlewares_1.AuthAdminMiddleware.protect, userController.toggleNegocioCredito);
         return router;
     }
 }

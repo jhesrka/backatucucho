@@ -236,7 +236,7 @@ class DashboardService {
                 // IMPORTANTE: "AT TIME ZONE 'America/Guayaquil'" convierte el timestamp UTC al local para agrupar correctamente
                 const query = `
                 SELECT 
-                    TO_CHAR("createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') as fecha,
+                    TO_CHAR("createdAt" AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') as fecha,
                     COUNT(*)::int as total
                 FROM post
                 WHERE "createdAt" >= (NOW() - INTERVAL '7 days') 
@@ -287,14 +287,14 @@ class DashboardService {
                 });
                 // 1. Historias Creadas
                 const statsHistorias = yield executeAndMap(`
-                SELECT TO_CHAR("createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') as fecha, COUNT(*)::int as total
+                SELECT TO_CHAR("createdAt" AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') as fecha, COUNT(*)::int as total
                 FROM storie
                 WHERE "createdAt" >= (NOW() - INTERVAL '7 days') 
                 GROUP BY fecha ORDER BY fecha ASC;
             `);
                 // 2. Recargas (Suma Monto) - APROBADAS
                 const statsRecargas = yield executeAndMap(`
-                SELECT TO_CHAR("created_at" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') as fecha, SUM(amount)::decimal as total
+                SELECT TO_CHAR("created_at" AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') as fecha, SUM(amount)::decimal as total
                 FROM recharge_requests
                 WHERE "created_at" >= (NOW() - INTERVAL '7 days') AND status = 'APROBADO'
                 GROUP BY fecha ORDER BY fecha ASC;
@@ -302,7 +302,7 @@ class DashboardService {
                 // 3. Ingresos Suscripciones + Historias (Transactions)
                 // Reason: SUBSCRIPTION, STORIE. Type: debit (users paying). Status: APPROVED
                 const statsIngresosSubStories = yield executeAndMap(`
-                SELECT TO_CHAR("created_at" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') as fecha, SUM(amount)::decimal as total
+                SELECT TO_CHAR("created_at" AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') as fecha, SUM(amount)::decimal as total
                 FROM transactions
                 WHERE "created_at" >= (NOW() - INTERVAL '7 days') 
                 AND reason IN ('SUBSCRIPTION', 'STORIE') 
@@ -311,7 +311,7 @@ class DashboardService {
             `, 'sum');
                 // 4. Ingresos Comisiones App (Pedidos Entregados)
                 const statsIngresosComisiones = yield executeAndMap(`
-                SELECT TO_CHAR("createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') as fecha, SUM(ganancia_app_producto + comision_app_domicilio)::decimal as total
+                SELECT TO_CHAR("createdAt" AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') as fecha, SUM(ganancia_app_producto + comision_app_domicilio)::decimal as total
                 FROM pedido
                 WHERE "createdAt" >= (NOW() - INTERVAL '7 days') 
                 AND estado = 'ENTREGADO'
@@ -319,7 +319,7 @@ class DashboardService {
             `, 'sum');
                 // 5. Pedidos Entregados (Cantidad)
                 const statsPedidosEntregados = yield executeAndMap(`
-                SELECT TO_CHAR("createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') as fecha, COUNT(*)::int as total
+                SELECT TO_CHAR("createdAt" AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') as fecha, COUNT(*)::int as total
                 FROM pedido
                 WHERE "createdAt" >= (NOW() - INTERVAL '7 days') 
                 AND estado = 'ENTREGADO'
@@ -327,7 +327,7 @@ class DashboardService {
             `);
                 // 6. Nuevos Usuarios
                 const statsNuevosUsuarios = yield executeAndMap(`
-                SELECT TO_CHAR("createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') as fecha, COUNT(*)::int as total
+                SELECT TO_CHAR("createdAt" AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') as fecha, COUNT(*)::int as total
                 FROM "user"
                 WHERE "createdAt" >= (NOW() - INTERVAL '7 days') 
                 GROUP BY fecha ORDER BY fecha ASC;
@@ -337,14 +337,14 @@ class DashboardService {
                 const usuariosActivos = yield user_model_1.User.count({ where: { status: 'ACTIVE' } });
                 // 7. Nuevos Negocios
                 const statsNuevosNegocios = yield executeAndMap(`
-                SELECT TO_CHAR("created_at" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') as fecha, COUNT(*)::int as total
+                SELECT TO_CHAR("created_at" AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') as fecha, COUNT(*)::int as total
                 FROM negocio
                 WHERE "created_at" >= (NOW() - INTERVAL '7 days') 
                 GROUP BY fecha ORDER BY fecha ASC;
             `);
                 // 8. Nuevos Productos
                 const statsNuevosProductos = yield executeAndMap(`
-                SELECT TO_CHAR("created_at" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') as fecha, COUNT(*)::int as total
+                SELECT TO_CHAR("created_at" AT TIME ZONE 'America/Guayaquil', 'YYYY-MM-DD') as fecha, COUNT(*)::int as total
                 FROM producto
                 WHERE "created_at" >= (NOW() - INTERVAL '7 days') 
                 GROUP BY fecha ORDER BY fecha ASC;
@@ -398,7 +398,7 @@ class DashboardService {
                 // 2. Top 10 Publicaciones del Día
                 const topPostsToday = yield post_model_1.Post.createQueryBuilder("post")
                     .leftJoinAndSelect("post.user", "user")
-                    .where(`("post"."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil')::date = ${queryDate}`)
+                    .where(`("post"."createdAt" AT TIME ZONE 'America/Guayaquil')::date = ${queryDate}`)
                     .orderBy("post.createdAt", "DESC")
                     .take(10)
                     .select(["post.id", "post.title", "post.createdAt", "post.statusPost", "user.name", "user.surname", "user.email"])
@@ -406,7 +406,7 @@ class DashboardService {
                 // 3. Últimas 10 Historias del Día
                 const topStoriesToday = yield stories_model_1.Storie.createQueryBuilder("storie")
                     .leftJoinAndSelect("storie.user", "user")
-                    .where(`("storie"."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil')::date = ${queryDate}`)
+                    .where(`("storie"."createdAt" AT TIME ZONE 'America/Guayaquil')::date = ${queryDate}`)
                     .orderBy("storie.createdAt", "DESC")
                     .take(10)
                     .select(["storie.id", "storie.createdAt", "storie.statusStorie", "user.name", "user.surname", "user.email"])
@@ -419,7 +419,7 @@ class DashboardService {
                 FROM pedido p
                 JOIN negocio n ON p."negocioId" = n.id
                 WHERE p.estado = 'ENTREGADO'
-                AND (p."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil')::date = ${queryDate}
+                AND (p."createdAt" AT TIME ZONE 'America/Guayaquil')::date = ${queryDate}
                 GROUP BY n.id, n.nombre
                 ORDER BY cantidad DESC
                 LIMIT 5
@@ -432,7 +432,7 @@ class DashboardService {
                 JOIN pedido p ON pp."pedidoId" = p.id
                 JOIN negocio n ON pr."negocioId" = n.id
                 WHERE p.estado = 'ENTREGADO'
-                AND (p."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil')::date = ${queryDate}
+                AND (p."createdAt" AT TIME ZONE 'America/Guayaquil')::date = ${queryDate}
                 GROUP BY pr.id, pr.nombre, n.id, n.nombre
                 ORDER BY cantidad DESC
                 LIMIT 5
@@ -443,7 +443,7 @@ class DashboardService {
                 FROM pedido p
                 JOIN user_motorizado u ON p."motorizadoId" = u.id
                 WHERE p.estado = 'ENTREGADO'
-                AND (p."createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'America/Guayaquil')::date = ${queryDate}
+                AND (p."createdAt" AT TIME ZONE 'America/Guayaquil')::date = ${queryDate}
                 GROUP BY u.id, u.name, u.surname
                 ORDER BY entregas DESC
                 LIMIT 5

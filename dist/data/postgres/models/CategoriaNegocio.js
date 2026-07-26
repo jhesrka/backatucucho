@@ -64,6 +64,10 @@ __decorate([
     __metadata("design:type", Boolean)
 ], CategoriaNegocio.prototype, "modeloBloqueado", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: "boolean", default: false }),
+    __metadata("design:type", Boolean)
+], CategoriaNegocio.prototype, "esParaCredito", void 0);
+__decorate([
     (0, typeorm_1.Column)({
         type: "varchar",
         nullable: true,

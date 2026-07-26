@@ -211,6 +211,7 @@ class NegocioAdminService {
             });
             if (!negocio)
                 throw domain_1.CustomError.notFound("Negocio no encontrado");
+            const oldStatus = negocio.statusNegocio;
             // ========================= ACTUALIZAR CATEGORÍA =========================
             if (dto.categoriaId) {
                 const categoria = yield data_1.CategoriaNegocio.findOneBy({
@@ -390,6 +391,9 @@ class NegocioAdminService {
             if (dto.valorSuscripcion !== undefined) {
                 negocio.valorSuscripcion = dto.valorSuscripcion;
             }
+            if (dto.costoLead !== undefined) {
+                negocio.costoLead = dto.costoLead;
+            }
             const saved = yield negocio.save();
             // 📡 Notificar por WebSockets
             (0, socket_1.getIO)().emit("business_status_changed", {
@@ -409,12 +413,26 @@ class NegocioAdminService {
                 }
                 yield notificationService.sendPushNotification(saved.usuario.id, title, body, { url: '/user/mis-negocios' });
             }
+            // 📣 Notificación Masiva a la Comunidad (Solo si pasa de PENDIENTE a ACTIVO)
+            if (oldStatus === data_1.StatusNegocio.PENDIENTE && saved.statusNegocio === data_1.StatusNegocio.ACTIVO) {
+                try {
+                    const broadcastTitle = "🥳 ¡Nuevo Negocio en Atucucho!";
+                    const broadcastBody = `Conoce a "${saved.nombre}", ya disponible en la app. ¡Pide ahora!`;
+                    // Redirige al perfil del negocio en la app
+                    yield notificationService.broadcastPushNotificationToAll(broadcastTitle, broadcastBody, { url: `/negocio/${saved.id}` });
+                    console.log(`📣 [Notificación Masiva] Se avisó a la comunidad sobre el nuevo negocio: ${saved.nombre}`);
+                }
+                catch (broadcastError) {
+                    console.error("❌ Error enviando notificación masiva de nuevo negocio:", broadcastError);
+                }
+            }
             return {
                 id: saved.id,
                 nombre: saved.nombre,
                 statusNegocio: saved.statusNegocio,
                 modeloMonetizacion: saved.modeloMonetizacion,
                 valorSuscripcion: saved.valorSuscripcion,
+                costoLead: saved.costoLead,
                 diaPago: saved.diaPago,
                 categoria: {
                     id: saved.categoria.id,
@@ -670,6 +688,25 @@ class NegocioAdminService {
                 totalPages: Math.ceil(total / limit),
                 currentPage: page
             };
+        });
+    }
+    // ===================== RESETEAR CALIFICACIONES =====================
+    resetRatingAdmin(id) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const negocio = yield data_1.Negocio.findOne({ where: { id } });
+            if (!negocio)
+                throw domain_1.CustomError.notFound("Negocio no encontrado");
+            // 1. Limpiar todos los pedidos asociados
+            yield data_1.Pedido.createQueryBuilder()
+                .update(data_1.Pedido)
+                .set({ ratingNegocio: () => "NULL" })
+                .where("negocioId = :id", { id })
+                .execute();
+            // 2. Resetear en el Negocio
+            negocio.ratingPromedio = 0;
+            negocio.totalResenas = 0;
+            yield negocio.save();
+            return { message: "Calificaciones reseteadas exitosamente", negocioId: negocio.id };
         });
     }
 }

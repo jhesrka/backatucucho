@@ -4,7 +4,7 @@ exports.CreateNegocioDTO = void 0;
 const config_1 = require("../../../config");
 const data_1 = require("../../../data");
 class CreateNegocioDTO {
-    constructor(nombre, descripcion, categoriaId, userId, modeloMonetizacion, latitud, longitud, banco, tipoCuenta, numeroCuenta, titularCuenta, identificacionCuenta, correoCuenta, tiempoPreparacionMin, tiempoPreparacionMax, permiteProductosProgramados = false, tiempoProgramadoMin, tiempoProgramadoMax, subcategoriaId, direccionTexto, valorSuscripcion = 0, diaPago = 1, orden = 0) {
+    constructor(nombre, descripcion, categoriaId, userId, modeloMonetizacion, latitud, longitud, banco, tipoCuenta, numeroCuenta, titularCuenta, identificacionCuenta, correoCuenta, tiempoPreparacionMin, tiempoPreparacionMax, permiteProductosProgramados = false, tiempoProgramadoMin, tiempoProgramadoMax, subcategoriaId, direccionTexto, valorSuscripcion = 0, diaPago = 1, orden = 0, esParaCredito = false, costoLead = 0.50) {
         this.nombre = nombre;
         this.descripcion = descripcion;
         this.categoriaId = categoriaId;
@@ -28,65 +28,60 @@ class CreateNegocioDTO {
         this.valorSuscripcion = valorSuscripcion;
         this.diaPago = diaPago;
         this.orden = orden;
+        this.esParaCredito = esParaCredito;
+        this.costoLead = costoLead;
     }
     static create(obj) {
-        const { nombre, descripcion, categoriaId, userId, modeloMonetizacion, latitud, longitud, direccionTexto, banco, tipoCuenta, numeroCuenta, titularCuenta, identificacionCuenta, correoCuenta, tiempoPreparacionMin, tiempoPreparacionMax, permiteProductosProgramados, tiempoProgramadoMin, tiempoProgramadoMax, subcategoriaId, valorSuscripcion, diaPago, orden } = obj;
+        const { nombre, descripcion, categoriaId, userId, modeloMonetizacion, latitud, longitud, direccionTexto, banco, tipoCuenta, numeroCuenta, titularCuenta, identificacionCuenta, correoCuenta, tiempoPreparacionMin, tiempoPreparacionMax, permiteProductosProgramados, tiempoProgramadoMin, tiempoProgramadoMax, subcategoriaId, valorSuscripcion, diaPago, orden, esParaCredito } = obj;
         if (!nombre || typeof nombre !== "string" || nombre.trim().length < 3) {
             return ["El nombre del negocio debe tener al menos 3 caracteres"];
         }
-        if (!descripcion || typeof descripcion !== "string" || descripcion.trim().length < 10) {
-            return ["La descripción debe tener al menos 10 caracteres"];
-        }
-        if (!categoriaId || typeof categoriaId !== "string" || !config_1.regularExp.uuid.test(categoriaId)) {
-            return ["El ID de categoría no es válido"];
-        }
-        if (!userId || typeof userId !== "string" || !config_1.regularExp.uuid.test(userId)) {
-            return ["El ID de usuario no es válido"];
-        }
-        if (!modeloMonetizacion || !Object.values(data_1.ModeloMonetizacion).includes(modeloMonetizacion)) {
-            return ["Debes seleccionar un modelo de monetización válido"];
-        }
-        // Validar Datos Bancarios
-        if (!banco || typeof banco !== "string" || banco.trim().length < 2) {
-            return ["El nombre del banco es obligatorio"];
-        }
-        if (!tipoCuenta || typeof tipoCuenta !== "string" || tipoCuenta.trim().length < 2) {
-            return ["El tipo de cuenta es obligatorio"];
-        }
-        if (!numeroCuenta || typeof numeroCuenta !== "string" || numeroCuenta.trim().length < 5) {
-            return ["El número de cuenta es obligatorio"];
-        }
-        if (!titularCuenta || typeof titularCuenta !== "string" || titularCuenta.trim().length < 3) {
-            return ["El titular de la cuenta es obligatorio"];
-        }
-        if (!identificacionCuenta || typeof identificacionCuenta !== "string" || identificacionCuenta.trim().length < 5) {
-            return ["La identificación (Cédula/RUC) es obligatoria"];
-        }
-        if (!correoCuenta || typeof correoCuenta !== "string" || correoCuenta.trim().length < 5) {
-            return ["El correo de la cuenta es obligatorio"];
-        }
-        // Validar Tiempos de Preparación
-        const tMin = Number(tiempoPreparacionMin);
-        const tMax = Number(tiempoPreparacionMax);
-        if (isNaN(tMin) || tMin <= 0)
-            return ["tiempoPreparacionMin debe ser un número positivo"];
-        if (isNaN(tMax) || tMax <= 0)
-            return ["tiempoPreparacionMax debe ser un número positivo"];
-        if (tMin >= tMax)
-            return ["tiempoPreparacionMin debe ser menor que tiempoPreparacionMax"];
-        // Validar Tiempos Programados (si están habilitados)
-        const pEnabled = !!permiteProductosProgramados;
-        let tpMin = undefined;
-        let tpMax = undefined;
-        if (pEnabled) {
-            tpMin = Number(tiempoProgramadoMin);
-            tpMax = Number(tiempoProgramadoMax);
-            if (isNaN(tpMin) || tpMin <= 0)
-                return ["tiempoProgramadoMin debe ser un número positivo"];
-            if (isNaN(tpMax) || tpMax <= 0)
-                return ["tiempoProgramadoMax debe ser un número positivo"];
-            if (tpMin >= tpMax)
-                return ["tiempoProgramadoMin debe ser menor que tiempoProgramadoMax"];
+        if (!esParaCredito) {
+            if (!descripcion || typeof descripcion !== "string" || descripcion.trim().length < 10) {
+                return ["La descripción debe tener al menos 10 caracteres"];
+            }
+            // Validar Datos Bancarios
+            if (!banco || typeof banco !== "string" || banco.trim().length < 2) {
+                return ["El nombre del banco es obligatorio"];
+            }
+            if (!tipoCuenta || typeof tipoCuenta !== "string" || tipoCuenta.trim().length < 2) {
+                return ["El tipo de cuenta es obligatorio"];
+            }
+            if (!numeroCuenta || typeof numeroCuenta !== "string" || numeroCuenta.trim().length < 5) {
+                return ["El número de cuenta es obligatorio"];
+            }
+            if (!titularCuenta || typeof titularCuenta !== "string" || titularCuenta.trim().length < 3) {
+                return ["El titular de la cuenta es obligatorio"];
+            }
+            if (!identificacionCuenta || typeof identificacionCuenta !== "string" || identificacionCuenta.trim().length < 5) {
+                return ["La identificación (Cédula/RUC) es obligatoria"];
+            }
+            if (!correoCuenta || typeof correoCuenta !== "string" || correoCuenta.trim().length < 5) {
+                return ["El correo de la cuenta es obligatorio"];
+            }
+            // Validar Tiempos de Preparación
+            const tMin = Number(tiempoPreparacionMin);
+            const tMax = Number(tiempoPreparacionMax);
+            if (isNaN(tMin) || tMin <= 0)
+                return ["tiempoPreparacionMin debe ser un número positivo"];
+            if (isNaN(tMax) || tMax <= 0)
+                return ["tiempoPreparacionMax debe ser un número positivo"];
+            if (tMin >= tMax)
+                return ["tiempoPreparacionMin debe ser menor que tiempoPreparacionMax"];
+            // Validar Tiempos Programados (si están habilitados)
+            const pEnabled = !!permiteProductosProgramados;
+            let tpMin = undefined;
+            let tpMax = undefined;
+            if (pEnabled) {
+                tpMin = Number(tiempoProgramadoMin);
+                tpMax = Number(tiempoProgramadoMax);
+                if (isNaN(tpMin) || tpMin <= 0)
+                    return ["tiempoProgramadoMin debe ser un número positivo"];
+                if (isNaN(tpMax) || tpMax <= 0)
+                    return ["tiempoProgramadoMax debe ser un número positivo"];
+                if (tpMin >= tpMax)
+                    return ["tiempoProgramadoMin debe ser menor que tiempoProgramadoMax"];
+            }
         }
         // ✅ Ubicación obligatoria para crear
         const lat = Number(latitud);
@@ -124,7 +119,7 @@ class CreateNegocioDTO {
         }
         return [
             undefined,
-            new CreateNegocioDTO(nombre.trim(), descripcion.trim(), categoriaId, userId, modeloMonetizacion, lat, lng, banco.trim(), tipoCuenta.trim(), numeroCuenta.trim(), titularCuenta.trim(), identificacionCuenta.trim(), correoCuenta.trim(), tMin, tMax, pEnabled, tpMin, tpMax, subcategoriaId, dirTxt, valorSuscripcion !== undefined ? Number(valorSuscripcion) : 0, diaPago !== undefined ? Number(diaPago) : 1, orden !== undefined ? Number(orden) : 0),
+            new CreateNegocioDTO(nombre.trim(), descripcion ? descripcion.trim() : "Negocio a crédito", categoriaId, userId, esParaCredito ? data_1.ModeloMonetizacion.CREDITO : (modeloMonetizacion || data_1.ModeloMonetizacion.SUSCRIPCION), lat, lng, banco ? banco.trim() : "", tipoCuenta ? tipoCuenta.trim() : "", numeroCuenta ? numeroCuenta.trim() : "", titularCuenta ? titularCuenta.trim() : "", identificacionCuenta ? identificacionCuenta.trim() : "", correoCuenta ? correoCuenta.trim() : "", esParaCredito ? 0 : (Number(tiempoPreparacionMin) || 0), esParaCredito ? 0 : (Number(tiempoPreparacionMax) || 0), esParaCredito ? false : !!permiteProductosProgramados, esParaCredito ? null : (tiempoProgramadoMin ? Number(tiempoProgramadoMin) : null), esParaCredito ? null : (tiempoProgramadoMax ? Number(tiempoProgramadoMax) : null), subcategoriaId, dirTxt, valorSuscripcion !== undefined ? Number(valorSuscripcion) : 0, diaPago !== undefined ? Number(diaPago) : 1, orden !== undefined ? Number(orden) : 0, !!esParaCredito, obj.costoLead !== undefined ? Number(obj.costoLead) : 0.50),
         ];
     }
 }

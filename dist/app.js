@@ -23,6 +23,8 @@ const server_1 = require("./presentation/server");
 require("dotenv/config");
 const pedidoMoto_cron_1 = require("./cron/pedidoMoto.cron");
 const subscription_cron_1 = require("./cron/subscription.cron");
+const subscription_guardian_cron_1 = require("./cron/subscription-guardian.cron");
+const subscription_reminders_cron_1 = require("./cron/subscription-reminders.cron");
 const post_expiration_cron_1 = require("./cron/post-expiration.cron");
 const pedidoPurge_cron_1 = require("./cron/pedidoPurge.cron");
 const report_purge_cron_1 = require("./cron/report-purge.cron");
@@ -57,6 +59,8 @@ function main() {
             console.log("⏰ Cron jobs habilitados.");
             (0, pedidoMoto_cron_1.startPedidoMotoCron)();
             (0, subscription_cron_1.startSubscriptionCron)();
+            (0, subscription_guardian_cron_1.startSubscriptionGuardianCron)();
+            (0, subscription_reminders_cron_1.startSubscriptionRemindersCron)();
             (0, post_expiration_cron_1.startPostExpirationCron)();
             (0, pedidoPurge_cron_1.startOrderPurgeCron)();
             (0, report_purge_cron_1.startReportPurgeCron)();
@@ -92,3 +96,8 @@ function main() {
     });
 }
 main();
+// Trigger reload
+// Trigger reload for push notifications
+// Reload for user registration push
+// Fix payphone workflow
+// Fix db transaction in payphone

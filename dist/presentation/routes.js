@@ -40,6 +40,7 @@ const meritocracy_routes_1 = require("./meritocracy/meritocracy.routes");
 const training_routes_1 = require("./training/training.routes");
 const routes_5 = require("./serviciosUsuario/routes");
 const routes_6 = require("./age-verification-questions/routes");
+const formulario_credito_routes_1 = require("./formulario-credito/formulario-credito.routes");
 class AppRoutes {
     //cuando hay metodoos estaticos no necesitams instanciar
     static get routes() {
@@ -106,6 +107,8 @@ class AppRoutes {
         router.use("/api/age-verification-questions", routes_6.AgeVerificationQuestionRoutes.routes);
         // 👷‍♂️ NUEVA RUTA: Servicios de Usuario
         router.use("/api/servicios-usuario", routes_5.ServiciosUsuarioRoutes.routes);
+        // NUEVA RUTA: Formulario de Crédito
+        router.use("/api/formulario-credito", formulario_credito_routes_1.FormularioCreditoRoutes.routes);
         return router;
     }
 }

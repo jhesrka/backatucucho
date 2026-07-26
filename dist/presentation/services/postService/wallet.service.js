@@ -234,7 +234,7 @@ class WalletService {
      * 💸 Descontar saldo de la billetera (Método interno para servicios)
      */
     subtractFromWallet(userId_1, amount_1) {
-        return __awaiter(this, arguments, void 0, function* (userId, amount, description = "Consumo de servicio", reasonStr = "ORDER", auditSubscription, receiptImage) {
+        return __awaiter(this, arguments, void 0, function* (userId, amount, description = "Consumo de servicio", reasonStr = "ORDER", auditSubscription, receiptImage, referenceId) {
             const wallet = yield data_1.Wallet.findOne({
                 where: { user: { id: userId } },
                 relations: ["user"]
@@ -262,6 +262,7 @@ class WalletService {
                 ? reason
                 : transactionType_model_1.TransactionReason.ORDER;
             transaction.origin = transactionType_model_1.TransactionOrigin.USER;
+            transaction.reference = referenceId || null;
             // Apply audit fields if present
             if (auditSubscription) {
                 transaction.daysBought = auditSubscription.daysBought || null;

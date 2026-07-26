@@ -418,45 +418,77 @@ class WalletService {
                         console.error(`❌ [Payphone Service] ALERTA DE FRAUDE: Monto pagado en recarga (${amountPaid}) no coincide con el esperado (${expectedAmount}) para ID ${recharge.id}`);
                         throw domain_1.CustomError.badRequest("Monto incorrecto. Operación rechazada por seguridad");
                     }
-                    // 🚀 ACREDITACIÓN ATÓMICA (Protección contra Race Conditions)
-                    // 1. Bloquear y marcar la recarga como aprobada de forma atómica. Si alguien más ya lo hizo, affected será 0.
-                    const updateResult = yield RechargeRequest.createQueryBuilder()
-                        .update(RechargeRequest)
-                        .set({
-                        status: StatusRecarga.APROBADO,
-                        external_transaction_id: currentRemoteId.toString(),
-                        resolved_at: new Date()
-                    })
-                        .where("id = :id AND status = :status", { id: recharge.id, status: StatusRecarga.PENDIENTE })
-                        .execute();
-                    if (updateResult.affected === 0) {
-                        console.warn(`⚠️ [Payphone Service] Carrera detectada: La recarga ${recharge.id} ya fue procesada.`);
-                        return { success: true, message: "Recarga ya procesada concurrentemente" };
+                    // 🚀 ACREDITACIÓN ATÓMICA (Protección contra Race Conditions y Falla Parcial)
+                    const queryRunner = data_1.Wallet.getRepository().manager.connection.createQueryRunner();
+                    yield queryRunner.connect();
+                    yield queryRunner.startTransaction();
+                    try {
+                        // 1. Bloquear y marcar la recarga como aprobada de forma atómica. Si alguien más ya lo hizo, affected será 0.
+                        const updateResult = yield queryRunner.manager.createQueryBuilder()
+                            .update(RechargeRequest)
+                            .set({
+                            status: StatusRecarga.APROBADO,
+                            external_transaction_id: currentRemoteId.toString(),
+                            resolved_at: new Date()
+                        })
+                            .where("id = :id AND status = :status", { id: recharge.id, status: StatusRecarga.PENDIENTE })
+                            .execute();
+                        if (updateResult.affected === 0) {
+                            yield queryRunner.rollbackTransaction();
+                            console.warn(`⚠️ [Payphone Service] Carrera detectada: La recarga ${recharge.id} ya fue procesada.`);
+                            return { success: true, message: "Recarga ya procesada concurrentemente" };
+                        }
+                        // 2. Si ganamos la carrera, sumar el saldo atómicamente
+                        yield queryRunner.manager.createQueryBuilder()
+                            .update(data_1.Wallet)
+                            .set({ balance: () => `balance + ${amountToCredit}` })
+                            .where("id = :id", { id: wallet.id })
+                            .execute();
+                        // Refrescar el estado de la recarga en memoria para uso futuro si es necesario
+                        recharge.status = StatusRecarga.APROBADO;
+                        recharge.external_transaction_id = currentRemoteId.toString();
+                        // 3. Crear registro de transacción
+                        const updatedWallet = yield queryRunner.manager.findOne(data_1.Wallet, { where: { id: wallet.id } });
+                        console.log(`📝 [Payphone Service] Creando registro de transacción...`);
+                        const transaction = new data_1.Transaction();
+                        transaction.wallet = wallet;
+                        transaction.amount = amountToCredit;
+                        transaction.type = 'credit';
+                        transaction.status = 'APPROVED';
+                        transaction.reason = data_1.TransactionReason.RECHARGE;
+                        transaction.origin = data_1.TransactionOrigin.USER;
+                        transaction.observation = `Recarga aprobada vía PayPhone (Tx: ${currentRemoteId})`;
+                        transaction.previousBalance = previousBalance;
+                        transaction.resultingBalance = Number((updatedWallet === null || updatedWallet === void 0 ? void 0 : updatedWallet.balance) || previousBalance + amountToCredit);
+                        transaction.reference = recharge.id;
+                        yield queryRunner.manager.save(transaction);
+                        // Todo bien, aplicamos los cambios
+                        yield queryRunner.commitTransaction();
+                        console.log(`✨ [Payphone Service] PROCESO COMPLETADO EXITOSAMENTE Y COMMITEADO`);
                     }
-                    // 2. Si ganamos la carrera, sumar el saldo atómicamente
-                    yield data_1.Wallet.createQueryBuilder()
-                        .update(data_1.Wallet)
-                        .set({ balance: () => `balance + ${amountToCredit}` })
-                        .where("id = :id", { id: wallet.id })
-                        .execute();
-                    // Refrescar el estado de la recarga en memoria para uso futuro si es necesario
-                    recharge.status = StatusRecarga.APROBADO;
-                    recharge.external_transaction_id = currentRemoteId.toString();
-                    // Crear registro de transacción
-                    const updatedWallet = yield data_1.Wallet.findOne({ where: { id: wallet.id } });
-                    console.log(`📝 [Payphone Service] Creando registro de transacción...`);
-                    const transaction = new data_1.Transaction();
-                    transaction.wallet = wallet;
-                    transaction.amount = amountToCredit;
-                    transaction.type = 'credit';
-                    transaction.status = 'APPROVED';
-                    transaction.reason = data_1.TransactionReason.RECHARGE;
-                    transaction.origin = data_1.TransactionOrigin.USER;
-                    transaction.previousBalance = previousBalance;
-                    transaction.resultingBalance = Number((updatedWallet === null || updatedWallet === void 0 ? void 0 : updatedWallet.balance) || previousBalance + amountToCredit);
-                    transaction.reference = recharge.id;
-                    yield transaction.save();
-                    console.log(`✨ [Payphone Service] PROCESO COMPLETADO EXITOSAMENTE`);
+                    catch (dbError) {
+                        yield queryRunner.rollbackTransaction();
+                        console.error(`❌ [Payphone Service] Fallo en la transacción de Base de Datos. Haciendo Rollback...`, dbError);
+                        throw domain_1.CustomError.internalServer("Error crítico procesando el saldo de recarga: " + dbError.message);
+                    }
+                    finally {
+                        yield queryRunner.release();
+                    }
+                    // 🚀 DISPARADORES: Cobro automático al vuelo tras recarga
+                    try {
+                        const { SubscriptionService: BusinessSubService } = yield Promise.resolve().then(() => __importStar(require("./subscription.service")));
+                        new BusinessSubService().autoChargePendingSubscriptions(recharge.user.id).catch(err => console.error("Error en autoChargePendingSubscriptions:", err));
+                    }
+                    catch (e) {
+                        console.error("No se pudo cargar SubscriptionService de negocios:", e);
+                    }
+                    try {
+                        const { SubscriptionService: UserSubService } = yield Promise.resolve().then(() => __importStar(require("./postService/subscription.service")));
+                        new UserSubService().checkAndRecoverSubscription(recharge.user.id).catch(err => console.error("Error en checkAndRecoverSubscription:", err));
+                    }
+                    catch (e) {
+                        console.error("No se pudo cargar SubscriptionService de usuarios:", e);
+                    }
                     return { success: true, message: "Recarga confirmada y acreditada" };
                 }
                 else {
@@ -545,6 +577,14 @@ class WalletService {
                 transaction.observation = "Recarga en efectivo realizada por Administrador";
                 transaction.admin = { id: adminId };
                 yield transaction.save();
+                // 🚀 DISPARADOR: Cobro automático al vuelo tras recarga
+                try {
+                    const { SubscriptionService } = yield Promise.resolve().then(() => __importStar(require("./subscription.service")));
+                    new SubscriptionService().autoChargePendingSubscriptions(wallet.user.id).catch(err => console.error("Error en autoChargePendingSubscriptions:", err));
+                }
+                catch (e) {
+                    console.error("No se pudo cargar SubscriptionService:", e);
+                }
                 return {
                     success: true,
                     newBalance: wallet.balance,

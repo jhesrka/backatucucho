@@ -57,6 +57,7 @@ const CategoriaServicio_1 = require("./models/CategoriaServicio");
 const SubcategoriaServicio_1 = require("./models/SubcategoriaServicio");
 const Servicio_1 = require("./models/Servicio");
 const AgeVerificationQuestion_1 = require("./models/AgeVerificationQuestion");
+const PreguntaFormularioCredito_1 = require("./models/PreguntaFormularioCredito");
 class PostgresDatabase {
     constructor(options) {
         this.datasource = new typeorm_1.DataSource({
@@ -110,7 +111,8 @@ class PostgresDatabase {
                 CategoriaServicio_1.CategoriaServicio,
                 SubcategoriaServicio_1.SubcategoriaServicio,
                 Servicio_1.Servicio,
-                AgeVerificationQuestion_1.AgeVerificationQuestion
+                AgeVerificationQuestion_1.AgeVerificationQuestion,
+                PreguntaFormularioCredito_1.PreguntaFormularioCredito
             ],
             synchronize: false, // PRODUCCIÓN: SIEMPRE FALSE. Usar migraciones.
             ssl: {
@@ -479,6 +481,44 @@ class PostgresDatabase {
           ALTER TABLE "global_settings" 
           ADD COLUMN IF NOT EXISTS "shortAppName" varchar(20) DEFAULT NULL;
         `);
+                }));
+                yield runMigrationStep("Step 43: Add placaVehiculo to user_motorizado", () => __awaiter(this, void 0, void 0, function* () {
+                    yield this.datasource.query(`
+          ALTER TABLE "user_motorizado" 
+          ADD COLUMN IF NOT EXISTS "placaVehiculo" varchar(20) DEFAULT NULL;
+        `);
+                }));
+                yield runMigrationStep("Step 44: Credit Business Models", () => __awaiter(this, void 0, void 0, function* () {
+                    yield this.datasource.query(`
+          CREATE TABLE IF NOT EXISTS "pregunta_formulario_credito" (
+            "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+            "pregunta" varchar(255) NOT NULL,
+            "tipoRespuesta" varchar NOT NULL DEFAULT 'TEXTO',
+            "opciones" jsonb,
+            "esRequerida" boolean NOT NULL DEFAULT true,
+            "orden" integer NOT NULL DEFAULT 0,
+            "createdAt" timestamptz NOT NULL DEFAULT now(),
+            "updatedAt" timestamptz NOT NULL DEFAULT now(),
+            "negocioId" uuid REFERENCES "negocio"("id") ON DELETE CASCADE,
+            CONSTRAINT "PK_pregunta_formulario_credito" PRIMARY KEY ("id")
+          );
+        `);
+                }));
+                yield runMigrationStep("Step 45: Global Settings Formulario Credito", () => __awaiter(this, void 0, void 0, function* () {
+                    yield this.datasource.query(`ALTER TABLE "global_settings" ADD COLUMN IF NOT EXISTS "precioFormularioCredito" DECIMAL(10,2) DEFAULT 0.50;`);
+                    yield this.datasource.query(`ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "puedeCrearNegocioCredito" BOOLEAN DEFAULT false;`);
+                }));
+                yield runMigrationStep("Step 46: Categoria Negocio Credito", () => __awaiter(this, void 0, void 0, function* () {
+                    yield this.datasource.query(`ALTER TABLE "categoria_negocio" ADD COLUMN IF NOT EXISTS "esParaCredito" BOOLEAN DEFAULT false;`);
+                }));
+                yield runMigrationStep("Step 47: Modelo Monetizacion Credito", () => __awaiter(this, void 0, void 0, function* () {
+                    try {
+                        const exists = yield this.datasource.query(`SELECT 1 FROM pg_enum WHERE enumlabel = 'CREDITO' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'negocio_modelomonetizacion_enum')`);
+                        if (exists.length === 0)
+                            yield this.datasource.query(`ALTER TYPE "negocio_modelomonetizacion_enum" ADD VALUE 'CREDITO'`);
+                    }
+                    catch (err) { /* Ignorado si falla */ }
+                    yield this.datasource.query(`ALTER TABLE "negocio" ADD COLUMN IF NOT EXISTS "esParaCredito" BOOLEAN DEFAULT false;`);
                 }));
                 // 2. Inicializar Meritocracia
                 const meritocracy = new meritocracy_service_1.MeritocracyService();

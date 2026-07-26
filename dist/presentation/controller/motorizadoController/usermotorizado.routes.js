@@ -30,6 +30,7 @@ class UserMotorizadoRoutes {
         });
         router.get("/me", middlewares_1.AuthMotorizadoMiddleware.protect, motorizadoController.getMotorizadoMe);
         router.post("/me/change-password", middlewares_1.AuthMotorizadoMiddleware.protect, motorizadoController.cambiarPasswordSelf);
+        router.patch("/me/vehiculo", middlewares_1.AuthMotorizadoMiddleware.protect, motorizadoController.updateVehicle);
         router.patch("/:id/profile-picture", middlewares_1.AuthMotorizadoMiddleware.protect, upload.single("file"), motorizadoController.updateProfilePicture);
         // 🔄 Gestión de Pedidos (Admin)
         router.patch("/orders/:pedidoId/status", motorizadoController.changeOrderStatus);
@@ -54,6 +55,8 @@ class UserMotorizadoRoutes {
         router.post("/:id/wallet/withdrawals/:transactionId/reject", auth_admin_middleware_1.AuthAdminMiddleware.protect, motorizadoController.rejectWithdrawal);
         router.delete("/:id/force", auth_admin_middleware_1.AuthAdminMiddleware.protect, motorizadoController.deleteForce);
         router.delete("/:id", motorizadoController.deleteMotorizado);
+        // ===================== RESETEAR CALIFICACIONES =====================
+        router.post("/:id/reset-rating", auth_admin_middleware_1.AuthAdminMiddleware.protect, motorizadoController.resetRatingAdmin);
         return router;
     }
 }

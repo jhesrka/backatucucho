@@ -5,7 +5,7 @@ exports.UpdateNegocioDTO = void 0;
 const config_1 = require("../../../config");
 const data_1 = require("../../../data");
 class UpdateNegocioDTO {
-    constructor(nombre, descripcion, categoriaId, statusNegocio, modeloMonetizacion, latitud, longitud, direccionTexto, valorSuscripcion, diaPago, masterPin, orden, pago_tarjeta_habilitado_admin, pago_tarjeta_activo_negocio, payphone_store_id, payphone_token, porcentaje_recargo_tarjeta, subcategoriaId, identificacionCuenta, correoCuenta, tiempoPreparacionMin, tiempoPreparacionMax, permiteProductosProgramados, tiempoProgramadoMin, tiempoProgramadoMax, puedePublicarProductos, limitePublicacionesSuscripcion) {
+    constructor(nombre, descripcion, categoriaId, statusNegocio, modeloMonetizacion, latitud, longitud, direccionTexto, valorSuscripcion, diaPago, masterPin, orden, pago_tarjeta_habilitado_admin, pago_tarjeta_activo_negocio, payphone_store_id, payphone_token, porcentaje_recargo_tarjeta, subcategoriaId, identificacionCuenta, correoCuenta, tiempoPreparacionMin, tiempoPreparacionMax, permiteProductosProgramados, tiempoProgramadoMin, tiempoProgramadoMax, puedePublicarProductos, limitePublicacionesSuscripcion, costoLead) {
         this.nombre = nombre;
         this.descripcion = descripcion;
         this.categoriaId = categoriaId;
@@ -33,9 +33,10 @@ class UpdateNegocioDTO {
         this.tiempoProgramadoMax = tiempoProgramadoMax;
         this.puedePublicarProductos = puedePublicarProductos;
         this.limitePublicacionesSuscripcion = limitePublicacionesSuscripcion;
+        this.costoLead = costoLead;
     }
     static create(obj) {
-        const { nombre, descripcion, categoriaId, statusNegocio, modeloMonetizacion, latitud, longitud, direccionTexto, valorSuscripcion, diaPago, orden, pago_tarjeta_habilitado_admin, pago_tarjeta_activo_negocio, payphone_store_id, payphone_token, porcentaje_recargo_tarjeta, subcategoriaId, identificacionCuenta, correoCuenta, tiempoPreparacionMin, tiempoPreparacionMax, permiteProductosProgramados, tiempoProgramadoMin, tiempoProgramadoMax, puedePublicarProductos, limitePublicacionesSuscripcion } = obj;
+        const { nombre, descripcion, categoriaId, statusNegocio, modeloMonetizacion, latitud, longitud, direccionTexto, valorSuscripcion, diaPago, orden, pago_tarjeta_habilitado_admin, pago_tarjeta_activo_negocio, payphone_store_id, payphone_token, porcentaje_recargo_tarjeta, subcategoriaId, identificacionCuenta, correoCuenta, tiempoPreparacionMin, tiempoPreparacionMax, permiteProductosProgramados, tiempoProgramadoMin, tiempoProgramadoMax, puedePublicarProductos, limitePublicacionesSuscripcion, costoLead } = obj;
         // Validaciones opcionales
         if (nombre !== undefined && (typeof nombre !== "string" || nombre.trim().length < 3)) {
             return ["El nombre del negocio debe tener al menos 3 caracteres"];
@@ -114,6 +115,12 @@ class UpdateNegocioDTO {
             if (Number(tiempoProgramadoMin) >= Number(tiempoProgramadoMax))
                 return ["tiempoProgramadoMin debe ser menor que tiempoProgramadoMax"];
         }
+        if (costoLead !== undefined) {
+            const val = Number(costoLead);
+            if (isNaN(val) || val < 0) {
+                return ["El costo del lead debe ser un número positivo"];
+            }
+        }
         if (limitePublicacionesSuscripcion !== undefined) {
             const limit = Number(limitePublicacionesSuscripcion);
             if (isNaN(limit) || limit < 0)
@@ -127,7 +134,7 @@ class UpdateNegocioDTO {
             : undefined;
         return [
             undefined,
-            new UpdateNegocioDTO(nombre === null || nombre === void 0 ? void 0 : nombre.trim(), descripcion === null || descripcion === void 0 ? void 0 : descripcion.trim(), categoriaId, statusNegocio, modeloMonetizacion, latitud !== undefined ? Number(latitud) : undefined, longitud !== undefined ? Number(longitud) : undefined, dirTxt, valorSuscripcion !== undefined ? Number(valorSuscripcion) : undefined, diaPago !== undefined ? Number(diaPago) : undefined, obj.masterPin, orden !== undefined ? Number(orden) : undefined, pago_tarjeta_habilitado_admin, pago_tarjeta_activo_negocio, payphone_store_id, payphone_token, porcentaje_recargo_tarjeta !== undefined ? Number(porcentaje_recargo_tarjeta) : undefined, subcategoriaId, identificacionCuenta, correoCuenta, tiempoPreparacionMin !== undefined ? Number(tiempoPreparacionMin) : undefined, tiempoPreparacionMax !== undefined ? Number(tiempoPreparacionMax) : undefined, permiteProductosProgramados !== undefined ? !!permiteProductosProgramados : undefined, tiempoProgramadoMin !== undefined && tiempoProgramadoMin !== null ? Number(tiempoProgramadoMin) : (tiempoProgramadoMin === null ? null : undefined), tiempoProgramadoMax !== undefined && tiempoProgramadoMax !== null ? Number(tiempoProgramadoMax) : (tiempoProgramadoMax === null ? null : undefined), puedePublicarProductos !== undefined ? !!puedePublicarProductos : undefined, limitePublicacionesSuscripcion !== undefined ? Number(limitePublicacionesSuscripcion) : undefined),
+            new UpdateNegocioDTO(nombre === null || nombre === void 0 ? void 0 : nombre.trim(), descripcion === null || descripcion === void 0 ? void 0 : descripcion.trim(), categoriaId, statusNegocio, modeloMonetizacion, latitud !== undefined ? Number(latitud) : undefined, longitud !== undefined ? Number(longitud) : undefined, dirTxt, valorSuscripcion !== undefined ? Number(valorSuscripcion) : undefined, diaPago !== undefined ? Number(diaPago) : undefined, obj.masterPin, orden !== undefined ? Number(orden) : undefined, pago_tarjeta_habilitado_admin, pago_tarjeta_activo_negocio, payphone_store_id, payphone_token, porcentaje_recargo_tarjeta !== undefined ? Number(porcentaje_recargo_tarjeta) : undefined, subcategoriaId, identificacionCuenta, correoCuenta, tiempoPreparacionMin !== undefined ? Number(tiempoPreparacionMin) : undefined, tiempoPreparacionMax !== undefined ? Number(tiempoPreparacionMax) : undefined, permiteProductosProgramados !== undefined ? !!permiteProductosProgramados : undefined, tiempoProgramadoMin !== undefined && tiempoProgramadoMin !== null ? Number(tiempoProgramadoMin) : (tiempoProgramadoMin === null ? null : undefined), tiempoProgramadoMax !== undefined && tiempoProgramadoMax !== null ? Number(tiempoProgramadoMax) : (tiempoProgramadoMax === null ? null : undefined), puedePublicarProductos !== undefined ? !!puedePublicarProductos : undefined, limitePublicacionesSuscripcion !== undefined ? Number(limitePublicacionesSuscripcion) : undefined, costoLead !== undefined ? Number(costoLead) : undefined),
         ];
     }
 }

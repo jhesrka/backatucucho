@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -53,8 +86,6 @@ class Server {
             },
         }); // Crear instancia de Socket.IO con configuración de CORS
         (0, socket_1.setIO)(this.io); // 🔥 Guardamos la instancia globalmente
-        // 🔴 Redis adapter (activo solo si REDIS_URL está en el .env)
-        (0, socket_1.initRedisAdapter)(config_1.envs.REDIS_URL);
     }
     start() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -63,6 +94,28 @@ class Server {
             if (!fs_1.default.existsSync(uploadsPath)) {
                 // Verifica si el directorio 'uploads' existe
                 fs_1.default.mkdirSync(uploadsPath); // Si no existe, lo crea
+            }
+            // Inicializar adaptador Redis dinámicamente según configuración
+            const { GlobalSettingsService } = yield Promise.resolve().then(() => __importStar(require("./services/globalSettings/global-settings.service")));
+            const globalSettingsService = new GlobalSettingsService();
+            const { setRedisGlobalState, isRedisGloballyEnabled, removeRedisAdapter } = yield Promise.resolve().then(() => __importStar(require("../config/socket")));
+            try {
+                const settings = yield globalSettingsService.getSettings();
+                setRedisGlobalState(settings.useRedisLockForCrons);
+                if (isRedisGloballyEnabled && config_1.envs.REDIS_URL) {
+                    yield (0, socket_1.initRedisAdapter)(config_1.envs.REDIS_URL);
+                }
+                else {
+                    removeRedisAdapter();
+                }
+                // ----------------------------------------------------
+                // Sembrar Categoría Maestra de Crédito si no existe
+                // ----------------------------------------------------
+                const { seedCreditoCategory } = yield Promise.resolve().then(() => __importStar(require("../config/seed")));
+                yield seedCreditoCategory();
+            }
+            catch (e) {
+                console.error("Error al obtener GlobalSettings al arrancar el servidor:", e);
             }
             this.app.use((0, cors_1.default)({
                 origin: (origin, callback) => {
@@ -83,6 +136,7 @@ class Server {
             // Servir archivos estáticos
             this.app.use("/uploads", express_1.default.static(uploadsPath));
             this.app.use("/comprobantes", express_1.default.static(path_1.default.join(uploadsPath, "comprobantes")));
+            const trackingMemoria = new Map(); // Fallback en memoria si Redis está apagado
             this.io.on("connection", (socket) => {
                 socket.on("join_motorizado", (motorizadoId) => __awaiter(this, void 0, void 0, function* () {
                     socket.join(motorizadoId);
@@ -109,13 +163,20 @@ class Server {
                 socket.on("join_pedido_room", (pedidoId) => __awaiter(this, void 0, void 0, function* () {
                     socket.join(`pedido_${pedidoId}`);
                     try {
-                        const cachedLocation = config_1.redisClient ? yield config_1.redisClient.get(`tracking_${pedidoId}`) : null;
+                        let cachedLocation = null;
+                        const { isRedisGloballyEnabled } = yield Promise.resolve().then(() => __importStar(require("../config/socket")));
+                        if (isRedisGloballyEnabled && config_1.redisClient) {
+                            cachedLocation = yield config_1.redisClient.get(`tracking_${pedidoId}`);
+                        }
+                        else {
+                            cachedLocation = trackingMemoria.get(`tracking_${pedidoId}`);
+                        }
                         if (cachedLocation) {
                             socket.emit("ubicacion_actualizada", JSON.parse(cachedLocation));
                         }
                     }
                     catch (err) {
-                        console.error("Error reading redis tracking cache", err);
+                        console.error("Error reading tracking cache", err);
                     }
                 }));
                 socket.on("leave_pedido_room", (pedidoId) => {
@@ -125,11 +186,16 @@ class Server {
                 });
                 socket.on("ubicacion_motorizado", (data) => __awaiter(this, void 0, void 0, function* () {
                     try {
-                        if (config_1.redisClient)
+                        const { isRedisGloballyEnabled } = yield Promise.resolve().then(() => __importStar(require("../config/socket")));
+                        if (isRedisGloballyEnabled && config_1.redisClient) {
                             yield config_1.redisClient.setex(`tracking_${data.pedidoId}`, 3600, JSON.stringify(data));
+                        }
+                        else {
+                            trackingMemoria.set(`tracking_${data.pedidoId}`, JSON.stringify(data));
+                        }
                     }
                     catch (err) {
-                        console.error("Error writing redis tracking cache", err);
+                        console.error("Error writing tracking cache", err);
                     }
                     // Retransmitir la ubicación a la sala
                     socket.to(`pedido_${data.pedidoId}`).emit("ubicacion_actualizada", data);

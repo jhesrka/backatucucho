@@ -242,15 +242,26 @@ class ProductoService {
     }
     getProductosDisponiblesByNegocio(negocioId) {
         return __awaiter(this, void 0, void 0, function* () {
+            var _a;
             const negocio = yield data_1.Negocio.findOne({
                 where: { id: negocioId },
-                relations: ["usuario", "subcategoria"], // relación con el User y subcategoría para verificar restricción de edad
+                relations: ["usuario", "subcategoria", "categoria"], // relación con el User y subcategoría para verificar restricción de edad
             });
             if (!negocio) {
                 throw domain_1.CustomError.notFound("Negocio no encontrado");
             }
             if (negocio.statusNegocio !== data_1.StatusNegocio.ACTIVO) {
                 throw domain_1.CustomError.badRequest("El negocio no está activo");
+            }
+            const esCredito = negocio.esParaCredito || negocio.modeloMonetizacion === 'CREDITO' || ((_a = negocio.categoria) === null || _a === void 0 ? void 0 : _a.esParaCredito);
+            if (esCredito && negocio.usuario) {
+                const wallet = yield data_1.Wallet.findOne({ where: { user: { id: negocio.usuario.id } } });
+                const settings = yield data_1.GlobalSettings.findOne({ where: {}, order: { updatedAt: "DESC" } });
+                const precioLead = (settings === null || settings === void 0 ? void 0 : settings.precioFormularioCredito) || 0.50;
+                const balanceMinimoRequerido = precioLead * 3;
+                if (!wallet || Number(wallet.balance) < balanceMinimoRequerido) {
+                    throw domain_1.CustomError.badRequest("El negocio se encuentra cerrado temporalmente.");
+                }
             }
             const productos = yield data_1.Producto.find({
                 where: {
@@ -319,6 +330,9 @@ class ProductoService {
                     tiempoProgramadoMin: negocio.tiempoProgramadoMin,
                     tiempoProgramadoMax: negocio.tiempoProgramadoMax,
                     subcategoria: negocio.subcategoria,
+                    categoria: negocio.categoria,
+                    esParaCredito: negocio.esParaCredito,
+                    modeloMonetizacion: negocio.modeloMonetizacion,
                 },
                 usuario: {
                     id: negocio.usuario.id,
