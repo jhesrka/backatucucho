@@ -10,6 +10,7 @@ import { envs } from "../../config";
 import { UploadFilesCloud } from "../../config/upload-files-cloud-adapter";
 import { getIO } from "../../config/socket";
 import { CustomError } from "../../domain";
+import { SecurityService } from "./security.service";
 import { UserService } from "./usuario/user.service";
 import { WalletService } from "./postService/wallet.service";
 import { PriceService } from "./priceService/price-service.service";
@@ -21,6 +22,7 @@ import { DateUtils } from "../../utils/date-utils";
 import { GlobalSettingsService } from "./globalSettings/global-settings.service";
 
 export class StorieService {
+  private readonly securityService = new SecurityService();
   constructor(
     private readonly userService: UserService,
     private readonly walletService: WalletService,

@@ -1,3 +1,4 @@
+import { SecurityService } from "./security.service";
 // src/presentation/services/post.service.ts
 import { ILike, LessThan, MoreThan } from "typeorm";
 import { envs } from "../../config";
@@ -17,6 +18,7 @@ import { DateUtils } from "../../utils/date-utils";
 import { GlobalSettingsService } from "./globalSettings/global-settings.service";
 
 export class PostService {
+  private readonly securityService = new SecurityService();
   constructor(
     public readonly userService: UserService,
     public readonly subscriptionService: SubscriptionService,

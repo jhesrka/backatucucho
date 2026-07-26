@@ -227,17 +227,7 @@ export class NegocioAdminController {
     if (!masterPin) return res.status(400).json({ message: "El PIN maestro es requerido" });
 
     try {
-      const cleanPin = String(masterPin).trim();
-      const settings = await GlobalSettings.findOne({ where: {}, order: { updatedAt: "DESC" } });
-
-      if (!settings || !settings.masterPin) {
-        return res.status(400).json({ message: "El sistema no tiene un PIN Maestro configurado." });
-      }
-
-      const isValid = encriptAdapter.compare(cleanPin, settings.masterPin);
-      if (!isValid) return res.status(400).json({ message: "PIN Maestro incorrecto" });
-
-      const result = await this.negocioAdminService.resetRatingAdmin(id);
+      const result = await this.negocioAdminService.resetRatingAdmin(id, masterPin);
       return res.status(200).json(result);
     } catch (error) {
       this.handleError(error, res);

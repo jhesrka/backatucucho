@@ -2,19 +2,18 @@ import { Wallet, WalletStatus, GlobalSettings, Storie, FinancialClosing, Recharg
 import { Transaction, TransactionType, TransactionOrigin, TransactionReason } from "../../../data/postgres/models/transactionType.model";
 import { Between, In } from "typeorm";
 import { CustomError } from "../../../domain";
+import { SecurityService } from "../security.service";
 import { encriptAdapter, UploadFilesCloud, envs } from "../../../config";
 
 export class WalletService {
+  private readonly securityService = new SecurityService();
     /**
      * 🔐 Validar Master PIN (reutilizado de SubscriptionService)
      */
-    private async validateMasterPin(pin: string): Promise<boolean> {
-        const settings = await GlobalSettings.findOne({ where: {} });
-        if (!settings || !settings.masterPin) {
-            throw CustomError.badRequest("PIN maestro no configurado en el sistema");
-        }
-        return encriptAdapter.compare(pin, settings.masterPin);
-    }
+    private async validateMasterPin(pin: string, action: string): Promise<boolean> {
+    await this.securityService.verifyMasterPin(pin, { action });
+    return true;
+  }
 
     /**
      * 💰 Obtener billetera por ID de usuario
@@ -119,7 +118,7 @@ export class WalletService {
         observation: string
     ): Promise<{ wallet: Wallet; transaction: Transaction }> {
         // Validar PIN maestro
-        const isValidPin = await this.validateMasterPin(masterPin);
+        const isValidPin = await this.validateMasterPin(masterPin, "Ajuste Manual de Balance de Billetera");
         if (!isValidPin) {
             throw CustomError.unAuthorized("PIN maestro incorrecto");
         }
@@ -180,7 +179,7 @@ export class WalletService {
         adminId: string
     ): Promise<Wallet> {
         // Validar PIN maestro
-        const isValidPin = await this.validateMasterPin(masterPin);
+        const isValidPin = await this.validateMasterPin(masterPin, "Borrado Definitivo de Transacciones");
         if (!isValidPin) {
             throw CustomError.unAuthorized("PIN maestro incorrecto");
         }

@@ -1,11 +1,13 @@
 import { DeliverySettings } from "../../../data/postgres/models/DeliverySettings";
 import { CustomError } from "../../../domain";
+import { SecurityService } from "../security.service";
 import { GlobalSettings } from "../../../data/postgres/models/global-settings.model";
 import bcrypt from "bcryptjs";
 import { GlobalSettingsService } from "../globalSettings/global-settings.service";
 
 
 export class DeliverySettingsAdminService {
+  private readonly securityService = new SecurityService();
   async getActive() {
     const settings = await DeliverySettings.findOne({ where: { isActive: true }});
     if (!settings) throw CustomError.notFound("No hay configuración activa");
@@ -59,13 +61,6 @@ export class DeliverySettingsAdminService {
   }
 
   private async verifyMasterPin(pin: string) {
-    if (!pin) throw CustomError.unAuthorized("Master PIN requerido");
-
-    const globalSettingsService = new GlobalSettingsService();
-    const isValid = await globalSettingsService.validateMasterPin(pin);
-    
-    if (!isValid) {
-      throw CustomError.unAuthorized("Master PIN incorrecto");
-    }
+    await this.securityService.verifyMasterPin(pin, { action: "Ajustes de Delivery Global (Admin)" });
   }
 }

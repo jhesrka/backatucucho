@@ -1,3 +1,4 @@
+import { SecurityService } from "../security.service";
 import { validate as isUUID } from "uuid";
 // src/presentation/services/user.service.ts
 import {
@@ -62,6 +63,7 @@ type UserCSV = {
   status: Status;
 };
 export class UserService {
+  private readonly securityService = new SecurityService();
   constructor(private readonly emailService: EmailService) { }
 
   //USUARIO

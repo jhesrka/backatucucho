@@ -1,3 +1,4 @@
+import { SecurityService } from "./security.service";
 // src/services/admin/NegocioAdminService.ts
 import {
   CategoriaNegocio,
@@ -27,6 +28,7 @@ import { NotificationService } from "./NotificationService";
 const notificationService = new NotificationService();
 
 export class NegocioAdminService {
+  private readonly securityService = new SecurityService();
   constructor(private readonly subscriptionService?: SubscriptionService) { }
   // ========================= READ =========================
   async getNegociosAdmin({
@@ -793,7 +795,8 @@ export class NegocioAdminService {
   }
 
   // ===================== RESETEAR CALIFICACIONES =====================
-  async resetRatingAdmin(id: string) {
+  async resetRatingAdmin(id: string, masterPin: string) {
+    await this.securityService.verifyMasterPin(masterPin, { action: "Reseteo de Calificaciones (Admin)", details: `Negocio ID: ${id}` });
     const negocio = await Negocio.findOne({ where: { id } });
     if (!negocio) throw CustomError.notFound("Negocio no encontrado");
 

@@ -1,10 +1,12 @@
 import { CategoriaNegocio, SubcategoriaNegocio } from "../../data";
 import { CustomError } from "../../domain";
+import { SecurityService } from "./security.service";
 import { CreateSubcategoriaDTO, UpdateSubcategoriaDTO } from "../../domain/dtos/subcategorias";
 import { GlobalSettings } from "../../data/postgres/models/global-settings.model";
 import bcrypt from "bcryptjs";
 
 export class SubcategoriaService {
+  private readonly securityService = new SecurityService();
   
   async create(dto: CreateSubcategoriaDTO, masterPin: string) {
     await this.verifyMasterPin(masterPin);
@@ -63,16 +65,6 @@ export class SubcategoriaService {
   }
 
   private async verifyMasterPin(pin: string) {
-    if (!pin) throw CustomError.unAuthorized("Master PIN requerido");
-
-    const settings = await GlobalSettings.findOne({ where: {} });
-    if (!settings || !settings.masterPin) {
-      throw CustomError.internalServer("Error de seguridad: Master PIN no configurado en el sistema");
-    }
-
-    const isValid = bcrypt.compareSync(pin, settings.masterPin);
-    if (!isValid) {
-      throw CustomError.unAuthorized("Master PIN incorrecto");
-    }
+    await this.securityService.verifyMasterPin(pin, { action: "Modificación Crítica de Subcategoría (Admin)" });
   }
 }

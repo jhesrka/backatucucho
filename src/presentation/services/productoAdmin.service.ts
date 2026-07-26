@@ -1,6 +1,7 @@
 import { Producto, StatusProducto, ProductoPedido, GlobalSettings, Negocio, TipoProducto, TipoProductoEnum } from "../../data";
 import { UploadFilesCloud } from "../../config/upload-files-cloud-adapter";
 import { envs, encriptAdapter } from "../../config";
+import { SecurityService } from "./security.service";
 import { ILike } from "typeorm";
 import { CustomError } from "../../domain";
 import { getIO } from "../../config/socket";
@@ -9,6 +10,7 @@ import { NotificationService } from "./NotificationService";
 const notificationService = new NotificationService();
 
 export class ProductoServiceAdmin {
+  private readonly securityService = new SecurityService();
   async getProductosAdmin({
     limit = 5,
     offset = 0,
@@ -220,18 +222,7 @@ export class ProductoServiceAdmin {
 
   // ADMIN: Purge definitive
   async deleteProductoAdmin(id: string, pin: string) {
-    if (!pin) throw CustomError.badRequest("El PIN maestro es obligatorio");
-
-    // 1. Obtener validación de PIN desde settings
-    const settings = await GlobalSettings.findOne({ where: {} });
-    if (!settings?.masterPin) {
-      throw CustomError.internalServer("El PIN maestro no está configurado en el sistema.");
-    }
-
-    const isPinValid = encriptAdapter.compare(pin, settings.masterPin);
-    if (!isPinValid) {
-      throw CustomError.badRequest("El PIN maestro ingresado es incorrecto.");
-    }
+    await this.securityService.verifyMasterPin(pin, { action: "Eliminación de Producto (Admin)", details: `Producto ID: ${id}` });
 
     const producto = await Producto.findOne({ where: { id }, relations: ["negocio"] });
     if (!producto) throw CustomError.notFound("Producto no encontrado");
@@ -263,15 +254,7 @@ export class ProductoServiceAdmin {
 
   // ========================= BULK CREATE =========================
   async bulkCreateProductosAdmin(negocioId: string, productosData: any[], pin: string) {
-    if (!pin) throw CustomError.badRequest("El PIN maestro es obligatorio");
-
-    // 1. Validar PIN
-    const settings = await GlobalSettings.findOne({ where: {} });
-    if (!settings?.masterPin) {
-      throw CustomError.internalServer("El PIN maestro no está configurado.");
-    }
-    const isPinValid = encriptAdapter.compare(pin, settings.masterPin);
-    if (!isPinValid) throw CustomError.badRequest("PIN maestro incorrecto.");
+    await this.securityService.verifyMasterPin(pin, { action: "Carga Masiva de Productos (Admin)", details: `Negocio ID: ${negocioId}` });
 
     // 2. Validar Negocio
     const negocio = await Negocio.findOneBy({ id: negocioId });

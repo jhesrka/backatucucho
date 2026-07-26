@@ -1,5 +1,6 @@
 import { CategoriaNegocio } from "../../data";
 import { CustomError } from "../../domain";
+import { SecurityService } from "./security.service";
 import { CreateCategoriaDTO } from "../../domain/dtos/categoriaProductos/CreateCategoriaDTO";
 import { UpdateCategoriaDTO } from "../../domain/dtos/categoriaProductos/UpdateCategoriaDTO";
 import { UploadFilesCloud } from "../../config/upload-files-cloud-adapter";
@@ -8,6 +9,7 @@ import { GlobalSettings } from "../../data/postgres/models/global-settings.model
 import bcrypt from "bcryptjs";
 
 export class CategoriaService {
+  private readonly securityService = new SecurityService();
   // Crear categoría
   async createCategoria(dto: CreateCategoriaDTO, iconFile: Express.Multer.File, masterPin: string, coverFile?: Express.Multer.File) {
     await this.verifyMasterPin(masterPin);
@@ -326,18 +328,7 @@ export class CategoriaService {
     }
   }
   private async verifyMasterPin(pin: string) {
-    if (!pin) throw CustomError.unAuthorized("Master PIN requerido");
-
-    const settings = await GlobalSettings.findOne({ where: {} });
-    // Si no hay configuración o no hay PIN configurado, prohibir acción por seguridad
-    if (!settings || !settings.masterPin) {
-      throw CustomError.internalServer("Error de seguridad: Master PIN no configurado en el sistema");
-    }
-
-    const isValid = bcrypt.compareSync(pin, settings.masterPin);
-    if (!isValid) {
-      throw CustomError.unAuthorized("Master PIN incorrecto");
-    }
+    await this.securityService.verifyMasterPin(pin, { action: "Modificación Crítica de Categoría (Admin)" });
   }
 
   async seedBusinessCategories() {

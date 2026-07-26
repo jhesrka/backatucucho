@@ -11,10 +11,12 @@ import {
   TransactionReason,
 } from "../../../data";
 import { CustomError } from "../../../domain";
+import { SecurityService } from "../security.service";
 import { addDays } from "date-fns";
 import { encriptAdapter } from "../../../config";
 
 export class SubscriptionService {
+  private readonly securityService = new SecurityService();
   private subscriptionCost = 1; // Costo inicial de suscripción, modificable
 
   /**
@@ -275,13 +277,9 @@ export class SubscriptionService {
   /**
    * 🔐 Validar Master PIN (con bcrypt)
    */
-  public async validateMasterPin(pin: string): Promise<boolean> {
-    const settings = await GlobalSettings.findOne({ where: {}, order: { updatedAt: "DESC" } });
-    if (!settings || !settings.masterPin) {
-      throw CustomError.badRequest("PIN maestro no configurado en el sistema");
-    }
-    // Comparar el PIN ingresado con el hash almacenado
-    return encriptAdapter.compare(pin, settings.masterPin);
+  public async validateMasterPin(pin: string, context?: {action: string}): Promise<boolean> {
+    await this.securityService.verifyMasterPin(pin, { action: context?.action || "Verificación de PIN Maestro (Suscripciones)" });
+    return true;
   }
 
   /**
@@ -296,7 +294,7 @@ export class SubscriptionService {
   ): Promise<Subscription> {
     try {
       // Validar PIN
-      const isValidPin = await this.validateMasterPin(masterPin);
+      const isValidPin = await this.validateMasterPin(masterPin, { action: "Activar Suscripción sin Cobro" });
       if (!isValidPin) {
         throw CustomError.badRequest("PIN maestro incorrecto");
       }
@@ -370,7 +368,7 @@ export class SubscriptionService {
     masterPin: string
   ): Promise<Subscription> {
     // Validar PIN
-    const isValidPin = await this.validateMasterPin(masterPin);
+    const isValidPin = await this.validateMasterPin(masterPin, { action: "Desactivar Suscripción Premium" });
     if (!isValidPin) {
       throw CustomError.badRequest("PIN maestro incorrecto");
     }
@@ -419,7 +417,7 @@ export class SubscriptionService {
    */
   async changeMasterPin(currentPin: string, newPin: string): Promise<void> {
     // Validar que el PIN actual sea correcto
-    const isValidCurrentPin = await this.validateMasterPin(currentPin);
+    const isValidCurrentPin = await this.validateMasterPin(currentPin, { action: "Cambio de PIN Maestro" });
     if (!isValidCurrentPin) {
       throw CustomError.badRequest("PIN maestro actual incorrecto");
     }

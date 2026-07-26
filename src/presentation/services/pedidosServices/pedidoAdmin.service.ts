@@ -1,3 +1,4 @@
+import { SecurityService } from "../security.service";
 import {
   Pedido,
   EstadoPedido,
@@ -32,6 +33,7 @@ import { envs } from "../../../config/env";
 const notificationService = new NotificationService();
 
 export class PedidoAdminService {
+  private readonly securityService = new SecurityService();
   // ✅ 1. Obtener todos los pedidos con filtros
   async getPedidosAdmin({
     estado,
@@ -583,12 +585,7 @@ export class PedidoAdminService {
 
   // ✅ Helper: Verificar PIN Maestro
   async verifyMasterPin(pin: string) {
-    const settings = await GlobalSettings.findOne({ where: {} });
-    if (!settings || !settings.masterPin) return true; // Si no hay PIN configurado, permitir (o podrías bloquearlo)
-    
-    const isMatch = await bcrypt.compare(pin, settings.masterPin);
-    if (!isMatch) throw CustomError.badRequest("PIN Maestro incorrecto");
-    return true;
+    await this.securityService.verifyMasterPin(pin, { action: "Modificación de Pedidos (Admin)" });
   }
 
   // ✅ 5. Eliminar pedidos finalizados antiguos (Configurable)
