@@ -43,6 +43,13 @@ export class ProductoAdminRoutes {
       productoControllerAdmin.bulkCreateProductos
     );
 
+    // NUEVO: Admin Bulk Update Stock
+    router.patch(
+      "/bulk-stock/:negocioId",
+      AuthAdminMiddleware.protect,
+      productoControllerAdmin.bulkUpdateStock
+    );
+
     // NUEVO: Admin Purge Definitive
     router.delete(
       "/purge/:id",

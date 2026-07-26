@@ -137,4 +137,16 @@ export class ProductoControllerAdmin {
       this.handleError(error, res);
     }
   }
+
+  bulkUpdateStock = async (req: Request, res: Response) => {
+    const { negocioId } = req.params;
+    const { disponible } = req.body;
+
+    try {
+      const result = await this.productoServiceAdmin.bulkUpdateStock(negocioId, disponible);
+      return res.status(200).json(result);
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  }
 }

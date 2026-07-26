@@ -330,6 +330,34 @@ export class ProductoServiceAdmin {
     };
   }
 
+  // ADMIN: Bulk update stock for all products of a business
+  async bulkUpdateStock(negocioId: string, disponible: boolean | string) {
+    if (!negocioId) throw CustomError.badRequest("El ID del negocio es requerido");
+    if (typeof disponible !== 'boolean' && typeof disponible !== 'string') {
+      throw CustomError.badRequest("El campo disponible debe ser booleano o string");
+    }
+
+    const isAvailable = disponible === true || disponible === 'true';
+
+    // Usamos el builder para actualización masiva optimizada sin cargar todos los objetos a memoria
+    const result = await Producto.update(
+      { negocio: { id: negocioId } },
+      { disponible: isAvailable }
+    );
+
+    // Notificar por websockets el cambio masivo para que los clientes actualicen sus listados (opcional, enviamos evento de negocio)
+    getIO().emit("bulk_product_status_changed", {
+      negocioId,
+      disponible: isAvailable,
+    });
+
+    return {
+      message: `El inventario de todos los productos ha sido marcado como ${isAvailable ? 'EN STOCK' : 'AGOTADO'}.`,
+      updatedCount: result.affected || 0,
+      disponible: isAvailable
+    };
+  }
+
   // ========================= SOCKET UPDATE HELPER =========================
   private async emitProductUpdate(producto: Producto) {
     let formattedProduct = null;
