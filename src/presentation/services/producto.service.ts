@@ -16,6 +16,7 @@ import { CreateProductoDTO } from "../../domain/dtos/productos/CreateProductoDTO
 import { UploadFilesCloud } from "../../config/upload-files-cloud-adapter";
 import { envs } from "../../config";
 import { getIO } from "../../config/socket";
+import { GlobalSettingsService } from "./globalSettings/global-settings.service";
 
 export class ProductoService {
 
@@ -419,6 +420,37 @@ export class ProductoService {
     });
 
     return { message: "Producto eliminado correctamente" };
+  }
+
+  // ADMIN: Eliminar todos los productos de un negocio
+  async deleteAllProductsByNegocio(negocioId: string, masterPin: string) {
+    const globalSettingsService = new GlobalSettingsService();
+    await globalSettingsService.validateMasterPin(masterPin);
+
+    const productos = await Producto.find({ where: { negocio: { id: negocioId } } });
+    if (!productos || productos.length === 0) {
+      return { message: "No hay productos para eliminar" };
+    }
+
+    // Eliminar imagenes en paralelo
+    const imageDeletions = productos
+      .filter((p) => p.imagen)
+      .map((p) =>
+        UploadFilesCloud.deleteFile({
+          bucketName: envs.AWS_BUCKET_NAME,
+          key: p.imagen!,
+        }).catch((err) => console.log('Error deleting s3 file in bulk', err))
+      );
+      
+    await Promise.all(imageDeletions);
+
+    // Eliminar registros
+    await Producto.remove(productos);
+
+    // 📡 Notificar por WebSockets que el negocio ha sido limpiado de productos
+    getIO().emit("bulk_products_deleted", { negocioId });
+
+    return { message: `Se eliminaron ${productos.length} productos correctamente` };
   }
 
   // ADMIN: Cambiar status

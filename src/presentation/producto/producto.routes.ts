@@ -61,6 +61,13 @@ export class ProductoRoutes {
       productoController.deleteProducto
     );
 
+    // ADMIN: Eliminar todos los productos de un negocio
+    router.delete(
+      "/negocio/:negocioId/todos",
+      AuthAdminMiddleware.protect,
+      productoController.deleteAllProductsByNegocio
+    );
+
     // Reordenar productos
     router.put(
       "/reordenar",
