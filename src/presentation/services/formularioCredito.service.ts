@@ -100,7 +100,7 @@ export class FormularioCreditoService {
     await transaction.save();
 
     const balanceMinimoRequerido = precioLead * 3;
-    if (previousBalance >= balanceMinimoRequerido && resultingBalance < balanceMinimoRequerido) {
+    if (!negocio.usuario.beneficiosGratuitos && previousBalance >= balanceMinimoRequerido && resultingBalance < balanceMinimoRequerido) {
       // El saldo acaba de bajar del límite requerido, enviar notificación al dueño
       const notificationService = new NotificationService();
       await notificationService.sendPushNotification(

@@ -298,7 +298,7 @@ export class ProductoService {
       const precioLead = settings?.precioFormularioCredito || 0.50;
       const balanceMinimoRequerido = precioLead * 3;
 
-      if (!wallet || Number(wallet.balance) < balanceMinimoRequerido) {
+      if (!negocio.usuario?.beneficiosGratuitos && (!wallet || Number(wallet.balance) < balanceMinimoRequerido)) {
         throw CustomError.badRequest("El negocio se encuentra cerrado temporalmente.");
       }
     }

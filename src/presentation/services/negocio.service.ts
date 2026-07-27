@@ -235,6 +235,7 @@ export class NegocioService {
             OR categoria.esParaCredito = true
           )
           OR COALESCE(wallet.balance, 0) >= :balanceMinimo
+          OR usuario.beneficiosGratuitos = true
         )
       `, { balanceMinimo: balanceMinimoRequerido })
       .orderBy("subcategoria.orden", "ASC")
@@ -504,7 +505,7 @@ export class NegocioService {
           limitePublicacionesSuscripcion: negocio.limitePublicacionesSuscripcion,
           publicacionesRestantes: negocio.publicacionesRestantes,
           productosCount: (negocio as any).productosCount || 0,
-          hiddenPorCredito: (negocio.esParaCredito || negocio.modeloMonetizacion === 'CREDITO' || negocio.categoria?.esParaCredito) && ((negocio.usuario?.wallet?.balance || 0) < balanceMinimoRequerido),
+          hiddenPorCredito: (negocio.esParaCredito || negocio.modeloMonetizacion === 'CREDITO' || negocio.categoria?.esParaCredito) && ((negocio.usuario?.wallet?.balance || 0) < balanceMinimoRequerido) && !(negocio.usuario?.beneficiosGratuitos),
           ratingPromedio: Number(negocio.ratingPromedio) || 0,
           totalResenas: Number(negocio.totalResenas) || 0,
           valorSuscripcion: Number(negocio.valorSuscripcion) || 0,
