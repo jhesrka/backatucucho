@@ -302,6 +302,13 @@ export class UserRoutes {
       userController.toggleNegocioCredito
     );
 
+    // Dar beneficios VIP/Gratuitos (Admin)
+    router.patch(
+      "/admin/toggle-beneficios-gratuitos/:id",
+      AuthAdminMiddleware.protect,
+      userController.toggleBeneficiosGratuitos
+    );
+
     return router;
   }
 }

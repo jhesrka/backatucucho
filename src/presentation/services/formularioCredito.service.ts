@@ -63,7 +63,12 @@ export class FormularioCreditoService {
 
     // 3. Obtener el precio del lead
     const settings = await GlobalSettings.findOne({ where: {}, order: { updatedAt: "DESC" } });
-    const precioLead = settings?.precioFormularioCredito || 0.50;
+    let precioLead = settings?.precioFormularioCredito || 0.50;
+
+    // 🏆 BENEFICIO VIP: Si el dueño del negocio está exento de cobros, el costo del lead es 0
+    if (negocio.usuario.beneficiosGratuitos) {
+      precioLead = 0;
+    }
 
     if (precioLead > 0 && Number(wallet.balance) < Number(precioLead)) {
       throw new Error("El negocio no puede recibir solicitudes en este momento (Fondos insuficientes).");
@@ -76,20 +81,23 @@ export class FormularioCreditoService {
     wallet.balance = resultingBalance;
     await wallet.save();
 
-    if (precioLead > 0) {
-      const transaction = new Transaction();
-      transaction.wallet = wallet;
-      transaction.amount = Number(precioLead);
-      transaction.type = "debit";
-      transaction.reason = TransactionReason.LEAD_CREDITO;
-      transaction.origin = TransactionOrigin.SYSTEM;
-      transaction.status = "APPROVED";
-      transaction.previousBalance = previousBalance;
-      transaction.resultingBalance = resultingBalance;
-      transaction.observation = "Cobro por lead de formulario de crédito";
-      transaction.reference = negocioId;
-      await transaction.save();
-    }
+    // 💸 Crear transacción obligatoriamente (incluso si es 0, para dejar registro)
+    const transaction = new Transaction();
+    transaction.wallet = wallet;
+    transaction.amount = Number(precioLead);
+    transaction.type = "debit";
+    transaction.reason = TransactionReason.LEAD_CREDITO;
+    transaction.origin = TransactionOrigin.SYSTEM;
+    transaction.status = "APPROVED";
+    transaction.previousBalance = previousBalance;
+    transaction.resultingBalance = resultingBalance;
+    
+    transaction.observation = negocio.usuario.beneficiosGratuitos 
+      ? "Lead de formulario de crédito (Beneficio VIP Gratis)"
+      : "Cobro por lead de formulario de crédito";
+      
+    transaction.reference = negocioId;
+    await transaction.save();
 
     const balanceMinimoRequerido = precioLead * 3;
     if (previousBalance >= balanceMinimoRequerido && resultingBalance < balanceMinimoRequerido) {

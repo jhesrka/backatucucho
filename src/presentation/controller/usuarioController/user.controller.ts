@@ -420,4 +420,14 @@ export class UserController {
     }
   }
 
+  toggleBeneficiosGratuitos = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { beneficiosGratuitos } = req.body;
+    try {
+      const result = await this.userService.toggleBeneficiosGratuitos(id, beneficiosGratuitos);
+      return res.status(200).json(result);
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  }
 }

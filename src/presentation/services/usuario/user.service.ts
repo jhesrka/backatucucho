@@ -1971,4 +1971,19 @@ export class UserService {
       }
     };
   }
+
+  async toggleBeneficiosGratuitos(userId: string, beneficiosGratuitos: boolean) {
+    const user = await this.findOneUser(userId);
+    user.beneficiosGratuitos = beneficiosGratuitos;
+    await user.save();
+    return {
+      success: true,
+      message: `Beneficios VIP (gratuitos) ${beneficiosGratuitos ? 'activados' : 'desactivados'} para el usuario.`,
+      user: {
+        id: user.id,
+        email: user.email,
+        beneficiosGratuitos: user.beneficiosGratuitos
+      }
+    };
+  }
 }
