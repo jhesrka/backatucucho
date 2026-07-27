@@ -140,6 +140,11 @@ export class NegocioService {
     negocio.tiempoProgramadoMin = dto.tiempoProgramadoMin ?? null;
     negocio.tiempoProgramadoMax = dto.tiempoProgramadoMax ?? null;
     negocio.statusNegocio = StatusNegocio.PENDIENTE;
+    
+    // Beneficio VIP: si el usuario tiene beneficios gratuitos, el lead nace en $0
+    if (usuario.beneficiosGratuitos) {
+      negocio.costoLead = 0;
+    }
 
     try {
       const saved = await negocio.save();
@@ -356,7 +361,7 @@ export class NegocioService {
 
     const negocios = await Negocio.find({
       where: whereCondition,
-      relations: ["categoria", "usuario"],
+      relations: ["categoria", "usuario", "subcategoria"],
       order: { nombre: "ASC" },
     });
 
@@ -403,6 +408,11 @@ export class NegocioService {
               nombre: negocio.categoria.nombre,
               statusCategoria: negocio.categoria.statusCategoria,
             },
+            subcategoria: negocio.subcategoria ? {
+              id: negocio.subcategoria.id,
+              nombre: negocio.subcategoria.nombre,
+              orden: negocio.subcategoria.orden
+            } : null,
             esParaCredito: negocio.esParaCredito,
             modeloMonetizacion: negocio.modeloMonetizacion,
             costoLead: Number(negocio.costoLead),
