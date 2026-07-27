@@ -1255,6 +1255,7 @@ export class UserService {
         updated_at: user.updated_at,
         deletedAt: user.deletedAt,
         puedeCrearNegocioCredito: user.puedeCrearNegocioCredito,
+        beneficiosGratuitos: user.beneficiosGratuitos,
         // Session data
         isLoggedIn: user.isLoggedIn,
         lastLoginIP: user.lastLoginIP,
