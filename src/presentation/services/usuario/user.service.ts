@@ -1972,7 +1972,15 @@ export class UserService {
     };
   }
 
-  async toggleBeneficiosGratuitos(userId: string, beneficiosGratuitos: boolean) {
+  async toggleBeneficiosGratuitos(userId: string, beneficiosGratuitos: boolean, masterPin: string) {
+    if (!masterPin) throw CustomError.unAuthorized("PIN maestro es requerido para otorgar beneficios VIP.");
+    
+    const settings = await require("../../../data").GlobalSettings.findOne({ where: {} });
+    if (!settings || !settings.masterPin) throw CustomError.internalServer("El PIN maestro no está configurado.");
+    
+    const isPinValid = require("../../../config").encriptAdapter.compare(masterPin, settings.masterPin);
+    if (!isPinValid) throw CustomError.unAuthorized("PIN maestro incorrecto.");
+
     const user = await this.findOneUser(userId);
     user.beneficiosGratuitos = beneficiosGratuitos;
     await user.save();

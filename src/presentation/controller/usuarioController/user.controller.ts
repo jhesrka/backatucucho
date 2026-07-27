@@ -422,9 +422,9 @@ export class UserController {
 
   toggleBeneficiosGratuitos = async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { beneficiosGratuitos } = req.body;
+    const { beneficiosGratuitos, masterPin } = req.body;
     try {
-      const result = await this.userService.toggleBeneficiosGratuitos(id, beneficiosGratuitos);
+      const result = await this.userService.toggleBeneficiosGratuitos(id, beneficiosGratuitos, masterPin);
       return res.status(200).json(result);
     } catch (error) {
       this.handleError(error, res);

@@ -51,11 +51,16 @@ export class StorieService {
     }
 
     // 2. Calcular costo
-    const costo = this.priceService.calcularPrecio(
+    let costo = this.priceService.calcularPrecio(
       storieData.dias,
       config.basePrice,
       config.extraDayPrice
     );
+
+    // 🔥 APLICAR BENEFICIO VIP
+    if (user.beneficiosGratuitos) {
+      costo = 0;
+    }
 
     // 3. Pre-validar saldo de billetera (Para fallar rápido sin subir imagen)
     const wallet = await Wallet.findOne({ where: { user: { id: user.id } } });
