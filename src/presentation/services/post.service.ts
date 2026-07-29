@@ -211,7 +211,19 @@ export class PostService {
       const resolvedPosts = await Promise.all(
         validPosts.map(async (post) => {
           try {
-            const [resolvedImgs, userImage, isLiked] = await Promise.all([
+            const { Producto } = await import("../../data");
+            
+            let negocioId = null;
+            let imagenNegocioKey = null;
+            if (post.productoId) {
+               const prod = await Producto.findOne({ where: { id: post.productoId }, relations: ["negocio"] });
+               if (prod && prod.negocio) {
+                  negocioId = prod.negocio.id;
+                  imagenNegocioKey = prod.negocio.imagenNegocio;
+               }
+            }
+
+            const [resolvedImgs, userImage, isLiked, imagenNegocioUrl] = await Promise.all([
               Promise.all(
                 (post.imgpost ?? []).map((img) =>
                   UploadFilesCloud.getOptimizedUrls({
@@ -231,11 +243,19 @@ export class PostService {
                   where: { post: { id: post.id }, user: { id: userId } },
                 }).then((like) => !!like)
                 : Promise.resolve(false),
+              imagenNegocioKey
+                ? UploadFilesCloud.getOptimizedUrls({
+                  bucketName: envs.AWS_BUCKET_NAME,
+                  key: imagenNegocioKey,
+                })
+                : Promise.resolve(null),
             ]);
 
             return {
               ...post,
               imgpost: resolvedImgs as any,
+              negocioId,
+              imagenNegocio: imagenNegocioUrl,
               user: {
                 id: post.user.id,
                 name: post.user.name,
