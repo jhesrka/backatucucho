@@ -349,7 +349,7 @@ export class PostService {
       // 3. Manejar posts gratuitos (límite mensual y duración configurable)
       let freePostTracker;
 
-      if (!postData.isPaid) {
+      if (!postData.isPaid && !postData.productoId) {
         freePostTracker = await this.freePostTrackerService.getOrCreateTracker(
           user.id
         );
