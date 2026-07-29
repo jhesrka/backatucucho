@@ -307,6 +307,14 @@ export class PostService {
 
   async createPostPlan(postData: CreatePostDTO, imgs?: Express.Multer.File[]) {
     try {
+      // 0. Validar longitud de campos
+      if (postData.title && postData.title.length > 100) {
+        throw CustomError.badRequest("El título no puede superar los 100 caracteres.");
+      }
+      if (postData.subtitle && postData.subtitle.length > 100) {
+        throw CustomError.badRequest("El subtítulo no puede superar los 100 caracteres.");
+      }
+
       // 1. Validar usuario
       const user = await this.userService.findOneUser(postData.userId);
       if (!user) throw CustomError.notFound("Usuario no encontrado");

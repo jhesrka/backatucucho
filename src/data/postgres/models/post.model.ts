@@ -37,13 +37,13 @@ export class Post extends BaseEntity {
   imgpost: string[];
 
   @Column("varchar", {
-    length: 30,
+    length: 100,
     nullable: false,
   })
   title: string;
 
   @Column("varchar", {
-    length: 30,
+    length: 100,
     nullable: false,
   })
   subtitle: string;
