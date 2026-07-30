@@ -195,7 +195,14 @@ export class ProductoService {
       }
     }
 
-    await producto.save();
+    try {
+      await producto.save();
+    } catch (error: any) {
+      if (error.code === '23505') {
+        throw CustomError.conflict("Ya existe un producto con ese nombre en este negocio. Usa otro nombre.");
+      }
+      throw CustomError.internalServer("Error actualizando producto");
+    }
 
     // 📡 Notificar por WebSockets (con datos completos)
     await this.emitProductUpdate(producto);

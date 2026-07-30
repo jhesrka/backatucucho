@@ -131,7 +131,7 @@ export class ProductoServiceAdmin {
     }
   ) {
     const producto = await Producto.findOne({ where: { id }, relations: ["negocio", "tipo"] });
-    if (!producto) throw new Error("Producto no encontrado");
+    if (!producto) throw CustomError.notFound("Producto no encontrado");
 
     // 🔹 Si llega una nueva imagen, eliminar la anterior y subir la nueva
     if (imagen) {
@@ -173,7 +173,14 @@ export class ProductoServiceAdmin {
       producto.statusProducto = statusProducto;
     }
 
-    await producto.save();
+    try {
+      await producto.save();
+    } catch (error: any) {
+      if (error.code === '23505') {
+        throw CustomError.conflict("Ya existe un producto con ese mismo nombre en este negocio. Usa otro nombre.");
+      }
+      throw error;
+    }
 
     // 📡 Notificar por WebSockets
     await this.emitProductUpdate(producto);
