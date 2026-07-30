@@ -2,9 +2,9 @@
 import { Router } from "express";
 
 import { AuthMiddleware } from "../../middlewares/auth.middleware";
+import { AuthAdminMiddleware } from "../../middlewares/auth-admin.middleware";
 import { TipoProductoService } from "../services/tipoProducto.service";
 import { TipoProductoController } from "./tipoProducto.controller";
-// Si quieres un middleware admin, podrías importarlo también y usarlo en rutas sensibles
 
 export class TipoProductoRoutes {
   static get routes(): Router {
@@ -24,6 +24,13 @@ export class TipoProductoRoutes {
         router.get(
       "/negocio/:negocioId",
       AuthMiddleware.protect,
+      tipoProductoController.getTiposByNegocio
+    );
+
+    // Obtener todos los tipos de producto (admin)
+    router.get(
+      "/admin/negocio/:negocioId",
+      AuthAdminMiddleware.protect,
       tipoProductoController.getTiposByNegocio
     );
 
