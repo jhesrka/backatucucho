@@ -376,6 +376,8 @@ export class ProductoService {
         permiteProductosProgramados: negocio.permiteProductosProgramados,
         tiempoProgramadoMin: negocio.tiempoProgramadoMin,
         tiempoProgramadoMax: negocio.tiempoProgramadoMax,
+        ordenAleatorioCategorias: negocio.ordenAleatorioCategorias,
+        ordenAleatorioProductos: negocio.ordenAleatorioProductos,
         subcategoria: negocio.subcategoria,
         categoria: negocio.categoria,
         esParaCredito: negocio.esParaCredito,
