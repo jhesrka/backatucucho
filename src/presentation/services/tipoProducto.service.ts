@@ -1,6 +1,6 @@
 // src/services/TipoProductoService.ts
 
-import { Negocio, TipoProducto } from "../../data";
+import { Negocio, TipoProducto, Producto } from "../../data";
 import { CustomError } from "../../domain";
 
 export class TipoProductoService {
@@ -76,11 +76,51 @@ export class TipoProductoService {
     }
   }
 
+  // ========================= UPDATE =========================
+  async updateTipo(id: string, nombre: string) {
+    if (!nombre || nombre.trim().length < 3) {
+      throw CustomError.badRequest("El nombre debe tener al menos 3 caracteres");
+    }
+
+    const tipo = await TipoProducto.findOne({
+      where: { id },
+      relations: ["negocio"]
+    });
+
+    if (!tipo) throw CustomError.notFound("Tipo de producto no encontrado");
+
+    // Verificar que el nuevo nombre no exista ya en el mismo negocio
+    const existing = await TipoProducto.findOneBy({
+      nombre: nombre.trim(),
+      negocio: { id: tipo.negocio.id }
+    });
+
+    if (existing && existing.id !== id) {
+      throw CustomError.badRequest("Ya existe otra categoría con ese nombre");
+    }
+
+    tipo.nombre = nombre.trim();
+    
+    try {
+      await tipo.save();
+      return tipo;
+    } catch (err) {
+      console.error(err);
+      throw CustomError.internalServer("Error al actualizar la categoría");
+    }
+  }
+
   // ========================= DELETE =========================
   async deleteTipo(id: string) {
     const tipo = await TipoProducto.findOneBy({ id });
     if (!tipo) {
       throw CustomError.notFound("Tipo de producto no encontrado");
+    }
+
+    // Verificar si la categoría tiene productos asignados
+    const count = await Producto.count({ where: { tipo: { id } } });
+    if (count > 0) {
+      throw CustomError.badRequest("No puedes borrar esta categoría porque tiene productos asignados. Primero cambia la categoría de esos productos o elimínalos.");
     }
 
     try {

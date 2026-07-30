@@ -34,6 +34,20 @@ export class TipoProductoRoutes {
       tipoProductoController.getTiposByNegocio
     );
 
+    // Editar tipo de producto (admin)
+    router.put(
+      "/admin/:id",
+      AuthAdminMiddleware.protect,
+      tipoProductoController.updateTipoProducto
+    );
+
+    // Eliminar tipo producto por id (admin)
+    router.delete(
+      "/admin/:id",
+      AuthAdminMiddleware.protect,
+      tipoProductoController.deleteTipoProducto
+    );
+
     // Eliminar tipo producto por id (usuario autenticado, podría restringirse a admin)
     router.delete(
       "/:id",
