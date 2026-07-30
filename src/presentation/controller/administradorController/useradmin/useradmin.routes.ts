@@ -1,7 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
 import { UseradminService } from "../../../services";
-import { AuthAdminMiddleware } from "../../../../middlewares";
+import { AuthAdminMiddleware, authLimiter } from "../../../../middlewares";
 import { UseradminController } from "./useradmin.controller";
 
 export class UseradminRoutes {
@@ -34,9 +34,9 @@ export class UseradminRoutes {
       useradminController.validateMasterPin
     );
 
-    router.post("/loginadmin", useradminController.loginAdmin);
-    router.post("/forgot-password", useradminController.forgotPassword);
-    router.post("/reset-password", useradminController.resetPassword);
+    router.post("/loginadmin", authLimiter, useradminController.loginAdmin);
+    router.post("/forgot-password", authLimiter, useradminController.forgotPassword);
+    router.post("/reset-password", authLimiter, useradminController.resetPassword);
 
     router.patch(
       "/update-password",

@@ -4,7 +4,7 @@ import { UserMotorizadoService } from "../../services";
 import { MotorizadoController } from "./usermotorizado.controller";
 import { AuthAdminMiddleware } from "../../../middlewares/auth-admin.middleware";
 import multer from "multer";
-import { AuthMotorizadoMiddleware } from "../../../middlewares";
+import { AuthMotorizadoMiddleware, authLimiter } from "../../../middlewares";
 
 export class UserMotorizadoRoutes {
   static get routes(): Router {
@@ -13,7 +13,7 @@ export class UserMotorizadoRoutes {
     const motorizadoController = new MotorizadoController(motorizadoService);
     const upload = multer();
     // Login público
-    router.post("/login", motorizadoController.loginMotorizado);
+    router.post("/login", authLimiter, motorizadoController.loginMotorizado);
     router.post(
       "/logout",
       AuthMotorizadoMiddleware.protect,

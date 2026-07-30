@@ -6,8 +6,8 @@ import dotenv from "dotenv";
 import { EmailService } from "../../services/email.service";
 import { envs, uploadSingleFile } from "../../../config";
 import { AuthMiddleware } from "../../../middlewares/auth.middleware";
+import { AuthAdminMiddleware, authLimiter } from "../../../middlewares";
 import { UserRole } from "../../../data";
-import { AuthAdminMiddleware } from "../../../middlewares";
 
 dotenv.config();
 export class UserRoutes {
@@ -157,16 +157,17 @@ export class UserRoutes {
 
     //USUARIO
     //PUBLICO
-    router.post("/login", userController.login);
-    router.post("/google-login", userController.loginGoogle);
+    router.post("/login", authLimiter, userController.login);
+    router.post("/google-login", authLimiter, userController.loginGoogle);
     router.post(
       "/register",
+      authLimiter,
       uploadSingleFile("photoperfil"),
       userController.createUser
     );
     router.get("/validate-email/:token", userController.validateAccount);
-    router.post("/forgot-password", userController.forgotPassword);
-    router.post("/reset-password", userController.resetPassword);
+    router.post("/forgot-password", authLimiter, userController.forgotPassword);
+    router.post("/reset-password", authLimiter, userController.resetPassword);
     router.post("/change-password", AuthMiddleware.protect, userController.changePassword);
     //PROTEGIDO
 
