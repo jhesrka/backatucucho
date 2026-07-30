@@ -676,6 +676,10 @@ export class NegocioService {
     if (data.tiempoProgramadoMin !== undefined) negocio.tiempoProgramadoMin = data.tiempoProgramadoMin;
     if (data.tiempoProgramadoMax !== undefined) negocio.tiempoProgramadoMax = data.tiempoProgramadoMax;
     if (data.costoLead !== undefined) negocio.costoLead = Number(data.costoLead);
+    
+    // Configuración visual aleatoria
+    if ((data as any).ordenAleatorioCategorias !== undefined) negocio.ordenAleatorioCategorias = (data as any).ordenAleatorioCategorias;
+    if ((data as any).ordenAleatorioProductos !== undefined) negocio.ordenAleatorioProductos = (data as any).ordenAleatorioProductos;
 
     if (img) {
       const validMimeTypes = [
@@ -736,6 +740,8 @@ export class NegocioService {
       puedePublicarProductos: saved.puedePublicarProductos,
       limitePublicacionesSuscripcion: saved.limitePublicacionesSuscripcion,
       publicacionesRestantes: saved.publicacionesRestantes,
+      ordenAleatorioCategorias: saved.ordenAleatorioCategorias,
+      ordenAleatorioProductos: saved.ordenAleatorioProductos,
       categoria: {
         id: saved.categoria.id,
         nombre: saved.categoria.nombre,

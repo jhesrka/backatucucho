@@ -177,6 +177,13 @@ export class Negocio extends BaseEntity {
   @Column("int", { nullable: true })
   tiempoProgramadoMax: number | null;
 
+  // --- CONFIGURACIÓN DE VISUALIZACIÓN EN TIENDA (NUEVO) ---
+  @Column({ type: "boolean", default: false })
+  ordenAleatorioCategorias: boolean;
+
+  @Column({ type: "boolean", default: false })
+  ordenAleatorioProductos: boolean;
+
   // --- CONFIGURACIÓN DE PUBLICACIONES (NUEVO) ---
   @Column({ type: "boolean", default: false })
   puedePublicarProductos: boolean;
