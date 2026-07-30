@@ -523,6 +523,8 @@ export class NegocioService {
           fechaFinSuscripcion: negocio.fechaFinSuscripcion,
           pago_tarjeta_habilitado_admin: negocio.pago_tarjeta_habilitado_admin,
           orden: negocio.orden, // ✅ PRIORIDAD
+          ordenAleatorioCategorias: negocio.ordenAleatorioCategorias,
+          ordenAleatorioProductos: negocio.ordenAleatorioProductos,
           imagenUrl,
           categoria: {
             id: negocio.categoria.id,
@@ -678,8 +680,8 @@ export class NegocioService {
     if (data.costoLead !== undefined) negocio.costoLead = Number(data.costoLead);
     
     // Configuración visual aleatoria
-    if ((data as any).ordenAleatorioCategorias !== undefined) negocio.ordenAleatorioCategorias = (data as any).ordenAleatorioCategorias;
-    if ((data as any).ordenAleatorioProductos !== undefined) negocio.ordenAleatorioProductos = (data as any).ordenAleatorioProductos;
+    if ((data as any).ordenAleatorioCategorias !== undefined) negocio.ordenAleatorioCategorias = (data as any).ordenAleatorioCategorias === 'true' || (data as any).ordenAleatorioCategorias === true;
+    if ((data as any).ordenAleatorioProductos !== undefined) negocio.ordenAleatorioProductos = (data as any).ordenAleatorioProductos === 'true' || (data as any).ordenAleatorioProductos === true;
 
     if (img) {
       const validMimeTypes = [
