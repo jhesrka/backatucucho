@@ -9,11 +9,7 @@ import {
 } from "typeorm";
 import { Negocio } from "./Negocio";
 
-export enum TipoRespuestaCredito {
-  TEXTO = "TEXTO",
-  NUMERO = "NUMERO",
-  OPCION_MULTIPLE = "OPCION_MULTIPLE",
-}
+export type TipoRespuestaCredito = "TEXTO" | "NUMERO" | "OPCION_MULTIPLE" | "SELECCION_MULTIPLE" | "FECHA" | "ARCHIVO";
 
 @Entity()
 export class PreguntaFormularioCredito extends BaseEntity {
@@ -24,9 +20,9 @@ export class PreguntaFormularioCredito extends BaseEntity {
   pregunta: string;
 
   @Column({
-    type: "enum",
-    enum: TipoRespuestaCredito,
-    default: TipoRespuestaCredito.TEXTO,
+    type: "varchar",
+    length: 50,
+    default: "TEXTO",
   })
   tipoRespuesta: TipoRespuestaCredito;
 

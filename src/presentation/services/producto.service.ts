@@ -394,6 +394,7 @@ export class ProductoService {
         id: negocio.usuario.id,
         nombre: negocio.usuario.name,
         apellido: negocio.usuario.surname,
+        whatsapp: negocio.usuario.whatsapp,
       },
       productos: productosFormateados,
     };
