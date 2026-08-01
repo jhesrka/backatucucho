@@ -13,10 +13,12 @@ exports.SubscriptionService = void 0;
 const typeorm_1 = require("typeorm");
 const data_1 = require("../../../data");
 const domain_1 = require("../../../domain");
+const security_service_1 = require("../security.service");
 const date_fns_1 = require("date-fns");
 const config_1 = require("../../../config");
 class SubscriptionService {
     constructor() {
+        this.securityService = new security_service_1.SecurityService();
         this.subscriptionCost = 1; // Costo inicial de suscripción, modificable
     }
     /**
@@ -256,14 +258,10 @@ class SubscriptionService {
     /**
      * 🔐 Validar Master PIN (con bcrypt)
      */
-    validateMasterPin(pin) {
+    validateMasterPin(pin, context) {
         return __awaiter(this, void 0, void 0, function* () {
-            const settings = yield data_1.GlobalSettings.findOne({ where: {}, order: { updatedAt: "DESC" } });
-            if (!settings || !settings.masterPin) {
-                throw domain_1.CustomError.badRequest("PIN maestro no configurado en el sistema");
-            }
-            // Comparar el PIN ingresado con el hash almacenado
-            return config_1.encriptAdapter.compare(pin, settings.masterPin);
+            yield this.securityService.verifyMasterPin(pin, { action: (context === null || context === void 0 ? void 0 : context.action) || "Verificación de PIN Maestro (Suscripciones)" });
+            return true;
         });
     }
     /**
@@ -274,7 +272,7 @@ class SubscriptionService {
         return __awaiter(this, arguments, void 0, function* (userId, masterPin, plan = data_1.SubscriptionPlan.BASIC, days) {
             try {
                 // Validar PIN
-                const isValidPin = yield this.validateMasterPin(masterPin);
+                const isValidPin = yield this.validateMasterPin(masterPin, { action: "Activar Suscripción sin Cobro" });
                 if (!isValidPin) {
                     throw domain_1.CustomError.badRequest("PIN maestro incorrecto");
                 }
@@ -337,7 +335,7 @@ class SubscriptionService {
     updateSubscriptionExpirationDate(subscriptionId, newEndDate, masterPin) {
         return __awaiter(this, void 0, void 0, function* () {
             // Validar PIN
-            const isValidPin = yield this.validateMasterPin(masterPin);
+            const isValidPin = yield this.validateMasterPin(masterPin, { action: "Desactivar Suscripción Premium" });
             if (!isValidPin) {
                 throw domain_1.CustomError.badRequest("PIN maestro incorrecto");
             }
@@ -385,7 +383,7 @@ class SubscriptionService {
     changeMasterPin(currentPin, newPin) {
         return __awaiter(this, void 0, void 0, function* () {
             // Validar que el PIN actual sea correcto
-            const isValidCurrentPin = yield this.validateMasterPin(currentPin);
+            const isValidCurrentPin = yield this.validateMasterPin(currentPin, { action: "Cambio de PIN Maestro" });
             if (!isValidCurrentPin) {
                 throw domain_1.CustomError.badRequest("PIN maestro actual incorrecto");
             }

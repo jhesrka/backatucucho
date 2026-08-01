@@ -279,10 +279,8 @@ class SubscriptionController {
                 if (!masterPin) {
                     return res.status(400).json({ message: "masterPin es requerido" });
                 }
-                const isValid = yield this.subscriptionService.validateMasterPin(masterPin);
-                if (!isValid) {
-                    return res.status(403).json({ message: "PIN Maestro incorrecto" });
-                }
+                // Llamada validará y arrojará error si falla
+                yield this.subscriptionService.validateMasterPin(masterPin, { action: "Validación de PIN Maestro (Ruta Directa)" });
                 res.json({
                     success: true,
                     message: "PIN validado correctamente"

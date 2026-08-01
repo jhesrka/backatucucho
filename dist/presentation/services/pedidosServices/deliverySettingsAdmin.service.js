@@ -12,8 +12,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.DeliverySettingsAdminService = void 0;
 const DeliverySettings_1 = require("../../../data/postgres/models/DeliverySettings");
 const domain_1 = require("../../../domain");
-const global_settings_service_1 = require("../globalSettings/global-settings.service");
+const security_service_1 = require("../security.service");
 class DeliverySettingsAdminService {
+    constructor() {
+        this.securityService = new security_service_1.SecurityService();
+    }
     getActive() {
         return __awaiter(this, void 0, void 0, function* () {
             const settings = yield DeliverySettings_1.DeliverySettings.findOne({ where: { isActive: true } });
@@ -73,13 +76,7 @@ class DeliverySettingsAdminService {
     }
     verifyMasterPin(pin) {
         return __awaiter(this, void 0, void 0, function* () {
-            if (!pin)
-                throw domain_1.CustomError.unAuthorized("Master PIN requerido");
-            const globalSettingsService = new global_settings_service_1.GlobalSettingsService();
-            const isValid = yield globalSettingsService.validateMasterPin(pin);
-            if (!isValid) {
-                throw domain_1.CustomError.unAuthorized("Master PIN incorrecto");
-            }
+            yield this.securityService.verifyMasterPin(pin, { action: "Ajustes de Delivery Global (Admin)" });
         });
     }
 }

@@ -17,6 +17,7 @@ const domain_1 = require("../../domain");
 const upload_files_cloud_adapter_1 = require("../../config/upload-files-cloud-adapter");
 const config_1 = require("../../config");
 const socket_1 = require("../../config/socket");
+const global_settings_service_1 = require("./globalSettings/global-settings.service");
 class ProductoService {
     // ========================= CREATE =========================
     createProducto(dto, file) {
@@ -242,7 +243,7 @@ class ProductoService {
     }
     getProductosDisponiblesByNegocio(negocioId) {
         return __awaiter(this, void 0, void 0, function* () {
-            var _a;
+            var _a, _b;
             const negocio = yield data_1.Negocio.findOne({
                 where: { id: negocioId },
                 relations: ["usuario", "subcategoria", "categoria"], // relación con el User y subcategoría para verificar restricción de edad
@@ -259,7 +260,7 @@ class ProductoService {
                 const settings = yield data_1.GlobalSettings.findOne({ where: {}, order: { updatedAt: "DESC" } });
                 const precioLead = (settings === null || settings === void 0 ? void 0 : settings.precioFormularioCredito) || 0.50;
                 const balanceMinimoRequerido = precioLead * 3;
-                if (!wallet || Number(wallet.balance) < balanceMinimoRequerido) {
+                if (!((_b = negocio.usuario) === null || _b === void 0 ? void 0 : _b.beneficiosGratuitos) && (!wallet || Number(wallet.balance) < balanceMinimoRequerido)) {
                     throw domain_1.CustomError.badRequest("El negocio se encuentra cerrado temporalmente.");
                 }
             }
@@ -329,6 +330,8 @@ class ProductoService {
                     permiteProductosProgramados: negocio.permiteProductosProgramados,
                     tiempoProgramadoMin: negocio.tiempoProgramadoMin,
                     tiempoProgramadoMax: negocio.tiempoProgramadoMax,
+                    ordenAleatorioCategorias: negocio.ordenAleatorioCategorias,
+                    ordenAleatorioProductos: negocio.ordenAleatorioProductos,
                     subcategoria: negocio.subcategoria,
                     categoria: negocio.categoria,
                     esParaCredito: negocio.esParaCredito,
@@ -367,6 +370,30 @@ class ProductoService {
                 negocioId: negocioId,
             });
             return { message: "Producto eliminado correctamente" };
+        });
+    }
+    // ADMIN: Eliminar todos los productos de un negocio
+    deleteAllProductsByNegocio(negocioId, masterPin) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const globalSettingsService = new global_settings_service_1.GlobalSettingsService();
+            yield globalSettingsService.validateMasterPin(masterPin);
+            const productos = yield data_1.Producto.find({ where: { negocio: { id: negocioId } } });
+            if (!productos || productos.length === 0) {
+                return { message: "No hay productos para eliminar" };
+            }
+            // Eliminar imagenes en paralelo
+            const imageDeletions = productos
+                .filter((p) => p.imagen)
+                .map((p) => upload_files_cloud_adapter_1.UploadFilesCloud.deleteFile({
+                bucketName: config_1.envs.AWS_BUCKET_NAME,
+                key: p.imagen,
+            }).catch((err) => console.log('Error deleting s3 file in bulk', err)));
+            yield Promise.all(imageDeletions);
+            // Eliminar registros
+            yield data_1.Producto.remove(productos);
+            // 📡 Notificar por WebSockets que el negocio ha sido limpiado de productos
+            (0, socket_1.getIO)().emit("bulk_products_deleted", { negocioId });
+            return { message: `Se eliminaron ${productos.length} productos correctamente` };
         });
     }
     // ADMIN: Cambiar status

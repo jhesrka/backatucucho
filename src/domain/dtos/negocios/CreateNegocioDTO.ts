@@ -1,5 +1,5 @@
 import { regularExp } from "../../../config";
-import { ModeloMonetizacion } from "../../../data";
+import { ModeloMonetizacion, ModoOperacionNegocio } from "../../../data";
 
 export class CreateNegocioDTO {
   private constructor(
@@ -27,7 +27,10 @@ export class CreateNegocioDTO {
     public readonly diaPago: number = 1,
     public readonly orden: number = 0,
     public readonly esParaCredito: boolean = false,
-    public readonly costoLead: number = 0.50
+    public readonly costoLead: number = 0.50,
+    public readonly modo_operacion: ModoOperacionNegocio = ModoOperacionNegocio.MANUAL,
+    public readonly hora_apertura?: string | null,
+    public readonly hora_cierre?: string | null
   ) { }
 
   static create(obj: { [key: string]: any }): [string?, CreateNegocioDTO?] {
@@ -55,7 +58,10 @@ export class CreateNegocioDTO {
       valorSuscripcion,
       diaPago,
       orden,
-      esParaCredito
+      esParaCredito,
+      modo_operacion,
+      hora_apertura,
+      hora_cierre
     } = obj;
 
     if (!nombre || typeof nombre !== "string" || nombre.trim().length < 3) {
@@ -178,7 +184,10 @@ export class CreateNegocioDTO {
         diaPago !== undefined ? Number(diaPago) : 1,
         orden !== undefined ? Number(orden) : 0,
         !!esParaCredito,
-        obj.costoLead !== undefined ? Number(obj.costoLead) : 0.50
+        obj.costoLead !== undefined ? Number(obj.costoLead) : 0.50,
+        modo_operacion,
+        hora_apertura,
+        hora_cierre
       ),
     ];
   }

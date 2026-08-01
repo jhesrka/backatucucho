@@ -153,6 +153,10 @@ __decorate([
     __metadata("design:type", Boolean)
 ], User.prototype, "puedeCrearNegocioCredito", void 0);
 __decorate([
+    (0, typeorm_1.Column)("boolean", { default: false }),
+    __metadata("design:type", Boolean)
+], User.prototype, "beneficiosGratuitos", void 0);
+__decorate([
     (0, typeorm_1.Column)("varchar", { nullable: true }),
     __metadata("design:type", String)
 ], User.prototype, "lastLoginIP", void 0);

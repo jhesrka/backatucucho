@@ -374,6 +374,17 @@ class UserController {
                 this.handleError(error, res);
             }
         });
+        this.toggleBeneficiosGratuitos = (req, res) => __awaiter(this, void 0, void 0, function* () {
+            const { id } = req.params;
+            const { beneficiosGratuitos, masterPin } = req.body;
+            try {
+                const result = yield this.userService.toggleBeneficiosGratuitos(id, beneficiosGratuitos, masterPin);
+                return res.status(200).json(result);
+            }
+            catch (error) {
+                this.handleError(error, res);
+            }
+        });
     }
 }
 exports.UserController = UserController;

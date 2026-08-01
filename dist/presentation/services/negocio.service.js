@@ -156,6 +156,10 @@ class NegocioService {
             negocio.tiempoProgramadoMin = (_b = dto.tiempoProgramadoMin) !== null && _b !== void 0 ? _b : null;
             negocio.tiempoProgramadoMax = (_c = dto.tiempoProgramadoMax) !== null && _c !== void 0 ? _c : null;
             negocio.statusNegocio = data_1.StatusNegocio.PENDIENTE;
+            // Beneficio VIP: si el usuario tiene beneficios gratuitos, el lead nace en $0
+            if (usuario.beneficiosGratuitos) {
+                negocio.costoLead = 0;
+            }
             try {
                 const saved = yield negocio.save();
                 const imagenUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
@@ -243,6 +247,7 @@ class NegocioService {
             OR categoria.esParaCredito = true
           )
           OR COALESCE(wallet.balance, 0) >= :balanceMinimo
+          OR usuario.beneficiosGratuitos = true
         )
       `, { balanceMinimo: balanceMinimoRequerido })
                 .orderBy("subcategoria.orden", "ASC")
@@ -350,7 +355,7 @@ class NegocioService {
             whereCondition.usuario = { status: data_1.Status.ACTIVE };
             const negocios = yield data_1.Negocio.find({
                 where: whereCondition,
-                relations: ["categoria", "usuario"],
+                relations: ["categoria", "usuario", "subcategoria"],
                 order: { nombre: "ASC" },
             });
             try {
@@ -391,6 +396,11 @@ class NegocioService {
                             nombre: negocio.categoria.nombre,
                             statusCategoria: negocio.categoria.statusCategoria,
                         },
+                        subcategoria: negocio.subcategoria ? {
+                            id: negocio.subcategoria.id,
+                            nombre: negocio.subcategoria.nombre,
+                            orden: negocio.subcategoria.orden
+                        } : null,
                         esParaCredito: negocio.esParaCredito,
                         modeloMonetizacion: negocio.modeloMonetizacion,
                         costoLead: Number(negocio.costoLead),
@@ -446,7 +456,7 @@ class NegocioService {
                 .take(limit)
                 .getManyAndCount();
             const negociosConImagen = yield Promise.all(negocios.map((negocio) => __awaiter(this, void 0, void 0, function* () {
-                var _a, _b, _c;
+                var _a, _b, _c, _d;
                 let imagenUrl = null;
                 try {
                     imagenUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
@@ -484,7 +494,7 @@ class NegocioService {
                     limitePublicacionesSuscripcion: negocio.limitePublicacionesSuscripcion,
                     publicacionesRestantes: negocio.publicacionesRestantes,
                     productosCount: negocio.productosCount || 0,
-                    hiddenPorCredito: (negocio.esParaCredito || negocio.modeloMonetizacion === 'CREDITO' || ((_a = negocio.categoria) === null || _a === void 0 ? void 0 : _a.esParaCredito)) && ((((_c = (_b = negocio.usuario) === null || _b === void 0 ? void 0 : _b.wallet) === null || _c === void 0 ? void 0 : _c.balance) || 0) < balanceMinimoRequerido),
+                    hiddenPorCredito: (negocio.esParaCredito || negocio.modeloMonetizacion === 'CREDITO' || ((_a = negocio.categoria) === null || _a === void 0 ? void 0 : _a.esParaCredito)) && ((((_c = (_b = negocio.usuario) === null || _b === void 0 ? void 0 : _b.wallet) === null || _c === void 0 ? void 0 : _c.balance) || 0) < balanceMinimoRequerido) && !((_d = negocio.usuario) === null || _d === void 0 ? void 0 : _d.beneficiosGratuitos),
                     ratingPromedio: Number(negocio.ratingPromedio) || 0,
                     totalResenas: Number(negocio.totalResenas) || 0,
                     valorSuscripcion: Number(negocio.valorSuscripcion) || 0,
@@ -492,6 +502,8 @@ class NegocioService {
                     fechaFinSuscripcion: negocio.fechaFinSuscripcion,
                     pago_tarjeta_habilitado_admin: negocio.pago_tarjeta_habilitado_admin,
                     orden: negocio.orden, // ✅ PRIORIDAD
+                    ordenAleatorioCategorias: negocio.ordenAleatorioCategorias,
+                    ordenAleatorioProductos: negocio.ordenAleatorioProductos,
                     imagenUrl,
                     categoria: {
                         id: negocio.categoria.id,
@@ -629,6 +641,11 @@ class NegocioService {
                 negocio.tiempoProgramadoMax = data.tiempoProgramadoMax;
             if (data.costoLead !== undefined)
                 negocio.costoLead = Number(data.costoLead);
+            // Configuración visual aleatoria
+            if (data.ordenAleatorioCategorias !== undefined)
+                negocio.ordenAleatorioCategorias = data.ordenAleatorioCategorias === 'true' || data.ordenAleatorioCategorias === true;
+            if (data.ordenAleatorioProductos !== undefined)
+                negocio.ordenAleatorioProductos = data.ordenAleatorioProductos === 'true' || data.ordenAleatorioProductos === true;
             if (img) {
                 const validMimeTypes = [
                     "image/jpeg",
@@ -683,6 +700,8 @@ class NegocioService {
                 puedePublicarProductos: saved.puedePublicarProductos,
                 limitePublicacionesSuscripcion: saved.limitePublicacionesSuscripcion,
                 publicacionesRestantes: saved.publicacionesRestantes,
+                ordenAleatorioCategorias: saved.ordenAleatorioCategorias,
+                ordenAleatorioProductos: saved.ordenAleatorioProductos,
                 categoria: {
                     id: saved.categoria.id,
                     nombre: saved.categoria.nombre,

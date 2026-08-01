@@ -44,14 +44,14 @@ __decorate([
 ], Post.prototype, "imgpost", void 0);
 __decorate([
     (0, typeorm_1.Column)("varchar", {
-        length: 30,
+        length: 100,
         nullable: false,
     }),
     __metadata("design:type", String)
 ], Post.prototype, "title", void 0);
 __decorate([
     (0, typeorm_1.Column)("varchar", {
-        length: 30,
+        length: 100,
         nullable: false,
     }),
     __metadata("design:type", String)

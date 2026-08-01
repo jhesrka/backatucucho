@@ -34,6 +34,19 @@ class TipoProductoController {
                 .then((tipos) => res.status(200).json(tipos))
                 .catch((error) => this.handleError(error, res));
         };
+        // ======================== UPDATE ========================
+        this.updateTipoProducto = (req, res) => {
+            const { id } = req.params;
+            const { nombre } = req.body;
+            if (!id)
+                return res.status(400).json({ message: "Falta el id del tipo" });
+            if (!nombre)
+                return res.status(400).json({ message: "El nombre es obligatorio" });
+            this.tipoProductoService
+                .updateTipo(id, nombre)
+                .then((tipo) => res.status(200).json(tipo))
+                .catch((error) => this.handleError(error, res));
+        };
         // ======================== DELETE ========================
         this.deleteTipoProducto = (req, res) => {
             const { id } = req.params;

@@ -8,18 +8,17 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CategoriaService = void 0;
 const data_1 = require("../../data");
 const domain_1 = require("../../domain");
+const security_service_1 = require("./security.service");
 const upload_files_cloud_adapter_1 = require("../../config/upload-files-cloud-adapter");
 const config_1 = require("../../config");
-const global_settings_model_1 = require("../../data/postgres/models/global-settings.model");
-const bcryptjs_1 = __importDefault(require("bcryptjs"));
 class CategoriaService {
+    constructor() {
+        this.securityService = new security_service_1.SecurityService();
+    }
     // Crear categoría
     createCategoria(dto, iconFile, masterPin, coverFile) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -345,17 +344,7 @@ class CategoriaService {
     }
     verifyMasterPin(pin) {
         return __awaiter(this, void 0, void 0, function* () {
-            if (!pin)
-                throw domain_1.CustomError.unAuthorized("Master PIN requerido");
-            const settings = yield global_settings_model_1.GlobalSettings.findOne({ where: {} });
-            // Si no hay configuración o no hay PIN configurado, prohibir acción por seguridad
-            if (!settings || !settings.masterPin) {
-                throw domain_1.CustomError.internalServer("Error de seguridad: Master PIN no configurado en el sistema");
-            }
-            const isValid = bcryptjs_1.default.compareSync(pin, settings.masterPin);
-            if (!isValid) {
-                throw domain_1.CustomError.unAuthorized("Master PIN incorrecto");
-            }
+            yield this.securityService.verifyMasterPin(pin, { action: "Modificación Crítica de Categoría (Admin)" });
         });
     }
     seedBusinessCategories() {

@@ -95,6 +95,14 @@ class ProductoController {
                 .then((result) => res.status(200).json(result))
                 .catch((error) => this.handleError(error, res));
         };
+        this.deleteAllProductsByNegocio = (req, res) => {
+            const { negocioId } = req.params;
+            const { masterPin } = req.body;
+            this.productoService
+                .deleteAllProductsByNegocio(negocioId, masterPin)
+                .then((result) => res.status(200).json(result))
+                .catch((error) => this.handleError(error, res));
+        };
         // ======================== REORDENAR ========================
         this.reordenarProductos = (req, res) => {
             const { negocioId, ordenes } = req.body;

@@ -20,9 +20,9 @@ class UseradminRoutes {
         router.post("/setup", upload.none(), useradminController.setupFirstAdmin);
         router.post("/register", upload.none(), middlewares_1.AuthAdminMiddleware.protect, useradminController.createUseradmin);
         router.post("/validate-pin", middlewares_1.AuthAdminMiddleware.protect, useradminController.validateMasterPin);
-        router.post("/loginadmin", useradminController.loginAdmin);
-        router.post("/forgot-password", useradminController.forgotPassword);
-        router.post("/reset-password", useradminController.resetPassword);
+        router.post("/loginadmin", middlewares_1.authLimiter, useradminController.loginAdmin);
+        router.post("/forgot-password", middlewares_1.authLimiter, useradminController.forgotPassword);
+        router.post("/reset-password", middlewares_1.authLimiter, useradminController.resetPassword);
         router.patch("/update-password", middlewares_1.AuthAdminMiddleware.protect, useradminController.updatePassword);
         router.patch("/update-security-pin", middlewares_1.AuthAdminMiddleware.protect, useradminController.updateSecurityPin);
         // Buscar todos los usuarios administrativos

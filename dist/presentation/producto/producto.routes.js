@@ -5,6 +5,7 @@ const express_1 = require("express");
 const producto_service_1 = require("../services/producto.service");
 const producto_controller_1 = require("./producto.controller");
 const auth_middleware_1 = require("../../middlewares/auth.middleware");
+const auth_admin_middleware_1 = require("../../middlewares/auth-admin.middleware");
 const config_1 = require("../../config");
 class ProductoRoutes {
     static get routes() {
@@ -24,6 +25,8 @@ class ProductoRoutes {
         router.patch("/:id", auth_middleware_1.AuthMiddleware.protect, (0, config_1.uploadSingleFile)("imagen"), productoController.updateProducto);
         // Eliminar producto (sólo admin o dueño del negocio)
         router.delete("/:id", auth_middleware_1.AuthMiddleware.protect, productoController.deleteProducto);
+        // ADMIN: Eliminar todos los productos de un negocio
+        router.delete("/negocio/:negocioId/todos", auth_admin_middleware_1.AuthAdminMiddleware.protect, productoController.deleteAllProductsByNegocio);
         // Reordenar productos
         router.put("/reordenar", auth_middleware_1.AuthMiddleware.protect, productoController.reordenarProductos);
         return router;

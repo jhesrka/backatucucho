@@ -1,6 +1,6 @@
 // src/domain/dtos/negocios/UpdateNegocioDTO.ts
 import { regularExp } from "../../../config";
-import { StatusNegocio, ModeloMonetizacion } from "../../../data";
+import { StatusNegocio, ModeloMonetizacion, ModoOperacionNegocio } from "../../../data";
 
 export class UpdateNegocioDTO {
   private constructor(
@@ -31,7 +31,10 @@ export class UpdateNegocioDTO {
     public readonly tiempoProgramadoMax?: number | null,
     public readonly puedePublicarProductos?: boolean,
     public readonly limitePublicacionesSuscripcion?: number,
-    public readonly costoLead?: number
+    public readonly costoLead?: number,
+    public readonly modo_operacion?: ModoOperacionNegocio,
+    public readonly hora_apertura?: string | null,
+    public readonly hora_cierre?: string | null
   ) { }
 
   static create(obj: { [key: string]: any }): [string?, UpdateNegocioDTO?] {
@@ -62,7 +65,10 @@ export class UpdateNegocioDTO {
       tiempoProgramadoMax,
       puedePublicarProductos,
       limitePublicacionesSuscripcion,
-      costoLead
+      costoLead,
+      modo_operacion,
+      hora_apertura,
+      hora_cierre
     } = obj;
 
     // Validaciones opcionales
@@ -203,7 +209,10 @@ export class UpdateNegocioDTO {
         tiempoProgramadoMax !== undefined && tiempoProgramadoMax !== null ? Number(tiempoProgramadoMax) : (tiempoProgramadoMax === null ? null : undefined),
         puedePublicarProductos !== undefined ? !!puedePublicarProductos : undefined,
         limitePublicacionesSuscripcion !== undefined ? Number(limitePublicacionesSuscripcion) : undefined,
-        costoLead !== undefined ? Number(costoLead) : undefined
+        costoLead !== undefined ? Number(costoLead) : undefined,
+        modo_operacion,
+        hora_apertura !== undefined ? hora_apertura : undefined,
+        hora_cierre !== undefined ? hora_cierre : undefined
       ),
     ];
   }

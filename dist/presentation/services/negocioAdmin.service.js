@@ -10,6 +10,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.NegocioAdminService = void 0;
+const security_service_1 = require("./security.service");
 // src/services/admin/NegocioAdminService.ts
 const data_1 = require("../../data");
 const upload_files_cloud_adapter_1 = require("../../config/upload-files-cloud-adapter");
@@ -24,6 +25,7 @@ const notificationService = new NotificationService_1.NotificationService();
 class NegocioAdminService {
     constructor(subscriptionService) {
         this.subscriptionService = subscriptionService;
+        this.securityService = new security_service_1.SecurityService();
     }
     // ========================= READ =========================
     getNegociosAdmin(_a) {
@@ -691,8 +693,9 @@ class NegocioAdminService {
         });
     }
     // ===================== RESETEAR CALIFICACIONES =====================
-    resetRatingAdmin(id) {
+    resetRatingAdmin(id, masterPin) {
         return __awaiter(this, void 0, void 0, function* () {
+            yield this.securityService.verifyMasterPin(masterPin, { action: "Reseteo de Calificaciones (Admin)", details: `Negocio ID: ${id}` });
             const negocio = yield data_1.Negocio.findOne({ where: { id } });
             if (!negocio)
                 throw domain_1.CustomError.notFound("Negocio no encontrado");

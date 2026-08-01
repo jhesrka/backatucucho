@@ -85,12 +85,48 @@ class TipoProductoService {
             }
         });
     }
+    // ========================= UPDATE =========================
+    updateTipo(id, nombre) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (!nombre || nombre.trim().length < 3) {
+                throw domain_1.CustomError.badRequest("El nombre debe tener al menos 3 caracteres");
+            }
+            const tipo = yield data_1.TipoProducto.findOne({
+                where: { id },
+                relations: ["negocio"]
+            });
+            if (!tipo)
+                throw domain_1.CustomError.notFound("Tipo de producto no encontrado");
+            // Verificar que el nuevo nombre no exista ya en el mismo negocio
+            const existing = yield data_1.TipoProducto.findOneBy({
+                nombre: nombre.trim(),
+                negocio: { id: tipo.negocio.id }
+            });
+            if (existing && existing.id !== id) {
+                throw domain_1.CustomError.badRequest("Ya existe otra categoría con ese nombre");
+            }
+            tipo.nombre = nombre.trim();
+            try {
+                yield tipo.save();
+                return tipo;
+            }
+            catch (err) {
+                console.error(err);
+                throw domain_1.CustomError.internalServer("Error al actualizar la categoría");
+            }
+        });
+    }
     // ========================= DELETE =========================
     deleteTipo(id) {
         return __awaiter(this, void 0, void 0, function* () {
             const tipo = yield data_1.TipoProducto.findOneBy({ id });
             if (!tipo) {
                 throw domain_1.CustomError.notFound("Tipo de producto no encontrado");
+            }
+            // Verificar si la categoría tiene productos asignados
+            const count = yield data_1.Producto.count({ where: { tipo: { id } } });
+            if (count > 0) {
+                throw domain_1.CustomError.badRequest("No puedes borrar esta categoría porque tiene productos asignados. Primero cambia la categoría de esos productos o elimínalos.");
             }
             try {
                 yield data_1.TipoProducto.remove(tipo);

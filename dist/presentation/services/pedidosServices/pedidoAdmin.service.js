@@ -13,6 +13,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PedidoAdminService = void 0;
+const security_service_1 = require("../security.service");
 const data_1 = require("../../../data");
 const global_settings_model_1 = require("../../../data/postgres/models/global-settings.model");
 const socket_1 = require("../../../config/socket");
@@ -21,11 +22,13 @@ const typeorm_1 = require("typeorm");
 const moment_timezone_1 = __importDefault(require("moment-timezone"));
 const pedidoMoto_service_1 = require("./pedidoMoto.service");
 const NotificationService_1 = require("../NotificationService");
-const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const upload_files_cloud_adapter_1 = require("../../../config/upload-files-cloud-adapter");
 const env_1 = require("../../../config/env");
 const notificationService = new NotificationService_1.NotificationService();
 class PedidoAdminService {
+    constructor() {
+        this.securityService = new security_service_1.SecurityService();
+    }
     // ✅ 1. Obtener todos los pedidos con filtros
     getPedidosAdmin(_a) {
         return __awaiter(this, arguments, void 0, function* ({ estado, negocioId, motorizadoId, clienteId, desde, hasta, search, limit = 10, offset = 0, }) {
@@ -471,13 +474,7 @@ class PedidoAdminService {
     // ✅ Helper: Verificar PIN Maestro
     verifyMasterPin(pin) {
         return __awaiter(this, void 0, void 0, function* () {
-            const settings = yield global_settings_model_1.GlobalSettings.findOne({ where: {} });
-            if (!settings || !settings.masterPin)
-                return true; // Si no hay PIN configurado, permitir (o podrías bloquearlo)
-            const isMatch = yield bcryptjs_1.default.compare(pin, settings.masterPin);
-            if (!isMatch)
-                throw domain_1.CustomError.badRequest("PIN Maestro incorrecto");
-            return true;
+            yield this.securityService.verifyMasterPin(pin, { action: "Modificación de Pedidos (Admin)" });
         });
     }
     // ✅ 5. Eliminar pedidos finalizados antiguos (Configurable)

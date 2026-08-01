@@ -43,6 +43,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PostService = void 0;
+const security_service_1 = require("./security.service");
 // src/presentation/services/post.service.ts
 const typeorm_1 = require("typeorm");
 const config_1 = require("../../config");
@@ -61,6 +62,7 @@ class PostService {
         this.subscriptionService = subscriptionService;
         this.freePostTrackerService = freePostTrackerService;
         this.globalSettingsService = globalSettingsService;
+        this.securityService = new security_service_1.SecurityService();
     }
     //este ya esta funcionando
     findAllPostPaginated(page, limit, userId) {
@@ -202,7 +204,17 @@ class PostService {
                 const resolvedPosts = yield Promise.all(validPosts.map((post) => __awaiter(this, void 0, void 0, function* () {
                     var _a, _b, _c;
                     try {
-                        const [resolvedImgs, userImage, isLiked] = yield Promise.all([
+                        const { Producto } = yield Promise.resolve().then(() => __importStar(require("../../data")));
+                        let negocioId = null;
+                        let imagenNegocioKey = null;
+                        if (post.productoId) {
+                            const prod = yield Producto.findOne({ where: { id: post.productoId }, relations: ["negocio"] });
+                            if (prod && prod.negocio) {
+                                negocioId = prod.negocio.id;
+                                imagenNegocioKey = prod.negocio.imagenNegocio;
+                            }
+                        }
+                        const [resolvedImgs, userImage, isLiked, imagenNegocioUrl] = yield Promise.all([
                             Promise.all(((_a = post.imgpost) !== null && _a !== void 0 ? _a : []).map((img) => upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
                                 bucketName: config_1.envs.AWS_BUCKET_NAME,
                                 key: img,
@@ -218,8 +230,14 @@ class PostService {
                                     where: { post: { id: post.id }, user: { id: userId } },
                                 }).then((like) => !!like)
                                 : Promise.resolve(false),
+                            imagenNegocioKey
+                                ? upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
+                                    bucketName: config_1.envs.AWS_BUCKET_NAME,
+                                    key: imagenNegocioKey,
+                                })
+                                : Promise.resolve(null),
                         ]);
-                        return Object.assign(Object.assign({}, post), { imgpost: resolvedImgs, user: {
+                        return Object.assign(Object.assign({}, post), { imgpost: resolvedImgs, negocioId, imagenNegocio: imagenNegocioUrl, user: {
                                 id: post.user.id,
                                 name: post.user.name,
                                 surname: post.user.surname,
@@ -282,6 +300,13 @@ class PostService {
         return __awaiter(this, void 0, void 0, function* () {
             var _a, _b;
             try {
+                // 0. Validar longitud de campos
+                if (postData.title && postData.title.length > 100) {
+                    throw domain_1.CustomError.badRequest("El título no puede superar los 100 caracteres.");
+                }
+                if (postData.subtitle && postData.subtitle.length > 100) {
+                    throw domain_1.CustomError.badRequest("El subtítulo no puede superar los 100 caracteres.");
+                }
                 // 1. Validar usuario
                 const user = yield this.userService.findOneUser(postData.userId);
                 if (!user)
@@ -310,7 +335,7 @@ class PostService {
                 }
                 // 3. Manejar posts gratuitos (límite mensual y duración configurable)
                 let freePostTracker;
-                if (!postData.isPaid) {
+                if (!postData.isPaid && !postData.productoId) {
                     freePostTracker = yield this.freePostTrackerService.getOrCreateTracker(user.id);
                     if (freePostTracker.count >= settings.freePostsLimit) {
                         throw domain_1.CustomError.forbiden(`Límite de posts gratuitos alcanzado (${settings.freePostsLimit}/mes)`);

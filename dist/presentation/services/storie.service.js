@@ -16,6 +16,7 @@ const config_1 = require("../../config");
 const upload_files_cloud_adapter_1 = require("../../config/upload-files-cloud-adapter");
 const socket_1 = require("../../config/socket");
 const domain_1 = require("../../domain");
+const security_service_1 = require("./security.service");
 const typeorm_1 = require("typeorm");
 const uuid_1 = require("uuid");
 const content_moderation_1 = require("../../config/content-moderation");
@@ -26,6 +27,7 @@ class StorieService {
         this.walletService = walletService;
         this.priceService = priceService;
         this.globalSettingsService = globalSettingsService;
+        this.securityService = new security_service_1.SecurityService();
     }
     createStorie(storieData, file) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -42,7 +44,11 @@ class StorieService {
                 throw domain_1.CustomError.badRequest("Tu contenido contiene texto no permitido. Corrígelo para continuar.");
             }
             // 2. Calcular costo
-            const costo = this.priceService.calcularPrecio(storieData.dias, config.basePrice, config.extraDayPrice);
+            let costo = this.priceService.calcularPrecio(storieData.dias, config.basePrice, config.extraDayPrice);
+            // 🔥 APLICAR BENEFICIO VIP
+            if (user.beneficiosGratuitos) {
+                costo = 0;
+            }
             // 3. Pre-validar saldo de billetera (Para fallar rápido sin subir imagen)
             const wallet = yield data_1.Wallet.findOne({ where: { user: { id: user.id } } });
             if (!wallet) {

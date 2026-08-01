@@ -43,6 +43,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UserService = void 0;
+const security_service_1 = require("../security.service");
 const uuid_1 = require("uuid");
 // src/presentation/services/user.service.ts
 const data_1 = require("../../../data"); // Modelo de usuario
@@ -61,6 +62,7 @@ const date_utils_1 = require("../../../utils/date-utils");
 class UserService {
     constructor(emailService) {
         this.emailService = emailService;
+        this.securityService = new security_service_1.SecurityService();
         this.sendEmailValidationLink = (email) => __awaiter(this, void 0, void 0, function* () {
             const settings = yield require("../../../data").GlobalSettings.findOne({ where: {} });
             const appName = (settings === null || settings === void 0 ? void 0 : settings.appName) || "Atucucho Shop";
@@ -578,6 +580,7 @@ class UserService {
                     updated_at: userData.updated_at,
                     rol: userData.rol,
                     status: userData.status,
+                    beneficiosGratuitos: userData.beneficiosGratuitos,
                     acceptedTermsVersion: userData.acceptedTermsVersion,
                     acceptedTermsAt: userData.acceptedTermsAt,
                     acceptedPrivacyVersion: userData.acceptedPrivacyVersion,
@@ -794,6 +797,7 @@ class UserService {
                     status: userWithRelations.status,
                     created_at: userWithRelations.createdAt,
                     updated_at: userWithRelations.updated_at,
+                    beneficiosGratuitos: userWithRelations.beneficiosGratuitos,
                     posts,
                     stories,
                     acceptedTermsVersion: userWithRelations.acceptedTermsVersion,
@@ -1104,6 +1108,7 @@ class UserService {
                     updated_at: user.updated_at,
                     deletedAt: user.deletedAt,
                     puedeCrearNegocioCredito: user.puedeCrearNegocioCredito,
+                    beneficiosGratuitos: user.beneficiosGratuitos,
                     // Session data
                     isLoggedIn: user.isLoggedIn,
                     lastLoginIP: user.lastLoginIP,
@@ -1786,6 +1791,30 @@ class UserService {
                     id: user.id,
                     email: user.email,
                     puedeCrearNegocioCredito: user.puedeCrearNegocioCredito
+                }
+            };
+        });
+    }
+    toggleBeneficiosGratuitos(userId, beneficiosGratuitos, masterPin) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (!masterPin)
+                throw domain_1.CustomError.unAuthorized("PIN maestro es requerido para otorgar beneficios VIP.");
+            const settings = yield require("../../../data").GlobalSettings.findOne({ where: {} });
+            if (!settings || !settings.masterPin)
+                throw domain_1.CustomError.internalServer("El PIN maestro no está configurado.");
+            const isPinValid = require("../../../config").encriptAdapter.compare(masterPin, settings.masterPin);
+            if (!isPinValid)
+                throw domain_1.CustomError.unAuthorized("PIN maestro incorrecto.");
+            const user = yield this.findOneUser(userId);
+            user.beneficiosGratuitos = beneficiosGratuitos;
+            yield user.save();
+            return {
+                success: true,
+                message: `Beneficios VIP (gratuitos) ${beneficiosGratuitos ? 'activados' : 'desactivados'} para el usuario.`,
+                user: {
+                    id: user.id,
+                    email: user.email,
+                    beneficiosGratuitos: user.beneficiosGratuitos
                 }
             };
         });

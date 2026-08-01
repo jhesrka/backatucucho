@@ -36,6 +36,11 @@ export enum EstadoNegocio {
   CERRADO = "CERRADO",
 }
 
+export enum ModoOperacionNegocio {
+  AUTO = "AUTO",
+  MANUAL = "MANUAL",
+}
+
 @Entity()
 export class Negocio extends BaseEntity {
   @PrimaryGeneratedColumn("uuid")
@@ -73,6 +78,19 @@ export class Negocio extends BaseEntity {
     default: EstadoNegocio.CERRADO,
   })
   estadoNegocio: EstadoNegocio;
+
+  @Column({
+    type: "enum",
+    enum: ModoOperacionNegocio,
+    default: ModoOperacionNegocio.MANUAL,
+  })
+  modo_operacion: ModoOperacionNegocio;
+
+  @Column("time", { nullable: true })
+  hora_apertura: string | null;
+
+  @Column("time", { nullable: true })
+  hora_cierre: string | null;
 
   @Column({ type: "decimal", precision: 10, scale: 2, default: 0 })
   valorSuscripcion: number;

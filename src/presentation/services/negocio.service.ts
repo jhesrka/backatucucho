@@ -4,6 +4,7 @@ import {
   ModeloMonetizacion,
   Negocio,
   StatusNegocio,
+  ModoOperacionNegocio,
   User,
   Status,
   SubcategoriaNegocio,
@@ -14,7 +15,7 @@ import {
 } from "../../data";
 import { NotificationService } from "./NotificationService";
 import { Request, Response } from "express";
-// trigger restart
+// trigger restart 2
 import { CustomError } from "../../domain";
 import { CreateNegocioDTO } from "../../domain/dtos/negocios/CreateNegocioDTO";
 import { envs, regularExp } from "../../config";
@@ -139,6 +140,9 @@ export class NegocioService {
     negocio.permiteProductosProgramados = dto.permiteProductosProgramados;
     negocio.tiempoProgramadoMin = dto.tiempoProgramadoMin ?? null;
     negocio.tiempoProgramadoMax = dto.tiempoProgramadoMax ?? null;
+    negocio.modo_operacion = dto.modo_operacion ?? ModoOperacionNegocio.MANUAL;
+    negocio.hora_apertura = dto.hora_apertura ?? null;
+    negocio.hora_cierre = dto.hora_cierre ?? null;
     negocio.statusNegocio = StatusNegocio.PENDIENTE;
     
     // Beneficio VIP: si el usuario tiene beneficios gratuitos, el lead nace en $0
@@ -176,6 +180,9 @@ export class NegocioService {
         permiteProductosProgramados: saved.permiteProductosProgramados,
         tiempoProgramadoMin: saved.tiempoProgramadoMin,
         tiempoProgramadoMax: saved.tiempoProgramadoMax,
+        modo_operacion: saved.modo_operacion,
+        hora_apertura: saved.hora_apertura,
+        hora_cierre: saved.hora_cierre,
         puedePublicarProductos: saved.puedePublicarProductos,
         limitePublicacionesSuscripcion: saved.limitePublicacionesSuscripcion,
         publicacionesRestantes: saved.publicacionesRestantes,
@@ -313,6 +320,9 @@ export class NegocioService {
       negocio.estadoNegocio === EstadoNegocio.ABIERTO
         ? EstadoNegocio.CERRADO
         : EstadoNegocio.ABIERTO;
+        
+    // Al usar el switch manual, se fuerza el modo de operación a MANUAL
+    negocio.modo_operacion = ModoOperacionNegocio.MANUAL;
 
     await negocio.save();
 
@@ -432,6 +442,9 @@ export class NegocioService {
             permiteProductosProgramados: negocio.permiteProductosProgramados,
             tiempoProgramadoMin: negocio.tiempoProgramadoMin,
             tiempoProgramadoMax: negocio.tiempoProgramadoMax,
+            modo_operacion: negocio.modo_operacion,
+            hora_apertura: negocio.hora_apertura,
+            hora_cierre: negocio.hora_cierre,
           };
         })
       );
@@ -511,6 +524,9 @@ export class NegocioService {
           permiteProductosProgramados: negocio.permiteProductosProgramados,
           tiempoProgramadoMin: negocio.tiempoProgramadoMin,
           tiempoProgramadoMax: negocio.tiempoProgramadoMax,
+          modo_operacion: negocio.modo_operacion,
+          hora_apertura: negocio.hora_apertura,
+          hora_cierre: negocio.hora_cierre,
           puedePublicarProductos: negocio.puedePublicarProductos,
           limitePublicacionesSuscripcion: negocio.limitePublicacionesSuscripcion,
           publicacionesRestantes: negocio.publicacionesRestantes,
@@ -679,6 +695,10 @@ export class NegocioService {
     if (data.tiempoProgramadoMax !== undefined) negocio.tiempoProgramadoMax = data.tiempoProgramadoMax;
     if (data.costoLead !== undefined) negocio.costoLead = Number(data.costoLead);
     
+    if ((data as any).modo_operacion !== undefined) negocio.modo_operacion = (data as any).modo_operacion;
+    if ((data as any).hora_apertura !== undefined) negocio.hora_apertura = (data as any).hora_apertura;
+    if ((data as any).hora_cierre !== undefined) negocio.hora_cierre = (data as any).hora_cierre;
+    
     // Configuración visual aleatoria
     if ((data as any).ordenAleatorioCategorias !== undefined) negocio.ordenAleatorioCategorias = (data as any).ordenAleatorioCategorias === 'true' || (data as any).ordenAleatorioCategorias === true;
     if ((data as any).ordenAleatorioProductos !== undefined) negocio.ordenAleatorioProductos = (data as any).ordenAleatorioProductos === 'true' || (data as any).ordenAleatorioProductos === true;
@@ -707,6 +727,36 @@ export class NegocioService {
         body: img.buffer,
         contentType: img.mimetype,
       });
+    }
+
+    // 🔥 NUEVO: EVALUACIÓN INMEDIATA DEL ESTADO EN MODO AUTO 🔥
+    if (negocio.modo_operacion === ModoOperacionNegocio.AUTO && negocio.hora_apertura && negocio.hora_cierre) {
+      const ecuadorTimeStr = new Date().toLocaleString("en-US", { timeZone: 'America/Guayaquil' });
+      const ecuadorTime = new Date(ecuadorTimeStr);
+      const currentTimeStr = `${String(ecuadorTime.getHours()).padStart(2, '0')}:${String(ecuadorTime.getMinutes()).padStart(2, '0')}`;
+
+      let shouldBeOpen = false;
+      if (negocio.hora_apertura < negocio.hora_cierre) {
+        shouldBeOpen = currentTimeStr >= negocio.hora_apertura && currentTimeStr < negocio.hora_cierre;
+      } else {
+        shouldBeOpen = currentTimeStr >= negocio.hora_apertura || currentTimeStr < negocio.hora_cierre;
+      }
+
+      const prevEstado = negocio.estadoNegocio;
+      negocio.estadoNegocio = shouldBeOpen ? EstadoNegocio.ABIERTO : EstadoNegocio.CERRADO;
+      
+      // Notificar por sockets si el estado cambió
+      if (prevEstado !== negocio.estadoNegocio) {
+        try {
+          const io = getIO();
+          io.emit("businessStatusChanged", {
+            businessId: negocio.id,
+            newStatus: negocio.estadoNegocio,
+          });
+        } catch (e) {
+          console.error("No se pudo emitir evento socket de estado", e);
+        }
+      }
     }
 
     const saved = await negocio.save();
@@ -739,6 +789,9 @@ export class NegocioService {
       permiteProductosProgramados: saved.permiteProductosProgramados,
       tiempoProgramadoMin: saved.tiempoProgramadoMin,
       tiempoProgramadoMax: saved.tiempoProgramadoMax,
+      modo_operacion: saved.modo_operacion,
+      hora_apertura: saved.hora_apertura,
+      hora_cierre: saved.hora_cierre,
       puedePublicarProductos: saved.puedePublicarProductos,
       limitePublicacionesSuscripcion: saved.limitePublicacionesSuscripcion,
       publicacionesRestantes: saved.publicacionesRestantes,

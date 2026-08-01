@@ -21,8 +21,8 @@ const dotenv_1 = __importDefault(require("dotenv"));
 const email_service_1 = require("../../services/email.service");
 const config_1 = require("../../../config");
 const auth_middleware_1 = require("../../../middlewares/auth.middleware");
-const data_1 = require("../../../data");
 const middlewares_1 = require("../../../middlewares");
+const data_1 = require("../../../data");
 dotenv_1.default.config();
 class UserRoutes {
     static get routes() {
@@ -142,12 +142,12 @@ class UserRoutes {
         }));
         //USUARIO
         //PUBLICO
-        router.post("/login", userController.login);
-        router.post("/google-login", userController.loginGoogle);
-        router.post("/register", (0, config_1.uploadSingleFile)("photoperfil"), userController.createUser);
+        router.post("/login", middlewares_1.authLimiter, userController.login);
+        router.post("/google-login", middlewares_1.authLimiter, userController.loginGoogle);
+        router.post("/register", middlewares_1.authLimiter, (0, config_1.uploadSingleFile)("photoperfil"), userController.createUser);
         router.get("/validate-email/:token", userController.validateAccount);
-        router.post("/forgot-password", userController.forgotPassword);
-        router.post("/reset-password", userController.resetPassword);
+        router.post("/forgot-password", middlewares_1.authLimiter, userController.forgotPassword);
+        router.post("/reset-password", middlewares_1.authLimiter, userController.resetPassword);
         router.post("/change-password", auth_middleware_1.AuthMiddleware.protect, userController.changePassword);
         //PROTEGIDO
         //ADMINISTRADOR
@@ -184,6 +184,8 @@ class UserRoutes {
         router.delete("/admin/purge-hard/:id", middlewares_1.AuthAdminMiddleware.protect, userController.purgeUserAdminAction);
         // Dar permiso de negocio a crédito (Admin)
         router.patch("/admin/toggle-negocio-credito/:id", middlewares_1.AuthAdminMiddleware.protect, userController.toggleNegocioCredito);
+        // Dar beneficios VIP/Gratuitos (Admin)
+        router.patch("/admin/toggle-beneficios-gratuitos/:id", middlewares_1.AuthAdminMiddleware.protect, userController.toggleBeneficiosGratuitos);
         return router;
     }
 }

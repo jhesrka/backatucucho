@@ -47,18 +47,19 @@ const data_1 = require("../../../data");
 const transactionType_model_1 = require("../../../data/postgres/models/transactionType.model");
 const typeorm_1 = require("typeorm");
 const domain_1 = require("../../../domain");
+const security_service_1 = require("../security.service");
 const config_1 = require("../../../config");
 class WalletService {
+    constructor() {
+        this.securityService = new security_service_1.SecurityService();
+    }
     /**
      * 🔐 Validar Master PIN (reutilizado de SubscriptionService)
      */
-    validateMasterPin(pin) {
+    validateMasterPin(pin, action) {
         return __awaiter(this, void 0, void 0, function* () {
-            const settings = yield data_1.GlobalSettings.findOne({ where: {} });
-            if (!settings || !settings.masterPin) {
-                throw domain_1.CustomError.badRequest("PIN maestro no configurado en el sistema");
-            }
-            return config_1.encriptAdapter.compare(pin, settings.masterPin);
+            yield this.securityService.verifyMasterPin(pin, { action });
+            return true;
         });
     }
     /**
@@ -138,7 +139,7 @@ class WalletService {
     adjustBalance(walletId, amount, masterPin, adminId, observation) {
         return __awaiter(this, void 0, void 0, function* () {
             // Validar PIN maestro
-            const isValidPin = yield this.validateMasterPin(masterPin);
+            const isValidPin = yield this.validateMasterPin(masterPin, "Ajuste Manual de Balance de Billetera");
             if (!isValidPin) {
                 throw domain_1.CustomError.unAuthorized("PIN maestro incorrecto");
             }
@@ -187,7 +188,7 @@ class WalletService {
     toggleWalletStatus(walletId, masterPin, adminId) {
         return __awaiter(this, void 0, void 0, function* () {
             // Validar PIN maestro
-            const isValidPin = yield this.validateMasterPin(masterPin);
+            const isValidPin = yield this.validateMasterPin(masterPin, "Borrado Definitivo de Transacciones");
             if (!isValidPin) {
                 throw domain_1.CustomError.unAuthorized("PIN maestro incorrecto");
             }

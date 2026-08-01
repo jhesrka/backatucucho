@@ -13,12 +13,16 @@ exports.ProductoServiceAdmin = void 0;
 const data_1 = require("../../data");
 const upload_files_cloud_adapter_1 = require("../../config/upload-files-cloud-adapter");
 const config_1 = require("../../config");
+const security_service_1 = require("./security.service");
 const typeorm_1 = require("typeorm");
 const domain_1 = require("../../domain");
 const socket_1 = require("../../config/socket");
 const NotificationService_1 = require("./NotificationService");
 const notificationService = new NotificationService_1.NotificationService();
 class ProductoServiceAdmin {
+    constructor() {
+        this.securityService = new security_service_1.SecurityService();
+    }
     getProductosAdmin(_a) {
         return __awaiter(this, arguments, void 0, function* ({ limit = 5, offset = 0, status, search, negocioId, tipoId, }) {
             const where = {};
@@ -71,6 +75,7 @@ class ProductoServiceAdmin {
                     comision_producto: Number(p.precio_venta) - Number(p.precio_app || p.precio_venta),
                     disponible: p.disponible,
                     statusProducto: p.statusProducto,
+                    tipoProducto: p.tipoProducto,
                     created_at: p.created_at,
                     tipo: p.tipo ? { id: p.tipo.id, nombre: p.tipo.nombre } : null,
                     negocio: p.negocio
@@ -184,17 +189,7 @@ class ProductoServiceAdmin {
     // ADMIN: Purge definitive
     deleteProductoAdmin(id, pin) {
         return __awaiter(this, void 0, void 0, function* () {
-            if (!pin)
-                throw domain_1.CustomError.badRequest("El PIN maestro es obligatorio");
-            // 1. Obtener validación de PIN desde settings
-            const settings = yield data_1.GlobalSettings.findOne({ where: {} });
-            if (!(settings === null || settings === void 0 ? void 0 : settings.masterPin)) {
-                throw domain_1.CustomError.internalServer("El PIN maestro no está configurado en el sistema.");
-            }
-            const isPinValid = config_1.encriptAdapter.compare(pin, settings.masterPin);
-            if (!isPinValid) {
-                throw domain_1.CustomError.badRequest("El PIN maestro ingresado es incorrecto.");
-            }
+            yield this.securityService.verifyMasterPin(pin, { action: "Eliminación de Producto (Admin)", details: `Producto ID: ${id}` });
             const producto = yield data_1.Producto.findOne({ where: { id }, relations: ["negocio"] });
             if (!producto)
                 throw domain_1.CustomError.notFound("Producto no encontrado");
@@ -223,16 +218,7 @@ class ProductoServiceAdmin {
     bulkCreateProductosAdmin(negocioId, productosData, pin) {
         return __awaiter(this, void 0, void 0, function* () {
             var _a;
-            if (!pin)
-                throw domain_1.CustomError.badRequest("El PIN maestro es obligatorio");
-            // 1. Validar PIN
-            const settings = yield data_1.GlobalSettings.findOne({ where: {} });
-            if (!(settings === null || settings === void 0 ? void 0 : settings.masterPin)) {
-                throw domain_1.CustomError.internalServer("El PIN maestro no está configurado.");
-            }
-            const isPinValid = config_1.encriptAdapter.compare(pin, settings.masterPin);
-            if (!isPinValid)
-                throw domain_1.CustomError.badRequest("PIN maestro incorrecto.");
+            yield this.securityService.verifyMasterPin(pin, { action: "Carga Masiva de Productos (Admin)", details: `Negocio ID: ${negocioId}` });
             // 2. Validar Negocio
             const negocio = yield data_1.Negocio.findOneBy({ id: negocioId });
             if (!negocio)

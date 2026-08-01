@@ -277,6 +277,7 @@ class PostgresDatabase {
         ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "warnings_count" INT DEFAULT 0;
         ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "suspension_until" TIMESTAMP DEFAULT NULL;
         ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "isLoggedIn" BOOLEAN DEFAULT false;
+        ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "beneficiosGratuitos" BOOLEAN DEFAULT false;
         CREATE TABLE IF NOT EXISTS "moderation_log" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "adminId" uuid NOT NULL, "action" varchar NOT NULL, "comment" text NOT NULL, "createdAt" TIMESTAMP NOT NULL DEFAULT now(), "userId" uuid, "postId" uuid, "storieId" uuid, CONSTRAINT "PK_moderation_log" PRIMARY KEY ("id"));
       `);
                 yield runMigrationStep("Step 12: Wallet and Enum Fixes", () => __awaiter(this, void 0, void 0, function* () {

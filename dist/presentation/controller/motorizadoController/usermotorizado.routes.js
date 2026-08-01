@@ -18,7 +18,7 @@ class UserMotorizadoRoutes {
         const motorizadoController = new usermotorizado_controller_1.MotorizadoController(motorizadoService);
         const upload = (0, multer_1.default)();
         // Login público
-        router.post("/login", motorizadoController.loginMotorizado);
+        router.post("/login", middlewares_1.authLimiter, motorizadoController.loginMotorizado);
         router.post("/logout", middlewares_1.AuthMotorizadoMiddleware.protect, motorizadoController.logoutMotorizado);
         router.post("/", upload.none(), auth_admin_middleware_1.AuthAdminMiddleware.protect, motorizadoController.createMotorizado);
         router.post("/forgot-password", motorizadoController.forgotPassword);
