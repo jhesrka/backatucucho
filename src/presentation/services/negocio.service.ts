@@ -58,7 +58,9 @@ export class NegocioService {
 
     let modelo = dto.modeloMonetizacion;
 
-    if (categoria.modeloBloqueado && categoria.modeloMonetizacionDefault) {
+    if (dto.esParaCredito) {
+      modelo = ModeloMonetizacion.CREDITO;
+    } else if (categoria.modeloBloqueado && categoria.modeloMonetizacionDefault) {
       modelo = categoria.modeloMonetizacionDefault as ModeloMonetizacion;
     } else if (categoria.soloComision && dto.modeloMonetizacion !== ModeloMonetizacion.COMISION_SUSCRIPCION) {
       throw CustomError.badRequest(
@@ -598,7 +600,9 @@ export class NegocioService {
       if (!categoria) throw CustomError.notFound("Categoría no encontrada");
       negocio.categoria = categoria;
 
-      if (categoria.modeloBloqueado && categoria.modeloMonetizacionDefault) {
+      if (negocio.esParaCredito) {
+        negocio.modeloMonetizacion = ModeloMonetizacion.CREDITO;
+      } else if (categoria.modeloBloqueado && categoria.modeloMonetizacionDefault) {
         negocio.modeloMonetizacion = categoria.modeloMonetizacionDefault as ModeloMonetizacion;
       } else if (
         data.modeloMonetizacion &&
@@ -615,21 +619,25 @@ export class NegocioService {
     }
 
     if (data.modeloMonetizacion && !data.categoriaId) {
-      if (negocio.categoria.modeloBloqueado) {
-        // Si está bloqueado y tratamos de cambiarlo sin cambiar categoría, rechazamos o ignoramos.
-        // Mejor rechazar para feedback claro.
-        throw CustomError.badRequest("La categoría actual bloquea el cambio de modelo de monetización");
-      }
+      if (negocio.esParaCredito) {
+        negocio.modeloMonetizacion = ModeloMonetizacion.CREDITO;
+      } else {
+        if (negocio.categoria.modeloBloqueado) {
+          // Si está bloqueado y tratamos de cambiarlo sin cambiar categoría, rechazamos o ignoramos.
+          // Mejor rechazar para feedback claro.
+          throw CustomError.badRequest("La categoría actual bloquea el cambio de modelo de monetización");
+        }
 
-      if (
-        negocio.categoria.soloComision &&
-        data.modeloMonetizacion !== ModeloMonetizacion.COMISION_SUSCRIPCION
-      ) {
-        throw CustomError.badRequest(
-          "Esta categoría solo permite el modelo COMISION + SUSCRIPCION"
-        );
+        if (
+          negocio.categoria.soloComision &&
+          data.modeloMonetizacion !== ModeloMonetizacion.COMISION_SUSCRIPCION
+        ) {
+          throw CustomError.badRequest(
+            "Esta categoría solo permite el modelo COMISION + SUSCRIPCION"
+          );
+        }
+        negocio.modeloMonetizacion = data.modeloMonetizacion;
       }
-      negocio.modeloMonetizacion = data.modeloMonetizacion;
     }
 
     // ⬇️ ⬇️ NUEVO: lat/long opcionales en update

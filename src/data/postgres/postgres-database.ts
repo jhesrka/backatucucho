@@ -46,6 +46,7 @@ import { SubcategoriaServicio } from "./models/SubcategoriaServicio";
 import { Servicio } from "./models/Servicio";
 import { AgeVerificationQuestion } from "./models/AgeVerificationQuestion";
 import { PreguntaFormularioCredito } from "./models/PreguntaFormularioCredito";
+import { LeadCredito } from "./models/LeadCredito";
 interface Options {
   host: string;
   port: number;
@@ -110,7 +111,8 @@ export class PostgresDatabase {
         SubcategoriaServicio,
         Servicio,
         AgeVerificationQuestion,
-        PreguntaFormularioCredito
+        PreguntaFormularioCredito,
+        LeadCredito
       ],
       synchronize: false, // PRODUCCIÓN: SIEMPRE FALSE. Usar migraciones.
       ssl: {

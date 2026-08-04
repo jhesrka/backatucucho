@@ -1,5 +1,9 @@
 import { Entity, PrimaryGeneratedColumn, Column, BaseEntity, CreateDateColumn, UpdateDateColumn } from "typeorm";
-import { Status } from "./user.model";
+export enum CategoriaStatus {
+  ACTIVE = "ACTIVE",
+  INACTIVE = "INACTIVE",
+  DELETED = "DELETED",
+}
 
 @Entity("categoria_servicio")
 export class CategoriaServicio extends BaseEntity {
@@ -12,8 +16,8 @@ export class CategoriaServicio extends BaseEntity {
   @Column({ type: "varchar", length: 50, nullable: true })
   icono: string;
 
-  @Column({ type: "enum", enum: Status, default: Status.ACTIVE })
-  estado: Status;
+  @Column({ type: "enum", enum: CategoriaStatus, default: CategoriaStatus.ACTIVE })
+  estado: CategoriaStatus;
 
   @CreateDateColumn({ type: "timestamptz" })
   createdAt: Date;

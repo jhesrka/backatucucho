@@ -3,6 +3,9 @@ import { Negocio } from "../../data/postgres/models/Negocio";
 import { Wallet } from "../../data/postgres/models/wallet.model";
 import { Transaction, TransactionReason, TransactionOrigin } from "../../data/postgres/models/transactionType.model";
 import { GlobalSettings } from "../../data/postgres/models/global-settings.model";
+import { LeadCredito } from "../../data/postgres/models/LeadCredito";
+import { v4 as uuidv4 } from "uuid";
+import { User } from "../../data/postgres/models/user.model";
 import { DataSource } from "typeorm";
 import { NotificationService } from "./NotificationService";
 
@@ -42,7 +45,13 @@ export class FormularioCreditoService {
     return nuevasPreguntas;
   }
 
-  async cobrarLeadAlDueño(negocioId: string) {
+  async procesarLeadCredito(negocioId: string, usuarioId: string, respuestas: any, preguntas: any, idempotencyKey: string) {
+    // 0. Check idempotency
+    const existingLead = await LeadCredito.findOne({ where: { idempotencyKey } });
+    if (existingLead) {
+      return { success: true, message: "Lead ya procesado anteriormente", leadId: existingLead.id };
+    }
+
     // 1. Encontrar el dueño del negocio
     const negocio = await Negocio.findOne({
       where: { id: negocioId },
@@ -51,6 +60,11 @@ export class FormularioCreditoService {
 
     if (!negocio || !negocio.usuario) {
       throw new Error("Negocio o dueño no encontrado");
+    }
+
+    const usuarioCliente = await User.findOne({ where: { id: usuarioId } });
+    if (!usuarioCliente) {
+      throw new Error("Cliente no encontrado");
     }
 
     const dueñoId = negocio.usuario.id;
@@ -92,11 +106,15 @@ export class FormularioCreditoService {
     transaction.previousBalance = previousBalance;
     transaction.resultingBalance = resultingBalance;
     
+    // Generar un ID para el LeadCredito para poder usarlo en la referencia
+    const leadId = uuidv4();
+    const shortCode = `LEAD-${leadId.split('-')[0].toUpperCase()}`;
+
     transaction.observation = negocio.usuario.beneficiosGratuitos 
-      ? "Lead de formulario de crédito (Beneficio VIP Gratis)"
-      : "Cobro por lead de formulario de crédito";
+      ? `Lead de formulario de crédito (Beneficio VIP Gratis) - Cód: ${shortCode}`
+      : `Cobro por lead de formulario de crédito - Cód: ${shortCode}`;
       
-    transaction.reference = negocioId;
+    transaction.reference = shortCode;
     await transaction.save();
 
     const balanceMinimoRequerido = precioLead * 3;
@@ -117,6 +135,43 @@ export class FormularioCreditoService {
       });
     }
 
-    return { success: true, message: "Lead cobrado exitosamente", nuevoSaldo: resultingBalance };
+    // 5. Guardar el LeadCredito en la base de datos
+    const lead = new LeadCredito();
+    lead.id = leadId;
+    lead.negocio = negocio;
+    lead.usuario = usuarioCliente;
+    lead.respuestas = respuestas;
+    lead.preguntas = preguntas;
+    lead.idempotencyKey = idempotencyKey;
+    await lead.save();
+
+    return { success: true, message: "Lead procesado exitosamente", leadId: lead.id, nuevoSaldo: resultingBalance };
+  }
+
+  async obtenerLeads(negocioId: string) {
+    const leads = await LeadCredito.find({
+      where: { negocio: { id: negocioId } },
+      relations: ["usuario"],
+      order: { createdAt: "DESC" },
+    });
+    return leads;
+  }
+
+  async obtenerLeadPorCodigoAuditoria(codigo: string) {
+    const lead = await LeadCredito.createQueryBuilder("lead")
+      .leftJoinAndSelect("lead.usuario", "usuario")
+      .leftJoinAndSelect("lead.negocio", "negocio")
+      .where("CAST(lead.id AS TEXT) ILIKE :codigo", { codigo: `${codigo.replace('LEAD-', '')}%` })
+      .getOne();
+
+    if (!lead) return null;
+
+    const transaction = await Transaction.findOne({ where: { reference: codigo } });
+
+    return {
+      ...lead,
+      transactionAmount: transaction?.amount || 0,
+      transactionDate: transaction?.created_at || lead.createdAt,
+    };
   }
 }

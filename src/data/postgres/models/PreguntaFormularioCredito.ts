@@ -9,7 +9,7 @@ import {
 } from "typeorm";
 import { Negocio } from "./Negocio";
 
-export type TipoRespuestaCredito = "TEXTO" | "NUMERO" | "OPCION_MULTIPLE" | "SELECCION_MULTIPLE" | "FECHA" | "ARCHIVO";
+export type TipoRespuestaCredito = "TEXTO" | "NUMERO" | "OPCION_MULTIPLE" | "SELECCION_MULTIPLE" | "FECHA" | "ARCHIVO" | "HORA" | "SI_NO" | "TELEFONO" | "EMAIL" | "UBICACION";
 
 @Entity()
 export class PreguntaFormularioCredito extends BaseEntity {

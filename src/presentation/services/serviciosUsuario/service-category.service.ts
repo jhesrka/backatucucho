@@ -1,5 +1,5 @@
 import { CustomError } from "../../../domain";
-import { CategoriaServicio, SubcategoriaServicio, Servicio, StatusServicio } from "../../../data/postgres/models/index";
+import { CategoriaServicio, SubcategoriaServicio, Servicio, StatusServicio, CategoriaStatus, SubcategoriaStatus } from "../../../data/postgres/models/index";
 import { Status } from "../../../data/postgres/models/user.model";
 import { MoreThan } from "typeorm";
 
@@ -17,7 +17,7 @@ export class ServiceCategoryService {
       // Buscar categorías que tengan servicios aprobados y vigentes
       const categorias = await CategoriaServicio.createQueryBuilder("cat")
         .innerJoin("servicio", "srv", "srv.categoriaId = cat.id")
-        .where("cat.estado = :status", { status: Status.ACTIVE })
+        .where("cat.estado = :status", { status: CategoriaStatus.ACTIVE })
         .andWhere("srv.statusServicio = :srvStatus", { srvStatus: StatusServicio.APROBADO })
         .andWhere("srv.fechaFinSuscripcion > :now", { now })
         .select(["cat.id", "cat.nombre", "cat.icono"])
@@ -39,7 +39,7 @@ export class ServiceCategoryService {
       const subcategorias = await SubcategoriaServicio.createQueryBuilder("subcat")
         .innerJoin("servicio", "srv", "srv.subcategoriaId = subcat.id")
         .where("subcat.categoriaId = :categoryId", { categoryId })
-        .andWhere("subcat.estado = :status", { status: Status.ACTIVE })
+        .andWhere("subcat.estado = :status", { status: SubcategoriaStatus.ACTIVE })
         .andWhere("srv.statusServicio = :srvStatus", { srvStatus: StatusServicio.APROBADO })
         .andWhere("srv.fechaFinSuscripcion > :now", { now })
         .select(["subcat.id", "subcat.nombre", "subcat.icono"])
@@ -56,13 +56,13 @@ export class ServiceCategoryService {
   async getActiveCategoriesForCreation() {
     try {
       const categorias = await CategoriaServicio.find({
-        where: { estado: Status.ACTIVE },
+        where: { estado: CategoriaStatus.ACTIVE },
         order: { nombre: "ASC" }
       });
       
       const categoriasConSub = await Promise.all(categorias.map(async (cat) => {
         const subcategorias = await SubcategoriaServicio.find({
-            where: { categoria: { id: cat.id }, estado: Status.ACTIVE },
+            where: { categoria: { id: cat.id }, estado: SubcategoriaStatus.ACTIVE },
             order: { nombre: "ASC" }
         });
         return {
@@ -116,7 +116,7 @@ export class ServiceCategoryService {
     }
   }
 
-  async updateCategory(id: string, nombre?: string, estado?: Status) {
+  async updateCategory(id: string, nombre?: string, estado?: CategoriaStatus) {
     try {
       const category = await CategoriaServicio.findOne({ where: { id } });
       if (!category) throw CustomError.notFound("Categoría no encontrada");
@@ -150,7 +150,7 @@ export class ServiceCategoryService {
     }
   }
 
-  async updateSubcategory(id: string, nombre?: string, estado?: Status, icono?: string) {
+  async updateSubcategory(id: string, nombre?: string, estado?: SubcategoriaStatus, icono?: string) {
     try {
       const subcategory = await SubcategoriaServicio.findOne({ where: { id } });
       if (!subcategory) throw CustomError.notFound("Subcategoría no encontrada");

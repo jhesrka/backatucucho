@@ -29,12 +29,52 @@ export class FormularioCreditoController {
 
   pagarLeadCredito = async (req: Request, res: Response) => {
     try {
-      const { negocioId } = req.body; // El negocio dueño del lead
-      // const userId = req.body.sessionUser.id; // Podría usarse para saber quién lo llenó, o nada si solo es cobrar al dueño
-      const result = await this.formularioCreditoService.cobrarLeadAlDueño(negocioId);
+      const { negocioId, respuestas, preguntas, idempotencyKey } = req.body; 
+      // Obtenemos el userId desde el sessionUser que inyecta el middleware AuthMiddleware
+      const userId = req.body.sessionUser?.id; 
+
+      if (!userId) {
+        return res.status(401).json({ error: "No autorizado" });
+      }
+
+      if (!idempotencyKey) {
+        return res.status(400).json({ error: "idempotencyKey es requerido" });
+      }
+
+      const result = await this.formularioCreditoService.procesarLeadCredito(
+        negocioId, 
+        userId, 
+        respuestas, 
+        preguntas, 
+        idempotencyKey
+      );
+      
       return res.status(200).json(result);
     } catch (error: any) {
       return res.status(400).json({ error: error.message });
+    }
+  };
+
+  obtenerLeadsPorNegocio = async (req: Request, res: Response) => {
+    try {
+      const { negocioId } = req.params;
+      const leads = await this.formularioCreditoService.obtenerLeads(negocioId);
+      return res.status(200).json(leads);
+    } catch (error: any) {
+      return res.status(500).json({ error: error.message });
+    }
+  };
+
+  obtenerLeadPorCodigoAuditoria = async (req: Request, res: Response) => {
+    try {
+      const { codigo } = req.params;
+      const lead = await this.formularioCreditoService.obtenerLeadPorCodigoAuditoria(codigo);
+      if (!lead) {
+        return res.status(404).json({ error: "No se encontró ningún registro para este código" });
+      }
+      return res.status(200).json(lead);
+    } catch (error: any) {
+      return res.status(500).json({ error: error.message });
     }
   };
 }

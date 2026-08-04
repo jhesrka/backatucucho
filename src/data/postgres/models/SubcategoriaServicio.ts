@@ -1,5 +1,9 @@
 import { Entity, PrimaryGeneratedColumn, Column, BaseEntity, CreateDateColumn, UpdateDateColumn, ManyToOne } from "typeorm";
-import { Status } from "./user.model";
+export enum SubcategoriaStatus {
+  ACTIVE = "ACTIVE",
+  INACTIVE = "INACTIVE",
+  DELETED = "DELETED",
+}
 import { CategoriaServicio } from "./CategoriaServicio";
 
 @Entity("subcategoria_servicio")
@@ -16,8 +20,8 @@ export class SubcategoriaServicio extends BaseEntity {
   @ManyToOne(() => CategoriaServicio, { onDelete: 'CASCADE' })
   categoria: CategoriaServicio;
 
-  @Column({ type: "enum", enum: Status, default: Status.ACTIVE })
-  estado: Status;
+  @Column({ type: "enum", enum: SubcategoriaStatus, default: SubcategoriaStatus.ACTIVE })
+  estado: SubcategoriaStatus;
 
   @CreateDateColumn({ type: "timestamptz" })
   createdAt: Date;
