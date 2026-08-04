@@ -75,6 +75,35 @@ export class ProductoRoutes {
       productoController.reordenarProductos
     );
 
+    // ======================== SOLICITUDES DE PRECIO ========================
+    // Admin: Listar todas las solicitudes
+    router.get(
+      "/admin/solicitudes-precios",
+      AuthAdminMiddleware.protect,
+      productoController.getSolicitudesPrecios
+    );
+
+    // Usuario: Solicitar cambio de precio
+    router.post(
+      "/:id/solicitar-precio",
+      AuthMiddleware.protect,
+      productoController.solicitarCambioPrecio
+    );
+
+    // Admin: Aprobar solicitud de precio
+    router.post(
+      "/:id/aprobar-precio",
+      AuthAdminMiddleware.protect,
+      productoController.aprobarCambioPrecio
+    );
+
+    // Admin: Rechazar solicitud de precio
+    router.post(
+      "/:id/rechazar-precio",
+      AuthAdminMiddleware.protect,
+      productoController.rechazarCambioPrecio
+    );
+
     return router;
   }
 }

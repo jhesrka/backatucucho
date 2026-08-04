@@ -87,4 +87,10 @@ export class Producto extends BaseEntity {
 
   @Column("decimal", { precision: 10, scale: 2, default: 0 })
   comision_producto: number;
+
+  @Column("decimal", { precision: 10, scale: 2, nullable: true })
+  precio_solicitado: number;
+
+  @Column("decimal", { precision: 10, scale: 2, nullable: true })
+  precio_app_solicitado: number;
 }

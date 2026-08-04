@@ -150,4 +150,44 @@ export class ProductoController {
       .then((results) => res.status(200).json(results))
       .catch((error) => this.handleError(error, res));
   };
+
+  // ======================== SOLICITUDES PRECIOS ========================
+  solicitarCambioPrecio = (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { precio_venta, precio_app } = req.body;
+
+    if (!precio_venta || isNaN(Number(precio_venta))) {
+      return res.status(400).json({ message: "Precio de venta inválido" });
+    }
+
+    this.productoService
+      .solicitarCambioPrecio(id, Number(precio_venta), precio_app ? Number(precio_app) : 0)
+      .then((result) => res.status(200).json(result))
+      .catch((error) => this.handleError(error, res));
+  };
+
+  aprobarCambioPrecio = (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    this.productoService
+      .aprobarCambioPrecio(id)
+      .then((result) => res.status(200).json(result))
+      .catch((error) => this.handleError(error, res));
+  };
+
+  rechazarCambioPrecio = (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    this.productoService
+      .rechazarCambioPrecio(id)
+      .then((result) => res.status(200).json(result))
+      .catch((error) => this.handleError(error, res));
+  };
+
+  getSolicitudesPrecios = (req: Request, res: Response) => {
+    this.productoService
+      .getSolicitudesPrecios()
+      .then((result) => res.status(200).json(result))
+      .catch((error) => this.handleError(error, res));
+  };
 }

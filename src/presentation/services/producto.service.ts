@@ -149,6 +149,12 @@ export class ProductoService {
     if (data.nombre) producto.nombre = data.nombre.trim();
     if (data.descripcion) producto.descripcion = data.descripcion.trim();
     if (typeof data.precio_venta === "number") {
+      // ✅ BLOQUEO TOTAL: Si no es PENDIENTE, no se puede editar libremente.
+      if (producto.statusProducto !== StatusProducto.PENDIENTE && Number(data.precio_venta) !== Number(producto.precio_venta)) {
+        throw CustomError.badRequest(
+          "El precio normal solo puede modificarse libremente mientras el producto esté en estado PENDIENTE. Usa el botón de Solicitar Cambio."
+        );
+      }
       producto.precio_venta = data.precio_venta;
       producto.comision_producto = Number(data.precio_venta) - Number(producto.precio_app || data.precio_venta);
     }
@@ -586,5 +592,132 @@ export class ProductoService {
     if (!tipoExistente)
       throw CustomError.notFound("Tipo de producto no encontrado");
     return tipoExistente;
+  }
+
+  // ========================= SOLICITUDES DE CAMBIO DE PRECIO =========================
+  async solicitarCambioPrecio(id: string, precio_venta: number, precio_app: number) {
+    const producto = await Producto.findOne({
+      where: { id },
+      relations: ["negocio", "negocio.usuario"],
+    });
+
+    if (!producto) throw CustomError.notFound("Producto no encontrado");
+
+    if (producto.precio_solicitado && Number(producto.precio_solicitado) > 0) {
+      throw CustomError.badRequest("Ya tienes una solicitud en proceso para este producto.");
+    }
+
+    producto.precio_solicitado = precio_venta;
+    producto.precio_app_solicitado = precio_app;
+    await producto.save();
+
+    // Notificar a todos los admins
+    try {
+      const admins = await User.find({ where: { rol: UserRole.ADMIN } });
+      const notificationService = new NotificationService();
+      for (const admin of admins) {
+        await notificationService.sendPushNotification(
+          admin.id,
+          "💰 Solicitud de Cambio de Precio",
+          `El negocio "${producto.negocio.nombre}" ha solicitado cambiar el precio del producto "${producto.nombre}".`,
+          { url: "/admin/negocios" }
+        );
+      }
+    } catch (error) {
+      console.error("Error enviando notificaciones push a admins:", error);
+    }
+
+    // Emitir evento para actualizar el admin panel en tiempo real
+    getIO().emit("solicitud_precio_creada", {
+      productoId: producto.id,
+      negocioId: producto.negocio.id,
+    });
+
+    return { message: "Solicitud enviada correctamente" };
+  }
+
+  async aprobarCambioPrecio(id: string) {
+    const producto = await Producto.findOne({
+      where: { id },
+      relations: ["negocio", "tipo"],
+    });
+
+    if (!producto) throw CustomError.notFound("Producto no encontrado");
+
+    if (!producto.precio_solicitado) {
+      throw CustomError.badRequest("Este producto no tiene una solicitud de precio activa.");
+    }
+
+    producto.precio_venta = Number(producto.precio_solicitado);
+    
+    if (producto.precio_app_solicitado) {
+      producto.precio_app = Number(producto.precio_app_solicitado);
+    }
+
+    producto.comision_producto = producto.precio_venta - (producto.precio_app || producto.precio_venta);
+    
+    // Limpiar solicitud
+    producto.precio_solicitado = 0;
+    producto.precio_app_solicitado = 0;
+    
+    await producto.save();
+    
+    // Emitir socket para que se actualice
+    await this.emitProductUpdate(producto);
+
+    return { message: "Precio actualizado y solicitud aprobada." };
+  }
+
+  async rechazarCambioPrecio(id: string) {
+    const producto = await Producto.findOne({
+      where: { id },
+      relations: ["negocio", "tipo"],
+    });
+
+    if (!producto) throw CustomError.notFound("Producto no encontrado");
+
+    // Limpiar solicitud sin aplicar
+    producto.precio_solicitado = 0;
+    producto.precio_app_solicitado = 0;
+    
+    await producto.save();
+    
+    // Emitir socket para actualizar interfaces
+    await this.emitProductUpdate(producto);
+
+    return { message: "Solicitud rechazada correctamente." };
+  }
+
+  async getSolicitudesPrecios() {
+    const solicitudes = await Producto.createQueryBuilder("producto")
+      .leftJoinAndSelect("producto.negocio", "negocio")
+      .leftJoinAndSelect("producto.tipo", "tipo")
+      .where("producto.precio_solicitado > 0")
+      .orderBy("producto.updated_at", "DESC")
+      .getMany();
+
+    const result = await Promise.all(solicitudes.map(async p => {
+      const imageUrl = await UploadFilesCloud.getOptimizedUrls({
+        bucketName: envs.AWS_BUCKET_NAME,
+        key: p.imagen,
+      });
+
+      return {
+        id: p.id,
+        nombre: p.nombre,
+        precio_venta: p.precio_venta,
+        precio_app: p.precio_app,
+        precio_solicitado: p.precio_solicitado,
+        precio_app_solicitado: p.precio_app_solicitado,
+        imagen: imageUrl,
+        statusProducto: p.statusProducto,
+        negocio: {
+          id: p.negocio.id,
+          nombre: p.negocio.nombre,
+        }
+      };
+    }));
+
+    return result;
   }
 }
