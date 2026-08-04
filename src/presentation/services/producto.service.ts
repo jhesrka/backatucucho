@@ -223,6 +223,8 @@ export class ProductoService {
       comision_producto: producto.comision_producto,
       imagen: imageUrl,
       disponible: producto.disponible,
+      precio_solicitado: producto.precio_solicitado,
+      precio_app_solicitado: producto.precio_app_solicitado,
       created_at: producto.created_at,
       tipo: producto.tipo
         ? {
@@ -271,6 +273,8 @@ export class ProductoService {
           comision_producto: p.comision_producto,
           imagen: imageUrl,
           disponible: p.disponible,
+          precio_solicitado: p.precio_solicitado,
+          precio_app_solicitado: p.precio_app_solicitado,
           orden: p.orden,
           created_at: p.created_at,
           statusProducto: p.statusProducto,
@@ -339,6 +343,8 @@ export class ProductoService {
           comision_producto: p.comision_producto,
           imagen: imageUrl,
           disponible: p.disponible,
+          precio_solicitado: p.precio_solicitado,
+          precio_app_solicitado: p.precio_app_solicitado,
           orden: p.orden,
           created_at: p.created_at,
           statusProducto: p.statusProducto,
