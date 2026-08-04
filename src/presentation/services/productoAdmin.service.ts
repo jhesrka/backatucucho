@@ -79,6 +79,8 @@ export class ProductoServiceAdmin {
           descripcion: p.descripcion,
           precio_venta: p.precio_venta,
           precio_app: p.precio_app ?? null,
+          precio_solicitado: p.precio_solicitado ?? null,
+          precio_app_solicitado: p.precio_app_solicitado ?? null,
           comision_producto: Number(p.precio_venta) - Number(p.precio_app || p.precio_venta),
           disponible: p.disponible,
           statusProducto: p.statusProducto,
