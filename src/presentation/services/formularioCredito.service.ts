@@ -135,13 +135,13 @@ export class FormularioCreditoService {
       });
     }
 
-    // 5. Guardar el LeadCredito en la base de datos
+    // 5. Guardar el LeadCredito en la base de datos (SIN DATOS SENSIBLES)
     const lead = new LeadCredito();
     lead.id = leadId;
     lead.negocio = negocio;
     lead.usuario = usuarioCliente;
-    lead.respuestas = respuestas;
-    lead.preguntas = preguntas;
+    lead.respuestas = {}; // Privacidad: Nunca guardar respuestas
+    lead.preguntas = [];  // Privacidad: Nunca guardar preguntas
     lead.idempotencyKey = idempotencyKey;
     await lead.save();
 
