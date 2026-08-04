@@ -190,4 +190,11 @@ export class ProductoController {
       .then((result) => res.status(200).json(result))
       .catch((error) => this.handleError(error, res));
   };
+
+  getProductosPendientes = (req: Request, res: Response) => {
+    this.productoService
+      .getProductosPendientes()
+      .then((result) => res.status(200).json(result))
+      .catch((error) => this.handleError(error, res));
+  };
 }

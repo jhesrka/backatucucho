@@ -83,6 +83,13 @@ export class ProductoRoutes {
       productoController.getSolicitudesPrecios
     );
 
+    // Admin: Listar todos los productos pendientes de aprobación
+    router.get(
+      "/admin/productos-pendientes",
+      AuthAdminMiddleware.protect,
+      productoController.getProductosPendientes
+    );
+
     // Usuario: Solicitar cambio de precio
     router.post(
       "/:id/solicitar-precio",

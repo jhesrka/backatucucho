@@ -726,4 +726,43 @@ export class ProductoService {
 
     return result;
   }
+
+  async getProductosPendientes() {
+    const pendientes = await Producto.createQueryBuilder("producto")
+      .leftJoinAndSelect("producto.negocio", "negocio")
+      .leftJoinAndSelect("producto.tipo", "tipo")
+      .where("producto.statusProducto = :status", { status: StatusProducto.PENDIENTE })
+      .orderBy("producto.created_at", "DESC")
+      .getMany();
+
+    const result = await Promise.all(pendientes.map(async p => {
+      let imageUrl = null;
+      try {
+        if (p.imagen) {
+          imageUrl = await UploadFilesCloud.getOptimizedUrls({
+            bucketName: envs.AWS_BUCKET_NAME,
+            key: p.imagen,
+          });
+        }
+      } catch (e) {
+        // ignore image error
+      }
+
+      return {
+        id: p.id,
+        nombre: p.nombre,
+        precio_venta: p.precio_venta,
+        precio_app: p.precio_app,
+        imagen: imageUrl,
+        statusProducto: p.statusProducto,
+        created_at: p.created_at,
+        negocio: p.negocio ? {
+          id: p.negocio.id,
+          nombre: p.negocio.nombre,
+        } : null
+      };
+    }));
+
+    return result;
+  }
 }
