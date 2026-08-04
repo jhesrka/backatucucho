@@ -22,7 +22,10 @@ export class FormularioCreditoRoutes {
     // Cobrar por un lead (Requiere autenticación del cliente)
     router.post('/pagar-lead', AuthMiddleware.protect, controller.pagarLeadCredito);
 
-    // Auditoría de Leads (Solo Admin)
+    // Auditoría de Leads Global (Todos los leads, con filtros)
+    router.get('/auditoria/leads/todos', AuthAdminMiddleware.protect, AuthAdminMiddleware.restrictTo(UserRoleAdmin.ADMIN), controller.obtenerTodosLosLeadsAuditoria);
+
+    // Auditoría de Lead específico (Solo Admin)
     router.get('/auditoria/:codigo', AuthAdminMiddleware.protect, AuthAdminMiddleware.restrictTo(UserRoleAdmin.ADMIN), controller.obtenerLeadPorCodigoAuditoria);
 
     return router;

@@ -77,4 +77,16 @@ export class FormularioCreditoController {
       return res.status(500).json({ error: error.message });
     }
   };
+  obtenerTodosLosLeadsAuditoria = async (req: Request, res: Response) => {
+    try {
+      const fecha = req.query.fecha as string || new Date().toISOString().split('T')[0];
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      
+      const result = await this.formularioCreditoService.obtenerTodosLosLeadsAuditoria(fecha, page, limit);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      return res.status(500).json({ error: error.message });
+    }
+  };
 }

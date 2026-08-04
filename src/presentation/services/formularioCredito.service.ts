@@ -174,4 +174,51 @@ export class FormularioCreditoService {
       transactionDate: transaction?.created_at || lead.createdAt,
     };
   }
+  async obtenerTodosLosLeadsAuditoria(fecha: string, page: number = 1, limit: number = 10) {
+    const skip = (page - 1) * limit;
+    
+    // Asumimos que fecha viene en formato 'YYYY-MM-DD'
+    const startOfDay = new Date(`${fecha}T00:00:00.000Z`);
+    const endOfDay = new Date(`${fecha}T23:59:59.999Z`);
+
+    const [leads, total] = await LeadCredito.createQueryBuilder("lead")
+      .leftJoinAndSelect("lead.usuario", "usuario")
+      .leftJoinAndSelect("lead.negocio", "negocio")
+      .where("lead.createdAt >= :startOfDay", { startOfDay })
+      .andWhere("lead.createdAt <= :endOfDay", { endOfDay })
+      .orderBy("lead.createdAt", "DESC")
+      .skip(skip)
+      .take(limit)
+      .getManyAndCount();
+
+    // Buscar transacciones asociadas (optimizando para evitar N+1)
+    const leadIds = leads.map(l => l.id);
+    let transactions: Transaction[] = [];
+    
+    if (leadIds.length > 0) {
+      const references = leadIds.map(id => `LEAD-${id.substring(0, 8).toUpperCase()}`);
+      
+      transactions = await Transaction.createQueryBuilder("tx")
+        .where("tx.reference IN (:...references)", { references })
+        .getMany();
+    }
+
+    const leadsConTransaccion = leads.map(lead => {
+      const ref = `LEAD-${lead.id.substring(0, 8).toUpperCase()}`;
+      const tx = transactions.find(t => t.reference === ref);
+      return {
+        ...lead,
+        transactionAmount: tx?.amount || 0,
+        transactionDate: tx?.created_at || lead.createdAt,
+      };
+    });
+
+    return {
+      data: leadsConTransaccion,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit)
+    };
+  }
 }
