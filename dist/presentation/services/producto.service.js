@@ -188,6 +188,8 @@ class ProductoService {
                 }
                 throw domain_1.CustomError.internalServer("Error actualizando producto");
             }
+            // Sincronizar el precio actualizado con cualquier Post existente
+            yield data_1.Post.update({ productoId: producto.id }, { precioProducto: producto.precio_venta });
             // 📡 Notificar por WebSockets (con datos completos)
             yield this.emitProductUpdate(producto);
             const imageUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
@@ -598,6 +600,8 @@ class ProductoService {
             producto.precio_solicitado = 0;
             producto.precio_app_solicitado = 0;
             yield producto.save();
+            // Sincronizar el nuevo precio con todos los posts donde aparezca este producto
+            yield data_1.Post.update({ productoId: producto.id }, { precioProducto: producto.precio_venta });
             // Emitir socket para que se actualice
             yield this.emitProductUpdate(producto);
             // Notificar al dueño del negocio

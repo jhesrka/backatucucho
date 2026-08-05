@@ -9,6 +9,7 @@ import {
   UserRole,
   Wallet,
   GlobalSettings,
+  Post,
 } from "../../data";
 import { NotificationService } from "./NotificationService";
 import { CustomError } from "../../domain";
@@ -216,6 +217,12 @@ export class ProductoService {
       }
       throw CustomError.internalServer("Error actualizando producto");
     }
+
+    // Sincronizar el precio actualizado con cualquier Post existente
+    await Post.update(
+      { productoId: producto.id },
+      { precioProducto: producto.precio_venta }
+    );
 
     // 📡 Notificar por WebSockets (con datos completos)
     await this.emitProductUpdate(producto);
@@ -674,6 +681,12 @@ export class ProductoService {
     producto.precio_app_solicitado = 0;
     
     await producto.save();
+
+    // Sincronizar el nuevo precio con todos los posts donde aparezca este producto
+    await Post.update(
+      { productoId: producto.id },
+      { precioProducto: producto.precio_venta }
+    );
     
     // Emitir socket para que se actualice
     await this.emitProductUpdate(producto);
