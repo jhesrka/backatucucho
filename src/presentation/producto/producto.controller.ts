@@ -93,11 +93,6 @@ export class ProductoController {
     const [error, dto] = UpdateProductoDTO.create(req.body);
     if (error) return res.status(422).json({ message: error });
 
-    // Validar que tipoId esté presente si se envía
-    if (dto && dto.tipoId === undefined) {
-      return res.status(422).json({ message: "Debes proporcionar tipoId" });
-    }
-
     this.productoService
       .updateProducto(id, dto!, file)
       .then((producto) => res.status(200).json(producto))

@@ -70,7 +70,7 @@ export class UpdateProductoDTO {
       return ["El precio para la app debe ser menor que el precio de venta"];
     }
 
-    if (tipoId && !regularExp.uuid.test(tipoId)) {
+    if (tipoId !== undefined && !regularExp.uuid.test(tipoId)) {
       return ["El tipoId no es un UUID válido"];
     }
 

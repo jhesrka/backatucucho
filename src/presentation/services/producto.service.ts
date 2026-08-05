@@ -96,6 +96,8 @@ export class ProductoService {
         imagen: imageUrl,
         disponible: saved.disponible,
         created_at: saved.created_at,
+        statusProducto: saved.statusProducto,
+        orden: saved.orden,
         tipo: {
           id: tipo.id,
           nombre: tipo.nombre,
@@ -244,6 +246,8 @@ export class ProductoService {
       precio_solicitado: producto.precio_solicitado,
       precio_app_solicitado: producto.precio_app_solicitado,
       created_at: producto.created_at,
+      statusProducto: producto.statusProducto,
+      orden: producto.orden,
       tipo: producto.tipo
         ? {
           id: producto.tipo.id,
