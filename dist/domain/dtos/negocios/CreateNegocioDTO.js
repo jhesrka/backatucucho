@@ -4,7 +4,7 @@ exports.CreateNegocioDTO = void 0;
 const config_1 = require("../../../config");
 const data_1 = require("../../../data");
 class CreateNegocioDTO {
-    constructor(nombre, descripcion, categoriaId, userId, modeloMonetizacion, latitud, longitud, banco, tipoCuenta, numeroCuenta, titularCuenta, identificacionCuenta, correoCuenta, tiempoPreparacionMin, tiempoPreparacionMax, permiteProductosProgramados = false, tiempoProgramadoMin, tiempoProgramadoMax, subcategoriaId, direccionTexto, valorSuscripcion = 0, diaPago = 1, orden = 0, esParaCredito = false, costoLead = 0.50) {
+    constructor(nombre, descripcion, categoriaId, userId, modeloMonetizacion, latitud, longitud, banco, tipoCuenta, numeroCuenta, titularCuenta, identificacionCuenta, correoCuenta, tiempoPreparacionMin, tiempoPreparacionMax, permiteProductosProgramados = false, tiempoProgramadoMin, tiempoProgramadoMax, subcategoriaId, direccionTexto, valorSuscripcion = 0, diaPago = 1, orden = 0, esParaCredito = false, costoLead = 0.50, modo_operacion = data_1.ModoOperacionNegocio.MANUAL, hora_apertura, hora_cierre) {
         this.nombre = nombre;
         this.descripcion = descripcion;
         this.categoriaId = categoriaId;
@@ -30,9 +30,12 @@ class CreateNegocioDTO {
         this.orden = orden;
         this.esParaCredito = esParaCredito;
         this.costoLead = costoLead;
+        this.modo_operacion = modo_operacion;
+        this.hora_apertura = hora_apertura;
+        this.hora_cierre = hora_cierre;
     }
     static create(obj) {
-        const { nombre, descripcion, categoriaId, userId, modeloMonetizacion, latitud, longitud, direccionTexto, banco, tipoCuenta, numeroCuenta, titularCuenta, identificacionCuenta, correoCuenta, tiempoPreparacionMin, tiempoPreparacionMax, permiteProductosProgramados, tiempoProgramadoMin, tiempoProgramadoMax, subcategoriaId, valorSuscripcion, diaPago, orden, esParaCredito } = obj;
+        const { nombre, descripcion, categoriaId, userId, modeloMonetizacion, latitud, longitud, direccionTexto, banco, tipoCuenta, numeroCuenta, titularCuenta, identificacionCuenta, correoCuenta, tiempoPreparacionMin, tiempoPreparacionMax, permiteProductosProgramados, tiempoProgramadoMin, tiempoProgramadoMax, subcategoriaId, valorSuscripcion, diaPago, orden, esParaCredito, modo_operacion, hora_apertura, hora_cierre } = obj;
         if (!nombre || typeof nombre !== "string" || nombre.trim().length < 3) {
             return ["El nombre del negocio debe tener al menos 3 caracteres"];
         }
@@ -119,7 +122,7 @@ class CreateNegocioDTO {
         }
         return [
             undefined,
-            new CreateNegocioDTO(nombre.trim(), descripcion ? descripcion.trim() : "Negocio a crédito", categoriaId, userId, esParaCredito ? data_1.ModeloMonetizacion.CREDITO : (modeloMonetizacion || data_1.ModeloMonetizacion.SUSCRIPCION), lat, lng, banco ? banco.trim() : "", tipoCuenta ? tipoCuenta.trim() : "", numeroCuenta ? numeroCuenta.trim() : "", titularCuenta ? titularCuenta.trim() : "", identificacionCuenta ? identificacionCuenta.trim() : "", correoCuenta ? correoCuenta.trim() : "", esParaCredito ? 0 : (Number(tiempoPreparacionMin) || 0), esParaCredito ? 0 : (Number(tiempoPreparacionMax) || 0), esParaCredito ? false : !!permiteProductosProgramados, esParaCredito ? null : (tiempoProgramadoMin ? Number(tiempoProgramadoMin) : null), esParaCredito ? null : (tiempoProgramadoMax ? Number(tiempoProgramadoMax) : null), subcategoriaId, dirTxt, valorSuscripcion !== undefined ? Number(valorSuscripcion) : 0, diaPago !== undefined ? Number(diaPago) : 1, orden !== undefined ? Number(orden) : 0, !!esParaCredito, obj.costoLead !== undefined ? Number(obj.costoLead) : 0.50),
+            new CreateNegocioDTO(nombre.trim(), descripcion ? descripcion.trim() : "Negocio a crédito", categoriaId, userId, esParaCredito ? data_1.ModeloMonetizacion.CREDITO : (modeloMonetizacion || data_1.ModeloMonetizacion.SUSCRIPCION), lat, lng, banco ? banco.trim() : "", tipoCuenta ? tipoCuenta.trim() : "", numeroCuenta ? numeroCuenta.trim() : "", titularCuenta ? titularCuenta.trim() : "", identificacionCuenta ? identificacionCuenta.trim() : "", correoCuenta ? correoCuenta.trim() : "", esParaCredito ? 0 : (Number(tiempoPreparacionMin) || 0), esParaCredito ? 0 : (Number(tiempoPreparacionMax) || 0), esParaCredito ? false : !!permiteProductosProgramados, esParaCredito ? null : (tiempoProgramadoMin ? Number(tiempoProgramadoMin) : null), esParaCredito ? null : (tiempoProgramadoMax ? Number(tiempoProgramadoMax) : null), subcategoriaId, dirTxt, valorSuscripcion !== undefined ? Number(valorSuscripcion) : 0, diaPago !== undefined ? Number(diaPago) : 1, orden !== undefined ? Number(orden) : 0, !!esParaCredito, obj.costoLead !== undefined ? Number(obj.costoLead) : 0.50, modo_operacion, hora_apertura, hora_cierre),
         ];
     }
 }

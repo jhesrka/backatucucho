@@ -1,4 +1,4 @@
-import { In } from "typeorm";
+import { In, MoreThanOrEqual } from "typeorm";
 import {
   Producto,
   Negocio,
@@ -105,15 +105,26 @@ export class ProductoService {
 
       // 🔔 Notificación a todos los admins
       try {
-        const admins = await User.find({ where: { rol: UserRole.ADMIN } });
-        const notificationService = new NotificationService();
-        for (const admin of admins) {
-          await notificationService.sendPushNotification(
-            admin.id,
+        // Anti-spam: contar productos creados hoy por este negocio
+        const startOfToday = new Date();
+        startOfToday.setHours(0, 0, 0, 0);
+
+        const productosHoy = await Producto.count({
+          where: {
+            negocio: { id: negocio.id },
+            created_at: MoreThanOrEqual(startOfToday)
+          }
+        });
+
+        if (productosHoy <= 3) {
+          const notificationService = new NotificationService();
+          await notificationService.sendToAdmins(
             "🍔 Nuevo Producto",
             `El negocio "${negocio.nombre}" ha añadido el producto "${saved.nombre}". Entra al panel para revisarlo.`,
             { url: "/admin/negocios" }
           );
+        } else {
+          console.log(`🔇 Anti-spam: omitiendo push a admins para negocio ${negocio.id} (lleva ${productosHoy} productos hoy).`);
         }
       } catch (error) {
         console.error("Error enviando notificaciones push a admins:", error);
@@ -619,16 +630,12 @@ export class ProductoService {
 
     // Notificar a todos los admins
     try {
-      const admins = await User.find({ where: { rol: UserRole.ADMIN } });
       const notificationService = new NotificationService();
-      for (const admin of admins) {
-        await notificationService.sendPushNotification(
-          admin.id,
-          "💰 Solicitud de Cambio de Precio",
-          `El negocio "${producto.negocio.nombre}" ha solicitado cambiar el precio del producto "${producto.nombre}".`,
-          { url: "/admin/negocios" }
-        );
-      }
+      await notificationService.sendToAdmins(
+        "💰 Solicitud de Cambio de Precio",
+        `El negocio "${producto.negocio.nombre}" ha solicitado cambiar el precio del producto "${producto.nombre}".`,
+        { url: "/admin/negocios" }
+      );
     } catch (error) {
       console.error("Error enviando notificaciones push a admins:", error);
     }
@@ -645,7 +652,7 @@ export class ProductoService {
   async aprobarCambioPrecio(id: string) {
     const producto = await Producto.findOne({
       where: { id },
-      relations: ["negocio", "tipo"],
+      relations: ["negocio", "tipo", "negocio.usuario"],
     });
 
     if (!producto) throw CustomError.notFound("Producto no encontrado");
@@ -671,13 +678,32 @@ export class ProductoService {
     // Emitir socket para que se actualice
     await this.emitProductUpdate(producto);
 
+    // Notificar al dueño del negocio
+    try {
+      if (producto.negocio?.usuario?.id) {
+        const notificationService = new NotificationService();
+        await notificationService.sendPushNotification(
+          producto.negocio.usuario.id,
+          "✅ Precio Aprobado",
+          `Tu solicitud de cambio de precio para "${producto.nombre}" ha sido aprobada.`,
+          { url: "/catalogo" }
+        );
+        getIO().to(producto.negocio.usuario.id).emit("precio_actualizado", {
+          productoId: producto.id,
+          status: "APROBADO"
+        });
+      }
+    } catch (error) {
+      console.error("Error notificando aprobación al usuario:", error);
+    }
+
     return { message: "Precio actualizado y solicitud aprobada." };
   }
 
   async rechazarCambioPrecio(id: string) {
     const producto = await Producto.findOne({
       where: { id },
-      relations: ["negocio", "tipo"],
+      relations: ["negocio", "tipo", "negocio.usuario"],
     });
 
     if (!producto) throw CustomError.notFound("Producto no encontrado");
@@ -690,6 +716,25 @@ export class ProductoService {
     
     // Emitir socket para actualizar interfaces
     await this.emitProductUpdate(producto);
+
+    // Notificar al dueño del negocio
+    try {
+      if (producto.negocio?.usuario?.id) {
+        const notificationService = new NotificationService();
+        await notificationService.sendPushNotification(
+          producto.negocio.usuario.id,
+          "❌ Precio Rechazado",
+          `Tu solicitud de cambio de precio para "${producto.nombre}" ha sido rechazada.`,
+          { url: "/catalogo" }
+        );
+        getIO().to(producto.negocio.usuario.id).emit("precio_actualizado", {
+          productoId: producto.id,
+          status: "RECHAZADO"
+        });
+      }
+    } catch (error) {
+      console.error("Error notificando rechazo al usuario:", error);
+    }
 
     return { message: "Solicitud rechazada correctamente." };
   }

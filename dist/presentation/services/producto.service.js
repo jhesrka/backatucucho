@@ -93,10 +93,21 @@ class ProductoService {
                 };
                 // 🔔 Notificación a todos los admins
                 try {
-                    const admins = yield data_1.User.find({ where: { rol: data_1.UserRole.ADMIN } });
-                    const notificationService = new NotificationService_1.NotificationService();
-                    for (const admin of admins) {
-                        yield notificationService.sendPushNotification(admin.id, "🍔 Nuevo Producto", `El negocio "${negocio.nombre}" ha añadido el producto "${saved.nombre}". Entra al panel para revisarlo.`, { url: "/admin/negocios" });
+                    // Anti-spam: contar productos creados hoy por este negocio
+                    const startOfToday = new Date();
+                    startOfToday.setHours(0, 0, 0, 0);
+                    const productosHoy = yield data_1.Producto.count({
+                        where: {
+                            negocio: { id: negocio.id },
+                            created_at: (0, typeorm_1.MoreThanOrEqual)(startOfToday)
+                        }
+                    });
+                    if (productosHoy <= 3) {
+                        const notificationService = new NotificationService_1.NotificationService();
+                        yield notificationService.sendToAdmins("🍔 Nuevo Producto", `El negocio "${negocio.nombre}" ha añadido el producto "${saved.nombre}". Entra al panel para revisarlo.`, { url: "/admin/negocios" });
+                    }
+                    else {
+                        console.log(`🔇 Anti-spam: omitiendo push a admins para negocio ${negocio.id} (lleva ${productosHoy} productos hoy).`);
                     }
                 }
                 catch (error) {
@@ -129,6 +140,10 @@ class ProductoService {
             if (data.descripcion)
                 producto.descripcion = data.descripcion.trim();
             if (typeof data.precio_venta === "number") {
+                // ✅ BLOQUEO TOTAL: Si no es PENDIENTE, no se puede editar libremente.
+                if (producto.statusProducto !== data_1.StatusProducto.PENDIENTE && Number(data.precio_venta) !== Number(producto.precio_venta)) {
+                    throw domain_1.CustomError.badRequest("El precio normal solo puede modificarse libremente mientras el producto esté en estado PENDIENTE. Usa el botón de Solicitar Cambio.");
+                }
                 producto.precio_venta = data.precio_venta;
                 producto.comision_producto = Number(data.precio_venta) - Number(producto.precio_app || data.precio_venta);
             }
@@ -146,10 +161,8 @@ class ProductoService {
                 producto.tipo = tipo;
             }
             if (data.tipoProducto) {
-                // ✅ REGLA CRÍTICA: Solo bloquear si el tipo REALMENTE cambia y no está PENDIENTE
-                if (producto.statusProducto !== data_1.StatusProducto.PENDIENTE && data.tipoProducto !== producto.tipoProducto) {
-                    throw domain_1.CustomError.badRequest("El tipo de despacho (Normal/Programado) solo puede modificarse mientras el producto esté en estado PENDIENTE.");
-                }
+                // ✅ Se eliminó la restricción que impedía cambiar el tipo de despacho.
+                // Ahora se puede cambiar de Normal a Programado en cualquier momento.
                 producto.tipoProducto = data.tipoProducto;
             }
             if (file) {
@@ -166,7 +179,15 @@ class ProductoService {
                     throw domain_1.CustomError.internalServer("Error subiendo la imagen del producto");
                 }
             }
-            yield producto.save();
+            try {
+                yield producto.save();
+            }
+            catch (error) {
+                if (error.code === '23505') {
+                    throw domain_1.CustomError.conflict("Ya existe un producto con ese nombre en este negocio. Usa otro nombre.");
+                }
+                throw domain_1.CustomError.internalServer("Error actualizando producto");
+            }
             // 📡 Notificar por WebSockets (con datos completos)
             yield this.emitProductUpdate(producto);
             const imageUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getFile({
@@ -182,6 +203,8 @@ class ProductoService {
                 comision_producto: producto.comision_producto,
                 imagen: imageUrl,
                 disponible: producto.disponible,
+                precio_solicitado: producto.precio_solicitado,
+                precio_app_solicitado: producto.precio_app_solicitado,
                 created_at: producto.created_at,
                 tipo: producto.tipo
                     ? {
@@ -226,6 +249,8 @@ class ProductoService {
                     comision_producto: p.comision_producto,
                     imagen: imageUrl,
                     disponible: p.disponible,
+                    precio_solicitado: p.precio_solicitado,
+                    precio_app_solicitado: p.precio_app_solicitado,
                     orden: p.orden,
                     created_at: p.created_at,
                     statusProducto: p.statusProducto,
@@ -287,6 +312,8 @@ class ProductoService {
                     comision_producto: p.comision_producto,
                     imagen: imageUrl,
                     disponible: p.disponible,
+                    precio_solicitado: p.precio_solicitado,
+                    precio_app_solicitado: p.precio_app_solicitado,
                     orden: p.orden,
                     created_at: p.created_at,
                     statusProducto: p.statusProducto,
@@ -341,6 +368,7 @@ class ProductoService {
                     id: negocio.usuario.id,
                     nombre: negocio.usuario.name,
                     apellido: negocio.usuario.surname,
+                    whatsapp: negocio.usuario.whatsapp,
                 },
                 productos: productosFormateados,
             };
@@ -516,6 +544,178 @@ class ProductoService {
             if (!tipoExistente)
                 throw domain_1.CustomError.notFound("Tipo de producto no encontrado");
             return tipoExistente;
+        });
+    }
+    // ========================= SOLICITUDES DE CAMBIO DE PRECIO =========================
+    solicitarCambioPrecio(id, precio_venta, precio_app) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const producto = yield data_1.Producto.findOne({
+                where: { id },
+                relations: ["negocio", "negocio.usuario"],
+            });
+            if (!producto)
+                throw domain_1.CustomError.notFound("Producto no encontrado");
+            if (producto.precio_solicitado && Number(producto.precio_solicitado) > 0) {
+                throw domain_1.CustomError.badRequest("Ya tienes una solicitud en proceso para este producto.");
+            }
+            producto.precio_solicitado = precio_venta;
+            producto.precio_app_solicitado = precio_app;
+            yield producto.save();
+            // Notificar a todos los admins
+            try {
+                const notificationService = new NotificationService_1.NotificationService();
+                yield notificationService.sendToAdmins("💰 Solicitud de Cambio de Precio", `El negocio "${producto.negocio.nombre}" ha solicitado cambiar el precio del producto "${producto.nombre}".`, { url: "/admin/negocios" });
+            }
+            catch (error) {
+                console.error("Error enviando notificaciones push a admins:", error);
+            }
+            // Emitir evento para actualizar el admin panel en tiempo real
+            (0, socket_1.getIO)().emit("solicitud_precio_creada", {
+                productoId: producto.id,
+                negocioId: producto.negocio.id,
+            });
+            return { message: "Solicitud enviada correctamente" };
+        });
+    }
+    aprobarCambioPrecio(id) {
+        return __awaiter(this, void 0, void 0, function* () {
+            var _a, _b;
+            const producto = yield data_1.Producto.findOne({
+                where: { id },
+                relations: ["negocio", "tipo", "negocio.usuario"],
+            });
+            if (!producto)
+                throw domain_1.CustomError.notFound("Producto no encontrado");
+            if (!producto.precio_solicitado) {
+                throw domain_1.CustomError.badRequest("Este producto no tiene una solicitud de precio activa.");
+            }
+            producto.precio_venta = Number(producto.precio_solicitado);
+            if (producto.precio_app_solicitado) {
+                producto.precio_app = Number(producto.precio_app_solicitado);
+            }
+            producto.comision_producto = producto.precio_venta - (producto.precio_app || producto.precio_venta);
+            // Limpiar solicitud
+            producto.precio_solicitado = 0;
+            producto.precio_app_solicitado = 0;
+            yield producto.save();
+            // Emitir socket para que se actualice
+            yield this.emitProductUpdate(producto);
+            // Notificar al dueño del negocio
+            try {
+                if ((_b = (_a = producto.negocio) === null || _a === void 0 ? void 0 : _a.usuario) === null || _b === void 0 ? void 0 : _b.id) {
+                    const notificationService = new NotificationService_1.NotificationService();
+                    yield notificationService.sendPushNotification(producto.negocio.usuario.id, "✅ Precio Aprobado", `Tu solicitud de cambio de precio para "${producto.nombre}" ha sido aprobada.`, { url: "/catalogo" });
+                    (0, socket_1.getIO)().to(producto.negocio.usuario.id).emit("precio_actualizado", {
+                        productoId: producto.id,
+                        status: "APROBADO"
+                    });
+                }
+            }
+            catch (error) {
+                console.error("Error notificando aprobación al usuario:", error);
+            }
+            return { message: "Precio actualizado y solicitud aprobada." };
+        });
+    }
+    rechazarCambioPrecio(id) {
+        return __awaiter(this, void 0, void 0, function* () {
+            var _a, _b;
+            const producto = yield data_1.Producto.findOne({
+                where: { id },
+                relations: ["negocio", "tipo", "negocio.usuario"],
+            });
+            if (!producto)
+                throw domain_1.CustomError.notFound("Producto no encontrado");
+            // Limpiar solicitud sin aplicar
+            producto.precio_solicitado = 0;
+            producto.precio_app_solicitado = 0;
+            yield producto.save();
+            // Emitir socket para actualizar interfaces
+            yield this.emitProductUpdate(producto);
+            // Notificar al dueño del negocio
+            try {
+                if ((_b = (_a = producto.negocio) === null || _a === void 0 ? void 0 : _a.usuario) === null || _b === void 0 ? void 0 : _b.id) {
+                    const notificationService = new NotificationService_1.NotificationService();
+                    yield notificationService.sendPushNotification(producto.negocio.usuario.id, "❌ Precio Rechazado", `Tu solicitud de cambio de precio para "${producto.nombre}" ha sido rechazada.`, { url: "/catalogo" });
+                    (0, socket_1.getIO)().to(producto.negocio.usuario.id).emit("precio_actualizado", {
+                        productoId: producto.id,
+                        status: "RECHAZADO"
+                    });
+                }
+            }
+            catch (error) {
+                console.error("Error notificando rechazo al usuario:", error);
+            }
+            return { message: "Solicitud rechazada correctamente." };
+        });
+    }
+    getSolicitudesPrecios() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const solicitudes = yield data_1.Producto.createQueryBuilder("producto")
+                .leftJoinAndSelect("producto.negocio", "negocio")
+                .leftJoinAndSelect("producto.tipo", "tipo")
+                .where("producto.precio_solicitado > 0")
+                .orderBy("producto.updated_at", "DESC")
+                .getMany();
+            const result = yield Promise.all(solicitudes.map((p) => __awaiter(this, void 0, void 0, function* () {
+                const imageUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
+                    bucketName: config_1.envs.AWS_BUCKET_NAME,
+                    key: p.imagen,
+                });
+                return {
+                    id: p.id,
+                    nombre: p.nombre,
+                    precio_venta: p.precio_venta,
+                    precio_app: p.precio_app,
+                    precio_solicitado: p.precio_solicitado,
+                    precio_app_solicitado: p.precio_app_solicitado,
+                    imagen: imageUrl,
+                    statusProducto: p.statusProducto,
+                    negocio: {
+                        id: p.negocio.id,
+                        nombre: p.negocio.nombre,
+                    }
+                };
+            })));
+            return result;
+        });
+    }
+    getProductosPendientes() {
+        return __awaiter(this, void 0, void 0, function* () {
+            const pendientes = yield data_1.Producto.createQueryBuilder("producto")
+                .leftJoinAndSelect("producto.negocio", "negocio")
+                .leftJoinAndSelect("producto.tipo", "tipo")
+                .where("producto.statusProducto = :status", { status: data_1.StatusProducto.PENDIENTE })
+                .orderBy("producto.created_at", "DESC")
+                .getMany();
+            const result = yield Promise.all(pendientes.map((p) => __awaiter(this, void 0, void 0, function* () {
+                let imageUrl = null;
+                try {
+                    if (p.imagen) {
+                        imageUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
+                            bucketName: config_1.envs.AWS_BUCKET_NAME,
+                            key: p.imagen,
+                        });
+                    }
+                }
+                catch (e) {
+                    // ignore image error
+                }
+                return {
+                    id: p.id,
+                    nombre: p.nombre,
+                    precio_venta: p.precio_venta,
+                    precio_app: p.precio_app,
+                    imagen: imageUrl,
+                    statusProducto: p.statusProducto,
+                    created_at: p.created_at,
+                    negocio: p.negocio ? {
+                        id: p.negocio.id,
+                        nombre: p.negocio.nombre,
+                    } : null
+                };
+            })));
+            return result;
         });
     }
 }

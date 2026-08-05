@@ -145,6 +145,25 @@ class PedidoUsuarioService {
             });
             if (!cliente || !negocio)
                 throw domain_1.CustomError.notFound("No encontrado");
+            // --- NUEVO: Validación de Hora Límite (Cutoff Time) ---
+            const globalSettingsService = new (require("../globalSettings/global-settings.service").GlobalSettingsService)();
+            const settings = yield globalSettingsService.getSettings();
+            const { format, addMinutes } = require("date-fns");
+            const ecuadorTimeStr = new Date().toLocaleString("en-US", { timeZone: 'America/Guayaquil' });
+            const ecuadorTime = new Date(ecuadorTimeStr);
+            // Calcular a qué hora estaría listo el pedido
+            const maxPrep = negocio.tiempoPreparacionMax || 30;
+            const tiempoEstimadoFin = addMinutes(ecuadorTime, maxPrep);
+            const tiempoEstimadoFinStr = format(tiempoEstimadoFin, "HH:mm:00");
+            let horaCierreEfectiva = settings.hora_cierre;
+            if (negocio.modo_operacion === 'AUTO' && negocio.hora_cierre) {
+                // Tomar la menor entre la hora de cierre global y la del negocio
+                horaCierreEfectiva = negocio.hora_cierre < settings.hora_cierre ? negocio.hora_cierre : settings.hora_cierre;
+            }
+            if (horaCierreEfectiva && tiempoEstimadoFinStr > horaCierreEfectiva && tiempoEstimadoFinStr < "23:59:59") {
+                throw domain_1.CustomError.badRequest(`El tiempo de preparación (${maxPrep} min) supera nuestra hora de cierre (${horaCierreEfectiva.substring(0, 5)}). Por favor, haz tu pedido con más anticipación.`);
+            }
+            // -----------------------------------------------------
             const config = yield data_1.PriceSettings.findOne({ where: {} });
             const percMoto = config ? Number(config.motorizadoPercentage) : 80;
             const percApp = config ? Number(config.appPercentage) : 20;

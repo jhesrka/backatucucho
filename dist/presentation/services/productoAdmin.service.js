@@ -43,7 +43,7 @@ class ProductoServiceAdmin {
                 order: { created_at: "DESC" },
             });
             const productosConDatos = yield Promise.all(productos.map((p) => __awaiter(this, void 0, void 0, function* () {
-                var _a, _b;
+                var _a, _b, _c, _d;
                 let imagenUrl = null;
                 try {
                     imagenUrl = (yield upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
@@ -51,7 +51,7 @@ class ProductoServiceAdmin {
                         key: p.imagen,
                     }));
                 }
-                catch (_c) { }
+                catch (_e) { }
                 // 🔹 Contar total de unidades pedidas del producto
                 const { total } = (yield data_1.ProductoPedido.createQueryBuilder("pp")
                     .select("COALESCE(SUM(pp.cantidad), 0)", "total")
@@ -72,6 +72,8 @@ class ProductoServiceAdmin {
                     descripcion: p.descripcion,
                     precio_venta: p.precio_venta,
                     precio_app: (_b = p.precio_app) !== null && _b !== void 0 ? _b : null,
+                    precio_solicitado: (_c = p.precio_solicitado) !== null && _c !== void 0 ? _c : null,
+                    precio_app_solicitado: (_d = p.precio_app_solicitado) !== null && _d !== void 0 ? _d : null,
                     comision_producto: Number(p.precio_venta) - Number(p.precio_app || p.precio_venta),
                     disponible: p.disponible,
                     statusProducto: p.statusProducto,
@@ -105,7 +107,7 @@ class ProductoServiceAdmin {
         return __awaiter(this, arguments, void 0, function* (id, { nombre, descripcion, precio_venta, precio_app, disponible, statusProducto, imagen, }) {
             const producto = yield data_1.Producto.findOne({ where: { id }, relations: ["negocio", "tipo"] });
             if (!producto)
-                throw new Error("Producto no encontrado");
+                throw domain_1.CustomError.notFound("Producto no encontrado");
             // 🔹 Si llega una nueva imagen, eliminar la anterior y subir la nueva
             if (imagen) {
                 if (producto.imagen) {
@@ -143,7 +145,15 @@ class ProductoServiceAdmin {
                 Object.values(data_1.StatusProducto).includes(statusProducto)) {
                 producto.statusProducto = statusProducto;
             }
-            yield producto.save();
+            try {
+                yield producto.save();
+            }
+            catch (error) {
+                if (error.code === '23505') {
+                    throw domain_1.CustomError.conflict("Ya existe un producto con ese mismo nombre en este negocio. Usa otro nombre.");
+                }
+                throw error;
+            }
             // 📡 Notificar por WebSockets
             yield this.emitProductUpdate(producto);
             // 🔹 Obtener la URL de la imagen actualizada (si aplica)

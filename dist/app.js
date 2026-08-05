@@ -37,6 +37,7 @@ const post_scheduler_cron_1 = require("./cron/post-scheduler.cron");
 const meritocracy_cron_1 = require("./cron/meritocracy.cron");
 const recharge_cleanup_cron_1 = require("./cron/recharge-cleanup.cron");
 const service_subscription_cron_1 = require("./cron/service-subscription.cron");
+const business_schedule_cron_1 = require("./cron/business-schedule.cron");
 const activity_service_1 = require("./presentation/services/activity.service");
 const socket_1 = require("./config/socket");
 const pedidoUsuario_service_1 = require("./presentation/services/pedidosServices/pedidoUsuario.service");
@@ -73,6 +74,7 @@ function main() {
             (0, meritocracy_cron_1.startMeritocracyCron)();
             (0, recharge_cleanup_cron_1.startRechargeCleanupCron)();
             (0, service_subscription_cron_1.startServiceSubscriptionCron)();
+            (0, business_schedule_cron_1.startBusinessScheduleCron)();
             pedidoUsuario_service_1.PedidoUsuarioService.startMaintenanceJob(); // 🚀 Activar limpieza de pedidos y auto-cancelación
         }
         else {

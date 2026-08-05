@@ -29,6 +29,17 @@ class ProductoRoutes {
         router.delete("/negocio/:negocioId/todos", auth_admin_middleware_1.AuthAdminMiddleware.protect, productoController.deleteAllProductsByNegocio);
         // Reordenar productos
         router.put("/reordenar", auth_middleware_1.AuthMiddleware.protect, productoController.reordenarProductos);
+        // ======================== SOLICITUDES DE PRECIO ========================
+        // Admin: Listar todas las solicitudes
+        router.get("/admin/solicitudes-precios", auth_admin_middleware_1.AuthAdminMiddleware.protect, productoController.getSolicitudesPrecios);
+        // Admin: Listar todos los productos pendientes de aprobación
+        router.get("/admin/productos-pendientes", auth_admin_middleware_1.AuthAdminMiddleware.protect, productoController.getProductosPendientes);
+        // Usuario: Solicitar cambio de precio
+        router.post("/:id/solicitar-precio", auth_middleware_1.AuthMiddleware.protect, productoController.solicitarCambioPrecio);
+        // Admin: Aprobar solicitud de precio
+        router.post("/:id/aprobar-precio", auth_admin_middleware_1.AuthAdminMiddleware.protect, productoController.aprobarCambioPrecio);
+        // Admin: Rechazar solicitud de precio
+        router.post("/:id/rechazar-precio", auth_admin_middleware_1.AuthAdminMiddleware.protect, productoController.rechazarCambioPrecio);
         return router;
     }
 }

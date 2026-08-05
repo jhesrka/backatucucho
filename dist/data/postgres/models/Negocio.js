@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Negocio = exports.EstadoNegocio = exports.ModeloMonetizacion = exports.StatusNegocio = void 0;
+exports.Negocio = exports.ModoOperacionNegocio = exports.EstadoNegocio = exports.ModeloMonetizacion = exports.StatusNegocio = void 0;
 const typeorm_1 = require("typeorm");
 const CategoriaNegocio_1 = require("./CategoriaNegocio");
 const SubcategoriaNegocio_1 = require("./SubcategoriaNegocio");
@@ -38,6 +38,11 @@ var EstadoNegocio;
     EstadoNegocio["ABIERTO"] = "ABIERTO";
     EstadoNegocio["CERRADO"] = "CERRADO";
 })(EstadoNegocio || (exports.EstadoNegocio = EstadoNegocio = {}));
+var ModoOperacionNegocio;
+(function (ModoOperacionNegocio) {
+    ModoOperacionNegocio["AUTO"] = "AUTO";
+    ModoOperacionNegocio["MANUAL"] = "MANUAL";
+})(ModoOperacionNegocio || (exports.ModoOperacionNegocio = ModoOperacionNegocio = {}));
 let Negocio = class Negocio extends typeorm_1.BaseEntity {
 };
 exports.Negocio = Negocio;
@@ -85,6 +90,22 @@ __decorate([
     }),
     __metadata("design:type", String)
 ], Negocio.prototype, "estadoNegocio", void 0);
+__decorate([
+    (0, typeorm_1.Column)({
+        type: "enum",
+        enum: ModoOperacionNegocio,
+        default: ModoOperacionNegocio.MANUAL,
+    }),
+    __metadata("design:type", String)
+], Negocio.prototype, "modo_operacion", void 0);
+__decorate([
+    (0, typeorm_1.Column)("time", { nullable: true }),
+    __metadata("design:type", Object)
+], Negocio.prototype, "hora_apertura", void 0);
+__decorate([
+    (0, typeorm_1.Column)("time", { nullable: true }),
+    __metadata("design:type", Object)
+], Negocio.prototype, "hora_cierre", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: "decimal", precision: 10, scale: 2, default: 0 }),
     __metadata("design:type", Number)

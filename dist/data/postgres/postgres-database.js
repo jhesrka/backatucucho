@@ -58,6 +58,7 @@ const SubcategoriaServicio_1 = require("./models/SubcategoriaServicio");
 const Servicio_1 = require("./models/Servicio");
 const AgeVerificationQuestion_1 = require("./models/AgeVerificationQuestion");
 const PreguntaFormularioCredito_1 = require("./models/PreguntaFormularioCredito");
+const LeadCredito_1 = require("./models/LeadCredito");
 class PostgresDatabase {
     constructor(options) {
         this.datasource = new typeorm_1.DataSource({
@@ -112,7 +113,8 @@ class PostgresDatabase {
                 SubcategoriaServicio_1.SubcategoriaServicio,
                 Servicio_1.Servicio,
                 AgeVerificationQuestion_1.AgeVerificationQuestion,
-                PreguntaFormularioCredito_1.PreguntaFormularioCredito
+                PreguntaFormularioCredito_1.PreguntaFormularioCredito,
+                LeadCredito_1.LeadCredito
             ],
             synchronize: false, // PRODUCCIÓN: SIEMPRE FALSE. Usar migraciones.
             ssl: {

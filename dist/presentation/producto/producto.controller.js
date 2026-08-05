@@ -125,6 +125,44 @@ class ProductoController {
                 .then((results) => res.status(200).json(results))
                 .catch((error) => this.handleError(error, res));
         };
+        // ======================== SOLICITUDES PRECIOS ========================
+        this.solicitarCambioPrecio = (req, res) => {
+            const { id } = req.params;
+            const { precio_venta, precio_app } = req.body;
+            if (!precio_venta || isNaN(Number(precio_venta))) {
+                return res.status(400).json({ message: "Precio de venta inválido" });
+            }
+            this.productoService
+                .solicitarCambioPrecio(id, Number(precio_venta), precio_app ? Number(precio_app) : 0)
+                .then((result) => res.status(200).json(result))
+                .catch((error) => this.handleError(error, res));
+        };
+        this.aprobarCambioPrecio = (req, res) => {
+            const { id } = req.params;
+            this.productoService
+                .aprobarCambioPrecio(id)
+                .then((result) => res.status(200).json(result))
+                .catch((error) => this.handleError(error, res));
+        };
+        this.rechazarCambioPrecio = (req, res) => {
+            const { id } = req.params;
+            this.productoService
+                .rechazarCambioPrecio(id)
+                .then((result) => res.status(200).json(result))
+                .catch((error) => this.handleError(error, res));
+        };
+        this.getSolicitudesPrecios = (req, res) => {
+            this.productoService
+                .getSolicitudesPrecios()
+                .then((result) => res.status(200).json(result))
+                .catch((error) => this.handleError(error, res));
+        };
+        this.getProductosPendientes = (req, res) => {
+            this.productoService
+                .getProductosPendientes()
+                .then((result) => res.status(200).json(result))
+                .catch((error) => this.handleError(error, res));
+        };
     }
 }
 exports.ProductoController = ProductoController;

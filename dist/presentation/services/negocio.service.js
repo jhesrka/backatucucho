@@ -45,7 +45,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.NegocioService = void 0;
 const data_1 = require("../../data");
 const NotificationService_1 = require("./NotificationService");
-// trigger restart
+// trigger restart 2
 const domain_1 = require("../../domain");
 const config_1 = require("../../config");
 const upload_files_cloud_adapter_1 = require("../../config/upload-files-cloud-adapter");
@@ -74,7 +74,7 @@ class NegocioService {
     // ========================= CREATE =========================
     createNegocio(dto, img) {
         return __awaiter(this, void 0, void 0, function* () {
-            var _a, _b, _c;
+            var _a, _b, _c, _d, _e, _f;
             const categoria = yield data_1.CategoriaNegocio.findOneBy({ id: dto.categoriaId });
             if (!categoria)
                 throw domain_1.CustomError.notFound("Categoría no encontrada");
@@ -85,7 +85,10 @@ class NegocioService {
                 throw domain_1.CustomError.forbiden("No tienes autorización para registrar negocios a crédito.");
             }
             let modelo = dto.modeloMonetizacion;
-            if (categoria.modeloBloqueado && categoria.modeloMonetizacionDefault) {
+            if (dto.esParaCredito) {
+                modelo = data_1.ModeloMonetizacion.CREDITO;
+            }
+            else if (categoria.modeloBloqueado && categoria.modeloMonetizacionDefault) {
                 modelo = categoria.modeloMonetizacionDefault;
             }
             else if (categoria.soloComision && dto.modeloMonetizacion !== data_1.ModeloMonetizacion.COMISION_SUSCRIPCION) {
@@ -155,6 +158,9 @@ class NegocioService {
             negocio.permiteProductosProgramados = dto.permiteProductosProgramados;
             negocio.tiempoProgramadoMin = (_b = dto.tiempoProgramadoMin) !== null && _b !== void 0 ? _b : null;
             negocio.tiempoProgramadoMax = (_c = dto.tiempoProgramadoMax) !== null && _c !== void 0 ? _c : null;
+            negocio.modo_operacion = (_d = dto.modo_operacion) !== null && _d !== void 0 ? _d : data_1.ModoOperacionNegocio.MANUAL;
+            negocio.hora_apertura = (_e = dto.hora_apertura) !== null && _e !== void 0 ? _e : null;
+            negocio.hora_cierre = (_f = dto.hora_cierre) !== null && _f !== void 0 ? _f : null;
             negocio.statusNegocio = data_1.StatusNegocio.PENDIENTE;
             // Beneficio VIP: si el usuario tiene beneficios gratuitos, el lead nace en $0
             if (usuario.beneficiosGratuitos) {
@@ -188,6 +194,9 @@ class NegocioService {
                     permiteProductosProgramados: saved.permiteProductosProgramados,
                     tiempoProgramadoMin: saved.tiempoProgramadoMin,
                     tiempoProgramadoMax: saved.tiempoProgramadoMax,
+                    modo_operacion: saved.modo_operacion,
+                    hora_apertura: saved.hora_apertura,
+                    hora_cierre: saved.hora_cierre,
                     puedePublicarProductos: saved.puedePublicarProductos,
                     limitePublicacionesSuscripcion: saved.limitePublicacionesSuscripcion,
                     publicacionesRestantes: saved.publicacionesRestantes,
@@ -211,7 +220,7 @@ class NegocioService {
                 }
                 return result;
             }
-            catch (_d) {
+            catch (_g) {
                 throw domain_1.CustomError.internalServer("No se pudo crear el negocio");
             }
         });
@@ -315,6 +324,8 @@ class NegocioService {
                 negocio.estadoNegocio === data_1.EstadoNegocio.ABIERTO
                     ? data_1.EstadoNegocio.CERRADO
                     : data_1.EstadoNegocio.ABIERTO;
+            // Al usar el switch manual, se fuerza el modo de operación a MANUAL
+            negocio.modo_operacion = data_1.ModoOperacionNegocio.MANUAL;
             yield negocio.save();
             // 📡 Notificar por WebSockets
             const io = (0, socket_1.getIO)();
@@ -420,6 +431,9 @@ class NegocioService {
                         permiteProductosProgramados: negocio.permiteProductosProgramados,
                         tiempoProgramadoMin: negocio.tiempoProgramadoMin,
                         tiempoProgramadoMax: negocio.tiempoProgramadoMax,
+                        modo_operacion: negocio.modo_operacion,
+                        hora_apertura: negocio.hora_apertura,
+                        hora_cierre: negocio.hora_cierre,
                     };
                 })));
                 return negociosConUrl;
@@ -490,6 +504,9 @@ class NegocioService {
                     permiteProductosProgramados: negocio.permiteProductosProgramados,
                     tiempoProgramadoMin: negocio.tiempoProgramadoMin,
                     tiempoProgramadoMax: negocio.tiempoProgramadoMax,
+                    modo_operacion: negocio.modo_operacion,
+                    hora_apertura: negocio.hora_apertura,
+                    hora_cierre: negocio.hora_cierre,
                     puedePublicarProductos: negocio.puedePublicarProductos,
                     limitePublicacionesSuscripcion: negocio.limitePublicacionesSuscripcion,
                     publicacionesRestantes: negocio.publicacionesRestantes,
@@ -552,7 +569,10 @@ class NegocioService {
                 if (!categoria)
                     throw domain_1.CustomError.notFound("Categoría no encontrada");
                 negocio.categoria = categoria;
-                if (categoria.modeloBloqueado && categoria.modeloMonetizacionDefault) {
+                if (negocio.esParaCredito) {
+                    negocio.modeloMonetizacion = data_1.ModeloMonetizacion.CREDITO;
+                }
+                else if (categoria.modeloBloqueado && categoria.modeloMonetizacionDefault) {
                     negocio.modeloMonetizacion = categoria.modeloMonetizacionDefault;
                 }
                 else if (data.modeloMonetizacion &&
@@ -566,16 +586,21 @@ class NegocioService {
                 }
             }
             if (data.modeloMonetizacion && !data.categoriaId) {
-                if (negocio.categoria.modeloBloqueado) {
-                    // Si está bloqueado y tratamos de cambiarlo sin cambiar categoría, rechazamos o ignoramos.
-                    // Mejor rechazar para feedback claro.
-                    throw domain_1.CustomError.badRequest("La categoría actual bloquea el cambio de modelo de monetización");
+                if (negocio.esParaCredito) {
+                    negocio.modeloMonetizacion = data_1.ModeloMonetizacion.CREDITO;
                 }
-                if (negocio.categoria.soloComision &&
-                    data.modeloMonetizacion !== data_1.ModeloMonetizacion.COMISION_SUSCRIPCION) {
-                    throw domain_1.CustomError.badRequest("Esta categoría solo permite el modelo COMISION + SUSCRIPCION");
+                else {
+                    if (negocio.categoria.modeloBloqueado) {
+                        // Si está bloqueado y tratamos de cambiarlo sin cambiar categoría, rechazamos o ignoramos.
+                        // Mejor rechazar para feedback claro.
+                        throw domain_1.CustomError.badRequest("La categoría actual bloquea el cambio de modelo de monetización");
+                    }
+                    if (negocio.categoria.soloComision &&
+                        data.modeloMonetizacion !== data_1.ModeloMonetizacion.COMISION_SUSCRIPCION) {
+                        throw domain_1.CustomError.badRequest("Esta categoría solo permite el modelo COMISION + SUSCRIPCION");
+                    }
+                    negocio.modeloMonetizacion = data.modeloMonetizacion;
                 }
-                negocio.modeloMonetizacion = data.modeloMonetizacion;
             }
             // ⬇️ ⬇️ NUEVO: lat/long opcionales en update
             if (typeof data.latitud !== "undefined") {
@@ -641,6 +666,12 @@ class NegocioService {
                 negocio.tiempoProgramadoMax = data.tiempoProgramadoMax;
             if (data.costoLead !== undefined)
                 negocio.costoLead = Number(data.costoLead);
+            if (data.modo_operacion !== undefined)
+                negocio.modo_operacion = data.modo_operacion;
+            if (data.hora_apertura !== undefined)
+                negocio.hora_apertura = data.hora_apertura;
+            if (data.hora_cierre !== undefined)
+                negocio.hora_cierre = data.hora_cierre;
             // Configuración visual aleatoria
             if (data.ordenAleatorioCategorias !== undefined)
                 negocio.ordenAleatorioCategorias = data.ordenAleatorioCategorias === 'true' || data.ordenAleatorioCategorias === true;
@@ -668,6 +699,34 @@ class NegocioService {
                     body: img.buffer,
                     contentType: img.mimetype,
                 });
+            }
+            // 🔥 NUEVO: EVALUACIÓN INMEDIATA DEL ESTADO EN MODO AUTO 🔥
+            if (negocio.modo_operacion === data_1.ModoOperacionNegocio.AUTO && negocio.hora_apertura && negocio.hora_cierre) {
+                const ecuadorTimeStr = new Date().toLocaleString("en-US", { timeZone: 'America/Guayaquil' });
+                const ecuadorTime = new Date(ecuadorTimeStr);
+                const currentTimeStr = `${String(ecuadorTime.getHours()).padStart(2, '0')}:${String(ecuadorTime.getMinutes()).padStart(2, '0')}`;
+                let shouldBeOpen = false;
+                if (negocio.hora_apertura < negocio.hora_cierre) {
+                    shouldBeOpen = currentTimeStr >= negocio.hora_apertura && currentTimeStr < negocio.hora_cierre;
+                }
+                else {
+                    shouldBeOpen = currentTimeStr >= negocio.hora_apertura || currentTimeStr < negocio.hora_cierre;
+                }
+                const prevEstado = negocio.estadoNegocio;
+                negocio.estadoNegocio = shouldBeOpen ? data_1.EstadoNegocio.ABIERTO : data_1.EstadoNegocio.CERRADO;
+                // Notificar por sockets si el estado cambió
+                if (prevEstado !== negocio.estadoNegocio) {
+                    try {
+                        const io = (0, socket_1.getIO)();
+                        io.emit("businessStatusChanged", {
+                            businessId: negocio.id,
+                            newStatus: negocio.estadoNegocio,
+                        });
+                    }
+                    catch (e) {
+                        console.error("No se pudo emitir evento socket de estado", e);
+                    }
+                }
             }
             const saved = yield negocio.save();
             const imagenUrl = yield upload_files_cloud_adapter_1.UploadFilesCloud.getOptimizedUrls({
@@ -697,6 +756,9 @@ class NegocioService {
                 permiteProductosProgramados: saved.permiteProductosProgramados,
                 tiempoProgramadoMin: saved.tiempoProgramadoMin,
                 tiempoProgramadoMax: saved.tiempoProgramadoMax,
+                modo_operacion: saved.modo_operacion,
+                hora_apertura: saved.hora_apertura,
+                hora_cierre: saved.hora_cierre,
                 puedePublicarProductos: saved.puedePublicarProductos,
                 limitePublicacionesSuscripcion: saved.limitePublicacionesSuscripcion,
                 publicacionesRestantes: saved.publicacionesRestantes,

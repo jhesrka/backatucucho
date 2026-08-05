@@ -38,6 +38,8 @@ const MeritocracyCycleLog_1 = require("./models/MeritocracyCycleLog");
 const PushToken_1 = require("./models/PushToken");
 const TrainingVideo_1 = require("./models/TrainingVideo");
 const TrainingCategory_1 = require("./models/TrainingCategory");
+const PreguntaFormularioCredito_1 = require("./models/PreguntaFormularioCredito");
+const LeadCredito_1 = require("./models/LeadCredito");
 exports.AppDataSource = new typeorm_1.DataSource({
     type: "postgres",
     host: config_1.envs.DB_HOST,
@@ -58,7 +60,8 @@ exports.AppDataSource = new typeorm_1.DataSource({
         freePostTracker_model_1.FreePostTracker, transactionType_model_1.Transaction, CategoriaNegocio_1.CategoriaNegocio, SubcategoriaNegocio_1.SubcategoriaNegocio, Negocio_1.Negocio, Producto_1.Producto, TipoProducto_1.TipoProducto,
         UserMotorizado_1.UserMotorizado, ProductoPedido_1.ProductoPedido, Pedido_1.Pedido, TransaccionMotorizado_1.TransaccionMotorizado, BalanceNegocio_1.BalanceNegocio,
         PriceSettings_1.PriceSettings, DeliverySettings_1.DeliverySettings, AdminNotification_1.AdminNotification, global_settings_model_1.GlobalSettings, CommissionLog_1.CommissionLog, Campaign_1.Campaign,
-        CampaignLog_1.CampaignLog, FinancialClosing_1.FinancialClosing, report_model_1.Report, PushToken_1.PushToken, TrainingVideo_1.TrainingVideo, TrainingCategory_1.TrainingCategory, MotorizadoTier_1.MotorizadoTier, MeritocracyCycleLog_1.MeritocracyCycleLog
+        CampaignLog_1.CampaignLog, FinancialClosing_1.FinancialClosing, report_model_1.Report, PushToken_1.PushToken, TrainingVideo_1.TrainingVideo, TrainingCategory_1.TrainingCategory, MotorizadoTier_1.MotorizadoTier, MeritocracyCycleLog_1.MeritocracyCycleLog,
+        PreguntaFormularioCredito_1.PreguntaFormularioCredito, LeadCredito_1.LeadCredito
     ],
     migrations: ["src/data/postgres/migrations/*.ts"],
     subscribers: [],

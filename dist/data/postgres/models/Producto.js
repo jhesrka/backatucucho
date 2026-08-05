@@ -105,6 +105,14 @@ __decorate([
     (0, typeorm_1.Column)("decimal", { precision: 10, scale: 2, default: 0 }),
     __metadata("design:type", Number)
 ], Producto.prototype, "comision_producto", void 0);
+__decorate([
+    (0, typeorm_1.Column)("decimal", { precision: 10, scale: 2, nullable: true }),
+    __metadata("design:type", Number)
+], Producto.prototype, "precio_solicitado", void 0);
+__decorate([
+    (0, typeorm_1.Column)("decimal", { precision: 10, scale: 2, nullable: true }),
+    __metadata("design:type", Number)
+], Producto.prototype, "precio_app_solicitado", void 0);
 exports.Producto = Producto = __decorate([
     (0, typeorm_1.Entity)(),
     (0, typeorm_1.Unique)(["nombre", "negocio"]) // ✅ El nombre será único solo dentro del mismo negocio
