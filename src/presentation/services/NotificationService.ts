@@ -343,6 +343,13 @@ export class NotificationService {
 
       console.log(`📡 Preparando envío masivo a ${uniqueTokens.length} dispositivos (${filterType})...`);
 
+      // Asegurar que el ENUM exista en Postgres (TypeORM no actualiza enums existentes)
+      try {
+        await Campaign.query(`ALTER TYPE campaign_type_enum ADD VALUE IF NOT EXISTS 'PUSH'`);
+      } catch (e) {
+        // Ignorar si el tipo no existe o el query falla
+      }
+
       // Crear registro de Campaña Push
       const campaign = new Campaign();
       campaign.type = CampaignType.PUSH;
