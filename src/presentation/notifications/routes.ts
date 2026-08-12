@@ -21,6 +21,8 @@ export class NotificationRoutes {
     router.post('/register-admin', [AuthAdminMiddleware.protect], controller.registerTokenAdmin);
     // Para remover el admin, puede usar la misma logica de removeToken si pasamos un endpoint, pero para mantener la limpieza:
     // router.post('/remove-admin', [AuthAdminMiddleware.protect], controller.removeTokenAdmin); // Si se llegase a necesitar. Usaremos removeToken por ahora ya que borra por token y no requiere ID de usuario en el controller original.
+    // Mass Push Campaigns (Admin solo)
+    router.post('/mass-push', [AuthAdminMiddleware.protect], controller.sendMassPush);
 
     return router;
   }

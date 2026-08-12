@@ -289,4 +289,117 @@ export class NotificationService {
       console.error('❌ Error crítico enviando notificación push a administradores:', error);
     }
   }
+
+  async sendMassPushByFilter(filterType: 'USER_NORMAL' | 'MOTORIZADO' | 'ADMIN' | 'USER_CON_NEGOCIO', title: string, body: string, data: any = {}) {
+    if (!NotificationService.instance) {
+      console.warn('⚠️ Intentando enviar mass push pero FCM no está inicializado.');
+      return;
+    }
+
+    try {
+      let query = PushToken.createQueryBuilder("push_token");
+
+      switch (filterType) {
+        case 'USER_NORMAL':
+          // Usuarios normales activos
+          query = query
+            .innerJoin("push_token.user", "user")
+            .where("user.status = :status", { status: Status.ACTIVE });
+          break;
+        case 'MOTORIZADO':
+          query = query.where("push_token.motorizadoId IS NOT NULL");
+          break;
+        case 'ADMIN':
+          query = query.where("push_token.adminId IS NOT NULL");
+          break;
+        case 'USER_CON_NEGOCIO':
+          // Usuarios activos que tienen al menos un negocio
+          query = query
+            .innerJoin("push_token.user", "user")
+            .innerJoin("user.negocios", "negocio")
+            .where("user.status = :status", { status: Status.ACTIVE });
+          break;
+        default:
+          console.error("Filtro no reconocido:", filterType);
+          return;
+      }
+
+      const tokens = await query.getMany();
+
+      if (tokens.length === 0) {
+        console.log(`ℹ️ No hay tokens registrados para el filtro ${filterType}.`);
+        return;
+      }
+
+      // Remover duplicados
+      const uniqueTokens = [...new Set(tokens.map(t => t.token))];
+
+      console.log(`📡 Preparando envío masivo a ${uniqueTokens.length} dispositivos (${filterType})...`);
+
+      // 2. Fragmentar en lotes de 500 (límite de Firebase sendEachForMulticast)
+      const chunkSize = 500;
+      let totalSuccess = 0;
+      let totalFailed = 0;
+      const failedTokens: string[] = [];
+
+      for (let i = 0; i < uniqueTokens.length; i += chunkSize) {
+        const chunk = uniqueTokens.slice(i, i + chunkSize);
+        
+        const message: admin.messaging.MulticastMessage = {
+          notification: { title, body },
+          android: {
+            priority: 'high',
+            notification: { sound: 'default' }
+          },
+          apns: {
+            payload: { aps: { contentAvailable: true, sound: 'default' } }
+          },
+          webpush: {
+            headers: { Urgency: 'high' },
+            notification: {
+              icon: data.icon || `${envs.WEBSERVICE_URL_FRONT}/logo_resized_192x192.png`,
+              badge: `${envs.WEBSERVICE_URL_FRONT}/badge_96x96.png`
+            }
+          },
+          data: {
+            ...data,
+            url: data.url || '/', 
+          },
+          tokens: chunk,
+        };
+
+        const response = await admin.messaging().sendEachForMulticast(message);
+        totalSuccess += response.successCount;
+        totalFailed += response.failureCount;
+
+        if (response.failureCount > 0) {
+          response.responses.forEach((resp, idx) => {
+            if (!resp.success) {
+              const code = resp.error?.code;
+              if (code === 'messaging/invalid-registration-token' || code === 'messaging/registration-token-not-registered') {
+                failedTokens.push(chunk[idx]);
+              }
+            }
+          });
+        }
+      }
+
+      console.log(`✅ Mass Push (${filterType}) finalizado: ${totalSuccess} exitosos, ${totalFailed} fallidos.`);
+
+      // 3. Limpiar base de datos de tokens inválidos globales
+      if (failedTokens.length > 0) {
+        console.log(`🧹 Limpiando ${failedTokens.length} tokens inválidos...`);
+        for(let j = 0; j < failedTokens.length; j += 500) {
+          const deleteChunk = failedTokens.slice(j, j + 500);
+          await PushToken.createQueryBuilder()
+            .delete()
+            .where("token IN (:...tokens)", { tokens: deleteChunk })
+            .execute();
+        }
+      }
+
+    } catch (error) {
+      console.error(`❌ Error crítico en sendMassPushByFilter (${filterType}):`, error);
+    }
+  }
 }

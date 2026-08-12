@@ -132,4 +132,24 @@ export class NotificationController {
       this.handleError(error, res);
     }
   };
+
+  sendMassPush = async (req: Request, res: Response) => {
+    try {
+      const { filterType, title, body, data } = req.body;
+      
+      if (!filterType || !title || !body) {
+        throw CustomError.badRequest('filterType, title, and body are required');
+      }
+
+      const { NotificationService } = require('../services/NotificationService');
+      const notificationService = new NotificationService();
+
+      // Fire and forget (segundo plano)
+      notificationService.sendMassPushByFilter(filterType, title, body, data).catch(console.error);
+
+      res.status(202).json({ message: 'Campaña de notificaciones push iniciada en segundo plano' });
+    } catch (error) {
+      this.handleError(error, res);
+    }
+  };
 }
