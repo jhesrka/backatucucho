@@ -85,8 +85,8 @@ export class NotificationService {
           }
         },
         data: {
-          ...data,
-          url: data.url || '/', // Para deep linking en la PWA
+          url: String(data.url || '/'),
+          ...(data.action ? { action: String(data.action) } : {})
         },
         tokens: registrationTokens,
       };
@@ -170,8 +170,8 @@ export class NotificationService {
             }
           },
           data: {
-            ...data,
-            url: data.url || '/', 
+            url: String(data.url || '/'),
+            ...(data.action ? { action: String(data.action) } : {})
           },
           tokens: chunk,
         };
@@ -256,8 +256,8 @@ export class NotificationService {
           }
         },
         data: {
-          ...data,
-          url: data.url || '/admin', // deep link al dashboard admin
+          url: String(data.url || '/admin'),
+          ...(data.action ? { action: String(data.action) } : {})
         },
         tokens: registrationTokens,
       };
@@ -368,23 +368,32 @@ export class NotificationService {
           notification: { title, body },
           android: {
             priority: 'high',
-            notification: { sound: 'default', imageUrl: data.image }
+            notification: { 
+              sound: 'default', 
+              ...(data.image ? { imageUrl: data.image } : {}) 
+            }
           },
           apns: {
-            payload: { aps: { contentAvailable: true, sound: 'default', mutableContent: true } },
-            fcmOptions: { imageUrl: data.image }
+            payload: { 
+              aps: { 
+                contentAvailable: true, 
+                sound: 'default',
+                ...(data.image ? { mutableContent: true } : {})
+              } 
+            },
+            ...(data.image ? { fcmOptions: { imageUrl: data.image } } : {})
           },
           webpush: {
             headers: { Urgency: 'high' },
             notification: {
               icon: data.icon || `${envs.WEBSERVICE_URL_FRONT}/logo_resized_192x192.png`,
               badge: `${envs.WEBSERVICE_URL_FRONT}/badge_96x96.png`,
-              image: data.image
+              ...(data.image ? { image: data.image } : {})
             }
           },
           data: {
-            ...data,
-            url: data.url || '/', 
+            url: String(data.url || '/'),
+            ...(data.action ? { action: String(data.action) } : {})
           },
           tokens: chunk,
         };
