@@ -1,6 +1,7 @@
 import * as admin from 'firebase-admin';
-import { PushToken, Status } from '../../data';
+import { PushToken, Status, Campaign, CampaignType, CampaignStatus } from '../../data';
 import { envs } from '../../config';
+import { UploadFilesCloud } from '../../config/upload-files-cloud-adapter';
 
 export class NotificationService {
   private static instance: boolean = false;
@@ -290,7 +291,7 @@ export class NotificationService {
     }
   }
 
-  async sendMassPushByFilter(filterType: 'USER_NORMAL' | 'MOTORIZADO' | 'ADMIN' | 'USER_CON_NEGOCIO', title: string, body: string, data: any = {}) {
+  async sendMassPushByFilter(filterType: 'USER_NORMAL' | 'MOTORIZADO' | 'ADMIN' | 'USER_CON_NEGOCIO' | 'TODOS', title: string, body: string, data: any = {}) {
     if (!NotificationService.instance) {
       console.warn('⚠️ Intentando enviar mass push pero FCM no está inicializado.');
       return;
@@ -300,6 +301,12 @@ export class NotificationService {
       let query = PushToken.createQueryBuilder("push_token");
 
       switch (filterType) {
+        case 'TODOS':
+          // Todos los tokens (sin discriminación, pero preferiblemente activos)
+          query = query
+            .leftJoin("push_token.user", "user")
+            .where("(user.id IS NULL OR user.status = :status)", { status: Status.ACTIVE });
+          break;
         case 'USER_NORMAL':
           // Usuarios normales activos
           query = query
@@ -336,6 +343,18 @@ export class NotificationService {
 
       console.log(`📡 Preparando envío masivo a ${uniqueTokens.length} dispositivos (${filterType})...`);
 
+      // Crear registro de Campaña Push
+      const campaign = new Campaign();
+      campaign.type = CampaignType.PUSH;
+      campaign.name = `Push: ${title.substring(0, 30)}`;
+      campaign.subject = title;
+      campaign.content = body;
+      campaign.filters = { role: filterType };
+      campaign.status = CampaignStatus.PROCESSING;
+      campaign.totalTargets = uniqueTokens.length;
+      campaign.mediaUrl = data.image || null;
+      await campaign.save();
+
       // 2. Fragmentar en lotes de 500 (límite de Firebase sendEachForMulticast)
       const chunkSize = 500;
       let totalSuccess = 0;
@@ -349,16 +368,18 @@ export class NotificationService {
           notification: { title, body },
           android: {
             priority: 'high',
-            notification: { sound: 'default' }
+            notification: { sound: 'default', imageUrl: data.image }
           },
           apns: {
-            payload: { aps: { contentAvailable: true, sound: 'default' } }
+            payload: { aps: { contentAvailable: true, sound: 'default', mutableContent: true } },
+            fcmOptions: { imageUrl: data.image }
           },
           webpush: {
             headers: { Urgency: 'high' },
             notification: {
               icon: data.icon || `${envs.WEBSERVICE_URL_FRONT}/logo_resized_192x192.png`,
-              badge: `${envs.WEBSERVICE_URL_FRONT}/badge_96x96.png`
+              badge: `${envs.WEBSERVICE_URL_FRONT}/badge_96x96.png`,
+              image: data.image
             }
           },
           data: {
@@ -385,6 +406,25 @@ export class NotificationService {
       }
 
       console.log(`✅ Mass Push (${filterType}) finalizado: ${totalSuccess} exitosos, ${totalFailed} fallidos.`);
+
+      // Actualizar registro de Campaña Push
+      campaign.sentCount = totalSuccess;
+      campaign.failedCount = totalFailed;
+      campaign.status = CampaignStatus.COMPLETED;
+      await campaign.save();
+
+      // Auto-Destrucción de Imagen S3 en 24 horas
+      if (data.imageKey) {
+        console.log(`🕒 Programando auto-destrucción en S3 para la imagen de la campaña Push (Key: ${data.imageKey}) en 24 horas.`);
+        setTimeout(async () => {
+          try {
+            await UploadFilesCloud.deleteFile({ bucketName: envs.AWS_BUCKET_NAME, key: data.imageKey });
+            console.log(`💥 Imagen de campaña Push eliminada de S3: ${data.imageKey}`);
+          } catch (e) {
+            console.error(`❌ Error al auto-destruir imagen de campaña Push en S3:`, e);
+          }
+        }, 24 * 60 * 60 * 1000); // 24 horas
+      }
 
       // 3. Limpiar base de datos de tokens inválidos globales
       if (failedTokens.length > 0) {

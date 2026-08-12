@@ -12,6 +12,7 @@ import { CampaignLog } from "./CampaignLog";
 export enum CampaignType {
     EMAIL = "EMAIL",
     WHATSAPP = "WHATSAPP",
+    PUSH = "PUSH"
 }
 
 export enum CampaignStatus {
